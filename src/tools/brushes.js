@@ -5,6 +5,8 @@ import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
 import { addWater } from '../sim/water.js';
+import { startEruption, startIntrusion, volcanoSettings } from '../sim/volcanism.js';
+import { startFault, faultSettings } from '../sim/tectonics.js';
 
 const detailNoise = createNoise2D(777);
 
@@ -44,7 +46,11 @@ function forEachCell(world, cx, cz, r, fn) {
  * @property {boolean} invert  true while Shift is held
  */
 
-/** @type {Record<string, {label:string, group:string, icon:string, help:string, apply:(c:BrushCtx)=>void, editsTerrain?:boolean, click?:boolean}>} */
+/**
+ * Tools: `apply` runs every frame while painting; `click` tools apply once per click; `line` tools
+ * are dragged from a start to an end point and call `place(ctx, a, b)` on release.
+ * @type {Record<string, {label:string, group:string, icon:string, help:string|(()=>string), apply?:(c:BrushCtx)=>void, place?:Function, editsTerrain?:boolean, click?:boolean, line?:boolean}>}
+ */
 export const TOOLS = {
   camera: {
     label: 'Orbit', group: 'View', icon: '✥', editsTerrain: false,
@@ -147,6 +153,21 @@ export const TOOLS = {
     apply({ world, x, z, radius, strength }) {
       for (let k = 0; k < 3; k++) thermalStep(world, { x, z, r: radius }, strength);
     },
+  },
+  erupt: {
+    label: 'Erupt', group: 'Tectonics', icon: '♨', editsTerrain: true, line: true,
+    help: 'Click to open a volcanic vent, or drag to open a fissure. Choose the eruption type and size in the side panel under Volcanism & tectonics.',
+    place({ world }, a, b) { startEruption(world, a, b, volcanoSettings); },
+  },
+  intrude: {
+    label: 'Intrude', group: 'Tectonics', icon: '◍', editsTerrain: true, line: true,
+    help: 'Inject magma underground. Pluton: click (brush size = size); it domes the ground and leaves granite beneath. Dike: drag to draw a basalt wall. Erode to expose them.',
+    place({ world, radius }, a, b) { startIntrusion(world, a, b, radius, volcanoSettings); },
+  },
+  fault: {
+    label: 'Fault', group: 'Tectonics', icon: '⫽', editsTerrain: true, line: true,
+    help: 'Drag along a line to break the crust. It slips in a series of earthquakes. Choose normal, reverse or strike-slip in the side panel.',
+    place({ world }, a, b) { startFault(world, a, b, faultSettings); },
   },
 };
 

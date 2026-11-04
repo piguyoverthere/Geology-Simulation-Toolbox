@@ -88,6 +88,19 @@ export class TerrainRenderer {
     this.water.renderOrder = 1;
     scene.add(this.water);
 
+    // Lava: unlit so it glows, coloured by temperature
+    this.lavaGeo = new THREE.BufferGeometry();
+    this.lavaGeo.setIndex(indexAttr);
+    this.lPos = new Float32Array(N * N * 3);
+    this.lCol = new Float32Array(N * N * 3);
+    this.lavaGeo.setAttribute('position', new THREE.BufferAttribute(this.lPos, 3));
+    this.lavaGeo.setAttribute('color', new THREE.BufferAttribute(this.lCol, 3));
+    this.lava = new THREE.Mesh(this.lavaGeo, new THREE.MeshBasicMaterial({
+      vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+    }));
+    this.lava.visible = false;
+    scene.add(this.lava);
+
     // Base skirt so the terrain reads as a solid block of rock
     this.skirt = this.buildSkirt();
     scene.add(this.skirt);
@@ -100,7 +113,7 @@ export class TerrainRenderer {
 
     // Heights change every frame, so use fixed generous bounds instead of recomputing them
     const bounds = new THREE.Sphere(new THREE.Vector3(), N * 1.5);
-    for (const g of [this.terrainGeo, this.waterGeo, this.skirt.geometry]) g.boundingSphere = bounds;
+    for (const g of [this.terrainGeo, this.waterGeo, this.lavaGeo, this.skirt.geometry]) g.boundingSphere = bounds;
 
     this.update(true);
   }
@@ -139,6 +152,8 @@ export class TerrainRenderer {
     const off = this.offset;
     const mode = this.colorMode;
     const sea = w.seaLevel;
+    const LV = w.lava, LT = w.lavaTemp;
+    let anyLava = false;
 
     for (let z = 0; z < N; z++) {
       for (let x = 0; x < N; x++) {
@@ -184,6 +199,17 @@ export class TerrainRenderer {
         // Palette is authored in sRGB; vertex colours are linear, so square to approximate the conversion
         this.tCol[i3] = col[0] * col[0]; this.tCol[i3 + 1] = col[1] * col[1]; this.tCol[i3 + 2] = col[2] * col[2];
 
+        // Lava surface, hidden below ground where there is none
+        this.lPos[i3] = x - off; this.lPos[i3 + 2] = z - off;
+        if (LV[i] > 0.02) {
+          anyLava = true;
+          this.lPos[i3 + 1] = h + LV[i];
+          const lc = lavaColor(LT[i]);
+          this.lCol[i3] = lc[0] * lc[0]; this.lCol[i3 + 1] = lc[1] * lc[1]; this.lCol[i3 + 2] = lc[2] * lc[2];
+        } else {
+          this.lPos[i3 + 1] = h - 0.5;
+        }
+
         // Water surface: hide (sink below ground) where it is too thin to see
         const d = D[i];
         const i4 = i * 4;
@@ -212,6 +238,11 @@ export class TerrainRenderer {
     this.waterGeo.attributes.position.needsUpdate = true;
     this.waterGeo.attributes.color.needsUpdate = true;
     this.water.visible = this.showWater;
+    this.lava.visible = anyLava;
+    if (anyLava) {
+      this.lavaGeo.attributes.position.needsUpdate = true;
+      this.lavaGeo.attributes.color.needsUpdate = true;
+    }
 
     // Skirt follows terrain edge down to a fixed floor
     let minH = Infinity;
@@ -310,6 +341,14 @@ function vegColor(v, out) {
   // Sharpen the transitions a little so the three biomes read as distinct patches
   if (v < 0.5) return mix(C.barren, C.grass, smooth(0.15, 0.45, v), out);
   return mix(C.grass, C.forest, smooth(0.55, 0.8, v), out);
+}
+
+/** Lava glow by temperature: dark crust → red → orange → yellow-white at the vent. */
+const LAVA_RAMP = [[0.18, 0.09, 0.07], [0.62, 0.10, 0.04], [1.0, 0.42, 0.08], [1.0, 0.86, 0.45]];
+function lavaColor(t) {
+  const x = Math.min(0.999, Math.max(0, t)) * (LAVA_RAMP.length - 1);
+  const k = x | 0;
+  return mix(LAVA_RAMP[k], LAVA_RAMP[k + 1], x - k, S4);
 }
 
 /** Linear blend of two RGB arrays into `out` (safe when `out` is `a` or `b`). */

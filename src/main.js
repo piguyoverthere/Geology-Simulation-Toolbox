@@ -11,6 +11,9 @@ import { waterStep, waterParams } from './sim/water.js';
 import { initVegetation, vegetationStep, vegetationParams } from './sim/vegetation.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
+import { lavaStep, volcanoSettings } from './sim/volcanism.js';
+import { faultSettings } from './sim/tectonics.js';
+import { Effects } from './render/effects.js';
 
 const GRID = 256;
 
@@ -21,6 +24,8 @@ class App {
     this.waterParams = waterParams;
     this.thermalParams = thermalParams;
     this.vegetationParams = vegetationParams;
+    this.volcanoSettings = volcanoSettings;
+    this.faultSettings = faultSettings;
 
     this.tool = 'raise';
     this.brush = { radius: 12, strength: 0.5 };
@@ -38,6 +43,7 @@ class App {
     this.setupThree();
     generateTerrain(this.world, this.gen.preset, this.gen.seed);
     this.renderer = new TerrainRenderer(this.world, this.scene);
+    this.effects = new Effects(this.scene, this.world, this.renderer);
     this.setupCursor();
     this.setupInput();
 
@@ -108,6 +114,28 @@ class App {
     this.cursor.renderOrder = 10;
     this.cursor.visible = false;
     this.scene.add(this.cursor);
+
+    // Preview of a dragged line (fissures, dikes, faults)
+    const lpts = new Array(40).fill(0).map(() => new THREE.Vector3());
+    this.linePreview = new THREE.Line(new THREE.BufferGeometry().setFromPoints(lpts),
+      new THREE.LineBasicMaterial({ color: 0xffd27a, depthTest: false, transparent: true, opacity: 0.95 }));
+    this.linePreview.renderOrder = 11;
+    this.linePreview.visible = false;
+    this.scene.add(this.linePreview);
+  }
+
+  updateLinePreview(a, b) {
+    this.linePreview.visible = !!(a && b);
+    if (!this.linePreview.visible) return;
+    const pos = this.linePreview.geometry.attributes.position;
+    for (let k = 0; k < 40; k++) {
+      const t = k / 39;
+      const x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t;
+      const p = this.renderer.toWorld(x, z, this.world.sampleHeight(x, z) + 0.5);
+      pos.setXYZ(k, p.x, p.y, p.z);
+    }
+    pos.needsUpdate = true;
+    this.linePreview.geometry.computeBoundingSphere();
   }
 
   updateCursor(hit) {
@@ -115,7 +143,8 @@ class App {
     this.cursor.visible = show;
     if (!show) return;
     const pos = this.cursor.geometry.attributes.position;
-    const r = this.tool === 'spring' ? 3 : this.tool === 'inspect' ? 1.5 : this.brush.radius;
+    const small = { spring: 3, inspect: 1.5, erupt: 3, fault: 1.5 };
+    const r = this.tool === 'intrude' && volcanoSettings.intrusion === 'dike' ? 1.5 : small[this.tool] ?? this.brush.radius;
     for (let k = 0; k <= 64; k++) {
       const a = (k / 64) * Math.PI * 2;
       const gx = hit.x + Math.cos(a) * r, gz = hit.z + Math.sin(a) * r;
@@ -152,6 +181,12 @@ class App {
       const hit = this.pick();
       if (!hit) return;
       const t = TOOLS[this.tool];
+      if (t.line) {
+        // Drag tools: remember the start; placed on release
+        this.lineStart = hit;
+        canvas.setPointerCapture(e.pointerId);
+        return;
+      }
       if (t.editsTerrain) this.history.push(this.world);
       if (t.click) {
         t.apply(this.brushCtx(hit, 0));
@@ -162,7 +197,19 @@ class App {
       t.apply(this.brushCtx(hit, 1 / 60)); // first dab, so a quick click still does something
       canvas.setPointerCapture(e.pointerId);
     });
-    window.addEventListener('pointerup', () => { this.painting = false; });
+    window.addEventListener('pointerup', () => {
+      this.painting = false;
+      if (this.lineStart) {
+        const end = this.pick() || this.lastHit || this.lineStart;
+        const t = TOOLS[this.tool];
+        if (t.line) {
+          this.history.push(this.world);
+          t.place(this.brushCtx(this.lineStart, 0), this.lineStart, end);
+        }
+        this.lineStart = null;
+        this.updateLinePreview(null, null);
+      }
+    });
 
     window.addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
@@ -316,7 +363,9 @@ class App {
     this.fps = this.fps * 0.95 + (1 / Math.max(dt, 1e-3)) * 0.05;
 
     const hit = this.pick();
+    if (hit) this.lastHit = hit;
     this.updateCursor(hit);
+    if (this.lineStart) this.updateLinePreview(this.lineStart, hit || this.lastHit);
     if (this.tool === 'inspect' && this.frame % 3 === 0) this.inspector.update(hit);
     else if (this.tool !== 'inspect') this.inspector.update(null);
     if (this.painting && hit) TOOLS[this.tool].apply(this.brushCtx(hit, dt));
@@ -326,18 +375,29 @@ class App {
       if (this.sim.dropletsPerFrame > 0) runDroplets(this.world, this.sim.dropletsPerFrame);
       if (this.sim.thermal && this.frame % 4 === 0) thermalStep(this.world, null, 0.5);
       if (this.sim.vegetation && this.frame % 10 === 0) vegetationStep(this.world);
+      // Eruptions, intrusions and faults advance in simulated time, faster at higher sim speed
+      const steps = Math.max(1, Math.round(this.sim.substeps / 3));
+      for (let k = 0; k < steps; k++) {
+        const w = this.world;
+        for (let e = w.events.length - 1; e >= 0; e--) if (w.events[e].update(w, 0.05)) w.events.splice(e, 1);
+        lavaStep(w, 0.05);
+      }
     }
 
     this.renderer.update();
+    this.effects.update(dt);
     this.controls.update();
+    this.effects.applyShake(this.camera, dt);
     this.gl.render(this.scene, this.camera);
+    this.effects.removeShake(this.camera);
 
     if (this.frame % 15 === 0) {
       const s = this.world.stats();
       this.toolbox.setStats(
         `<span>${this.fps.toFixed(0)} fps</span><span>water ${fmt(s.water)}</span>` +
         `<span>sediment ${fmt(s.sed)}</span><span class="ero">eroded ${fmt(s.eroded)}</span>` +
-        `<span class="dep">deposited ${fmt(s.deposited)}</span><span>springs ${this.world.sources.length}</span>`);
+        `<span class="dep">deposited ${fmt(s.deposited)}</span><span>springs ${this.world.sources.length}</span>` +
+        (this.world.events.length ? `<span class="evt">events ${this.world.events.length}</span>` : ''));
     }
   }
 }

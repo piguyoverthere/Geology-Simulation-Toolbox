@@ -85,6 +85,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 }
 .tb-stats .ero { color: var(--erode); }
 .tb-stats .dep { color: var(--deposit); }
+.tb-stats .evt { color: #ff8a4a; }
 
 .tb-section { border-bottom: 1px solid var(--line); }
 .tb-section > summary {

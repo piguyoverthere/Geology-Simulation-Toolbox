@@ -10,6 +10,10 @@
 //   velX/velZ – water velocity, derived from flux
 //   vegetation – plant cover 0..1 (barren → grassland → forest); roots resist erosion
 //   province  – geological province per cell (see core/rocks.js); with height it picks the rock type
+//   lava, lavaTemp, lavaType – molten lava thickness, temperature (1 = vent, 0 = solid) and its rock
+//   surfaceRock/surfaceBase – solidified lava or ash: which rock, and the ground height beneath it
+//   intrusionRock/intrusionTop – plutons and dikes: which rock, and the height of its top
+//   events    – running eruptions, intrusions and faults (each has update(world, dt) → done?)
 //   sources   – springs that emit water each step (x, z, rate)
 
 import { createNoise2D, fbm } from './noise.js';
@@ -44,6 +48,16 @@ export class World {
     /** @type {{x:number, z:number, rate:number}[]} */
     this.sources = [];
     this.province = new Uint8Array(n);
+    this.lava = new Float32Array(n);
+    this.lavaTemp = new Float32Array(n);
+    this.lavaType = new Int8Array(n);
+    this.surfaceRock = new Int8Array(n).fill(-1);
+    this.surfaceBase = new Float32Array(n);
+    this.intrusionRock = new Int8Array(n).fill(-1);
+    this.intrusionTop = new Float32Array(n).fill(-Infinity);
+    this.events = [];
+    this.faults = [];   // fault traces for drawing: {ax, az, bx, bz, type}
+    this.quake = 0;     // current earthquake shaking (decays), drives camera shake
     this.geoRange = { lo: 0, hi: 1 };       // height range at generation (for the volcano's zoning)
 
     // Geology settings shared by all processes
@@ -60,6 +74,7 @@ export class World {
         this.strataWarp[z * size + x] = 0.06 * x + 0.03 * z + 12 * fbm(warpNoise, x / 90, z / 90, 4);
       }
     }
+    this.strataWarp0 = this.strataWarp.slice(); // undeformed layers, restored for each new terrain
     this.seaLevel = -1000;    // below this, water is "ocean" and sediment settles out
     this.edgeDrain = true;    // water flows off the map edges
 
@@ -104,6 +119,16 @@ export class World {
    */
   erodibilityAt(h, i) {
     return (1.15 - this.hardnessAt(h, i)) * (1.4 - 1.25 * this.vegetation[i]);
+  }
+
+  /** Forget lava, deposits, intrusions, faults and running events (new terrain). */
+  resetEvents() {
+    this.lava.fill(0); this.lavaTemp.fill(0);
+    this.surfaceRock.fill(-1); this.surfaceBase.fill(0);
+    this.intrusionRock.fill(-1); this.intrusionTop.fill(-Infinity);
+    this.strataWarp.set(this.strataWarp0);
+    this.events.length = 0; this.faults.length = 0; this.quake = 0;
+    this.dirty = true;
   }
 
   /** Mark the current terrain as the reference for the erosion/deposition view. */

@@ -2,7 +2,7 @@
 
 import { BIOMES, classifyBiome } from '../render/biomes.js';
 import { waterParams } from '../sim/water.js';
-import { ROCKS, PROVINCES } from '../core/rocks.js';
+import { ROCKS, PROVINCES, ROCK_INDEX } from '../core/rocks.js';
 
 export class Inspector {
   /** @param {HTMLElement} root  @param {object} app */
@@ -47,11 +47,12 @@ export class Inspector {
       ['Soil wetness', bar(w.soil ? w.soil[i] : 0, '#4f8ce0')],
       ['Climate', bar(w.moisture ? w.moisture[i] : 0, '#7fa7d6')],
       ['Last watered', lastWater],
+      ...(w.lava[i] > 0.01 ? [['Lava', `<span style="color:#ff8a4a">${w.lava[i].toFixed(2)} thick · ${Math.round(w.lavaTemp[i] * 100)}% hot</span>`]] : []),
       ['Surface water', depth > 0.005 ? `${depth.toFixed(2)} deep · ${speed.toFixed(1)} speed` : 'dry'],
       ['Sediment load', w.sediment[i] > 0.001 ? w.sediment[i].toFixed(3) : '—'],
       ['Plant cover', `${bar(v, '#4caf50')} <span class="ins-dim">${cover}</span>`],
       ['Bedrock', `<span class="tb-swatch ins-swatch" style="background:${rgb(rock.color)}"></span>${rock.label}`],
-      ['Province', `<span class="ins-dim">${PROVINCES[w.province[i]]}</span>`],
+      ['Formation', `<span class="ins-dim">${formation(w, i, h)}</span>`],
       ['Rock hardness', w.rocksEnabled ? bar(w.hardnessAt(h, i), '#b0a090') : 'uniform'],
       ['Erodibility', `${w.erodibilityAt(h, i).toFixed(2)}×`],
       ['Since baseline', `<span style="color:${change < -0.05 ? 'var(--erode)' : change > 0.05 ? 'var(--deposit)' : 'inherit'}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</span> ${change < -0.05 ? 'eroded' : change > 0.05 ? 'deposited' : ''}`],
@@ -64,6 +65,14 @@ export class Inspector {
       `<div class="ins-foot">Sim time ${fmtTime(w.time)}</div>`;
     this.root.hidden = false;
   }
+}
+
+/** Where the exposed rock came from: a lava flow, ash fall, an intrusion, or the original bedrock. */
+function formation(w, i, h) {
+  const s = w.surfaceRock[i];
+  if (s >= 0 && h > w.surfaceBase[i] + 1e-3) return s === ROCK_INDEX.tuff ? 'Ash fall' : 'Lava flow';
+  if (w.intrusionRock[i] >= 0 && h <= w.intrusionTop[i]) return w.intrusionTop[i] === Infinity ? 'Dike' : 'Pluton';
+  return PROVINCES[w.province[i]];
 }
 
 function rgb(c) { return `rgb(${c.map((v) => Math.round(v * 255)).join(',')})`; }

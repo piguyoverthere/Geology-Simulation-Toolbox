@@ -122,7 +122,54 @@ between them. Hover with **Inspect** to read the bedrock and province anywhere.
 
 ---
 
-## 5. Vegetation: biomes that resist erosion (`src/sim/vegetation.js`)
+## 5. Volcanoes and intrusions (`src/sim/volcanism.js`)
+
+**Real world.** How a volcano behaves depends mostly on how much silica its magma holds:
+
+| Magma | Lava | Eruption style | Landform |
+| --- | --- | --- | --- |
+| Basaltic (low silica) | hot, runny | gentle fountains and long flows, often from fissures | broad shield volcanoes, lava plateaus |
+| Andesitic | sticky | thick flows plus ash explosions | steep, layered stratovolcanoes |
+| Rhyolitic (high silica) | very viscous, gas-rich | violent explosions, huge ash clouds | craters and calderas, lava domes, ash plains |
+
+Magma that never reaches the surface cools slowly into **intrusions**. A **pluton** is a big body
+of granite. It pushes the ground above into a dome, and only once erosion strips away the cover
+does the granite appear at the surface. A **dike** is a vertical sheet of magma that fills a
+crack. Basalt dikes are harder than the rock around them, so erosion leaves them as walls.
+
+**Simulation.** Lava is a thick, sticky fluid: it only flows when its surface slope beats a yield
+strength (much higher for rhyolite than basalt), it slows down as it cools, and once cold it
+solidifies into new rock of its type on top of the old ground. Explosive eruptions first blast a
+crater, then drop ash that thins away from the vent and drifts downwind; it settles as soft **tuff**
+and buries plants. All of it is real rock in the simulation: rivers erode lava flows and ash beds,
+and cutting through them exposes what was underneath.
+
+**Try it.** From a hilltop, erupt each type at the same size: basalt runs 40–50 cells down the
+valleys, andesite about 30, and rhyolite stays as a dome at the vent under a wide ash blanket.
+Drop a pluton, run **Erode ×50k drops** a few times, and watch the granite core appear on the
+**Rock type** overlay.
+
+---
+
+## 6. Faults and earthquakes (`src/sim/tectonics.js`)
+
+**Real world.** Faults are breaks where blocks of crust move past each other. **Normal**
+faults form where the crust is stretched: one block drops, leaving a cliff (a *fault scarp*), and
+side-by-side normal faults make rift valleys. **Reverse** and **thrust** faults form under
+compression: one block rides up over the other, stacking up mountains. **Strike-slip** faults move
+sideways, like the San Andreas, offsetting rivers and ridges. Faults lock, build up stress and then
+slip suddenly: each slip is an **earthquake**. Displacement is largest mid-fault and dies out at
+its tips.
+
+**Simulation.** A fault slips in a series of earthquakes, each rupturing part of the trace and
+shaking the camera. Vertical faults raise or drop a block that tapers with distance from the fault;
+strike-slip faults slide the ground (and its rocks, plants and intrusions) sideways. Rock layers
+move with the blocks, so different rocks end up side by side across the fault. New scarps steeper
+than the angle of repose crumble, and rivers adjust to the new slopes.
+
+---
+
+## 7. Vegetation: biomes that resist erosion (`src/sim/vegetation.js`)
 
 **Real world.** Plants are one of the strongest controls on erosion. Leaves break the impact of
 raindrops, leaf litter slows runoff, and roots bind the soil and even hold steep slopes together.
@@ -168,7 +215,7 @@ forested hillside and watch gullies open up where the trees were.
 
 ---
 
-## 6. Biomes
+## 8. Biomes
 
 Plant cover, soil water, slope and height together decide what the surface looks like:
 
@@ -198,7 +245,7 @@ slopes. **Overlays → Biomes** shows the categories; hover the legend for descr
 
 ---
 
-## 7. Drainage networks
+## 9. Drainage networks
 
 **Real world.** Rivers organise into branching (*dendritic*) networks: small streams join into
 bigger ones, which join a single trunk river. The more area drains through a point, the bigger and
@@ -219,7 +266,7 @@ and keep cutting down, capturing the smaller flows around them.
 
 ---
 
-## 8. Base level and the sea
+## 10. Base level and the sea
 
 **Real world.** A river can't erode below the level of the water body it flows into. That
 lowest level is its **base level**, usually the sea. When the sea rises, rivers slow down and fill

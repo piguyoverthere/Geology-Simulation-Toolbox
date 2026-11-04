@@ -29,8 +29,11 @@ export const ROCKS = [
   { id: 'shale',        label: 'Shale',        color: [0.40, 0.37, 0.35], hardness: 0.15, help: 'Compacted mud. Very soft; wears back quickly into slopes beneath harder caprock.' },
   { id: 'limestone',    label: 'Limestone',    color: [0.84, 0.82, 0.72], hardness: 0.55, help: 'Rock made of shells and lime mud from ancient seas. Medium; dissolves into caves and karst.' },
   { id: 'conglomerate', label: 'Conglomerate', color: [0.66, 0.55, 0.45], hardness: 0.45, help: 'Rounded pebbles cemented together: an old river or beach gravel. Medium-soft.' },
+  { id: 'tuff',         label: 'Tuff',         color: [0.76, 0.73, 0.64], hardness: 0.25, help: 'Volcanic ash fallen from an eruption cloud and compacted. Soft; easily gullied.' },
 ];
 const R = Object.fromEntries(ROCKS.map((r, k) => [r.id, k]));
+/** Rock id → index into ROCKS. */
+export const ROCK_INDEX = R;
 
 export const PROVINCES = ['Sedimentary basin', 'Volcanic plateau', 'Plutonic core', 'Metamorphic belt', 'Stratovolcano'];
 const SED = 0, VOLC = 1, PLUT = 2, META = 3, STRATO = 4;
@@ -42,8 +45,9 @@ const SEQUENCES = {
   [META]: { thick: 0.6, layers: [R.schist, R.gneiss, R.schist, R.gneiss, R.marble, R.gneiss] },
 };
 
-/** Build world.province for a freshly generated terrain. */
+/** Build world.province for a freshly generated terrain (and clear volcanic/fault history). */
 export function generateGeology(world, preset, seed) {
+  world.resetEvents();
   const N = world.N, H = world.height;
   const a = createNoise2D(seed * 7 + 3), b = createNoise2D(seed * 13 + 1);
   let lo = Infinity, hi = -Infinity;
@@ -69,8 +73,19 @@ export function generateGeology(world, preset, seed) {
   }
 }
 
-/** Index into ROCKS of the bedrock exposed at cell i when the ground is at height h. */
+/**
+ * Index into ROCKS of the rock exposed at cell i when the ground is at height h. Checked in order:
+ *   1. a surface deposit (lava flow or ash) between surfaceBase and the ground
+ *   2. an intrusion (pluton or dike) whose top is at or above h
+ *   3. the province's bedrock
+ * So eroding through a lava flow or ash bed exposes what lies beneath, and eroding a dome
+ * down past intrusionTop exposes the granite inside.
+ */
 export function rockAt(world, i, h) {
+  const s = world.surfaceRock[i];
+  if (s >= 0 && h > world.surfaceBase[i] + 1e-3) return s;
+  const ir = world.intrusionRock[i];
+  if (ir >= 0 && h <= world.intrusionTop[i]) return ir;
   const p = world.province[i];
   if (p === PLUT) return R.granite;
   if (p === STRATO) {

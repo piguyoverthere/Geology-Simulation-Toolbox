@@ -37,8 +37,17 @@ Hover any tool or control to see what it does in the info box at the bottom righ
 
 Every tool as a small icon, grouped: **View** (Orbit, Inspect), **Sculpt** (Raise, Lower, Smooth,
 Flatten, Roughen), **Water** (Rain, Spring: a permanent source that carves a river), **Life**
-(Plant; Shift to clear) and **Erosion** (Weather: thousands of raindrops in the brush area;
-Crumble: landslides), plus brush **Size** and **Strength**.
+(Plant; Shift to clear), **Erosion** (Weather: thousands of raindrops in the brush area;
+Crumble: landslides) and **Tectonics**, plus brush **Size** and **Strength**:
+
+- **Erupt** ♨: click for a vent or drag for a fissure. Basaltic lava runs far in thin flows;
+  andesitic builds a steep cone with ash bursts; rhyolitic blasts a crater and an ash blanket,
+  then grows a lava dome. Lava glows, flows, cools and becomes new rock; ash settles as tuff.
+- **Intrude** ◍: a granite pluton (click) domes the ground with granite hidden beneath until erosion
+  exposes it; a basalt dike (drag) is a hard wall that erosion leaves standing.
+- **Fault** ⫽: drag a fault line; it slips in a series of earthquakes (the camera shakes).
+  Normal faults drop a block, reverse/thrust faults raise one, strike-slip faults slide the two
+  sides past each other, offsetting rivers and rock.
 
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
 sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or
@@ -49,6 +58,8 @@ and how much it has been eroded or built up since the baseline.
 
 - **Erosion**: a master **Erosion enabled** switch, then the processes (river erosion,
   background weathering, landslides, angle of repose, bulk erode).
+- **Volcanism & tectonics**: eruption type and size, intrusion type, fault type, slip and number
+  of earthquakes, and a button to stop all running events.
 - **Water & climate**: sim speed, global rain, evaporation, plant growth, climate wetness, tree line.
 - **Overlays**: colour the map by one data layer (biomes, vegetation, wetness, rock type, rock
   hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
@@ -78,6 +89,9 @@ src/sim/water.js        Shallow-water "virtual pipes" flow + sediment transport 
 src/sim/droplet.js      Particle raindrop erosion (long-term weathering, gullies, valleys)
 src/sim/thermal.js      Thermal erosion / mass wasting (slopes relax to the angle of repose)
 src/sim/vegetation.js   Forest / grassland / barren cover that grows, dies and protects soil
+src/sim/volcanism.js    Eruptions, lava flow and cooling, ash fall, plutons and dikes
+src/sim/tectonics.js    Faults: normal, reverse and strike-slip, slipping in earthquakes
+src/render/effects.js   Eruption plumes, vent glow, fault traces and earthquake shake
 src/tools/brushes.js    Tool definitions + undo history
 src/render/terrainRenderer.js  Terrain/water meshes and colouring
 src/render/biomes.js    Biome definitions and classification

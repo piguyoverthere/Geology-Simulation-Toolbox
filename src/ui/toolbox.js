@@ -6,6 +6,8 @@ import { TOOLS, toolKey } from '../tools/brushes.js';
 import { PRESETS } from '../core/generate.js';
 import { OVERLAYS } from '../render/terrainRenderer.js';
 import { ROCKS } from '../core/rocks.js';
+import { ERUPTION_TYPES, INTRUSION_TYPES } from '../sim/volcanism.js';
+import { FAULT_TYPES } from '../sim/tectonics.js';
 import { BIOMES } from '../render/biomes.js';
 
 export class Toolbox {
@@ -68,6 +70,31 @@ export class Toolbox {
     eroBtns.append(button('Erode ×50k drops', () => app.bulkErode(50000), '', 'Instantly run 50,000 raindrops of erosion over the whole map.', this));
     this.erosionControls.append(eroBtns);
     ero.append(master, this.erosionControls);
+
+    // --- Volcanism & tectonics ---------------------------------------------------------------
+    const vt = this.section('Volcanism & tectonics', true);
+    const labels = (types) => Object.fromEntries(Object.entries(types).map(([k, v]) => [k, v.label]));
+    const helps = (types) => Object.values(types).map((v) => `<br>• <b>${v.label}</b>: ${v.help}`).join('');
+    vt.append(
+      el('div', 'tb-group-label', 'Eruption (♨ tool)'),
+      select('Type', labels(ERUPTION_TYPES), app.volcanoSettings, 'eruption',
+        `What kind of magma erupts.${helps(ERUPTION_TYPES)}`, this),
+      slider('Size', app.volcanoSettings, 'size', 0.3, 2.5, 0.1,
+        'Volume of lava and ash, and how long the eruption lasts.', this),
+      el('div', 'tb-group-label', 'Intrusion (◍ tool)'),
+      select('Type', labels(INTRUSION_TYPES), app.volcanoSettings, 'intrusion',
+        `Magma that cools underground.${helps(INTRUSION_TYPES)}`, this),
+      el('div', 'tb-group-label', 'Fault (⫽ tool)'),
+      select('Type', labels(FAULT_TYPES), app.faultSettings, 'type',
+        `How the crust breaks.${helps(FAULT_TYPES)}`, this),
+      slider('Slip', app.faultSettings, 'slip', 1, 20, 0.5,
+        'Total displacement across the fault once all its earthquakes have happened.', this),
+      slider('Earthquakes', app.faultSettings, 'quakes', 1, 20, 1,
+        'How many quakes the slip is released in. Fewer = bigger, sharper jumps.', this),
+    );
+    const vtBtns = el('div', 'tb-row');
+    vtBtns.append(button('Stop all events', () => { app.world.events.length = 0; }, '', 'End all running eruptions, intrusions and faults. Lava already out keeps flowing until it cools.', this));
+    vt.append(vtBtns);
 
     // --- Water & climate ---------------------------------------------------------------------
     const sim = this.section('Water & climate', true);
