@@ -159,6 +159,13 @@ Plant cover, soil water, slope and height together decide what the surface looks
 | Tundra | above the tree line | grey-green |
 | Snow | high, gentle ground above the snow line | white |
 
+Biomes follow broad climate regions (wet and dry zones a hundred or more cells across), so
+they form large areas rather than patches. Forest never borders desert directly: a closed
+canopy can't survive at a dry edge, so it keeps a belt of grassland (and a little scrub) between
+itself and arid country, as in the prairie and savanna belts between real forests and deserts.
+Whether dry ground is flat desert or steep mesa is judged over the surrounding land, relative to
+the map's typical slope, so each forms whole regions.
+
 Bare biomes (desert, mesa, barren) erode fastest, which is why arid landscapes are so sharply
 carved: there are no roots to hold the ground when the rare storms come. Turn **Climate wetness**
 down and watch forest give way to shrubland and then desert, while mesas emerge on the dry

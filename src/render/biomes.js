@@ -17,7 +17,6 @@ export const BIOMES = {
 };
 
 export const DRY_SOIL = 0.28;     // soil moisture below this is arid (desert / mesa)
-export const MESA_SLOPE = 0.6;    // rise/run separating flat desert from steep mesa
 
 /**
  * Hard biome category of a cell.
@@ -36,8 +35,10 @@ export function classifyBiome(world, i, slope, snowLine) {
   if (h > treeLine + 2 && v > 0.12) return 'tundra';
   if (near > 0.5 && soil > 0.7 && slope < 0.25 && v > 0.4) return 'wetland';
   if (v > 0.66) return 'forest';
-  if (v > 0.42) return soil < 0.4 ? 'shrubland' : 'grassland';
+  if (v > 0.42) return soil < 0.36 ? 'shrubland' : 'grassland';
   if (v > 0.25 && soil >= DRY_SOIL) return 'shrubland';
-  if (soil < DRY_SOIL) return slope < MESA_SLOPE ? 'desert' : 'mesa';
+  // Desert vs mesa is decided by the lie of the land around, not one cell, so each forms whole regions
+  const stand = world.standSlope ? world.standSlope[i] : slope;
+  if (soil < DRY_SOIL) return stand < world.gentleSlope * 1.1 ? 'desert' : 'mesa';
   return 'barren';
 }

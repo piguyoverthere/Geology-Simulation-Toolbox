@@ -229,14 +229,16 @@ export class TerrainRenderer {
     const soil = w.soil ? w.soil[i] : 0.5;
     const near = w.nearWater ? w.nearWater[i] : 0;
     const dry = 1 - smooth(DRY_SOIL - 0.1, DRY_SOIL + 0.1, soil);
-    const steep = smooth(0.45, 0.8, tan);
+    // Desert vs mesa follows the neighbourhood's slope so they form whole regions
+    const g = w.gentleSlope;
+    const steep = smooth(g * 0.95, g * 1.25, w.standSlope ? w.standSlope[i] : tan);
 
     // Bare ground: brown soil, yellow desert sand where dry and flat, banded red mesa rock where dry and steep
     const bare = mix(C.barren, C.desert, dry * (1 - steep), S1);
     const mesa = dry * steep;
     if (mesa > 0) shade(mix(bare, C.mesa, mesa, bare), 1 - 0.14 * mesa * (0.5 + 0.5 * Math.sin(h * 1.7)), bare);
     // Sparse cover: green grass on moist ground, olive scrub as it dries
-    const low = mix(C.grass, C.shrub, 1 - smooth(0.32, 0.52, soil), S2);
+    const low = mix(C.grass, C.shrub, 1 - smooth(0.28, 0.42, soil), S2);
     const col = v < 0.5 ? mix(bare, low, smooth(0.12, 0.42, v), S3) : mix(low, C.forest, smooth(0.55, 0.8, v), S3);
     // Tundra above the tree line
     const tl = vegetationParams.treeLine;

@@ -35,6 +35,8 @@ export class World {
     this.moisture = null;                  // climate wetness map 0..1, set by initVegetation
     this.soil = null;                      // soil moisture 0..1 (supply minus plant use), set by initVegetation
     this.nearWater = null;                 // 0..1 closeness to open water, set by the vegetation step
+    this.standSlope = null;                // neighbourhood-averaged slope, set by the vegetation step
+    this.gentleSlope = 0.6;                // the map's median stand slope ("gentle" is relative)
     /** @type {{x:number, z:number, rate:number}[]} */
     this.sources = [];
 

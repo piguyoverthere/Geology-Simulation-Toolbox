@@ -32,14 +32,16 @@ export const vegetationParams = {
   disturbance: 0.6,   // cover lost per unit of ground removed or buried
   treeLine: 38,       // forests give way to alpine grassland above this height
   alpineBand: 18,     // grassland thins out to bare ground over this much height above the tree line
-  forestShare: 0.5,   // forest can take the gentlest this-fraction of the land (relative to the map)
+  forestShare: 0.6,   // forest can take the gentlest this-fraction of the land (relative to the map)
   forestSlopeMax: 0.85, // …but never on ground steeper than this (rise/run, ≈ 40°)
   riparianReach: 4,   // how far (cells, roughly ×2) the wet zone extends from open water
   riparianBoost: 5,   // extra growth speed right beside water (1 + boost times the normal rate)
-  standRadius: 4,     // neighbourhood (cells) used to judge whether a stand of forest fits
+  standRadius: 6,     // neighbourhood (cells) used to judge whether a stand of forest fits
   spread: 0.35,       // how strongly cover is pulled toward its neighbours' average (seed spread)
+  aridSoil: 0.32,     // soil moisture below this counts as arid (desert / mesa country)
+  grassBuffer: 10,    // forest keeps roughly 1–2× this many cells away from arid ground (grassland between)
   climate: 1,         // regional wetness multiplier (0 = desert, 1 = normal, 1.5 = rainforest)
-  forestWater: 0.5,   // soil moisture a forest needs to sustain itself
+  forestWater: 0.46,  // soil moisture a forest needs to sustain itself
   uptake: 0.2,        // how much full plant cover draws down soil moisture
   soilMemory: 0.04,   // how fast soil moisture moves toward its supply each step
 };
@@ -53,7 +55,7 @@ export function initVegetation(world, seed = 1) {
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
       // Wet and dry regions (rain shadows, soil differences) give distinct biome patches
-      world.moisture[z * N + x] = Math.min(1, Math.max(0, 0.5 + 1.3 * fbm(noise, x / 95, z / 95, 3)));
+      world.moisture[z * N + x] = Math.min(1, Math.max(0, 0.5 + 1.15 * fbm(noise, x / 170, z / 170, 3)));
     }
   }
   updateNearWater(world);
@@ -91,6 +93,12 @@ function neighbourhood(world) {
     }
   }
   const standSlope = boxBlur(slope, N, r);
+  world.standSlope = standSlope; // also used by the renderer to split desert (flat) from mesa (steep)
+  // How much arid ground lies nearby. Forest needs a margin of grassland between it and the
+  // desert: the moisture gradient at a dry edge is too steep and windblown for a closed canopy.
+  const arid = new Float32Array(N * N);
+  for (let i = 0; i < N * N; i++) arid[i] = world.soil[i] < vegetationParams.aridSoil ? 1 : 0;
+  const nearArid = boxBlur(boxBlur(arid, N, vegetationParams.grassBuffer), N, vegetationParams.grassBuffer);
   // "Gentle" is relative to this landscape: the slope below which `forestShare` of the land lies
   // (estimated from a fixed sample of cells so it's cheap and stable from step to step)
   const sample = [];
@@ -98,10 +106,12 @@ function neighbourhood(world) {
   sample.sort((a, b) => a - b);
   const p = vegetationParams;
   const gentle = Math.min(p.forestSlopeMax, sample[Math.floor(p.forestShare * (sample.length - 1))]);
+  world.gentleSlope = gentle; // renderer: dry ground gentler than this is desert, steeper is mesa
   return {
     slope,
     gentle,
     standSlope,
+    nearArid,
     standSoil: boxBlur(world.soil, N, r),
     standCover: boxBlur(world.vegetation, N, 2),
   };
@@ -129,7 +139,8 @@ function potential(world, i, f) {
   // soil, enough water, and to be below the tree line. Otherwise the site tops out as grassland.
   const forestOk = (1 - smoothstep(f.gentle * 0.85, f.gentle * 1.1, f.standSlope[i]))
     * smoothstep(p.forestWater - 0.15, p.forestWater + 0.05, soil)
-    * (1 - smoothstep(p.treeLine - 6, p.treeLine, h));
+    * (1 - smoothstep(p.treeLine - 6, p.treeLine, h))
+    * (1 - smoothstep(0.005, 0.06, f.nearArid[i]));
   v = Math.min(v, 0.58 + 0.42 * forestOk);
   return Math.max(0, Math.min(1, v));
 }
