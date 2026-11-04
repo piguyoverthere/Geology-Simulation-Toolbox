@@ -63,7 +63,7 @@ export class Toolbox {
     sim.append(
       slider('Sim speed', app.sim, 'substeps', 1, 20, 1,
         'Water-flow steps per frame. Higher = faster geological time, lower framerate.', this),
-      slider('Global rain', app.waterParams, 'rain', 0, 0.3, 0.005,
+      slider('Global rain', app.waterParams, 'rain', 0, 0.1, 0.002,
         'Rainfall over the whole map, fed into the shallow-water flow model. Rivers form where runoff converges.', this),
       toggle('River erosion', app.waterParams, 'erosionEnabled',
         'Let flowing water pick up and drop sediment. Turn off to just watch water flow and pool.', this),

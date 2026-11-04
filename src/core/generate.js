@@ -58,11 +58,54 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
     }
   }
 
+  if (preset !== 'flat') smoothLowlands(world, noise);
+
   world.setBaseline();
   world.clearWater();
   world.sources.length = 0;
   initVegetation(world, seed);
   world.dirty = true;
+}
+
+/**
+ * Real lowlands are mostly smooth: valleys and plains are filled with sediment that buries the
+ * small bumps. Raw noise leaves lots of little dimples there, which fill with water into a honeycomb
+ * of puddles. Blur the low ground, but leave a few patches rough (like a field of kettle ponds).
+ */
+function smoothLowlands(world, noise) {
+  const N = world.N, H = world.height;
+  let lo = Infinity, hi = -Infinity;
+  for (const h of H) { if (h < lo) lo = h; if (h > hi) hi = h; }
+  const blurred = boxBlur(boxBlur(H, N, 3), N, 3);
+  for (let z = 0; z < N; z++) {
+    for (let x = 0; x < N; x++) {
+      const i = z * N + x;
+      const t = (H[i] - lo) / (hi - lo || 1);
+      const low = 1 - smoothstep(0.2, 0.55, t);
+      const keepRough = smoothstep(0.68, 0.82, 0.5 + 0.5 * noise(x / 60 + 91.7, z / 60 - 13.2));
+      const w = low * (1 - keepRough);
+      H[i] += (blurred[i] - H[i]) * w;
+    }
+  }
+}
+
+function boxBlur(src, N, r) {
+  const tmp = new Float32Array(src.length), out = new Float32Array(src.length);
+  for (let z = 0; z < N; z++) {
+    for (let x = 0; x < N; x++) {
+      let s = 0, c = 0;
+      for (let k = Math.max(0, x - r); k <= Math.min(N - 1, x + r); k++) { s += src[z * N + k]; c++; }
+      tmp[z * N + x] = s / c;
+    }
+  }
+  for (let z = 0; z < N; z++) {
+    for (let x = 0; x < N; x++) {
+      let s = 0, c = 0;
+      for (let k = Math.max(0, z - r); k <= Math.min(N - 1, z + r); k++) { s += tmp[k * N + x]; c++; }
+      out[z * N + x] = s / c;
+    }
+  }
+  return out;
 }
 
 function smoothstep(e0, e1, x) {

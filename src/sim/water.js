@@ -17,8 +17,10 @@ export const waterParams = {
   erode: 0.5,          // Ks: dissolving rate
   deposit: 0.4,        // Kd: settling rate
   evaporate: 0.02,     // Ke
-  minTilt: 0.05,       // keeps a little erosion going on near-flat river beds
-  maxErodeDepth: 3,    // water deeper than this erodes at full strength; shallower erodes less
+  minTilt: 0.02,       // keeps a little erosion going on near-flat river beds
+  critSpeed: 0.4,      // flow slower than this can't lift grains off the bed (Hjulström/Shields threshold)
+  shieldDepth: 4,      // standing water deeper than this shields its bed from erosion
+  damping: 0.985,      // flux friction per step: stops water sloshing back and forth in pools
   erosionEnabled: true,
 };
 
@@ -61,10 +63,11 @@ export function waterStep(world) {
       const hR = x < N - 1 ? B[i + 1] + D[i + 1] : (drain ? B[i] : Infinity);
       const hT = z > 0 ? B[i - N] + D[i - N] : (drain ? B[i] : Infinity);
       const hB = z < N - 1 ? B[i + N] + D[i + N] : (drain ? B[i] : Infinity);
-      let l = Math.max(0, fL[i] + k * (hi - hL));
-      let r = Math.max(0, fR[i] + k * (hi - hR));
-      let t = Math.max(0, fT[i] + k * (hi - hT));
-      let b = Math.max(0, fB[i] + k * (hi - hB));
+      const damp = p.damping;
+      let l = Math.max(0, fL[i] * damp + k * (hi - hL));
+      let r = Math.max(0, fR[i] * damp + k * (hi - hR));
+      let t = Math.max(0, fT[i] * damp + k * (hi - hT));
+      let b = Math.max(0, fB[i] * damp + k * (hi - hB));
       // Never let more water leave than the cell holds
       const out = (l + r + t + b) * dt;
       if (out > D[i] && out > 0) {
@@ -107,8 +110,10 @@ export function waterStep(world) {
         const g2 = gx * gx + gz * gz;
         const sinTilt = Math.max(p.minTilt, Math.sqrt(g2 / (1 + g2)));
         const speed = Math.sqrt(VX[i] * VX[i] + VZ[i] * VZ[i]);
-        const depthFactor = Math.min(1, d / p.maxErodeDepth);
-        const cap = p.capacity * sinTilt * speed * depthFactor;
+        // A thin film can't carry much; a deep pool shields its bed. Erosion peaks in shallow, fast flow.
+        // (Without the falloff, sloshing in puddles digs them deeper and deeper into a honeycomb of pits.)
+        const depthFactor = Math.min(1, d / 0.5) * Math.max(0, 1 - d / p.shieldDepth);
+        const cap = p.capacity * sinTilt * Math.max(0, speed - p.critSpeed) * depthFactor;
         if (cap > S[i]) {
           const amt = Math.min(p.erode * (cap - S[i]) * dt * world.erodibilityAt(B[i], i), 0.05);
           B[i] -= amt;

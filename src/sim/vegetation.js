@@ -13,8 +13,9 @@ import { createNoise2D, fbm } from '../core/noise.js';
 
 export const vegetationParams = {
   growth: 0.03,       // how fast cover moves toward the site's potential per step
-  disturbance: 1.2,   // cover lost per unit of ground removed or buried
+  disturbance: 0.6,   // cover lost per unit of ground removed or buried
   treeLine: 38,       // forests thin out above this height
+  forestSlope: 0.45,  // slope (rise/run, ≈ 24°) above which forest gives way to grassland
 };
 
 /** Build a moisture map from noise and set vegetation straight to its potential. */
@@ -49,9 +50,14 @@ function potential(world, i) {
   const p = vegetationParams;
   const steep = 1 - 0.85 * smoothstep(0.6, 1.8, slope);
   const cold = 1 - smoothstep(p.treeLine, p.treeLine + 14, h);
-  // Deep standing water drowns plants
-  const drowned = world.water[i] > 0.6 ? 0 : 1;
-  return Math.max(0, Math.min(1, (0.05 + 1.1 * m) * steep * (0.4 + 0.6 * cold) * drowned));
+  // Lakes drown plants; shallow floodwater on a floodplain does not
+  const drowned = 1 - smoothstep(1, 3, world.water[i]);
+  let v = (0.05 + 1.1 * m) * steep * (0.4 + 0.6 * cold) * drowned;
+  // Forests need deep, stable soil, which only builds up on gentle ground. Moderate slopes top out
+  // as grassland (cover < 0.6); the steepest stay barren via the `steep` term above.
+  const forestCap = 1 - 0.42 * smoothstep(p.forestSlope * 0.6, p.forestSlope, slope);
+  v = Math.min(v, forestCap);
+  return Math.max(0, Math.min(1, v));
 }
 
 /** Grow/decay vegetation one step. */
@@ -60,7 +66,7 @@ export function vegetationStep(world) {
   const p = vegetationParams;
   for (let i = 0; i < V.length; i++) {
     // Slow creep is tolerated; only real scouring or burial damages plants
-    const change = Math.max(0, Math.abs(H[i] - P[i]) - 0.02);
+    const change = Math.max(0, Math.abs(H[i] - P[i]) - 0.05);
     let v = V[i] - change * p.disturbance;
     v += (potential(world, i) - v) * p.growth;
     V[i] = v < 0 ? 0 : v > 1 ? 1 : v;
