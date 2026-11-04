@@ -8,6 +8,10 @@ import { addWater } from '../sim/water.js';
 
 const detailNoise = createNoise2D(777);
 
+/** Keyboard shortcuts, assigned to tools in TOOLS order. */
+export const TOOL_KEYS = '1234567890-=';
+export function toolKey(id) { return TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
+
 /** Smooth bell-shaped falloff: 1 at the centre, 0 at the brush edge. */
 function falloff(d, r) {
   const t = d / r;
@@ -45,6 +49,11 @@ export const TOOLS = {
   camera: {
     label: 'Orbit', group: 'View', icon: '✥', editsTerrain: false,
     help: 'Drag to orbit the camera. Scroll to zoom, right-drag to pan. (In any other tool, right-drag orbits and middle-drag pans.)',
+    apply() {},
+  },
+  inspect: {
+    label: 'Inspect', group: 'View', icon: '⌖', editsTerrain: false,
+    help: 'Hover the terrain to read what is there: altitude, slope, biome, soil wetness, when it was last watered, plant cover, rock and erosion.',
     apply() {},
   },
   raise: {

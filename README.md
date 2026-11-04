@@ -26,19 +26,28 @@ To put it online, turn on **GitHub Pages** for this repo (Settings → Pages →
 | Middle-drag | Pan |
 | Scroll | Zoom |
 | Shift + tool | Invert it (Raise ↔ Lower, Rain → soak up, Spring → remove) |
-| `1`–`9` | Pick a tool |
+| `1`–`9`, `0`, `-`, `=` | Pick a tool (numbers shown on the tool bar) |
 | `[` / `]` | Shrink / grow brush |
 | Space | Pause / resume the simulation |
 | Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z | Undo / redo terrain strokes |
 
-Hover any control in the toolbox to see what it does in the info box at the bottom.
+Hover any tool or control to see what it does in the info box at the bottom right.
 
-### Toolbox
+### Tool bar (bottom)
 
-- **Tools**: Sculpt (Raise, Lower, Smooth, Flatten, Roughen), Water (Rain, Spring: a permanent
-  water source that carves a river) and Life (Plant; Shift to clear).
-- **Erosion**: a master **Erosion enabled** switch, then the erosion brushes (Weather: thousands
-  of raindrops in the brush area; Crumble: landslides) and the processes (river erosion,
+Every tool as a small icon, grouped: **View** (Orbit, Inspect), **Sculpt** (Raise, Lower, Smooth,
+Flatten, Roughen), **Water** (Rain, Spring: a permanent source that carves a river), **Life**
+(Plant; Shift to clear) and **Erosion** (Weather: thousands of raindrops in the brush area;
+Crumble: landslides), plus brush **Size** and **Strength**.
+
+**Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
+sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or
+lake), surface water depth and speed, sediment load, plant cover, rock hardness, erodibility,
+and how much it has been eroded or built up since the baseline.
+
+### Side panel
+
+- **Erosion**: a master **Erosion enabled** switch, then the processes (river erosion,
   background weathering, landslides, angle of repose, bulk erode).
 - **Water & climate**: sim speed, global rain, evaporation, plant growth, climate wetness, tree line.
 - **Geology**: rock strata (hard and soft layers), sea level, edge drainage.
@@ -69,7 +78,8 @@ src/sim/vegetation.js   Forest / grassland / barren cover that grows, dies and p
 src/tools/brushes.js    Tool definitions + undo history
 src/render/terrainRenderer.js  Terrain/water meshes and colouring
 src/render/biomes.js    Biome definitions and classification
-src/ui/toolbox.js       Right-hand toolbox panel
+src/ui/toolbox.js       Right-hand settings panel and bottom tool bar
+src/ui/inspector.js     Inspect-tool readout
 vendor/three/           three.js r169 (MIT)
 ```
 

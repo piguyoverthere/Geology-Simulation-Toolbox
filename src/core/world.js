@@ -31,6 +31,8 @@ export class World {
     this.velX = new Float32Array(n);
     this.velZ = new Float32Array(n);
     this.vegetation = new Float32Array(n);
+    this.lastWet = new Float32Array(n).fill(-1); // sim time a cell last had surface water (-1 = never)
+    this.time = 0;                              // simulated seconds of water flow so far
     this.prevHeight = new Float32Array(n); // last vegetation step's heights, to detect disturbance
     this.moisture = null;                  // climate wetness map 0..1, set by initVegetation
     this.soil = null;                      // soil moisture 0..1 (supply minus plant use), set by initVegetation
@@ -120,6 +122,7 @@ export class World {
 
   clearWater() {
     this.water.fill(0);
+    this.lastWet.fill(-1);
     this.sediment.fill(0);
     this.fluxL.fill(0); this.fluxR.fill(0); this.fluxT.fill(0); this.fluxB.fill(0);
     this.velX.fill(0); this.velZ.fill(0);

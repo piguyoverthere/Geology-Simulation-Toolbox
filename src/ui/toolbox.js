@@ -1,22 +1,24 @@
-// The right-hand toolbox panel. Built with plain DOM so it is easy to extend: each control is
-// bound to a property on some settings object and carries a `help` string that is shown in the
-// info box when you hover it.
+// The right-hand toolbox panel and the bottom tool bar. Built with plain DOM so it is easy to
+// extend: each control is bound to a property on some settings object and carries a `help` string
+// that is shown in the info box when you hover it.
 
-import { TOOLS } from '../tools/brushes.js';
+import { TOOLS, toolKey } from '../tools/brushes.js';
 import { PRESETS } from '../core/generate.js';
 import { COLOR_MODES } from '../render/terrainRenderer.js';
 import { BIOMES } from '../render/biomes.js';
 
 export class Toolbox {
   /**
-   * @param {HTMLElement} root
+   * @param {HTMLElement} root     the right-hand panel
+   * @param {HTMLElement} barRoot  the bottom tool bar
    * @param {object} app  the App from main.js (state, world, actions)
    */
-  constructor(root, app) {
+  constructor(root, barRoot, app) {
     this.root = root;
     this.app = app;
     this.toolButtons = new Map();
     this.build();
+    this.buildToolbar(barRoot);
   }
 
   build() {
@@ -33,23 +35,6 @@ export class Toolbox {
     this.statsEl = el('div', 'tb-stats');
     r.append(this.statsEl);
 
-    // --- Tools -------------------------------------------------------------------------------
-    // Shortcut keys follow TOOLS order; erosion brushes are listed in the Erosion section below
-    this.shortcuts = new Map(Object.keys(TOOLS).map((id, k) => [id, k + 1]));
-    const toolSec = this.section('Tools', true);
-    const groups = [...new Set(Object.values(TOOLS).map((t) => t.group))].filter((g) => g !== 'Erosion');
-    for (const g of groups) {
-      toolSec.append(el('div', 'tb-group-label', g));
-      toolSec.append(this.toolList(g));
-    }
-
-    // --- Brush -------------------------------------------------------------------------------
-    const brush = this.section('Brush', true);
-    brush.append(
-      slider('Size', app.brush, 'radius', 2, 60, 1, 'Brush radius in cells. Shortcut: [ and ].', this),
-      slider('Strength', app.brush, 'strength', 0.05, 1, 0.01, 'How fast the tool works.', this),
-    );
-
     // --- Erosion -----------------------------------------------------------------------------
     const ero = this.section('Erosion', true);
     const master = toggle('Erosion enabled', app.world, 'erosionEnabled',
@@ -57,9 +42,6 @@ export class Toolbox {
     master.classList.add('tb-master');
     this.erosionControls = el('div', 'tb-group');
     this.erosionControls.append(
-      el('div', 'tb-group-label', 'Brushes'),
-      this.toolList('Erosion'),
-      el('div', 'tb-group-label', 'Processes'),
       toggle('River erosion', app.waterParams, 'erosionEnabled',
         'Let flowing water pick up and drop sediment. Turn off to just watch water flow and pool.', this),
       slider('Weathering', app.sim, 'dropletsPerFrame', 0, 3000, 50,
@@ -159,20 +141,38 @@ export class Toolbox {
     this.setInfo(this.defaultInfo());
   }
 
-  /** A vertical list of full-width tool panels for one tool group. */
-  toolList(group) {
-    const list = el('div', 'tb-tool-list');
-    for (const [id, t] of Object.entries(TOOLS)) {
-      if (t.group !== group) continue;
-      const n = this.shortcuts.get(id);
-      const b = el('button', 'tb-tool');
-      b.innerHTML = `<span class="tb-tool-label">${t.label}</span><kbd>${n <= 9 ? n : ''}</kbd><span class="tb-icon">${t.icon}</span>`;
-      b.addEventListener('click', () => this.app.setTool(id));
-      this.helpOn(b, `<b>${t.label}</b> — ${t.help}`);
-      list.append(b);
-      this.toolButtons.set(id, b);
+  /** Bottom bar: every tool as a small icon button, grouped, plus the brush size/strength. */
+  buildToolbar(bar) {
+    const app = this.app;
+    bar.innerHTML = '';
+    const groups = [...new Set(Object.values(TOOLS).map((t) => t.group))];
+    for (const g of groups) {
+      const group = el('div', 'bar-group');
+      group.append(el('div', 'bar-label', g));
+      const icons = el('div', 'bar-icons');
+      for (const [id, t] of Object.entries(TOOLS)) {
+        if (t.group !== g) continue;
+        const b = el('button', 'bar-tool');
+        const key = toolKey(id);
+        b.innerHTML = `<span class="bar-icon">${t.icon}</span>${key ? `<kbd>${key}</kbd>` : ''}`;
+        b.title = `${t.label}${key ? ` (${key})` : ''}`;
+        b.setAttribute('aria-label', t.label);
+        b.addEventListener('click', () => app.setTool(id));
+        this.helpOn(b, `<b>${t.label}</b>${key ? ` <kbd>${key}</kbd>` : ''} — ${t.help}`);
+        icons.append(b);
+        this.toolButtons.set(id, b);
+      }
+      group.append(icons);
+      if (g === 'Erosion') this.erosionTools = group;
+      bar.append(group);
     }
-    return list;
+    const brush = el('div', 'bar-group bar-brush');
+    brush.append(
+      el('div', 'bar-label', 'Brush'),
+      slider('Size', app.brush, 'radius', 2, 60, 1, 'Brush radius in cells. Shortcut: [ and ].', this),
+      slider('Strength', app.brush, 'strength', 0.05, 1, 0.01, 'How fast the tool works. Hold Shift to invert most tools.', this),
+    );
+    bar.append(brush);
   }
 
   section(title, open) {
@@ -203,8 +203,9 @@ export class Toolbox {
     for (const [id, b] of this.toolButtons) b.classList.toggle('active', id === this.app.tool);
     this.playBtn.textContent = this.app.sim.running ? '❚❚ Pause' : '▶ Play';
     this.playBtn.classList.toggle('running', this.app.sim.running);
-    this.root.querySelectorAll('[data-sync]').forEach((n) => n.sync());
+    document.querySelectorAll('[data-sync]').forEach((n) => n.sync());
     this.erosionControls.classList.toggle('tb-disabled', !this.app.world.erosionEnabled);
+    this.erosionTools.classList.toggle('tb-disabled', !this.app.world.erosionEnabled);
     this.setInfo(this.defaultInfo());
   }
 

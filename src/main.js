@@ -3,12 +3,13 @@ import { OrbitControls } from 'three/addons/OrbitControls.js';
 import { World } from './core/world.js';
 import { generateTerrain } from './core/generate.js';
 import { TerrainRenderer } from './render/terrainRenderer.js';
-import { TOOLS, History } from './tools/brushes.js';
+import { TOOLS, TOOL_KEYS, History } from './tools/brushes.js';
 import { runDroplets } from './sim/droplet.js';
 import { thermalStep, thermalParams } from './sim/thermal.js';
 import { waterStep, waterParams } from './sim/water.js';
 import { initVegetation, vegetationStep, vegetationParams } from './sim/vegetation.js';
 import { Toolbox } from './ui/toolbox.js';
+import { Inspector } from './ui/inspector.js';
 
 const GRID = 256;
 
@@ -39,7 +40,8 @@ class App {
     this.setupCursor();
     this.setupInput();
 
-    this.toolbox = new Toolbox(document.getElementById('toolbox'), this);
+    this.toolbox = new Toolbox(document.getElementById('toolbox'), document.getElementById('toolbar'), this);
+    this.inspector = new Inspector(document.getElementById('inspector'), this);
     this.setTool(this.tool);
 
     this.clock = new THREE.Clock();
@@ -112,7 +114,7 @@ class App {
     this.cursor.visible = show;
     if (!show) return;
     const pos = this.cursor.geometry.attributes.position;
-    const r = this.tool === 'spring' ? 3 : this.brush.radius;
+    const r = this.tool === 'spring' ? 3 : this.tool === 'inspect' ? 1.5 : this.brush.radius;
     for (let k = 0; k <= 64; k++) {
       const a = (k / 64) * Math.PI * 2;
       const gx = hit.x + Math.cos(a) * r, gz = hit.z + Math.sin(a) * r;
@@ -169,9 +171,9 @@ class App {
       if (e.key === ' ') { e.preventDefault(); this.toggleSim(); return; }
       if (e.key === '[') { this.brush.radius = Math.max(2, this.brush.radius - 2); this.toolbox.refresh(); }
       if (e.key === ']') { this.brush.radius = Math.min(60, this.brush.radius + 2); this.toolbox.refresh(); }
-      const n = parseInt(e.key, 10);
+      const k = TOOL_KEYS.indexOf(e.key);
       const ids = Object.keys(TOOLS);
-      if (n >= 1 && n <= ids.length && !mod) this.setTool(ids[n - 1]);
+      if (k >= 0 && k < ids.length && !mod) this.setTool(ids[k]);
     });
     window.addEventListener('keyup', (e) => { this.shift = e.shiftKey; });
   }
@@ -313,6 +315,8 @@ class App {
 
     const hit = this.pick();
     this.updateCursor(hit);
+    if (this.tool === 'inspect' && this.frame % 3 === 0) this.inspector.update(hit);
+    else if (this.tool !== 'inspect') this.inspector.update(null);
     if (this.painting && hit) TOOLS[this.tool].apply(this.brushCtx(hit, dt));
 
     if (this.sim.running) {

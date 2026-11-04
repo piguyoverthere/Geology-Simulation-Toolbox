@@ -155,7 +155,11 @@ export function waterStep(world) {
 
   // 6. Evaporation. When a puddle dries up its sediment is left behind on the ground.
   const evap = 1 - p.evaporate * dt;
+  world.time += dt;
+  const now = world.time, W = world.lastWet;
+  if (p.rain > 0) W.fill(now); // rain waters everywhere
   for (let i = 0; i < n; i++) {
+    if (D[i] > 0.05) W[i] = now;
     D[i] *= evap;
     if (D[i] < 1e-4) {
       D[i] = 0;
