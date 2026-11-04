@@ -50,14 +50,16 @@ and how much it has been eroded or built up since the baseline.
 - **Erosion**: a master **Erosion enabled** switch, then the processes (river erosion,
   background weathering, landslides, angle of repose, bulk erode).
 - **Water & climate**: sim speed, global rain, evaporation, plant growth, climate wetness, tree line.
-- **Geology**: rock strata (hard and soft layers), sea level, edge drainage.
+- **Overlays**: colour the map by one data layer (biomes, vegetation, wetness, rock type, rock
+  hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
+  strips plants away to reveal bare ground and bedrock.
+- **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
 - **Terrain**: presets (hills, mountains, plateau, volcano, flat), seed, undo/redo, PNG
   heightmap export/import.
-- **View**: colour modes (natural, biomes, erosion/deposition map, rock hardness, slope, vegetation, soil moisture) with a biome legend, water, snow
-  line, wireframe.
+- **View**: water, snow line, wireframe.
 
 Try this: pick **Layered plateau**, turn on **Sea** at level 8, drop two **Springs** on top, and set
-**Colour → Erosion / deposition**. Red shows where ground was carved away and blue shows where
+**Overlays → Erosion / deposition**. Red shows where ground was carved away and blue shows where
 sediment piled up, such as the delta forming where the river meets the sea.
 
 ## How it works
@@ -68,6 +70,7 @@ The science behind each model is in **[docs/GEOLOGY.md](docs/GEOLOGY.md)**.
 index.html              page + import map (three.js is vendored, no CDN needed)
 src/main.js             App: scene, camera, input, main loop, toolbox actions
 src/core/world.js       World: all simulated fields as flat Float32Arrays on a 256×256 grid
+src/core/rocks.js       Rock types, geological provinces and the rock-at-depth lookup
 src/core/noise.js       Seeded simplex noise, fBm, ridged noise
 src/core/generate.js    Terrain presets (with lowland smoothing, basin breaching and river carving)
 src/core/grid.js        Grid helpers: box blur, depression breaching, river-network carving

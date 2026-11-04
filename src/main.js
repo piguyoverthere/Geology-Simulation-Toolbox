@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/OrbitControls.js';
 import { World } from './core/world.js';
 import { generateTerrain } from './core/generate.js';
+import { generateGeology } from './core/rocks.js';
 import { TerrainRenderer } from './render/terrainRenderer.js';
 import { TOOLS, TOOL_KEYS, History } from './tools/brushes.js';
 import { runDroplets } from './sim/droplet.js';
@@ -298,6 +299,7 @@ class App {
         for (let i = 0; i < GRID * GRID; i++) this.world.height[i] = lo + (data[i * 4] / 255) * (hi - lo);
         this.world.setBaseline();
         this.world.clearWater();
+        generateGeology(this.world, 'imported', this.gen.seed);
         initVegetation(this.world, this.gen.seed);
         URL.revokeObjectURL(img.src);
       };

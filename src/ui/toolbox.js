@@ -4,7 +4,8 @@
 
 import { TOOLS, toolKey } from '../tools/brushes.js';
 import { PRESETS } from '../core/generate.js';
-import { COLOR_MODES } from '../render/terrainRenderer.js';
+import { OVERLAYS } from '../render/terrainRenderer.js';
+import { ROCKS } from '../core/rocks.js';
 import { BIOMES } from '../render/biomes.js';
 
 export class Toolbox {
@@ -34,6 +35,18 @@ export class Toolbox {
 
     this.statsEl = el('div', 'tb-stats');
     r.append(this.statsEl);
+
+    // --- Overlays ----------------------------------------------------------------------------
+    const ov = this.section('Overlays', true);
+    ov.append(
+      select('Overlay', OVERLAYS, app.renderer, 'colorMode',
+        'Colour the map by one data layer instead of its natural look. Wetness: soil moisture. Rock type: the bedrock exposed at the surface. Erosion/deposition: red = ground removed, blue = sediment added since the baseline.', this, () => { app.world.dirty = true; this.updateLegend(); }),
+      toggle('Show vegetation', app.renderer, 'showVegetation',
+        'Turn off to strip the plants away in the natural view and see bare ground and bedrock (each rock type in its own colour).', this, () => { app.world.dirty = true; this.updateLegend(); }),
+    );
+    this.legendTitle = el('div', 'tb-group-label');
+    this.legendEl = el('div', 'tb-legend');
+    ov.append(this.legendTitle, this.legendEl);
 
     // --- Erosion -----------------------------------------------------------------------------
     const ero = this.section('Erosion', true);
@@ -79,12 +92,12 @@ export class Toolbox {
     // --- Geology -----------------------------------------------------------------------------
     const geo = this.section('Geology', false);
     geo.append(
-      toggle('Rock strata', app.world, 'strataEnabled',
-        'Layers of hard and soft rock. Soft layers erode up to 5× faster, carving ledges, cliffs and mesas. Use the Rock hardness view to see them.', this, () => app.world.dirty = true),
-      slider('Layer strength', app.world, 'strataStrength', 0, 1, 0.05,
-        'How different hard and soft layers are. High values carve dramatic ledges and terraces; low values give subtle benches.', this, () => app.world.dirty = true),
-      slider('Layer spacing', app.world, 'strataSpacing', 2, 25, 0.5,
-        'Vertical thickness of each hard+soft rock band.', this, () => app.world.dirty = true),
+      toggle('Rock types', app.world, 'rocksEnabled',
+        'Bedrock differs by type: granite and basalt resist erosion, shale and schist give way fast, so hard rock stands up as ridges, cliffs and caprock. Off = uniform rock. See the Rock type overlay.', this, () => app.world.dirty = true),
+      slider('Hardness contrast', app.world, 'strataStrength', 0, 1, 0.05,
+        'How much rock types differ in hardness. High values carve dramatic ledges and stand-out ridges; low values let everything erode alike.', this, () => app.world.dirty = true),
+      slider('Layer thickness', app.world, 'strataSpacing', 2, 25, 0.5,
+        'Thickness of the layers in sedimentary, volcanic and metamorphic rock.', this, () => app.world.dirty = true),
       toggle('Sea', app.sim, 'seaEnabled',
         'Fill everything below sea level with ocean. Rivers slow down and drop sediment where they meet it, forming deltas.', this, () => app.applySea()),
       slider('Sea level', app.sim, 'seaLevel', 0, 50, 0.5, 'Height of the ocean surface.', this, () => app.applySea()),
@@ -118,27 +131,51 @@ export class Toolbox {
     // --- View --------------------------------------------------------------------------------
     const view = this.section('View', false);
     view.append(
-      select('Colour', COLOR_MODES, app.renderer, 'colorMode',
-        'Natural: realistic colours with biomes blended. Biomes: hard biome categories (see legend). Erosion/deposition: red = ground removed, blue = sediment added since the baseline. Rock hardness: strata. Slope: steepness.', this, () => app.world.dirty = true),
       toggle('Show water', app.renderer, 'showWater', 'Show or hide surface water.', this, () => app.world.dirty = true),
       slider('Snow line', app.renderer, 'snowLine', 10, 120, 1, 'Height above which flat ground is snow-covered.', this, () => app.world.dirty = true),
       toggle('Wireframe', app.renderer.terrainMat, 'wireframe', 'Show the terrain grid.', this),
     );
-    const legend = el('div', 'tb-legend');
-    for (const b of Object.values(BIOMES)) {
-      const item = el('div', 'tb-legend-item');
-      const sw = el('span', 'tb-swatch');
-      sw.style.background = `rgb(${b.color.map((c) => Math.round(c * 255)).join(',')})`;
-      item.append(sw, el('span', '', b.label));
-      this.helpOn(item, `<b>${b.label}</b> — ${b.help}`);
-      legend.append(item);
-    }
-    view.append(el('div', 'tb-group-label', 'Biomes'), legend);
 
     // --- Info --------------------------------------------------------------------------------
     this.info = el('div', 'tb-info');
     r.append(this.info);
     this.setInfo(this.defaultInfo());
+    this.updateLegend();
+  }
+
+  /** Legend for the current overlay: swatches for categories, a ramp for continuous values. */
+  updateLegend() {
+    const mode = this.app.renderer.colorMode;
+    const L = this.legendEl;
+    L.innerHTML = '';
+    L.className = 'tb-legend';
+    const items = (title, list) => {
+      this.legendTitle.textContent = title;
+      for (const it of list) {
+        const item = el('div', 'tb-legend-item');
+        const sw = el('span', 'tb-swatch');
+        sw.style.background = rgb(it.color);
+        item.append(sw, el('span', '', it.label));
+        if (it.help) this.helpOn(item, `<b>${it.label}</b> — ${it.help}`);
+        L.append(item);
+      }
+    };
+    const ramp = (title, lo, hi, colors) => {
+      this.legendTitle.textContent = title;
+      L.className = 'tb-ramp';
+      const bar = el('div', 'tb-ramp-bar');
+      bar.style.background = `linear-gradient(to right, ${colors.map(rgb).join(', ')})`;
+      const labels = el('div', 'tb-ramp-labels');
+      labels.append(el('span', '', lo), el('span', '', hi));
+      L.append(bar, labels);
+    };
+    if (mode === 'rock' || (mode === 'natural' && !this.app.renderer.showVegetation)) items('Rock types', ROCKS);
+    else if (mode === 'natural' || mode === 'biome') items(mode === 'biome' ? 'Biomes' : 'Biomes (blended)', Object.values(BIOMES));
+    else if (mode === 'moisture') ramp('Soil wetness', 'dry', 'saturated', [[0.85, 0.72, 0.5], [0.15, 0.4, 0.8]]);
+    else if (mode === 'vegetation') items('Plant cover', [BIOMES.barren, BIOMES.grassland, BIOMES.forest]);
+    else if (mode === 'hardness') ramp('Rock hardness', 'soft', 'hard', [[0.68, 0.52, 0.4], [0.58, 0.55, 0.51]]);
+    else if (mode === 'change') ramp('Since baseline', 'eroded', 'deposited', [[0.85, 0.25, 0.2], [0.75, 0.75, 0.72], [0.2, 0.45, 0.9]]);
+    else if (mode === 'slope') ramp('Slope', 'flat', 'steep', [[0.2, 0.7, 0.3], [0.9, 0.2, 0.15]]);
   }
 
   /** Bottom bar: every tool as a small icon button, grouped, plus the brush size/strength. */
@@ -290,3 +327,5 @@ function numberInput(label, obj, key, help, tb) {
   tb.helpOn(row, `<b>${label}</b> — ${help}`);
   return row;
 }
+
+function rgb(c) { return `rgb(${c.map((v) => Math.round(v * 255)).join(',')})`; }

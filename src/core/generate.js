@@ -1,5 +1,6 @@
 import { createNoise2D, fbm, ridged } from './noise.js';
 import { initVegetation } from '../sim/vegetation.js';
+import { generateGeology } from './rocks.js';
 import { boxBlur, breachDepressions, carveRivers } from './grid.js';
 
 /**
@@ -70,6 +71,7 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
     if (preset !== 'volcano') breachDepressions(h, N, 0.02);
   }
 
+  generateGeology(world, preset, seed);
   world.setBaseline();
   world.clearWater();
   world.sources.length = 0;

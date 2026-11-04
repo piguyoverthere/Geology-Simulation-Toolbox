@@ -56,6 +56,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .inspector table { width: 100%; border-collapse: collapse; }
 .inspector th { text-align: left; font-weight: 400; color: var(--muted); padding: 2px 8px 2px 0; white-space: nowrap; }
 .inspector td { text-align: right; font-variant-numeric: tabular-nums; padding: 2px 0; }
+.ins-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
 .ins-dim { color: var(--muted); font-size: 11px; }
 .ins-bar { display: inline-block; width: 60px; height: 6px; border-radius: 3px; background: #333a44; vertical-align: middle; overflow: hidden; }
 .ins-bar > span { display: block; height: 100%; }
@@ -129,6 +130,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 
 .tb-legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 8px; font-size: 11.5px; }
 .tb-legend-item { display: flex; align-items: center; gap: 6px; cursor: default; }
+.tb-ramp { display: flex; flex-direction: column; gap: 3px; }
+.tb-ramp-bar { height: 10px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.15); }
+.tb-ramp-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
 .tb-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; border: 1px solid rgba(255,255,255,0.15); }
 
 .tb-row { display: flex; gap: 6px; margin-top: 4px; }

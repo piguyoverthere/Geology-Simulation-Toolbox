@@ -2,6 +2,7 @@
 
 import { BIOMES, classifyBiome } from '../render/biomes.js';
 import { waterParams } from '../sim/water.js';
+import { ROCKS, PROVINCES } from '../core/rocks.js';
 
 export class Inspector {
   /** @param {HTMLElement} root  @param {object} app */
@@ -37,7 +38,8 @@ export class Inspector {
     const cover = v > 0.66 ? 'forest' : v > 0.33 ? 'grassland' : 'barren';
     const change = h - w.baseline[i];
     const sea = w.seaLevel > -999;
-    const swatch = `rgb(${biome.color.map((c) => Math.round(c * 255)).join(',')})`;
+    const swatch = rgb(biome.color);
+    const rock = ROCKS[w.rockAt(h, i)];
 
     const rows = [
       ['Altitude', `${h.toFixed(1)}${sea ? ` <span class="ins-dim">(${(h - w.seaLevel) >= 0 ? '+' : ''}${(h - w.seaLevel).toFixed(1)} vs sea)</span>` : ''}`],
@@ -48,7 +50,9 @@ export class Inspector {
       ['Surface water', depth > 0.005 ? `${depth.toFixed(2)} deep · ${speed.toFixed(1)} speed` : 'dry'],
       ['Sediment load', w.sediment[i] > 0.001 ? w.sediment[i].toFixed(3) : '—'],
       ['Plant cover', `${bar(v, '#4caf50')} <span class="ins-dim">${cover}</span>`],
-      ['Rock hardness', w.strataEnabled ? bar(w.hardnessAt(h, i), '#b0a090') : 'uniform'],
+      ['Bedrock', `<span class="tb-swatch ins-swatch" style="background:${rgb(rock.color)}"></span>${rock.label}`],
+      ['Province', `<span class="ins-dim">${PROVINCES[w.province[i]]}</span>`],
+      ['Rock hardness', w.rocksEnabled ? bar(w.hardnessAt(h, i), '#b0a090') : 'uniform'],
       ['Erodibility', `${w.erodibilityAt(h, i).toFixed(2)}×`],
       ['Since baseline', `<span style="color:${change < -0.05 ? 'var(--erode)' : change > 0.05 ? 'var(--deposit)' : 'inherit'}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</span> ${change < -0.05 ? 'eroded' : change > 0.05 ? 'deposited' : ''}`],
     ];
@@ -61,6 +65,8 @@ export class Inspector {
     this.root.hidden = false;
   }
 }
+
+function rgb(c) { return `rgb(${c.map((v) => Math.round(v * 255)).join(',')})`; }
 
 function bar(t, color) {
   const pct = Math.round(Math.min(1, Math.max(0, t)) * 100);

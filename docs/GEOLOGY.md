@@ -36,7 +36,7 @@ Suspended sediment is carried along with the velocity field. When a puddle evapo
 whatever it carried settles out, which is why dried lakes leave flat lake beds.
 
 **Try it.** Drop a **Spring** on a mountain and watch it find a path, pool in a basin, overflow
-and cut a notch in the rim. Switch to **Colour → Erosion / deposition**: the channel shows red
+and cut a notch in the rim. Switch to **Overlays → Erosion / deposition**: the channel shows red
 (cut) and the lake bed shows blue (filled).
 
 > Model: Mei, Decaudin & Hu, *Fast Hydraulic Erosion Simulation and Visualization on GPU* (2007).
@@ -71,29 +71,54 @@ Solid, hard rock can hold much steeper faces than loose or soft rock.
 
 **Simulation.** For every cell, if the slope to any neighbour is steeper than the repose angle, a
 fraction of the excess height moves down to the lower neighbours. Repeat until everything is
-stable. When rock strata are on, harder layers get a steeper limit.
+stable. With rock types on, harder rock gets a steeper limit.
 
 **Try it.** Raise a tall spike with a small brush, then use **Crumble** on it, or set the
 **Repose angle** to 20° and watch the whole landscape slump.
 
 ---
 
-## 4. Rock strata: differential erosion (`World.hardnessAt`)
+## 4. Rock types: differential erosion (`src/core/rocks.js`)
 
-**Real world.** Sedimentary rock forms in layers: sandstone, shale, limestone. Some layers are
-much harder than others. Where soft layers wear back faster than the hard ones above them, the hard
-layer is left as a ledge or **caprock**. This differential erosion produces the stepped walls of the
-Grand Canyon and the **mesas**, **buttes** and **hoodoos** of the American Southwest. Layers are
-rarely perfectly flat: they dip and fold, which is why ridges and ledges wander across a landscape
-instead of tracing perfect contour rings.
+**Real world.** Bedrock is not one material. Granite and basalt are tough; shale crumbles. Where
+soft rock wears away faster than the hard rock beside or above it, the hard rock is left standing
+as ridges, ledges, caprock, mesas and hoodoos. This is **differential erosion**, and it's why
+the Grand Canyon has stepped walls and why granite so often forms the highest peaks.
 
-**Simulation.** With **Rock strata** on, each point's hardness depends on its elevation plus a
-smooth per-location offset (a gentle tilt and some folding). Hardness scales how fast water erodes
-there and how steep it can stand. **Layer strength** controls the contrast between layers:
-high values carve strong terraces, low values give subtle benches.
+**Simulation.** Each map is divided into geological **provinces**, each with its own rocks:
 
-**Try it.** Choose *Layered plateau*, turn on strata at strength ~0.7, add rain and springs, and
-watch the plateau edge retreat into benches. Use **Colour → Rock hardness** to see the layers.
+| Province | Rocks | Story |
+| --- | --- | --- |
+| Sedimentary basin | sandstone, shale, limestone, conglomerate | layers laid down by seas, rivers and deltas |
+| Volcanic plateau | basalt (mostly), andesite, rhyolite | stacked lava flows |
+| Plutonic core | granite | magma that cooled slowly underground, now exposed under high ground |
+| Metamorphic belt | gneiss, schist, marble | rock baked and squeezed around the granite |
+| Stratovolcano (volcano preset) | basalt base, andesite flanks, rhyolite summit | lava gets more silica-rich over a volcano's life |
+
+| Rock | Hardness | Notes |
+| --- | --- | --- |
+| Granite | 0.95 | hardest; domes and peaks |
+| Basalt | 0.85 | dark lava flows; plateaus and cliffs |
+| Gneiss | 0.85 | banded metamorphic |
+| Andesite | 0.80 | grey volcano-building lava |
+| Rhyolite | 0.70 | pale, silica-rich lava |
+| Marble | 0.60 | recrystallised limestone |
+| Limestone | 0.55 | ancient sea floor; dissolves into karst |
+| Sandstone | 0.50 | cemented sand; cliffs and arches |
+| Schist | 0.50 | flaky, mica-rich |
+| Conglomerate | 0.45 | cemented gravel |
+| Shale | 0.15 | compacted mud; softest |
+
+Layered provinces are three-dimensional: which rock is at the surface depends on the current
+ground height, so as rivers cut down they expose the layers underneath. The layers dip and
+fold, so they wander across the landscape instead of tracing contour lines. Hardness scales how
+fast water erodes the rock and how steep it can stand before sliding. **Hardness contrast** sets
+how much the rocks differ.
+
+**Try it.** Choose **Overlays → Rock type** to see the geological map, or untick **Show
+vegetation** to see the bare rock in the natural view. Run **Erode ×50k drops** with high
+hardness contrast and watch granite and basalt stand up as ridges while shale valleys open
+between them. Hover with **Inspect** to read the bedrock and province anywhere.
 
 ---
 
@@ -126,7 +151,7 @@ wetter than others), current rainfall and nearby rivers and lakes fill it, and p
 forests most of all. A forest needs moist soil to survive. When the supply drops (you remove a
 spring, stop the rain, or turn **Climate wetness** down), the soil dries out over the following
 seconds and forests **retreat** to grassland, then grassland to bare ground. Trees hang on longest
-beside water. Use **Colour → Soil moisture** to watch the water supply directly.
+beside water. Use **Overlays → Wetness** to watch the water supply directly.
 
 **Elevation.** Above the **tree line** it is too cold, windy and short-seasoned for trees, so
 forest gives way to alpine grassland (tundra), which thins out to bare rock and scree higher up.
@@ -137,7 +162,7 @@ Land beside rivers, lakes and springs is the **riparian zone**: its water table 
 there regrow up to 6× faster and grow denser. That's why rivers in dry country are lined with a
 ribbon of trees. Place a **Spring** on bare ground and watch a green belt spread along its channel.
 
-**Try it.** Turn on **Global rain** and switch **Colour → Erosion / deposition**: barren
+**Try it.** Turn on **Global rain** and switch **Overlays → Erosion / deposition**: barren
 patches turn red much faster than forests. Then **Shift-drag with Plant** to clear-cut a
 forested hillside and watch gullies open up where the trees were.
 
@@ -169,7 +194,7 @@ the map's typical slope, so each forms whole regions.
 Bare biomes (desert, mesa, barren) erode fastest, which is why arid landscapes are so sharply
 carved: there are no roots to hold the ground when the rare storms come. Turn **Climate wetness**
 down and watch forest give way to shrubland and then desert, while mesas emerge on the dry
-slopes. **Colour → Biomes** shows the categories; hover the legend for descriptions.
+slopes. **Overlays → Biomes** shows the categories; hover the legend for descriptions.
 
 ---
 

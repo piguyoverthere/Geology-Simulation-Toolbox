@@ -9,11 +9,13 @@
 //   flux      – outflow of water to the 4 neighbours (L, R, T, B) for the pipe model
 //   velX/velZ – water velocity, derived from flux
 //   vegetation – plant cover 0..1 (barren → grassland → forest); roots resist erosion
+//   province  – geological province per cell (see core/rocks.js); with height it picks the rock type
 //   sources   – springs that emit water each step (x, z, rate)
 
 import { createNoise2D, fbm } from './noise.js';
+import { ROCKS, rockAt } from './rocks.js';
 
-const LUT_MIN = -100, LUT_MAX = 300, LUT_RES = 20; // hardness table range (height units) and samples per unit
+const ROCK_HARDNESS = Float32Array.from(ROCKS, (r) => r.hardness);
 
 export class World {
   /** @param {number} size grid resolution (cells per side) */
@@ -41,12 +43,14 @@ export class World {
     this.gentleSlope = 0.6;                // the map's median stand slope ("gentle" is relative)
     /** @type {{x:number, z:number, rate:number}[]} */
     this.sources = [];
+    this.province = new Uint8Array(n);
+    this.geoRange = { lo: 0, hi: 1 };       // height range at generation (for the volcano's zoning)
 
     // Geology settings shared by all processes
     this.erosionEnabled = true; // master switch: water erosion, weathering and landslides
-    this.strataEnabled = false;
-    this.strataSpacing = 7;   // vertical distance between hard/soft rock bands
-    this.strataStrength = 0.4; // 0 = uniform rock, 1 = hard bands erode ~5x slower than soft ones
+    this.rocksEnabled = true;  // rock types differ in hardness (off = uniform rock everywhere)
+    this.strataSpacing = 7;    // base thickness of rock layers
+    this.strataStrength = 0.5; // hardness contrast: 0 = all rock erodes alike, 1 = full difference
     // Real rock layers are rarely perfectly level: they dip and fold. This per-cell offset warps
     // the layers so they don't line up with the contours (which would cut every slope into rings).
     this.strataWarp = new Float32Array(n);
@@ -80,31 +84,18 @@ export class World {
            (h[i + N] * (1 - fx) + h[i + N + 1] * fx) * fz;
   }
 
+  /** Index into ROCKS of the bedrock at cell i with the ground at height h. */
+  rockAt(h, i) { return rockAt(this, i, h); }
+
   /**
-   * Rock resistance (0..1, higher = harder) at a given elevation. Real landscapes are built
-   * from layers of different rock; soft layers wear away faster than hard ones, which is
-   * what carves cliffs, ledges, mesas and hoodoos. Strata are gently dipping, folded layers.
-   * @param {number} h  elevation   @param {number} i  cell index (selects the layer warp)
+   * Rock resistance (0..1, higher = harder) at a given elevation. Soft rock (shale) wears away
+   * far faster than hard rock (granite, basalt), which is what carves cliffs, ledges, mesas and
+   * hoodoos. Layered rocks dip and fold, so which layer is exposed changes as erosion cuts down.
+   * @param {number} h  elevation   @param {number} i  cell index
    */
   hardnessAt(h, i) {
-    if (!this.strataEnabled) return 0.5;
-    // Cached lookup table (this is called for every cell every frame); rebuilt when spacing changes
-    if (this._lutSpacing !== this.strataSpacing) this.buildHardnessLUT();
-    const k = ((h + this.strataWarp[i] - LUT_MIN) * LUT_RES) | 0;
-    const raw = this._lut[k < 0 ? 0 : k >= this._lut.length ? this._lut.length - 1 : k];
-    return 0.5 + (raw - 0.55) * this.strataStrength;
-  }
-
-  buildHardnessLUT() {
-    const n = (LUT_MAX - LUT_MIN) * LUT_RES;
-    this._lut = new Float32Array(n);
-    for (let k = 0; k < n; k++) {
-      const t = (LUT_MIN + k / LUT_RES) / this.strataSpacing;
-      // Thin hard caprock bands separated by thicker soft layers
-      const band = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 + Math.sin(t * 0.7) * 1.3);
-      this._lut[k] = 0.15 + 0.8 * Math.pow(band, 3);
-    }
-    this._lutSpacing = this.strataSpacing;
+    if (!this.rocksEnabled) return 0.5;
+    return 0.5 + (ROCK_HARDNESS[rockAt(this, i, h)] - 0.5) * this.strataStrength;
   }
 
   /**
