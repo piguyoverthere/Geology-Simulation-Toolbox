@@ -8,14 +8,20 @@
 // Plants grow toward what the site can support. They like gentle slopes, moisture and moderate
 // elevation. Flooding, burial by sediment and having the soil washed away all kill them off. This
 // gives the classic feedback loop: bare ground erodes, and erosion keeps ground bare.
+//
+// Land next to rivers, lakes and springs (the *riparian zone*) has a high water table, so plants
+// there regrow much faster and grow denser: think of the green ribbon of trees along a desert river.
 
 import { createNoise2D, fbm } from '../core/noise.js';
+import { boxBlur } from '../core/grid.js';
 
 export const vegetationParams = {
   growth: 0.03,       // how fast cover moves toward the site's potential per step
   disturbance: 0.6,   // cover lost per unit of ground removed or buried
   treeLine: 38,       // forests thin out above this height
   forestSlope: 0.45,  // slope (rise/run, ≈ 24°) above which forest gives way to grassland
+  riparianReach: 4,   // how far (cells, roughly ×2) the wet zone extends from open water
+  riparianBoost: 5,   // extra growth speed right beside water (1 + boost times the normal rate)
 };
 
 /** Build a moisture map from noise and set vegetation straight to its potential. */
@@ -29,6 +35,7 @@ export function initVegetation(world, seed = 1) {
       world.moisture[z * N + x] = Math.min(1, Math.max(0, 0.5 + 1.2 * fbm(noise, x / 70, z / 70, 4)));
     }
   }
+  updateNearWater(world);
   for (let i = 0; i < N * N; i++) world.vegetation[i] = potential(world, i);
   world.prevHeight.set(world.height);
   world.dirty = true;
@@ -45,8 +52,8 @@ function potential(world, i) {
   const slope = Math.sqrt(gx * gx + gz * gz);
 
   let m = world.moisture ? world.moisture[i] : 0.5;
-  // Valley floors near water stay wetter
-  if (world.water[i] > 0.01) m += 0.3;
+  // Ground beside rivers, lakes and springs stays wetter
+  if (world.nearWater) m += 0.5 * world.nearWater[i];
   const p = vegetationParams;
   const steep = 1 - 0.85 * smoothstep(0.6, 1.8, slope);
   const cold = 1 - smoothstep(p.treeLine, p.treeLine + 14, h);
@@ -64,15 +71,31 @@ function potential(world, i) {
 export function vegetationStep(world) {
   const V = world.vegetation, H = world.height, P = world.prevHeight;
   const p = vegetationParams;
+  updateNearWater(world);
+  const W = world.nearWater;
   for (let i = 0; i < V.length; i++) {
     // Slow creep is tolerated; only real scouring or burial damages plants
     const change = Math.max(0, Math.abs(H[i] - P[i]) - 0.05);
     let v = V[i] - change * p.disturbance;
-    v += (potential(world, i) - v) * p.growth;
+    const target = potential(world, i);
+    // Regrowth is faster near water; dieback runs at the normal rate
+    const rate = target > v ? p.growth * (1 + p.riparianBoost * W[i]) : p.growth;
+    v += (target - v) * Math.min(1, rate);
     V[i] = v < 0 ? 0 : v > 1 ? 1 : v;
   }
   P.set(H);
   world.dirty = true;
+}
+
+/** world.nearWater: 1 at open water, fading to 0 a few cells away from it. */
+function updateNearWater(world) {
+  const D = world.water;
+  const wet = new Float32Array(D.length);
+  for (let i = 0; i < D.length; i++) wet[i] = D[i] > 0.05 ? 1 : 0;
+  const r = vegetationParams.riparianReach;
+  const spread = boxBlur(boxBlur(wet, world.N, r), world.N, r);
+  for (let i = 0; i < spread.length; i++) spread[i] = Math.min(1, spread[i] * 3);
+  world.nearWater = spread;
 }
 
 function smoothstep(e0, e1, x) {

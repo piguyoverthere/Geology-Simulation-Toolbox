@@ -1,5 +1,6 @@
 import { createNoise2D, fbm, ridged } from './noise.js';
 import { initVegetation } from '../sim/vegetation.js';
+import { boxBlur } from './grid.js';
 
 /**
  * Terrain presets. Each fills world.height with a starting landscape that erosion can then work on.
@@ -87,25 +88,6 @@ function smoothLowlands(world, noise) {
       H[i] += (blurred[i] - H[i]) * w;
     }
   }
-}
-
-function boxBlur(src, N, r) {
-  const tmp = new Float32Array(src.length), out = new Float32Array(src.length);
-  for (let z = 0; z < N; z++) {
-    for (let x = 0; x < N; x++) {
-      let s = 0, c = 0;
-      for (let k = Math.max(0, x - r); k <= Math.min(N - 1, x + r); k++) { s += src[z * N + k]; c++; }
-      tmp[z * N + x] = s / c;
-    }
-  }
-  for (let z = 0; z < N; z++) {
-    for (let x = 0; x < N; x++) {
-      let s = 0, c = 0;
-      for (let k = Math.max(0, z - r); k <= Math.min(N - 1, z + r); k++) { s += tmp[k * N + x]; c++; }
-      out[z * N + x] = s / c;
-    }
-  }
-  return out;
 }
 
 function smoothstep(e0, e1, x) {

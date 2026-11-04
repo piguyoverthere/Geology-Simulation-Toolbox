@@ -119,6 +119,10 @@ pattern across the map, plus extra near water), slope (cliffs stay bare) and hei
 out above the tree line). Ground that is scoured, buried by sediment, or drowned under deep water
 loses its plants. Forest also lets slopes stand about 30% steeper before they slide.
 
+Land beside rivers, lakes and springs is the **riparian zone**: its water table is high, so plants
+there regrow up to 6× faster and grow denser. That's why rivers in dry country are lined with a
+ribbon of trees. Place a **Spring** on bare ground and watch a green belt spread along its channel.
+
 **Try it.** Turn on **Global rain** and switch **Colour → Erosion / deposition**: barren
 patches turn red much faster than forests. Then **Shift-drag with Plant** to clear-cut a
 forested hillside and watch gullies open up where the trees were.
