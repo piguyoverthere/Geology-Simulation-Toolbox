@@ -149,6 +149,14 @@ starting with sparse pioneers and reaching forest much later. Ash beds weather i
 within a short while; solid lava flows stay bare several times longer (moisture speeds this up).
 Hover with **Inspect** to see a spot's "Fresh rock" level.
 
+**Wildfire** (`src/sim/fire.js`). Lava is around 1000 °C, so plants it touches catch fire.
+Fire races through forest, where the crowns touch and there's plenty of fuel, but barely crosses
+grassland, and bare ground, water and rain stop it. It also runs faster uphill. Burnt land is left
+as bare, ash-grey ground that regrows slowly, and until it does it erodes like barren ground, which
+is why burn scars after eruptions and wildfires are prone to gullying and mudflows. In testing, a
+small basalt eruption beside a forest burned ~93% of that forest but under 1% of the surrounding
+grassland. **Wildfires** and **Fire spread** are in the Volcanism & tectonics panel.
+
 **Try it.** From a hilltop, erupt each type at the same size: basalt runs 40–50 cells down the
 valleys, andesite about 30, and rhyolite stays as a dome at the vent under a wide ash blanket.
 Drop a pluton, run **Erode ×50k drops** a few times, and watch the granite core appear on the

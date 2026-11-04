@@ -43,6 +43,8 @@ Crumble: landslides) and **Tectonics**, plus brush **Size** and **Strength**:
 - **Erupt** ♨: click for a vent or drag for a fissure. Basaltic lava runs far in thin flows;
   andesitic builds a steep cone with ash bursts; rhyolitic blasts a crater and an ash blanket,
   then grows a lava dome. Lava glows, flows, cools and becomes new rock; ash settles as tuff.
+  Lava sets forests alight: wildfire races through forest (much slower in grass), leaving ash-grey
+  burnt ground that recovers slowly.
 - **Intrude** ◍: a granite pluton (click) domes the ground with granite hidden beneath until erosion
   exposes it; a basalt dike (drag) is a hard wall that erosion leaves standing.
 - **Fault** ⫽: drag a fault line; it slips in a series of earthquakes (the camera shakes).
@@ -90,6 +92,7 @@ src/sim/droplet.js      Particle raindrop erosion (long-term weathering, gullies
 src/sim/thermal.js      Thermal erosion / mass wasting (slopes relax to the angle of repose)
 src/sim/vegetation.js   Forest / grassland / barren cover that grows, dies and protects soil
 src/sim/volcanism.js    Eruptions, lava flow and cooling, ash fall, plutons and dikes
+src/sim/fire.js         Wildfire: ignition by lava, spread through vegetation, burn scars
 src/sim/tectonics.js    Faults: normal, reverse and strike-slip, slipping in earthquakes
 src/render/effects.js   Eruption plumes, vent glow, fault traces and earthquake shake
 src/tools/brushes.js    Tool definitions + undo history

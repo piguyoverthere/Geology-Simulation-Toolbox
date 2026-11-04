@@ -51,6 +51,8 @@ export class Inspector {
       ['Surface water', depth > 0.005 ? `${depth.toFixed(2)} deep · ${speed.toFixed(1)} speed` : 'dry'],
       ['Sediment load', w.sediment[i] > 0.001 ? w.sediment[i].toFixed(3) : '—'],
       ['Plant cover', `${bar(v, '#4caf50')} <span class="ins-dim">${cover}</span>`],
+      ...(w.fire[i] > 0 ? [['Fire', `<span style="color:#ff8a4a">burning · ${Math.round(w.fire[i] * 100)}% intensity</span>`]] : []),
+      ...(w.burnt[i] > 0.01 ? [['Burnt', `${bar(w.burnt[i], '#777')} <span class="ins-dim">ash</span>`]] : []),
       ...(w.freshRock[i] > 0.01 ? [['Fresh rock', `${bar(w.freshRock[i], '#ff8a4a')} <span class="ins-dim">no soil yet</span>`]] : []),
       ['Bedrock', `<span class="tb-swatch ins-swatch" style="background:${rgb(rock.color)}"></span>${rock.label}`],
       ['Formation', `<span class="ins-dim">${formation(w, i, h)}</span>`],

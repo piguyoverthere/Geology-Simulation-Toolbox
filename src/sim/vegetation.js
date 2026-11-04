@@ -47,6 +47,7 @@ export const vegetationParams = {
   grassBuffer: 10,    // forest keeps roughly 1–2× this many cells away from arid ground (grassland between)
   climate: 1,         // regional wetness multiplier (0 = desert, 1 = normal, 1.5 = rainforest)
   forestWater: 0.46,  // soil moisture a forest needs to sustain itself
+  ashRecovery: 0.004, // how fast burnt ground recovers per step
   weathering: 0.0009, // how fast fresh lava/ash breaks down into soil per step (×(0.4 + soil))
   uptake: 0.2,        // how much full plant cover draws down soil moisture
   soilMemory: 0.04,   // how fast soil moisture moves toward its supply each step
@@ -161,12 +162,19 @@ export function vegetationStep(world) {
   const f = neighbourhood(world);
   for (let i = 0; i < V.length; i++) {
 
+    // Burning cells don't regrow; burnt ground recovers slowly while plants creep back
+    if (world.fire[i] > 0) continue;
+    const burnt = world.burnt[i];
     // Slow creep is tolerated; only real scouring or burial damages plants
     const change = Math.max(0, Math.abs(H[i] - P[i]) - 0.05);
     let v = V[i] - change * p.disturbance;
     let target = potential(world, i, f);
     // Regrowth is faster near water; dieback (drought, cold) runs at the normal rate
     let rate = target > v ? p.growth * (1 + p.riparianBoost * W[i]) : p.growth;
+    if (burnt > 0) {
+      if (target > v) rate *= 1 - 0.8 * burnt;
+      world.burnt[i] = Math.max(0, burnt - p.ashRecovery);
+    }
     const fresh = F[i];
     if (fresh > 0) {
       // Bare new rock can only hold sparse pioneers, and colonisation is slow until soil forms

@@ -17,11 +17,52 @@ export class Effects {
     this.faultCount = -1;
     this.frame = 0;
     this.shake = new THREE.Vector3();
+    this.smoke = this.makeSmoke();
+  }
+
+  /** One shared particle system for wildfire smoke, fed from random burning cells. */
+  makeSmoke() {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_PARTICLES * 3).fill(-9999), 3));
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
+    const points = new THREE.Points(geo, new THREE.PointsMaterial({
+      color: 0x3a3632, size: 4.5, sizeAttenuation: true, transparent: true, opacity: 0.4, depthWrite: false,
+    }));
+    this.scene.add(points);
+    return { points, life: new Float32Array(MAX_PARTICLES), vel: new Float32Array(MAX_PARTICLES * 3), next: 0, spawn: 0 };
+  }
+
+  updateSmoke(dt) {
+    const s = this.smoke, w = this.world, cells = w.fireCells;
+    const pos = s.points.geometry.attributes.position;
+    if (cells.length) {
+      s.spawn += dt * Math.min(220, 20 + cells.length * 1.5);
+      while (s.spawn >= 1) {
+        s.spawn--;
+        const i = cells[(Math.random() * cells.length) | 0];
+        const x = i % w.N, z = (i / w.N) | 0;
+        const p = this.renderer.toWorld(x + Math.random() - 0.5, z + Math.random() - 0.5, w.height[i] + 1.5);
+        const k = s.next; s.next = (s.next + 1) % MAX_PARTICLES;
+        pos.setXYZ(k, p.x, p.y, p.z);
+        s.vel[k * 3] = (Math.random() - 0.5) * 1.5; s.vel[k * 3 + 1] = 4 + Math.random() * 5; s.vel[k * 3 + 2] = (Math.random() - 0.5) * 1.5;
+        s.life[k] = 2.5 + Math.random() * 2;
+      }
+    }
+    for (let k = 0; k < MAX_PARTICLES; k++) {
+      if (s.life[k] <= 0) continue;
+      s.life[k] -= dt;
+      if (s.life[k] <= 0) { pos.setY(k, -9999); continue; }
+      // Smoke drifts downwind as it rises
+      s.vel[k * 3] += 1.8 * dt; s.vel[k * 3 + 2] += 0.6 * dt;
+      pos.setXYZ(k, pos.getX(k) + s.vel[k * 3] * dt, pos.getY(k) + s.vel[k * 3 + 1] * dt, pos.getZ(k) + s.vel[k * 3 + 2] * dt);
+    }
+    pos.needsUpdate = true;
   }
 
   update(dt) {
     this.frame++;
     this.updatePlumes(dt);
+    this.updateSmoke(dt);
     this.updateFaults();
   }
 

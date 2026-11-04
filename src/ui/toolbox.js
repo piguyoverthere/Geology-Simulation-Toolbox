@@ -91,6 +91,11 @@ export class Toolbox {
         'Total displacement across the fault once all its earthquakes have happened.', this),
       slider('Earthquakes', app.faultSettings, 'quakes', 1, 20, 1,
         'How many quakes the slip is released in. Fewer = bigger, sharper jumps.', this),
+      el('div', 'tb-group-label', 'Wildfire'),
+      toggle('Wildfires', app.fireParams, 'enabled',
+        'Lava sets touching vegetation alight. Fire races through forest, creeps through grass, runs faster uphill and is stopped by bare ground, water and rain. Burnt land turns to ash and regrows slowly.', this),
+      slider('Fire spread', app.fireParams, 'spread', 0.5, 6, 0.1,
+        'How readily fire jumps to neighbouring plants.', this),
     );
     const vtBtns = el('div', 'tb-row');
     vtBtns.append(button('Stop all events', () => { app.world.events.length = 0; }, '', 'End all running eruptions, intrusions and faults. Lava already out keeps flowing until it cools.', this));

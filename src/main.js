@@ -12,6 +12,7 @@ import { initVegetation, vegetationStep, vegetationParams } from './sim/vegetati
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { lavaStep, volcanoSettings } from './sim/volcanism.js';
+import { fireStep, fireParams } from './sim/fire.js';
 import { faultSettings } from './sim/tectonics.js';
 import { Effects } from './render/effects.js';
 
@@ -26,6 +27,7 @@ class App {
     this.vegetationParams = vegetationParams;
     this.volcanoSettings = volcanoSettings;
     this.faultSettings = faultSettings;
+    this.fireParams = fireParams;
 
     this.tool = 'raise';
     this.brush = { radius: 12, strength: 0.5 };
@@ -381,6 +383,7 @@ class App {
         const w = this.world;
         for (let e = w.events.length - 1; e >= 0; e--) if (w.events[e].update(w, 0.05)) w.events.splice(e, 1);
         lavaStep(w, 0.05);
+        fireStep(w, 0.05);
       }
     }
 

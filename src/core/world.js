@@ -54,6 +54,9 @@ export class World {
     this.surfaceRock = new Int8Array(n).fill(-1);
     this.surfaceBase = new Float32Array(n);
     this.freshRock = new Float32Array(n); // 1 = newly erupted lava/ash with no soil yet; weathers back to 0
+    this.fire = new Float32Array(n);      // wildfire intensity (0 = not burning)
+    this.burnt = new Float32Array(n);     // 1 = freshly burnt to ash; fades as plants return
+    this.fireCells = [];                  // indices of burning cells (for smoke)
     this.intrusionRock = new Int8Array(n).fill(-1);
     this.intrusionTop = new Float32Array(n).fill(-Infinity);
     this.events = [];
@@ -126,6 +129,7 @@ export class World {
   resetEvents() {
     this.lava.fill(0); this.lavaTemp.fill(0);
     this.surfaceRock.fill(-1); this.surfaceBase.fill(0); this.freshRock.fill(0);
+    this.fire.fill(0); this.burnt.fill(0); this.fireCells.length = 0;
     this.intrusionRock.fill(-1); this.intrusionTop.fill(-Infinity);
     this.strataWarp.set(this.strataWarp0);
     this.events.length = 0; this.faults.length = 0; this.quake = 0;

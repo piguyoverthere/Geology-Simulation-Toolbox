@@ -18,6 +18,7 @@ const C = {
   rockSoft: [0.68, 0.52, 0.40], // soft strata: reddish sandstone/shale
   rockHard: [0.58, 0.55, 0.51], // hard strata: grey caprock
   snow: [0.95, 0.96, 0.98],
+  ash: [0.27, 0.26, 0.25],      // wildfire ash and charcoal
   eroded: [0.85, 0.25, 0.20],
   deposited: [0.20, 0.45, 0.90],
   neutral: [0.75, 0.75, 0.72],
@@ -152,7 +153,7 @@ export class TerrainRenderer {
     const off = this.offset;
     const mode = this.colorMode;
     const sea = w.seaLevel;
-    const LV = w.lava, LT = w.lavaTemp;
+    const LV = w.lava, LT = w.lavaTemp, FI = w.fire;
     let anyLava = false;
 
     for (let z = 0; z < N; z++) {
@@ -206,6 +207,12 @@ export class TerrainRenderer {
           this.lPos[i3 + 1] = h + LV[i];
           const lc = lavaColor(LT[i]);
           this.lCol[i3] = lc[0] * lc[0]; this.lCol[i3 + 1] = lc[1] * lc[1]; this.lCol[i3 + 2] = lc[2] * lc[2];
+        } else if (FI[i] > 0.02) {
+          // Flames at canopy height, flickering
+          anyLava = true;
+          this.lPos[i3 + 1] = h + 0.3 + w.vegetation[i] * 1.6 * (0.7 + 0.6 * Math.random());
+          const fc = lavaColor(0.55 + 0.45 * FI[i] * Math.random());
+          this.lCol[i3] = fc[0] * fc[0]; this.lCol[i3 + 1] = fc[1] * fc[1]; this.lCol[i3 + 2] = fc[2] * fc[2];
         } else {
           this.lPos[i3 + 1] = h - 0.5;
         }
@@ -308,6 +315,9 @@ export class TerrainRenderer {
     mix(col, rock, smooth(0.2, 0.42, slope) * (1 - 0.6 * v), col);
     // Fresh sediment (deposits) shows as bare soil
     if (change > 0.15) mix(col, C.soil, Math.min(0.7, change / 3) * (1 - smooth(0.1, 0.25, slope)) * (1 - v), col);
+    // Wildfire ash and charred ground, hidden again as plants return
+    const burnt = w.burnt[i];
+    if (burnt > 0) mix(col, C.ash, burnt * 0.9 * (1 - smooth(0.2, 0.6, v)), col);
     // Beaches just above sea level
     if (h > w.seaLevel - 0.3 && h < w.seaLevel + 1.5) mix(col, C.sand, 0.8, col);
     else if (h <= w.seaLevel - 0.3) mix(col, C.soil, 0.6, col); // muddy sea floor
