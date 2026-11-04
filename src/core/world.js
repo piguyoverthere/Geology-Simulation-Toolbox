@@ -41,6 +41,7 @@ export class World {
     this.sources = [];
 
     // Geology settings shared by all processes
+    this.erosionEnabled = true; // master switch: water erosion, weathering and landslides
     this.strataEnabled = false;
     this.strataSpacing = 7;   // vertical distance between hard/soft rock bands
     this.strataStrength = 0.4; // 0 = uniform rock, 1 = hard bands erode ~5x slower than soft ones

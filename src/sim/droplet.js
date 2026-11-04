@@ -52,6 +52,7 @@ function erosionBrush(radius) {
  * @param {import('../core/world.js').World} world
  */
 export function runDroplets(world, count, region = null, strength = 1) {
+  if (!world.erosionEnabled) return;
   const N = world.N;
   const H = world.height;
   const p = dropletParams;

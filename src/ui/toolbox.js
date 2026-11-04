@@ -34,22 +34,13 @@ export class Toolbox {
     r.append(this.statsEl);
 
     // --- Tools -------------------------------------------------------------------------------
+    // Shortcut keys follow TOOLS order; erosion brushes are listed in the Erosion section below
+    this.shortcuts = new Map(Object.keys(TOOLS).map((id, k) => [id, k + 1]));
     const toolSec = this.section('Tools', true);
-    const groups = {};
-    let shortcut = 1;
-    for (const [id, t] of Object.entries(TOOLS)) {
-      if (!groups[t.group]) {
-        toolSec.append(el('div', 'tb-group-label', t.group));
-        groups[t.group] = el('div', 'tb-tool-grid');
-        toolSec.append(groups[t.group]);
-      }
-      const b = el('button', 'tb-tool');
-      b.innerHTML = `<span class="tb-icon">${t.icon}</span><span>${t.label}</span><kbd>${shortcut <= 9 ? shortcut : ''}</kbd>`;
-      b.addEventListener('click', () => app.setTool(id));
-      this.helpOn(b, `<b>${t.label}</b> — ${t.help}`);
-      groups[t.group].append(b);
-      this.toolButtons.set(id, b);
-      shortcut++;
+    const groups = [...new Set(Object.values(TOOLS).map((t) => t.group))].filter((g) => g !== 'Erosion');
+    for (const g of groups) {
+      toolSec.append(el('div', 'tb-group-label', g));
+      toolSec.append(this.toolList(g));
     }
 
     // --- Brush -------------------------------------------------------------------------------
@@ -59,35 +50,48 @@ export class Toolbox {
       slider('Strength', app.brush, 'strength', 0.05, 1, 0.01, 'How fast the tool works.', this),
     );
 
-    // --- Simulation --------------------------------------------------------------------------
-    const sim = this.section('Erosion simulation', true);
+    // --- Erosion -----------------------------------------------------------------------------
+    const ero = this.section('Erosion', true);
+    const master = toggle('Erosion enabled', app.world, 'erosionEnabled',
+      'Master switch for all erosion: rivers, weathering, landslides and the erosion brushes. Turn off to sculpt and watch water flow without the ground changing.', this, () => this.refresh());
+    master.classList.add('tb-master');
+    this.erosionControls = el('div', 'tb-group');
+    this.erosionControls.append(
+      el('div', 'tb-group-label', 'Brushes'),
+      this.toolList('Erosion'),
+      el('div', 'tb-group-label', 'Processes'),
+      toggle('River erosion', app.waterParams, 'erosionEnabled',
+        'Let flowing water pick up and drop sediment. Turn off to just watch water flow and pool.', this),
+      slider('Weathering', app.sim, 'dropletsPerFrame', 0, 3000, 50,
+        'Raindrop erosion over the whole map each frame (particle model). Simulates centuries of rainfall: carves gullies and valleys.', this),
+      toggle('Landslides', app.sim, 'thermal',
+        'Thermal erosion: slopes steeper than the angle of repose crumble into scree.', this),
+      slider('Repose angle °', app.thermalParams, 'talusAngle', 15, 60, 1,
+        'Steepest stable slope for loose rock. Real rubble is about 30-40°. Hard strata can stand steeper.', this),
+    );
+    const eroBtns = el('div', 'tb-row');
+    eroBtns.append(button('Erode ×50k drops', () => app.bulkErode(50000), '', 'Instantly run 50,000 raindrops of erosion over the whole map.', this));
+    this.erosionControls.append(eroBtns);
+    ero.append(master, this.erosionControls);
+
+    // --- Water & climate ---------------------------------------------------------------------
+    const sim = this.section('Water & climate', true);
     sim.append(
       slider('Sim speed', app.sim, 'substeps', 1, 20, 1,
         'Water-flow steps per frame. Higher = faster geological time, lower framerate.', this),
       slider('Global rain', app.waterParams, 'rain', 0, 0.1, 0.002,
         'Rainfall over the whole map, fed into the shallow-water flow model. Rivers form where runoff converges.', this),
-      toggle('River erosion', app.waterParams, 'erosionEnabled',
-        'Let flowing water pick up and drop sediment. Turn off to just watch water flow and pool.', this),
       slider('Evaporation', app.waterParams, 'evaporate', 0, 0.3, 0.005,
         'How fast standing water dries up. Dry lakes leave their sediment behind as flat lake beds.', this),
-      slider('Weathering', app.sim, 'dropletsPerFrame', 0, 3000, 50,
-        'Raindrop erosion over the whole map each frame (particle model). Simulates centuries of rainfall: carves gullies and valleys.', this),
-      toggle('Landslides', app.sim, 'thermal',
-        'Thermal erosion: slopes steeper than the angle of repose crumble into scree.', this),
       toggle('Plant growth', app.sim, 'vegetation',
         'Vegetation regrows toward what each spot can support (gentle, moist, not too high) and dies where ground is washed away, buried or flooded. Forest erodes ~4x slower than barren ground.', this),
       slider('Climate wetness', app.vegetationParams, 'climate', 0, 1.5, 0.05,
         'Long-term rainfall of the region. Dry it out and forests retreat to grassland, then to bare ground, holding on longest along rivers and lakes.', this),
       slider('Tree line', app.vegetationParams, 'treeLine', 5, 90, 1,
         'Height above which it is too cold for trees. Above it forests give way to alpine grassland, which thins to bare ground higher up.', this),
-      slider('Repose angle °', app.thermalParams, 'talusAngle', 15, 60, 1,
-        'Steepest stable slope for loose rock. Real rubble is about 30-40°. Hard strata can stand steeper.', this),
     );
     const simBtns = el('div', 'tb-row');
-    simBtns.append(
-      button('Erode ×50k drops', () => app.bulkErode(50000), '', 'Instantly run 50,000 raindrops of erosion over the whole map.', this),
-      button('Clear water', () => app.clearWater(), '', 'Remove all water, suspended sediment and springs.', this),
-    );
+    simBtns.append(button('Clear water', () => app.clearWater(), '', 'Remove all water, suspended sediment and springs.', this));
     sim.append(simBtns);
 
     // --- Geology -----------------------------------------------------------------------------
@@ -155,6 +159,22 @@ export class Toolbox {
     this.setInfo(this.defaultInfo());
   }
 
+  /** A vertical list of full-width tool panels for one tool group. */
+  toolList(group) {
+    const list = el('div', 'tb-tool-list');
+    for (const [id, t] of Object.entries(TOOLS)) {
+      if (t.group !== group) continue;
+      const n = this.shortcuts.get(id);
+      const b = el('button', 'tb-tool');
+      b.innerHTML = `<span class="tb-tool-label">${t.label}</span><kbd>${n <= 9 ? n : ''}</kbd><span class="tb-icon">${t.icon}</span>`;
+      b.addEventListener('click', () => this.app.setTool(id));
+      this.helpOn(b, `<b>${t.label}</b> — ${t.help}`);
+      list.append(b);
+      this.toolButtons.set(id, b);
+    }
+    return list;
+  }
+
   section(title, open) {
     const d = document.createElement('details');
     d.className = 'tb-section';
@@ -184,6 +204,7 @@ export class Toolbox {
     this.playBtn.textContent = this.app.sim.running ? '❚❚ Pause' : '▶ Play';
     this.playBtn.classList.toggle('running', this.app.sim.running);
     this.root.querySelectorAll('[data-sync]').forEach((n) => n.sync());
+    this.erosionControls.classList.toggle('tb-disabled', !this.app.world.erosionEnabled);
     this.setInfo(this.defaultInfo());
   }
 

@@ -35,12 +35,12 @@ Hover any control in the toolbox to see what it does in the info box at the bott
 
 ### Toolbox
 
-- **Sculpt**: Raise, Lower, Smooth, Flatten, Roughen.
-- **Water**: Rain (paint water on) and Spring (a permanent water source that carves a river).
-- **Life**: Plant (grow forest; Shift to clear it).
-- **Erosion brushes**: Weather (thousands of raindrops in the brush area) and Crumble (landslides).
-- **Erosion simulation**: global rain, sim speed, river erosion, evaporation, background
-  weathering, landslides, plant growth, climate wetness, tree line and angle of repose.
+- **Tools**: Sculpt (Raise, Lower, Smooth, Flatten, Roughen), Water (Rain, Spring: a permanent
+  water source that carves a river) and Life (Plant; Shift to clear).
+- **Erosion**: a master **Erosion enabled** switch, then the erosion brushes (Weather: thousands
+  of raindrops in the brush area; Crumble: landslides) and the processes (river erosion,
+  background weathering, landslides, angle of repose, bulk erode).
+- **Water & climate**: sim speed, global rain, evaporation, plant growth, climate wetness, tree line.
 - **Geology**: rock strata (hard and soft layers), sea level, edge drainage.
 - **Terrain**: presets (hills, mountains, plateau, volcano, flat), seed, undo/redo, PNG
   heightmap export/import.

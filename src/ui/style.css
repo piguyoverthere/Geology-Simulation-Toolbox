@@ -54,30 +54,38 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .tb-body { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 6px; }
 
 .tb-group-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
-.tb-tool-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-.tb-tool {
-  position: relative;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 7px 4px 6px; background: var(--panel-2); border: 1px solid var(--line);
-  border-radius: 7px; color: var(--text); cursor: pointer; font: inherit; font-size: 11.5px;
-}
-.tb-tool:hover { border-color: #4a5260; }
-.tb-tool.active { border-color: var(--accent); background: #3a2f22; }
-.tb-icon { font-size: 17px; line-height: 1.1; }
-.tb-tool kbd {
-  position: absolute; top: 3px; right: 5px; font-size: 9px; color: var(--muted); font-family: inherit;
-}
+.tb-group { display: flex; flex-direction: column; gap: 6px; transition: opacity 0.15s; }
+.tb-group.tb-disabled { opacity: 0.4; pointer-events: none; }
 
-.tb-control { display: grid; grid-template-columns: 95px 1fr 40px; align-items: center; gap: 8px; }
-.tb-control.tb-toggle { grid-template-columns: auto 1fr; gap: 8px; cursor: pointer; }
+/* Tools and controls share one look: full-width horizontal panels, label left, icon/value right */
+.tb-tool-list { display: flex; flex-direction: column; gap: 4px; }
+.tb-tool, .tb-control {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px;
+  padding: 6px 10px; min-height: 34px;
+}
+.tb-tool {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text); cursor: pointer; font: inherit; font-size: 12.5px; text-align: left;
+}
+.tb-tool:hover, .tb-control:hover { border-color: #4a5260; }
+.tb-tool.active { border-color: var(--accent); background: #3a2f22; }
+.tb-tool-label { flex: 1; }
+.tb-icon { font-size: 16px; line-height: 1; width: 20px; text-align: center; }
+.tb-tool kbd { font-size: 10px; color: var(--muted); font-family: inherit; min-width: 8px; }
+
+.tb-control { display: grid; grid-template-columns: 92px 1fr 40px; align-items: center; gap: 8px; }
+/* Checkboxes sit on the right, like the tool icons */
+.tb-control.tb-toggle { grid-template-columns: 1fr auto; cursor: pointer; }
+.tb-control.tb-toggle input { order: 2; }
+.tb-control.tb-master { border-color: var(--accent); background: #2e2820; font-weight: 600; }
 .tb-label { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tb-value { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11.5px; }
 .tb-control select, .tb-control input[type="number"] {
-  grid-column: 2 / 4; background: var(--panel-2); color: var(--text);
+  grid-column: 2 / 4; background: var(--panel); color: var(--text);
   border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; font: inherit;
 }
-.tb-control input[type="range"] { width: 100%; accent-color: var(--accent); }
-.tb-control input[type="checkbox"] { accent-color: var(--accent); margin: 0; }
+.tb-control input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+.tb-control input[type="checkbox"] { accent-color: var(--accent); margin: 0; width: 15px; height: 15px; }
 
 .tb-legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 8px; font-size: 11.5px; }
 .tb-legend-item { display: flex; align-items: center; gap: 6px; cursor: default; }

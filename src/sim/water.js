@@ -100,7 +100,7 @@ export function waterStep(world) {
   }
 
   // 4. Erosion and deposition
-  if (p.erosionEnabled) {
+  if (p.erosionEnabled && world.erosionEnabled) {
     for (let z = 1; z < N - 1; z++) {
       for (let x = 1; x < N - 1; x++) {
         const i = z * N + x;

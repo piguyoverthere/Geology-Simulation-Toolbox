@@ -241,6 +241,7 @@ class App {
   }
 
   bulkErode(n) {
+    if (!this.world.erosionEnabled) return;
     this.history.push(this.world);
     const t0 = performance.now();
     runDroplets(this.world, n);

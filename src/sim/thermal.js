@@ -19,6 +19,7 @@ let delta = null;
  * @param {import('../core/world.js').World} world
  */
 export function thermalStep(world, region = null, strength = 1) {
+  if (!world.erosionEnabled) return;
   const N = world.N;
   const H = world.height;
   if (!delta || delta.length !== H.length) delta = new Float32Array(H.length);
