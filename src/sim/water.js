@@ -1,0 +1,180 @@
+// Shallow-water flow with sediment transport ("virtual pipes" model, Mei, Decaudin & Hu 2007).
+//
+// Every cell is a column of water connected to its four neighbours by virtual pipes. Water
+// accelerates through a pipe in proportion to the difference in water-surface height, so it fills
+// lakes, spills over, and gathers into streams. From the outflow we get a velocity per cell.
+//
+// Moving water can hold an amount of sediment proportional to how fast it flows and how steep the
+// bed is (its *transport capacity*). Fast water on steep ground erodes its bed; when it slows down
+// (entering a lake, the sea or flat ground) it drops sediment, building deltas and floodplains.
+// Sediment is carried along with the velocity field (semi-Lagrangian advection).
+
+export const waterParams = {
+  rain: 0,             // global rainfall per second (0 = off)
+  dt: 0.03,
+  gravity: 9.81,
+  capacity: 0.6,       // Kc: sediment capacity constant
+  erode: 0.5,          // Ks: dissolving rate
+  deposit: 0.4,        // Kd: settling rate
+  evaporate: 0.02,     // Ke
+  minTilt: 0.05,       // keeps a little erosion going on near-flat river beds
+  maxErodeDepth: 3,    // water deeper than this erodes at full strength; shallower erodes less
+  erosionEnabled: true,
+};
+
+let tmpSed = null;
+
+/** @param {import('../core/world.js').World} world */
+export function waterStep(world) {
+  const N = world.N;
+  const p = waterParams;
+  const dt = p.dt;
+  const B = world.height, D = world.water, S = world.sediment;
+  const fL = world.fluxL, fR = world.fluxR, fT = world.fluxT, fB = world.fluxB;
+  const VX = world.velX, VZ = world.velZ;
+  const n = N * N;
+  if (!tmpSed || tmpSed.length !== n) tmpSed = new Float32Array(n);
+
+  // 1. Water sources: rain, springs, and the sea acting as a constant-level reservoir
+  if (p.rain > 0) {
+    const r = p.rain * dt;
+    for (let i = 0; i < n; i++) D[i] += r;
+  }
+  for (const s of world.sources) {
+    const sx = Math.round(s.x), sz = Math.round(s.z);
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      if (world.inBounds(sx + dx, sz + dz)) D[(sz + dz) * N + sx + dx] += (s.rate * dt) / 9;
+    }
+  }
+  const sea = world.seaLevel;
+  for (let i = 0; i < n; i++) if (B[i] < sea && B[i] + D[i] < sea) D[i] = sea - B[i];
+
+  // 2. Outflow flux through the virtual pipes (pipe cross-section area and length are 1)
+  const k = dt * p.gravity;
+  const drain = world.edgeDrain;
+  for (let z = 0; z < N; z++) {
+    for (let x = 0; x < N; x++) {
+      const i = z * N + x;
+      const hi = B[i] + D[i];
+      // Off-map neighbours are either walls (no flow) or a drop to ground level (water leaves)
+      const hL = x > 0 ? B[i - 1] + D[i - 1] : (drain ? B[i] : Infinity);
+      const hR = x < N - 1 ? B[i + 1] + D[i + 1] : (drain ? B[i] : Infinity);
+      const hT = z > 0 ? B[i - N] + D[i - N] : (drain ? B[i] : Infinity);
+      const hB = z < N - 1 ? B[i + N] + D[i + N] : (drain ? B[i] : Infinity);
+      let l = Math.max(0, fL[i] + k * (hi - hL));
+      let r = Math.max(0, fR[i] + k * (hi - hR));
+      let t = Math.max(0, fT[i] + k * (hi - hT));
+      let b = Math.max(0, fB[i] + k * (hi - hB));
+      // Never let more water leave than the cell holds
+      const out = (l + r + t + b) * dt;
+      if (out > D[i] && out > 0) {
+        const s = D[i] / out;
+        l *= s; r *= s; t *= s; b *= s;
+      }
+      fL[i] = l; fR[i] = r; fT[i] = t; fB[i] = b;
+    }
+  }
+
+  // 3. Update water depth and derive velocity
+  for (let z = 0; z < N; z++) {
+    for (let x = 0; x < N; x++) {
+      const i = z * N + x;
+      const inL = x > 0 ? fR[i - 1] : 0;
+      const inR = x < N - 1 ? fL[i + 1] : 0;
+      const inT = z > 0 ? fB[i - N] : 0;
+      const inB = z < N - 1 ? fT[i + N] : 0;
+      const before = D[i];
+      const after = Math.max(0, before + dt * (inL + inR + inT + inB - fL[i] - fR[i] - fT[i] - fB[i]));
+      D[i] = after;
+      const avg = (before + after) * 0.5;
+      if (avg > 1e-3) {
+        VX[i] = clamp((inL - fL[i] + fR[i] - inR) * 0.5 / avg, -10, 10);
+        VZ[i] = clamp((inT - fT[i] + fB[i] - inB) * 0.5 / avg, -10, 10);
+      } else {
+        VX[i] = 0; VZ[i] = 0;
+      }
+    }
+  }
+
+  // 4. Erosion and deposition
+  if (p.erosionEnabled) {
+    for (let z = 1; z < N - 1; z++) {
+      for (let x = 1; x < N - 1; x++) {
+        const i = z * N + x;
+        const d = D[i];
+        if (d < 1e-4 && S[i] < 1e-5) continue;
+        const gx = (B[i + 1] - B[i - 1]) * 0.5, gz = (B[i + N] - B[i - N]) * 0.5;
+        const g2 = gx * gx + gz * gz;
+        const sinTilt = Math.max(p.minTilt, Math.sqrt(g2 / (1 + g2)));
+        const speed = Math.sqrt(VX[i] * VX[i] + VZ[i] * VZ[i]);
+        const depthFactor = Math.min(1, d / p.maxErodeDepth);
+        const cap = p.capacity * sinTilt * speed * depthFactor;
+        if (cap > S[i]) {
+          const amt = Math.min(p.erode * (cap - S[i]) * dt * world.erodibilityAt(B[i], i), 0.05);
+          B[i] -= amt;
+          S[i] += amt;
+        } else {
+          const amt = p.deposit * (S[i] - cap) * dt;
+          B[i] += amt;
+          S[i] -= amt;
+        }
+      }
+    }
+
+    // 5. Carry suspended sediment along the flow (look back along the velocity)
+    for (let z = 0; z < N; z++) {
+      for (let x = 0; x < N; x++) {
+        const i = z * N + x;
+        const sx = clamp(x - VX[i] * dt, 0, N - 1.001);
+        const sz = clamp(z - VZ[i] * dt, 0, N - 1.001);
+        const x0 = sx | 0, z0 = sz | 0, fx = sx - x0, fz = sz - z0;
+        const j = z0 * N + x0;
+        const x1 = x0 < N - 1 ? 1 : 0, z1 = z0 < N - 1 ? N : 0;
+        tmpSed[i] = (S[j] * (1 - fx) + S[j + x1] * fx) * (1 - fz) + (S[j + z1] * (1 - fx) + S[j + z1 + x1] * fx) * fz;
+      }
+    }
+    // Semi-Lagrangian advection isn't mass-conserving; rescale so sediment isn't created or lost
+    let before = 0, after = 0;
+    for (let i = 0; i < n; i++) { before += S[i]; after += tmpSed[i]; }
+    const fix = after > 1e-9 ? before / after : 1;
+    for (let i = 0; i < n; i++) S[i] = tmpSed[i] * fix;
+
+    // Sediment that reaches a draining map edge is carried away with the water
+    if (drain) {
+      for (let k = 0; k < N; k++) {
+        S[k] = 0; S[n - N + k] = 0; S[k * N] = 0; S[k * N + N - 1] = 0;
+      }
+    }
+  }
+
+  // 6. Evaporation. When a puddle dries up its sediment is left behind on the ground.
+  const evap = 1 - p.evaporate * dt;
+  for (let i = 0; i < n; i++) {
+    D[i] *= evap;
+    if (D[i] < 1e-4) {
+      D[i] = 0;
+      if (S[i] > 0) { B[i] += S[i]; S[i] = 0; }
+    }
+  }
+
+  world.dirty = true;
+}
+
+/** Add water in a soft circular brush (the Rain tool). */
+export function addWater(world, cx, cz, radius, amount) {
+  const N = world.N;
+  const r2 = radius * radius;
+  for (let z = Math.max(0, Math.floor(cz - radius)); z <= Math.min(N - 1, Math.ceil(cz + radius)); z++) {
+    for (let x = Math.max(0, Math.floor(cx - radius)); x <= Math.min(N - 1, Math.ceil(cx + radius)); x++) {
+      const d2 = (x - cx) ** 2 + (z - cz) ** 2;
+      if (d2 < r2) {
+        const i = z * N + x;
+        world.water[i] = Math.max(0, world.water[i] + amount * (1 - d2 / r2));
+        if (world.water[i] === 0) world.sediment[i] = 0;
+      }
+    }
+  }
+  world.dirty = true;
+}
+
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
