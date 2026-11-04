@@ -117,7 +117,9 @@ gullied farmland, and the Dust Bowl.
 Cover slowly grows toward what each spot can support. That depends on moisture (a wet/dry
 pattern across the map, plus extra near water), slope (cliffs stay bare) and height (forests thin
 out above the tree line). Ground that is scoured, buried by sediment, or drowned under deep water
-loses its plants. Forest also lets slopes stand about 30% steeper before they slide.
+loses its plants. Forest also lets slopes stand about 30% steeper before they slide. Forests are judged as whole
+stands (neighbourhood-averaged slope and moisture) and spread seed to their neighbours, so they
+grow as continuous expanses. "Gentle" is relative: forest can take the gentlest half of the land.
 
 **Water budget.** Every cell has a soil-moisture store. The local climate (some regions are
 wetter than others), current rainfall and nearby rivers and lakes fill it, and plants drain it,
@@ -141,7 +143,51 @@ forested hillside and watch gullies open up where the trees were.
 
 ---
 
-## 6. Base level and the sea
+## 6. Biomes
+
+Plant cover, soil water, slope and height together decide what the surface looks like:
+
+| Biome | Where | Look |
+| --- | --- | --- |
+| Forest | moist, gentle ground below the tree line | deep green |
+| Wetland | flat, waterlogged ground beside rivers and lakes | dark olive |
+| Grassland | moderately moist ground, or slopes too steep for forest | light green |
+| Shrubland | semi-arid: drying soil, sparse cover | olive tan |
+| Desert | dry and flat | sand yellow |
+| Mesa | dry and steep: bare, banded rock (mesas, buttes, badlands) | orange-red |
+| Barren | recently eroded or buried ground, not dry enough for desert | brown |
+| Tundra | above the tree line | grey-green |
+| Snow | high, gentle ground above the snow line | white |
+
+Bare biomes (desert, mesa, barren) erode fastest, which is why arid landscapes are so sharply
+carved: there are no roots to hold the ground when the rare storms come. Turn **Climate wetness**
+down and watch forest give way to shrubland and then desert, while mesas emerge on the dry
+slopes. **Colour → Biomes** shows the categories; hover the legend for descriptions.
+
+---
+
+## 7. Drainage networks
+
+**Real world.** Rivers organise into branching (*dendritic*) networks: small streams join into
+bigger ones, which join a single trunk river. The more area drains through a point, the bigger and
+deeper the channel. Closed basins with no outlet are rare outside deserts; water fills them until
+it spills over and cuts an outlet.
+
+**Simulation.** New terrain gets the same treatment before you start:
+
+1. **Breaching**: every closed basin gets an outlet channel carved downhill to the map edge
+   (priority-flood from the edges).
+2. **River carving**: each cell drains to its steepest neighbour, and the drainage area through
+   each cell is summed. Where more than ~150 cells drain through a point, a channel is cut, deeper
+   for larger drainage areas. So tributaries feed into ever-deeper trunk streams instead of each
+   spreading out into its own delta.
+
+Sediment capacity also grows with discharge (depth × speed), so big rivers keep their load moving
+and keep cutting down, capturing the smaller flows around them.
+
+---
+
+## 8. Base level and the sea
 
 **Real world.** A river can't erode below the level of the water body it flows into. That
 lowest level is its **base level**, usually the sea. When the sea rises, rivers slow down and fill

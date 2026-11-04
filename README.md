@@ -44,7 +44,7 @@ Hover any control in the toolbox to see what it does in the info box at the bott
 - **Geology**: rock strata (hard and soft layers), sea level, edge drainage.
 - **Terrain**: presets (hills, mountains, plateau, volcano, flat), seed, undo/redo, PNG
   heightmap export/import.
-- **View**: colour modes (natural, erosion/deposition map, rock hardness, slope, vegetation, soil moisture), water, snow
+- **View**: colour modes (natural, biomes, erosion/deposition map, rock hardness, slope, vegetation, soil moisture) with a biome legend, water, snow
   line, wireframe.
 
 Try this: pick **Layered plateau**, turn on **Sea** at level 8, drop two **Springs** on top, and set
@@ -60,13 +60,15 @@ index.html              page + import map (three.js is vendored, no CDN needed)
 src/main.js             App: scene, camera, input, main loop, toolbox actions
 src/core/world.js       World: all simulated fields as flat Float32Arrays on a 256×256 grid
 src/core/noise.js       Seeded simplex noise, fBm, ridged noise
-src/core/generate.js    Terrain presets
+src/core/generate.js    Terrain presets (with lowland smoothing, basin breaching and river carving)
+src/core/grid.js        Grid helpers: box blur, depression breaching, river-network carving
 src/sim/water.js        Shallow-water "virtual pipes" flow + sediment transport (rivers, lakes, deltas)
 src/sim/droplet.js      Particle raindrop erosion (long-term weathering, gullies, valleys)
 src/sim/thermal.js      Thermal erosion / mass wasting (slopes relax to the angle of repose)
 src/sim/vegetation.js   Forest / grassland / barren cover that grows, dies and protects soil
 src/tools/brushes.js    Tool definitions + undo history
 src/render/terrainRenderer.js  Terrain/water meshes and colouring
+src/render/biomes.js    Biome definitions and classification
 src/ui/toolbox.js       Right-hand toolbox panel
 vendor/three/           three.js r169 (MIT)
 ```

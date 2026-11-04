@@ -15,12 +15,12 @@ export const waterParams = {
   gravity: 9.81,
   capacity: 0.6,       // Kc: sediment capacity constant
   erode: 0.5,          // Ks: dissolving rate
-  deposit: 0.4,        // Kd: settling rate
+  deposit: 0.2,        // Kd: settling rate
   evaporate: 0.02,     // Ke
   minTilt: 0.02,       // keeps a little erosion going on near-flat river beds
   critSpeed: 0.4,      // flow slower than this can't lift grains off the bed (Hjulström/Shields threshold)
-  shieldDepth: 4,      // standing water deeper than this shields its bed from erosion
-  damping: 0.985,      // flux friction per step: stops water sloshing back and forth in pools
+  channelDepth: 2,     // flow this deep carries full capacity; shallower sheet flow carries less
+  damping: 0.997,      // flux friction per step: calms sloshing in pools without choking river flow
   erosionEnabled: true,
 };
 
@@ -110,9 +110,10 @@ export function waterStep(world) {
         const g2 = gx * gx + gz * gz;
         const sinTilt = Math.max(p.minTilt, Math.sqrt(g2 / (1 + g2)));
         const speed = Math.sqrt(VX[i] * VX[i] + VZ[i] * VZ[i]);
-        // A thin film can't carry much; a deep pool shields its bed. Erosion peaks in shallow, fast flow.
-        // (Without the falloff, sloshing in puddles digs them deeper and deeper into a honeycomb of pits.)
-        const depthFactor = Math.min(1, d / 0.5) * Math.max(0, 1 - d / p.shieldDepth);
+        // Capacity grows with discharge (depth × speed), like stream power: a big trunk river keeps
+        // its load moving across gentle ground and cuts down, capturing smaller flows, while a thin
+        // sheet of runoff carries little. Still pools stay below critSpeed, so they don't dig pits.
+        const depthFactor = Math.min(1, d / p.channelDepth);
         const cap = p.capacity * sinTilt * Math.max(0, speed - p.critSpeed) * depthFactor;
         if (cap > S[i]) {
           const amt = Math.min(p.erode * (cap - S[i]) * dt * world.erodibilityAt(B[i], i), 0.05);

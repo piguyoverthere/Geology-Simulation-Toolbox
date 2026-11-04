@@ -5,6 +5,7 @@
 import { TOOLS } from '../tools/brushes.js';
 import { PRESETS } from '../core/generate.js';
 import { COLOR_MODES } from '../render/terrainRenderer.js';
+import { BIOMES } from '../render/biomes.js';
 
 export class Toolbox {
   /**
@@ -132,11 +133,21 @@ export class Toolbox {
     const view = this.section('View', false);
     view.append(
       select('Colour', COLOR_MODES, app.renderer, 'colorMode',
-        'Natural: realistic colours. Erosion/deposition: red = ground removed, blue = sediment added since the baseline. Rock hardness: strata. Slope: steepness.', this, () => app.world.dirty = true),
+        'Natural: realistic colours with biomes blended. Biomes: hard biome categories (see legend). Erosion/deposition: red = ground removed, blue = sediment added since the baseline. Rock hardness: strata. Slope: steepness.', this, () => app.world.dirty = true),
       toggle('Show water', app.renderer, 'showWater', 'Show or hide surface water.', this, () => app.world.dirty = true),
       slider('Snow line', app.renderer, 'snowLine', 10, 120, 1, 'Height above which flat ground is snow-covered.', this, () => app.world.dirty = true),
       toggle('Wireframe', app.renderer.terrainMat, 'wireframe', 'Show the terrain grid.', this),
     );
+    const legend = el('div', 'tb-legend');
+    for (const b of Object.values(BIOMES)) {
+      const item = el('div', 'tb-legend-item');
+      const sw = el('span', 'tb-swatch');
+      sw.style.background = `rgb(${b.color.map((c) => Math.round(c * 255)).join(',')})`;
+      item.append(sw, el('span', '', b.label));
+      this.helpOn(item, `<b>${b.label}</b> — ${b.help}`);
+      legend.append(item);
+    }
+    view.append(el('div', 'tb-group-label', 'Biomes'), legend);
 
     // --- Info --------------------------------------------------------------------------------
     this.info = el('div', 'tb-info');

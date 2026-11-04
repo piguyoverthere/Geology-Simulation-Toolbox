@@ -1,6 +1,6 @@
 import { createNoise2D, fbm, ridged } from './noise.js';
 import { initVegetation } from '../sim/vegetation.js';
-import { boxBlur } from './grid.js';
+import { boxBlur, breachDepressions, carveRivers } from './grid.js';
 
 /**
  * Terrain presets. Each fills world.height with a starting landscape that erosion can then work on.
@@ -60,6 +60,15 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   }
 
   if (preset !== 'flat') smoothLowlands(world, noise);
+  // Real landscapes drain: almost every spot has a downhill route to the sea. Raw noise leaves
+  // hundreds of closed basins where each river would die in its own little lake. Carve an outlet
+  // from each one; the outlets merge into a branching valley network. (The volcano keeps its crater.)
+  if (preset !== 'volcano') breachDepressions(h, N, 0.02);
+  // Cut the drainage network: tributaries merging into deeper trunk channels
+  if (preset !== 'flat') {
+    carveRivers(h, N);
+    if (preset !== 'volcano') breachDepressions(h, N, 0.02);
+  }
 
   world.setBaseline();
   world.clearWater();

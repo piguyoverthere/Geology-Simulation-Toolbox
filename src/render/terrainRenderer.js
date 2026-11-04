@@ -1,10 +1,17 @@
 import * as THREE from 'three';
+import { BIOMES, classifyBiome, DRY_SOIL } from './biomes.js';
+import { vegetationParams } from '../sim/vegetation.js';
 
 // Colour palette (linear-ish RGB 0..1)
 const C = {
-  forest: [0.13, 0.30, 0.13],   // deep green
-  grass: [0.52, 0.66, 0.30],    // light green
-  barren: [0.55, 0.43, 0.30],   // bare brown soil
+  forest: BIOMES.forest.color,
+  grass: BIOMES.grassland.color,
+  shrub: BIOMES.shrubland.color,
+  desert: BIOMES.desert.color,
+  mesa: BIOMES.mesa.color,
+  barren: BIOMES.barren.color,
+  marsh: BIOMES.wetland.color,
+  tundra: BIOMES.tundra.color,
   soil: [0.56, 0.47, 0.34],     // freshly deposited sediment (alluvium)
   sand: [0.80, 0.72, 0.52],
   rockSoft: [0.68, 0.52, 0.40], // soft strata: reddish sandstone/shale
@@ -17,6 +24,7 @@ const C = {
 
 export const COLOR_MODES = {
   natural: 'Natural',
+  biome: 'Biomes',
   change: 'Erosion / deposition',
   hardness: 'Rock hardness',
   slope: 'Slope',
@@ -145,6 +153,7 @@ export class TerrainRenderer {
         this.tNorm[i3] = nx; this.tNorm[i3 + 1] = ny; this.tNorm[i3 + 2] = nz;
 
         const slope = 1 - ny; // 0 = flat, ~0.3 = 45°
+        const tan = Math.sqrt((hl - hr) * (hl - hr) + (hu - hd) * (hu - hd)) * 0.5; // rise/run
         let col;
         if (mode === 'change') {
           const d = h - BASE[i];
@@ -158,11 +167,13 @@ export class TerrainRenderer {
         } else if (mode === 'moisture') {
           const m = w.soil ? w.soil[i] : 0;
           col = shade(mix(DRY, WET, m, S3), 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'biome') {
+          col = shade(BIOMES[classifyBiome(w, i, tan, this.snowLine)].color, 0.8 + 0.2 * ny, S3);
         } else if (mode === 'slope') {
           const t = Math.min(1, slope / 0.35);
           col = mix(SLOPE_LO, SLOPE_HI, t, S3);
         } else {
-          col = this.naturalColor(h, slope, h - BASE[i], D[i], i);
+          col = this.naturalColor(h, slope, tan, h - BASE[i], D[i], i);
         }
         // Palette is authored in sRGB; vertex colours are linear, so square to approximate the conversion
         this.tCol[i3] = col[0] * col[0]; this.tCol[i3 + 1] = col[1] * col[1]; this.tCol[i3 + 2] = col[2] * col[2];
@@ -172,7 +183,8 @@ export class TerrainRenderer {
         const i4 = i * 4;
         this.wPos[i3] = x - off;
         this.wPos[i3 + 2] = z - off;
-        if (d > 0.02) {
+        // Thin runoff films just darken the ground; draw a water surface only where it's a real stream/lake
+        if (d > 0.1) {
           this.wPos[i3 + 1] = h + d;
           const mud = Math.min(1, (S[i] / Math.max(d, 0.05)) * 4);
           const deep = Math.min(1, d / 6);
@@ -180,7 +192,7 @@ export class TerrainRenderer {
           const base = isSea ? WATER_SEA : mix(WATER_SHALLOW, WATER_DEEP, deep, S4);
           const wc = mix(base, MUD, mud * 0.8, S4);
           this.wCol[i4] = wc[0] * wc[0]; this.wCol[i4 + 1] = wc[1] * wc[1]; this.wCol[i4 + 2] = wc[2] * wc[2];
-          this.wCol[i4 + 3] = Math.min(0.85, 0.3 + d * 0.35);
+          this.wCol[i4 + 3] = Math.min(0.85, 0.25 + (d - 0.1) * 0.5);
         } else {
           this.wPos[i3 + 1] = h - 0.3;
           this.wCol[i4 + 3] = 0;
@@ -210,16 +222,33 @@ export class TerrainRenderer {
     this.syncSprings();
   }
 
-  naturalColor(h, slope, change, water, i) {
+  naturalColor(h, slope, tan, change, water, i) {
     const w = this.world;
     // Writes into scratch arrays: this runs for every vertex every frame, so avoid allocating
-    // Bedrock colour follows the strata (uniform when strata are off)
-    const hard = w.hardnessAt(h, i);
-    const rock = mix(C.rockSoft, C.rockHard, hard, S1);
-    // Plant cover (barren → grassland → forest); bare rock shows through on cliffs
     const v = w.vegetation[i];
-    const veg = vegColor(v, S2);
-    const col = mix(veg, rock, smooth(0.2, 0.42, slope) * (1 - 0.6 * v), S3);
+    const soil = w.soil ? w.soil[i] : 0.5;
+    const near = w.nearWater ? w.nearWater[i] : 0;
+    const dry = 1 - smooth(DRY_SOIL - 0.1, DRY_SOIL + 0.1, soil);
+    const steep = smooth(0.45, 0.8, tan);
+
+    // Bare ground: brown soil, yellow desert sand where dry and flat, banded red mesa rock where dry and steep
+    const bare = mix(C.barren, C.desert, dry * (1 - steep), S1);
+    const mesa = dry * steep;
+    if (mesa > 0) shade(mix(bare, C.mesa, mesa, bare), 1 - 0.14 * mesa * (0.5 + 0.5 * Math.sin(h * 1.7)), bare);
+    // Sparse cover: green grass on moist ground, olive scrub as it dries
+    const low = mix(C.grass, C.shrub, 1 - smooth(0.32, 0.52, soil), S2);
+    const col = v < 0.5 ? mix(bare, low, smooth(0.12, 0.42, v), S3) : mix(low, C.forest, smooth(0.55, 0.8, v), S3);
+    // Tundra above the tree line
+    const tl = vegetationParams.treeLine;
+    if (h > tl) mix(col, C.tundra, smooth(tl, tl + 8, h) * smooth(0.08, 0.3, v) * 0.85, col);
+    // Wetlands on flat, waterlogged ground beside rivers and lakes
+    const marsh = smooth(0.4, 0.8, near) * smooth(0.65, 0.85, soil) * (1 - smooth(0.15, 0.35, tan)) * smooth(0.3, 0.5, v);
+    if (marsh > 0) mix(col, C.marsh, marsh * 0.8, col);
+
+    // Bare rock on cliffs: strata colours, reddened in dry country
+    const rock = mix(C.rockSoft, C.rockHard, w.hardnessAt(h, i), S1);
+    mix(rock, C.mesa, dry * 0.7, rock);
+    mix(col, rock, smooth(0.2, 0.42, slope) * (1 - 0.6 * v), col);
     // Fresh sediment (deposits) shows as bare soil
     if (change > 0.15) mix(col, C.soil, Math.min(0.7, change / 3) * (1 - smooth(0.1, 0.25, slope)) * (1 - v), col);
     // Beaches just above sea level
