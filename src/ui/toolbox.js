@@ -75,6 +75,10 @@ export class Toolbox {
         'Thermal erosion: slopes steeper than the angle of repose crumble into scree.', this),
       toggle('Plant growth', app.sim, 'vegetation',
         'Vegetation regrows toward what each spot can support (gentle, moist, not too high) and dies where ground is washed away, buried or flooded. Forest erodes ~4x slower than barren ground.', this),
+      slider('Climate wetness', app.vegetationParams, 'climate', 0, 1.5, 0.05,
+        'Long-term rainfall of the region. Dry it out and forests retreat to grassland, then to bare ground, holding on longest along rivers and lakes.', this),
+      slider('Tree line', app.vegetationParams, 'treeLine', 5, 90, 1,
+        'Height above which it is too cold for trees. Above it forests give way to alpine grassland, which thins to bare ground higher up.', this),
       slider('Repose angle °', app.thermalParams, 'talusAngle', 15, 60, 1,
         'Steepest stable slope for loose rock. Real rubble is about 30-40°. Hard strata can stand steeper.', this),
     );

@@ -32,7 +32,8 @@ export class World {
     this.velZ = new Float32Array(n);
     this.vegetation = new Float32Array(n);
     this.prevHeight = new Float32Array(n); // last vegetation step's heights, to detect disturbance
-    this.moisture = null;                  // set by initVegetation
+    this.moisture = null;                  // climate wetness map 0..1, set by initVegetation
+    this.soil = null;                      // soil moisture 0..1 (supply minus plant use), set by initVegetation
     this.nearWater = null;                 // 0..1 closeness to open water, set by the vegetation step
     /** @type {{x:number, z:number, rate:number}[]} */
     this.sources = [];

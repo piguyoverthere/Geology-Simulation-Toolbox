@@ -40,11 +40,11 @@ Hover any control in the toolbox to see what it does in the info box at the bott
 - **Life**: Plant (grow forest; Shift to clear it).
 - **Erosion brushes**: Weather (thousands of raindrops in the brush area) and Crumble (landslides).
 - **Erosion simulation**: global rain, sim speed, river erosion, evaporation, background
-  weathering, landslides, plant growth and angle of repose.
+  weathering, landslides, plant growth, climate wetness, tree line and angle of repose.
 - **Geology**: rock strata (hard and soft layers), sea level, edge drainage.
 - **Terrain**: presets (hills, mountains, plateau, volcano, flat), seed, undo/redo, PNG
   heightmap export/import.
-- **View**: colour modes (natural, erosion/deposition map, rock hardness, slope, vegetation), water, snow
+- **View**: colour modes (natural, erosion/deposition map, rock hardness, slope, vegetation, soil moisture), water, snow
   line, wireframe.
 
 Try this: pick **Layered plateau**, turn on **Sea** at level 8, drop two **Springs** on top, and set

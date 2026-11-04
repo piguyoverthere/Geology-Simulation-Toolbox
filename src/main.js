@@ -7,7 +7,7 @@ import { TOOLS, History } from './tools/brushes.js';
 import { runDroplets } from './sim/droplet.js';
 import { thermalStep, thermalParams } from './sim/thermal.js';
 import { waterStep, waterParams } from './sim/water.js';
-import { initVegetation, vegetationStep } from './sim/vegetation.js';
+import { initVegetation, vegetationStep, vegetationParams } from './sim/vegetation.js';
 import { Toolbox } from './ui/toolbox.js';
 
 const GRID = 256;
@@ -18,6 +18,7 @@ class App {
     this.history = new History();
     this.waterParams = waterParams;
     this.thermalParams = thermalParams;
+    this.vegetationParams = vegetationParams;
 
     this.tool = 'raise';
     this.brush = { radius: 12, strength: 0.5 };

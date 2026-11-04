@@ -119,6 +119,18 @@ pattern across the map, plus extra near water), slope (cliffs stay bare) and hei
 out above the tree line). Ground that is scoured, buried by sediment, or drowned under deep water
 loses its plants. Forest also lets slopes stand about 30% steeper before they slide.
 
+**Water budget.** Every cell has a soil-moisture store. The local climate (some regions are
+wetter than others), current rainfall and nearby rivers and lakes fill it, and plants drain it,
+forests most of all. A forest needs moist soil to survive. When the supply drops (you remove a
+spring, stop the rain, or turn **Climate wetness** down), the soil dries out over the following
+seconds and forests **retreat** to grassland, then grassland to bare ground. Trees hang on longest
+beside water. Use **Colour → Soil moisture** to watch the water supply directly.
+
+**Elevation.** Above the **tree line** it is too cold, windy and short-seasoned for trees, so
+forest gives way to alpine grassland (tundra), which thins out to bare rock and scree higher up.
+That's the same zonation you see climbing any big mountain. Drag the **Tree line** slider down
+to watch forests retreat downhill, as they do in a cooling climate.
+
 Land beside rivers, lakes and springs is the **riparian zone**: its water table is high, so plants
 there regrow up to 6× faster and grow denser. That's why rivers in dry country are lined with a
 ribbon of trees. Place a **Spring** on bare ground and watch a green belt spread along its channel.

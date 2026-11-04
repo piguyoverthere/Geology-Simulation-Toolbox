@@ -21,6 +21,7 @@ export const COLOR_MODES = {
   hardness: 'Rock hardness',
   slope: 'Slope',
   vegetation: 'Vegetation',
+  moisture: 'Soil moisture',
 };
 
 /** Builds and updates the terrain + water meshes from a World. */
@@ -154,6 +155,9 @@ export class TerrainRenderer {
           col = mix(C.rockSoft, C.rockHard, hard, S3);
         } else if (mode === 'vegetation') {
           col = shade(vegColor(w.vegetation[i], S3), 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'moisture') {
+          const m = w.soil ? w.soil[i] : 0;
+          col = shade(mix(DRY, WET, m, S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'slope') {
           const t = Math.min(1, slope / 0.35);
           col = mix(SLOPE_LO, SLOPE_HI, t, S3);
@@ -243,6 +247,7 @@ export class TerrainRenderer {
 // Scratch colour buffers reused by the per-vertex colour code
 const S1 = [0, 0, 0], S2 = [0, 0, 0], S3 = [0, 0, 0], S4 = [0, 0, 0];
 const SLOPE_LO = [0.2, 0.7, 0.3], SLOPE_HI = [0.9, 0.2, 0.15];
+const DRY = [0.85, 0.72, 0.50], WET = [0.15, 0.40, 0.80];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 
 /** Barren brown (0) → light-green grassland (0.5) → deep-green forest (1). */
