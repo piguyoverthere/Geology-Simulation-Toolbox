@@ -125,7 +125,9 @@ function ashFall(world, vx, vz, radius, amount) {
     const thick = amount * Math.exp(-2.2 * d) * Math.min(1, f * 2);
     if (thick < 0.002) return;
     depositRock(world, i, thick, ROCK_INDEX.tuff);
-    world.vegetation[i] *= 1 - Math.min(0.9, thick * 4);
+    world.vegetation[i] *= 1 - Math.min(0.95, 0.3 + thick * 4);
+    // Ash weathers into soil fairly quickly; thick beds take longer
+    world.freshRock[i] = Math.max(world.freshRock[i], Math.min(0.85, 0.5 + thick * 2));
   });
 }
 
@@ -199,6 +201,7 @@ export function lavaStep(world, dt = LAVA_DT) {
     world.vegetation[i] = 0;
     if (T[i] < 0.08 || (L[i] < 0.03 && T[i] < 0.4)) {
       depositRock(world, i, L[i], type.rock);
+      world.freshRock[i] = 1; // bare new rock: no soil for plants to root in yet
       L[i] = 0; T[i] = 0;
     }
   }

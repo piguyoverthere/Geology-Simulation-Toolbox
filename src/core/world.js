@@ -53,6 +53,7 @@ export class World {
     this.lavaType = new Int8Array(n);
     this.surfaceRock = new Int8Array(n).fill(-1);
     this.surfaceBase = new Float32Array(n);
+    this.freshRock = new Float32Array(n); // 1 = newly erupted lava/ash with no soil yet; weathers back to 0
     this.intrusionRock = new Int8Array(n).fill(-1);
     this.intrusionTop = new Float32Array(n).fill(-Infinity);
     this.events = [];
@@ -124,7 +125,7 @@ export class World {
   /** Forget lava, deposits, intrusions, faults and running events (new terrain). */
   resetEvents() {
     this.lava.fill(0); this.lavaTemp.fill(0);
-    this.surfaceRock.fill(-1); this.surfaceBase.fill(0);
+    this.surfaceRock.fill(-1); this.surfaceBase.fill(0); this.freshRock.fill(0);
     this.intrusionRock.fill(-1); this.intrusionTop.fill(-Infinity);
     this.strataWarp.set(this.strataWarp0);
     this.events.length = 0; this.faults.length = 0; this.quake = 0;

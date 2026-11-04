@@ -144,6 +144,11 @@ crater, then drop ash that thins away from the vent and drifts downwind; it sett
 and buries plants. All of it is real rock in the simulation: rivers erode lava flows and ash beds,
 and cutting through them exposes what was underneath.
 
+New volcanic ground is sterile: bare rock with no soil. Plants come back only as it weathers,
+starting with sparse pioneers and reaching forest much later. Ash beds weather into fertile soil
+within a short while; solid lava flows stay bare several times longer (moisture speeds this up).
+Hover with **Inspect** to see a spot's "Fresh rock" level.
+
 **Try it.** From a hilltop, erupt each type at the same size: basalt runs 40–50 cells down the
 valleys, andesite about 30, and rhyolite stays as a dome at the vent under a wide ash blanket.
 Drop a pluton, run **Erode ×50k drops** a few times, and watch the granite core appear on the

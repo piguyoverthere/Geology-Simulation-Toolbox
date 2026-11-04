@@ -15,6 +15,11 @@
 // removed, rain stops, the climate dries), soil dries out and forests retreat to grassland, then
 // grassland to bare ground. They hang on longest along rivers: the ribbon of trees along a desert river.
 //
+// Fresh volcanic ground: new lava is bare rock with no soil, so plants can't take hold until it
+// weathers (lichens and mosses first, then grasses, and forest only much later). world.freshRock
+// marks it (1 = just erupted) and fades as the rock breaks down, faster where it's moist. Ash
+// weathers into fertile soil much sooner than solid lava does.
+//
 // Elevation: above the tree line it is too cold and windy for trees. Forest gives way to alpine
 // grassland, which thins out to bare rock higher up.
 //
@@ -42,6 +47,7 @@ export const vegetationParams = {
   grassBuffer: 10,    // forest keeps roughly 1–2× this many cells away from arid ground (grassland between)
   climate: 1,         // regional wetness multiplier (0 = desert, 1 = normal, 1.5 = rainforest)
   forestWater: 0.46,  // soil moisture a forest needs to sustain itself
+  weathering: 0.0009, // how fast fresh lava/ash breaks down into soil per step (×(0.4 + soil))
   uptake: 0.2,        // how much full plant cover draws down soil moisture
   soilMemory: 0.04,   // how fast soil moisture moves toward its supply each step
 };
@@ -150,7 +156,7 @@ export function vegetationStep(world) {
   const V = world.vegetation, H = world.height, P = world.prevHeight, S = world.soil;
   const p = vegetationParams;
   updateNearWater(world);
-  const W = world.nearWater;
+  const W = world.nearWater, F = world.freshRock;
   for (let i = 0; i < V.length; i++) S[i] += (soilSupply(world, i) - S[i]) * p.soilMemory;
   const f = neighbourhood(world);
   for (let i = 0; i < V.length; i++) {
@@ -158,9 +164,20 @@ export function vegetationStep(world) {
     // Slow creep is tolerated; only real scouring or burial damages plants
     const change = Math.max(0, Math.abs(H[i] - P[i]) - 0.05);
     let v = V[i] - change * p.disturbance;
-    const target = potential(world, i, f);
+    let target = potential(world, i, f);
     // Regrowth is faster near water; dieback (drought, cold) runs at the normal rate
-    const rate = target > v ? p.growth * (1 + p.riparianBoost * W[i]) : p.growth;
+    let rate = target > v ? p.growth * (1 + p.riparianBoost * W[i]) : p.growth;
+    const fresh = F[i];
+    if (fresh > 0) {
+      // Bare new rock can only hold sparse pioneers, and colonisation is slow until soil forms
+      const exposed = world.surfaceRock[i] >= 0 && H[i] > world.surfaceBase[i] + 1e-3;
+      if (!exposed) F[i] = 0; // eroded away: the old ground (and its soil) is back
+      else {
+        target = Math.min(target, 1 - fresh);
+        if (target > v) rate *= (1 - fresh) * (1 - fresh);
+        F[i] = Math.max(0, fresh - p.weathering * (0.4 + S[i]));
+      }
+    }
     v += (target - v) * Math.min(1, rate);
     V[i] = v < 0 ? 0 : v > 1 ? 1 : v;
   }
