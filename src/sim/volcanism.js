@@ -12,30 +12,38 @@
 // strength (stickier lava needs a steeper slope), runs more slowly as it cools, and solidifies into
 // new rock of its type when it gets cold. Ash settles as soft tuff that buries plants.
 //
+// The most violent eruptions also produce *pyroclastic flows*: when the eruption column collapses,
+// a dense avalanche of hot ash, pumice and gas (several hundred °C) races down the volcano's flanks
+// at highway speeds, hugging the ground and pouring into valleys. It buries the land in ash
+// (ignimbrite) and sets fire to everything it passes over.
+//
 // Magma that never reaches the surface forms *intrusions*: a pluton (a big body of granite that
 // domes the ground above it, exposed only once erosion strips the cover) or a dike (a vertical
 // sheet of basalt that, being hard, is left standing as a wall when the softer rock around wears away).
 
 import { ROCK_INDEX } from '../core/rocks.js';
+import { fireParams } from './fire.js';
 
 export const ERUPTION_TYPES = {
   basaltic: {
     label: 'Basaltic (shield / fissure)', rock: ROCK_INDEX.basalt,
     yield: 0.03, fluidity: 3.5, cool: 0.018, rate: 22, duration: 28,
-    crater: 0, ash: 0,
+    crater: 0, ash: 0, flows: null, blast: 0, column: 0,
     help: 'Hot, runny basalt lava that flows far and builds broad shields. Drag to open a fissure.',
   },
   andesitic: {
     label: 'Andesitic (stratovolcano)', rock: ROCK_INDEX.andesite,
     yield: 0.35, fluidity: 1.0, cool: 0.04, rate: 12, duration: 26,
     crater: 1.5, ash: 1.6, ashRadius: 28,
+    flows: { count: 10, speed: 13, mass: 1.0, pulses: 2 }, blast: 0.6, column: 1,
     help: 'Sticky andesite lava in short, thick flows with ash bursts: builds a steep layered cone.',
   },
   rhyolitic: {
     label: 'Rhyolitic (explosive / dome)', rock: ROCK_INDEX.rhyolite,
     yield: 1.3, fluidity: 0.25, cool: 0.08, rate: 7, duration: 22,
-    crater: 6, ash: 3.2, ashRadius: 48,
-    help: 'Explosive, gas-rich rhyolite: blasts a crater and a wide ash blanket, then a steep lava dome grows.',
+    crater: 9, ash: 2.4, ashRadius: 48,
+    flows: { count: 34, speed: 24, mass: 2.2, pulses: 3 }, blast: 1.5, column: 1.9,
+    help: 'Violent, gas-rich rhyolite: a huge blast crater and ash column whose collapses send burning pyroclastic flows racing down the valleys, then a steep lava dome grows.',
   },
 };
 const TYPE_LIST = Object.values(ERUPTION_TYPES);
@@ -77,13 +85,24 @@ export function startEruption(world, a, b, settings = volcanoSettings) {
 
 function eruptionUpdate(world, ev, dt) {
   const N = world.N, type = ev.type;
-  // Opening blast: excavate a crater
+  // Opening blast: excavate a crater and shake the ground
   if (ev.t === 0 && ev.crater > 0) {
     for (const v of ev.vents) {
       forDisc(N, v.x, v.z, 2 + ev.crater, (i, f) => {
         world.height[i] -= ev.crater * f * f;
         world.vegetation[i] = 0;
       });
+    }
+    world.quake = Math.min(2.5, world.quake + type.blast * Math.sqrt(ev.size));
+  }
+  // Column collapses send out pyroclastic flows, spread over the explosive first part of the eruption
+  if (type.flows) {
+    ev.pulsesDone ??= 0;
+    const due = Math.floor((ev.t / (ev.duration * 0.4)) * type.flows.pulses) + 1;
+    if (ev.pulsesDone < Math.min(type.flows.pulses, due)) {
+      ev.pulsesDone++;
+      for (const v of ev.vents) launchFlows(world, v, type.flows, ev.size / ev.vents.length);
+      world.quake = Math.min(2.5, world.quake + type.blast * 0.5);
     }
   }
   ev.t += dt;
@@ -125,9 +144,73 @@ function ashFall(world, vx, vz, radius, amount) {
     const thick = amount * Math.exp(-2.2 * d) * Math.min(1, f * 2);
     if (thick < 0.002) return;
     depositRock(world, i, thick, ROCK_INDEX.tuff);
-    world.vegetation[i] *= 1 - Math.min(0.95, 0.3 + thick * 4);
+    // A dusting of ash weighs plants down a little; only a thick fall buries them
+    world.vegetation[i] *= 1 - Math.min(0.5, thick * 3);
     // Ash weathers into soil fairly quickly; thick beds take longer
-    world.freshRock[i] = Math.max(world.freshRock[i], Math.min(0.85, 0.5 + thick * 2));
+    world.freshRock[i] = Math.min(0.85, world.freshRock[i] + thick * 2);
+  });
+}
+
+/** Launch a ring of pyroclastic flows from a vent. */
+function launchFlows(world, vent, spec, size) {
+  const n = Math.round(spec.count * Math.sqrt(size));
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2 + Math.random() * 0.4;
+    const speed = spec.speed * (0.6 + 0.6 * Math.random()) * Math.sqrt(size);
+    world.flows.push({
+      x: vent.x + Math.cos(a) * 2, z: vent.z + Math.sin(a) * 2,
+      vx: Math.cos(a) * speed, vz: Math.sin(a) * speed,
+      mass: spec.mass * (0.6 + 0.8 * Math.random()) * Math.sqrt(size), age: 0,
+    });
+  }
+}
+
+/**
+ * Advance pyroclastic flows: each is a heavy, fast parcel that runs downhill under gravity, slows
+ * by friction and climbing, drops ash as it goes, and ignites whatever it passes over.
+ */
+export function flowStep(world, dt) {
+  const N = world.N, fl = world.flows;
+  if (!fl.length) return false;
+  for (let k = fl.length - 1; k >= 0; k--) {
+    const p = fl[k];
+    p.age += dt;
+    const gx = (world.sampleHeight(p.x + 1, p.z) - world.sampleHeight(p.x - 1, p.z)) * 0.5;
+    const gz = (world.sampleHeight(p.x, p.z + 1) - world.sampleHeight(p.x, p.z - 1)) * 0.5;
+    p.vx -= gx * 30 * dt; p.vz -= gz * 30 * dt;   // pulled downhill
+    const drag = 1 - 0.45 * dt;                  // friction and air entrainment
+    p.vx *= drag; p.vz *= drag;
+    p.x += p.vx * dt; p.z += p.vz * dt;
+    const speed = Math.hypot(p.vx, p.vz);
+    const ix = Math.round(p.x), iz = Math.round(p.z);
+    const out = ix < 1 || iz < 1 || ix > N - 2 || iz > N - 2;
+    const wet = !out && world.water[iz * N + ix] > 0.3;
+    if (wet) { p.mass *= 0.6; p.vx *= 0.6; p.vz *= 0.6; } // flashing water to steam saps it
+    // Ash settles out of the current along its path
+    const drop = Math.min(p.mass, p.mass * 0.35 * dt + 0.004);
+    p.mass -= drop;
+    const dead = out || p.mass < 0.03 || p.age > 9 || (speed < 2 && p.age > 0.5);
+    if (!out) layAshAndBurn(world, p.x, p.z, dead ? drop + p.mass : drop, dead ? 3.5 : 2.5);
+    if (dead) fl.splice(k, 1);
+  }
+  world.dirty = true;
+  return true;
+}
+
+function layAshAndBurn(world, cx, cz, amount, r) {
+  const N = world.N;
+  let wsum = 0;
+  forDisc(N, cx, cz, r, (i, f) => { wsum += f; });
+  if (wsum <= 0) return;
+  forDisc(N, cx, cz, r + 1, (i, f) => {
+    if (f > 0 && amount > 0) {
+      const thick = amount * f / wsum;
+      depositRock(world, i, thick, ROCK_INDEX.tuff);
+      world.freshRock[i] = Math.min(0.9, world.freshRock[i] + thick * 3);
+    }
+    // Hot enough to set plants alight (the wildfire then does the rest)
+    if (fireParams.enabled && world.vegetation[i] > 0.1 && world.fire[i] <= 0) world.fire[i] = 0.9;
+    world.water[i] *= 0.8;
   });
 }
 

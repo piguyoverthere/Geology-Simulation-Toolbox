@@ -132,6 +132,11 @@ between them. Hover with **Inspect** to read the bedrock and province anywhere.
 | Andesitic | sticky | thick flows plus ash explosions | steep, layered stratovolcanoes |
 | Rhyolitic (high silica) | very viscous, gas-rich | violent explosions, huge ash clouds | craters and calderas, lava domes, ash plains |
 
+In the most violent eruptions the eruption column collapses under its own weight and sends out
+**pyroclastic flows**: avalanches of hot ash, pumice and gas that race down the flanks at highway
+speeds, hug the ground and pour into valleys. They bury the land in ash (*ignimbrite*) and set fire
+to everything they cross. This is what destroyed Pompeii and the forests around Mount St Helens.
+
 Magma that never reaches the surface cools slowly into **intrusions**. A **pluton** is a big body
 of granite. It pushes the ground above into a dome, and only once erosion strips away the cover
 does the granite appear at the surface. A **dike** is a vertical sheet of magma that fills a
@@ -140,8 +145,11 @@ crack. Basalt dikes are harder than the rock around them, so erosion leaves them
 **Simulation.** Lava is a thick, sticky fluid: it only flows when its surface slope beats a yield
 strength (much higher for rhyolite than basalt), it slows down as it cools, and once cold it
 solidifies into new rock of its type on top of the old ground. Explosive eruptions first blast a
-crater, then drop ash that thins away from the vent and drifts downwind; it settles as soft **tuff**
-and buries plants. All of it is real rock in the simulation: rivers erode lava flows and ash beds,
+crater, then drop ash that thins away from the vent and drifts downwind; it settles as soft **tuff**.
+A light dusting only weighs plants down; thick ash buries them. Rhyolitic (and, more weakly,
+andesitic) eruptions also collapse in pulses that launch rings of pyroclastic flows: heavy parcels
+that run downhill under gravity, slow on climbs and through water, lay a trail of tuff, and ignite
+the vegetation they cross, so the destruction spreads as wildfire rather than happening all at once. All of it is real rock in the simulation: rivers erode lava flows and ash beds,
 and cutting through them exposes what was underneath.
 
 New volcanic ground is sterile: bare rock with no soil. Plants come back only as it weathers,

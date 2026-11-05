@@ -41,8 +41,8 @@ Flatten, Roughen), **Water** (Rain, Spring: a permanent source that carves a riv
 Crumble: landslides) and **Tectonics**, plus brush **Size** and **Strength**:
 
 - **Erupt** ♨: click for a vent or drag for a fissure. Basaltic lava runs far in thin flows;
-  andesitic builds a steep cone with ash bursts; rhyolitic blasts a crater and an ash blanket,
-  then grows a lava dome. Lava glows, flows, cools and becomes new rock; ash settles as tuff.
+  andesitic builds a steep cone with ash bursts; rhyolitic is violent: a big blast crater, a towering
+  ash column and burning pyroclastic flows racing down the valleys, then a lava dome. Lava glows, flows, cools and becomes new rock; ash settles as tuff.
   Lava sets forests alight: wildfire races through forest (much slower in grass), leaving ash-grey
   burnt ground that recovers slowly.
 - **Intrude** ◍: a granite pluton (click) domes the ground with granite hidden beneath until erosion

@@ -18,6 +18,47 @@ export class Effects {
     this.frame = 0;
     this.shake = new THREE.Vector3();
     this.smoke = this.makeSmoke();
+    this.flowCloud = this.makeFlowCloud();
+  }
+
+  /** Billowing grey-brown clouds riding on each pyroclastic flow, hugging the ground. */
+  makeFlowCloud() {
+    const M = 2000;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(M * 3).fill(-9999), 3));
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
+    const points = new THREE.Points(geo, new THREE.PointsMaterial({
+      color: 0x8f857a, size: 7, sizeAttenuation: true, transparent: true, opacity: 0.6, depthWrite: false,
+    }));
+    this.scene.add(points);
+    return { points, M, life: new Float32Array(M), vel: new Float32Array(M * 3), next: 0 };
+  }
+
+  updateFlowCloud(dt) {
+    const c = this.flowCloud, w = this.world;
+    const pos = c.points.geometry.attributes.position;
+    for (const f of w.flows) {
+      const n = Math.ceil(2 + f.mass * 3);
+      for (let s = 0; s < n; s++) {
+        const k = c.next; c.next = (c.next + 1) % c.M;
+        const x = f.x + (Math.random() - 0.5) * 3, z = f.z + (Math.random() - 0.5) * 3;
+        const p = this.renderer.toWorld(x, z, w.sampleHeight(x, z) + 0.5 + Math.random() * 2);
+        pos.setXYZ(k, p.x, p.y, p.z);
+        // The cloud lags the dense current and boils upward
+        c.vel[k * 3] = f.vx * 0.35 + (Math.random() - 0.5) * 2;
+        c.vel[k * 3 + 1] = 1.5 + Math.random() * 4;
+        c.vel[k * 3 + 2] = f.vz * 0.35 + (Math.random() - 0.5) * 2;
+        c.life[k] = 1 + Math.random() * 1.5;
+      }
+    }
+    for (let k = 0; k < c.M; k++) {
+      if (c.life[k] <= 0) continue;
+      c.life[k] -= dt;
+      if (c.life[k] <= 0) { pos.setY(k, -9999); continue; }
+      c.vel[k * 3] *= 1 - dt; c.vel[k * 3 + 2] *= 1 - dt;
+      pos.setXYZ(k, pos.getX(k) + c.vel[k * 3] * dt, pos.getY(k) + c.vel[k * 3 + 1] * dt, pos.getZ(k) + c.vel[k * 3 + 2] * dt);
+    }
+    pos.needsUpdate = true;
   }
 
   /** One shared particle system for wildfire smoke, fed from random burning cells. */
@@ -63,6 +104,7 @@ export class Effects {
     this.frame++;
     this.updatePlumes(dt);
     this.updateSmoke(dt);
+    this.updateFlowCloud(dt);
     this.updateFaults();
   }
 
@@ -102,12 +144,13 @@ export class Effects {
 
   makePlume(ev) {
     const explosive = ev.type.ash > 0;
+    const column = ev.type.column || 1; // how tall and dense the eruption column is
     const geo = new THREE.BufferGeometry();
     const arr = new Float32Array(MAX_PARTICLES * 3).fill(-9999);
     geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
     geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
     const mat = new THREE.PointsMaterial({
-      color: explosive ? 0x8a8580 : 0xffa040, size: explosive ? 5 : 1.6, sizeAttenuation: true,
+      color: explosive ? 0x8a8580 : 0xffa040, size: explosive ? 4 + 2 * column : 1.6, sizeAttenuation: true,
       transparent: true, opacity: explosive ? 0.55 : 0.95, depthWrite: false,
     });
     const points = new THREE.Points(geo, mat);
@@ -117,8 +160,8 @@ export class Effects {
     this.scene.add(points, light);
     return {
       points, light, spawn: 0, life: new Float32Array(MAX_PARTICLES), vel: new Float32Array(MAX_PARTICLES * 3), next: 0,
-      rate: explosive ? 160 : 120, gravity: explosive ? 1.5 : 18,
-      drift: explosive ? [2.5, 0.9] : [0, 0], glow: explosive ? 6 : 10, explosive,
+      rate: explosive ? 160 * column : 120, gravity: explosive ? 1.5 : 18,
+      drift: explosive ? [2.5, 0.9] : [0, 0], glow: explosive ? 6 * column : 10, explosive, column,
     };
   }
 
@@ -128,11 +171,11 @@ export class Effects {
     const base = this.renderer.toWorld(v.x, v.z, this.world.sampleHeight(v.x, v.z) + this.world.lava[this.world.idx(Math.round(v.x), Math.round(v.z))]);
     const pos = p.points.geometry.attributes.position;
     pos.setXYZ(k, base.x + (Math.random() - 0.5) * 2, base.y + 0.5, base.z + (Math.random() - 0.5) * 2);
-    const spread = p.explosive ? 5 : 3;
+    const spread = p.explosive ? 5 * p.column : 3;
     p.vel[k * 3] = (Math.random() - 0.5) * spread;
-    p.vel[k * 3 + 1] = p.explosive ? 18 + Math.random() * 22 : 9 + Math.random() * 9;
+    p.vel[k * 3 + 1] = p.explosive ? (18 + Math.random() * 22) * p.column : 9 + Math.random() * 9;
     p.vel[k * 3 + 2] = (Math.random() - 0.5) * spread;
-    p.life[k] = p.explosive ? 3 + Math.random() * 3 : 0.8 + Math.random() * 0.8;
+    p.life[k] = p.explosive ? (3 + Math.random() * 3) * Math.sqrt(p.column) : 0.8 + Math.random() * 0.8;
   }
 
   /** Draw each fault trace as a line following the ground. */

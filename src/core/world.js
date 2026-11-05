@@ -58,6 +58,7 @@ export class World {
     this.burnt = new Float32Array(n);     // 1 = freshly burnt to ash; fades as plants return
     this.humus = new Float32Array(n);     // soil depth/fertility 0..1, built by plants (see sim/vegetation.js)
     this.fireCells = [];                  // indices of burning cells (for smoke)
+    this.flows = [];                      // moving pyroclastic flows {x, z, vx, vz, mass, age}
     this.intrusionRock = new Int8Array(n).fill(-1);
     this.intrusionTop = new Float32Array(n).fill(-Infinity);
     this.events = [];
@@ -131,7 +132,7 @@ export class World {
   resetEvents() {
     this.lava.fill(0); this.lavaTemp.fill(0);
     this.surfaceRock.fill(-1); this.surfaceBase.fill(0); this.freshRock.fill(0);
-    this.fire.fill(0); this.burnt.fill(0); this.fireCells.length = 0;
+    this.fire.fill(0); this.burnt.fill(0); this.fireCells.length = 0; this.flows.length = 0;
     this.intrusionRock.fill(-1); this.intrusionTop.fill(-Infinity);
     this.strataWarp.set(this.strataWarp0);
     this.events.length = 0; this.faults.length = 0; this.quake = 0;

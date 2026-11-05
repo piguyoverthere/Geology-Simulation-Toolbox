@@ -98,7 +98,7 @@ export class Toolbox {
         'How readily fire jumps to neighbouring plants.', this),
     );
     const vtBtns = el('div', 'tb-row');
-    vtBtns.append(button('Stop all events', () => { app.world.events.length = 0; }, '', 'End all running eruptions, intrusions and faults. Lava already out keeps flowing until it cools.', this));
+    vtBtns.append(button('Stop all events', () => { app.world.events.length = 0; app.world.flows.length = 0; }, '', 'End all running eruptions, intrusions, faults and pyroclastic flows. Lava already out keeps flowing until it cools.', this));
     vt.append(vtBtns);
 
     // --- Water & climate ---------------------------------------------------------------------
