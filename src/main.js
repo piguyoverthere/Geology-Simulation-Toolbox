@@ -375,7 +375,8 @@ class App {
     if (this.sim.running) {
       for (let k = 0; k < this.sim.substeps; k++) waterStep(this.world);
       if (this.sim.dropletsPerFrame > 0) runDroplets(this.world, this.sim.dropletsPerFrame);
-      if (this.sim.thermal && this.frame % 4 === 0) thermalStep(this.world, null, 0.5);
+      // Landslides keep pace with the water: faster sim speed means more relaxation per frame
+      if (this.sim.thermal && this.frame % 2 === 0) thermalStep(this.world, null, Math.min(1, 0.25 * this.sim.substeps / 6 * 2));
       if (this.sim.vegetation && this.frame % 10 === 0) vegetationStep(this.world);
       // Eruptions, intrusions and faults advance in simulated time, faster at higher sim speed
       const steps = Math.max(1, Math.round(this.sim.substeps / 3));

@@ -130,8 +130,11 @@ export function waterStep(world) {
 
     // 5. Carry suspended sediment along the flow. Each cell pushes its load downstream and splits
     // it between the (up to 4) cells it lands in, so sediment is exactly conserved locally.
-    // (Pulling values from upstream and rescaling globally instead let a few cells snowball.)
+    // Only cells that actually hold water can receive it: handing sediment to a dry neighbour
+    // would make it drop the lot there, building the cell up into a spike that stays dry and
+    // keeps collecting more.
     tmpSed.fill(0);
+    const wet = 0.01;
     for (let z = 0; z < N; z++) {
       for (let x = 0; x < N; x++) {
         const i = z * N + x;
@@ -141,10 +144,15 @@ export function waterStep(world) {
         const tz = clamp(z + VZ[i] * dt, 0, N - 1.001);
         const x0 = tx | 0, z0 = tz | 0, fx = tx - x0, fz = tz - z0;
         const j = z0 * N + x0;
-        tmpSed[j] += s * (1 - fx) * (1 - fz);
-        tmpSed[j + 1] += s * fx * (1 - fz);
-        tmpSed[j + N] += s * (1 - fx) * fz;
-        tmpSed[j + N + 1] += s * fx * fz;
+        const w00 = D[j] > wet ? (1 - fx) * (1 - fz) : 0;
+        const w10 = D[j + 1] > wet ? fx * (1 - fz) : 0;
+        const w01 = D[j + N] > wet ? (1 - fx) * fz : 0;
+        const w11 = D[j + N + 1] > wet ? fx * fz : 0;
+        const sum = w00 + w10 + w01 + w11;
+        if (sum <= 0) { tmpSed[i] += s; continue; } // nowhere wet to go: stays put
+        const k = s / sum;
+        tmpSed[j] += w00 * k; tmpSed[j + 1] += w10 * k;
+        tmpSed[j + N] += w01 * k; tmpSed[j + N + 1] += w11 * k;
       }
     }
     // Sediment that reaches a draining map edge is carried away with the water
