@@ -19,6 +19,7 @@ export const waterParams = {
   evaporate: 0.02,     // Ke
   minTilt: 0.02,       // keeps a little erosion going on near-flat river beds
   critSpeed: 0.4,      // flow slower than this can't lift grains off the bed (Hjulström/Shields threshold)
+  maxConcentration: 0.3, // most sediment a unit of water depth can carry
   channelDepth: 2,     // flow this deep carries full capacity; shallower sheet flow carries less
   damping: 0.997,      // flux friction per step: calms sloshing in pools without choking river flow
   erosionEnabled: true,
@@ -127,29 +128,36 @@ export function waterStep(world) {
       }
     }
 
-    // 5. Carry suspended sediment along the flow (look back along the velocity)
+    // 5. Carry suspended sediment along the flow. Each cell pushes its load downstream and splits
+    // it between the (up to 4) cells it lands in, so sediment is exactly conserved locally.
+    // (Pulling values from upstream and rescaling globally instead let a few cells snowball.)
+    tmpSed.fill(0);
     for (let z = 0; z < N; z++) {
       for (let x = 0; x < N; x++) {
         const i = z * N + x;
-        const sx = clamp(x - VX[i] * dt, 0, N - 1.001);
-        const sz = clamp(z - VZ[i] * dt, 0, N - 1.001);
-        const x0 = sx | 0, z0 = sz | 0, fx = sx - x0, fz = sz - z0;
+        const s = S[i];
+        if (s <= 0) continue;
+        const tx = clamp(x + VX[i] * dt, 0, N - 1.001);
+        const tz = clamp(z + VZ[i] * dt, 0, N - 1.001);
+        const x0 = tx | 0, z0 = tz | 0, fx = tx - x0, fz = tz - z0;
         const j = z0 * N + x0;
-        const x1 = x0 < N - 1 ? 1 : 0, z1 = z0 < N - 1 ? N : 0;
-        tmpSed[i] = (S[j] * (1 - fx) + S[j + x1] * fx) * (1 - fz) + (S[j + z1] * (1 - fx) + S[j + z1 + x1] * fx) * fz;
+        tmpSed[j] += s * (1 - fx) * (1 - fz);
+        tmpSed[j + 1] += s * fx * (1 - fz);
+        tmpSed[j + N] += s * (1 - fx) * fz;
+        tmpSed[j + N + 1] += s * fx * fz;
       }
     }
-    // Semi-Lagrangian advection isn't mass-conserving; rescale so sediment isn't created or lost
-    let before = 0, after = 0;
-    for (let i = 0; i < n; i++) { before += S[i]; after += tmpSed[i]; }
-    const fix = after > 1e-9 ? before / after : 1;
-    for (let i = 0; i < n; i++) S[i] = tmpSed[i] * fix;
-
     // Sediment that reaches a draining map edge is carried away with the water
     if (drain) {
       for (let k = 0; k < N; k++) {
-        S[k] = 0; S[n - N + k] = 0; S[k * N] = 0; S[k * N + N - 1] = 0;
+        tmpSed[k] = 0; tmpSed[n - N + k] = 0; tmpSed[k * N] = 0; tmpSed[k * N + N - 1] = 0;
       }
+    }
+    // Water can only hold so much sediment for its depth; the rest settles out on the spot
+    for (let i = 0; i < n; i++) {
+      const maxLoad = p.maxConcentration * D[i] + 0.005;
+      if (tmpSed[i] > maxLoad) { B[i] += tmpSed[i] - maxLoad; tmpSed[i] = maxLoad; }
+      S[i] = tmpSed[i];
     }
   }
 
