@@ -32,6 +32,7 @@ export const OVERLAYS = {
   vegetation: 'Vegetation',
   moisture: 'Wetness',
   soil: 'Soil depth',
+  bare: 'Bare rock',
   rock: 'Rock type',
   hardness: 'Rock hardness',
   change: 'Erosion / deposition',
@@ -188,8 +189,13 @@ export class TerrainRenderer {
           col = mix(C.rockSoft, C.rockHard, hard, S3);
         } else if (mode === 'vegetation') {
           col = shade(vegColor(w.vegetation[i], S3), 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'bare') {
+          // Exposed bedrock in its own colour; soil-covered ground pale
+          col = shade(mix(SOIL_COVER, this.rockColor(h, i), w.bareExposure(i, tan), S3), 0.7 + 0.3 * ny, S3);
         } else if (mode === 'soil') {
-          col = shade(mix(SOIL_THIN, SOIL_DEEP, w.humus[i], S3), 0.75 + 0.25 * ny, S3);
+          // Square-root scale so thin-but-present soil stands out from bare rock
+          const t = Math.sqrt(w.humus[i]) * 2;
+          col = shade(t < 1 ? mix(SOIL_THIN, SOIL_MID, t, S3) : mix(SOIL_MID, SOIL_DEEP, t - 1, S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'moisture') {
           const m = w.soil ? w.soil[i] : 0;
           col = shade(mix(DRY, WET, m, S3), 0.75 + 0.25 * ny, S3);
@@ -358,7 +364,8 @@ export class TerrainRenderer {
 const S1 = [0, 0, 0], S2 = [0, 0, 0], S3 = [0, 0, 0], S4 = [0, 0, 0];
 const SLOPE_LO = [0.2, 0.7, 0.3], SLOPE_HI = [0.9, 0.2, 0.15];
 const DRY = [0.85, 0.72, 0.50], WET = [0.15, 0.40, 0.80];
-const SOIL_THIN = [0.80, 0.74, 0.62], SOIL_DEEP = [0.24, 0.16, 0.09];
+const SOIL_THIN = [0.88, 0.85, 0.76], SOIL_MID = [0.72, 0.48, 0.24], SOIL_DEEP = [0.22, 0.13, 0.07];
+const SOIL_COVER = [0.86, 0.84, 0.78];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 
 /** Barren brown (0) → light-green grassland (0.5) → deep-green forest (1). */

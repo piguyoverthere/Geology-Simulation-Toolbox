@@ -105,6 +105,19 @@ export class World {
            (h[i + N] * (1 - fx) + h[i + N + 1] * fx) * fz;
   }
 
+  /**
+   * How exposed the bedrock is at cell i (0 = buried under soil, 1 = bare rock): thin soil, fresh
+   * lava or ash, and cliffs too steep to hold soil all leave rock at the surface.
+   * @param {number} slope rise/run at the cell
+   */
+  bareExposure(i, slope) {
+    const t = Math.min(Math.max((this.humus[i] - 0.05) / 0.35, 0), 1);
+    let e = 1 - t * t * (3 - 2 * t);
+    const c = Math.min(Math.max((slope - 0.9) / 0.6, 0), 1);
+    e = Math.max(e, c * c * (3 - 2 * c), this.freshRock[i]);
+    return e;
+  }
+
   /** Index into ROCKS of the bedrock at cell i with the ground at height h. */
   rockAt(h, i) { return rockAt(this, i, h); }
 

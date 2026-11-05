@@ -254,7 +254,9 @@ times their type's rate), so a stripped forest floor recovers most of its soil q
 grassland takes far longer. Erosion strips soil, lava and ash bury it, and fire burns part of it.
 Deep soil holds water (wetter ground), speeds plant regrowth and slightly reduces erosion. Roots
 also break up fresh lava and ash, so new rock next to a forest weathers into soil much faster
-than isolated rock. See it with **Overlays → Soil depth**.
+than isolated rock. See it with **Overlays → Soil depth**, and where rock shows through (thin
+soil, cliffs, fresh lava and ash) with **Overlays → Bare rock**, which colours exposed bedrock by
+type and leaves soil-covered ground pale.
 
 ---
 
