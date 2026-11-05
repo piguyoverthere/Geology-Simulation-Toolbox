@@ -33,6 +33,7 @@ export const OVERLAYS = {
   moisture: 'Wetness',
   soil: 'Soil depth',
   bare: 'Bare rock',
+  age: 'Forest age',
   rock: 'Rock type',
   hardness: 'Rock hardness',
   change: 'Erosion / deposition',
@@ -189,6 +190,12 @@ export class TerrainRenderer {
           col = mix(C.rockSoft, C.rockHard, hard, S3);
         } else if (mode === 'vegetation') {
           col = shade(vegColor(w.vegetation[i], S3), 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'age') {
+          const v = w.vegetation[i];
+          col = v > 0.6
+            ? mix(AGE_YOUNG, AGE_OLD, w.forestAge[i], S3)
+            : mix(NO_FOREST, AGE_YOUNG, smooth(0.45, 0.6, v) * 0.5, S3);
+          shade(col, 0.75 + 0.25 * ny, col);
         } else if (mode === 'bare') {
           // Exposed bedrock in its own colour; soil-covered ground pale
           col = shade(mix(SOIL_COVER, this.rockColor(h, i), w.bareExposure(i, tan), S3), 0.7 + 0.3 * ny, S3);
@@ -321,7 +328,8 @@ export class TerrainRenderer {
     const low = mix(C.grass, C.shrub, 1 - smooth(0.28, 0.42, soil), S2);
     // Forests take the colour of whichever type suits the spot (blended at the borders)
     const col = v < 0.5 ? mix(bare, low, smooth(0.12, 0.42, v), S3)
-      : mix(low, forestColor(w, i, h, vegetationParams.treeLine, S4), smooth(0.55, 0.8, v), S3);
+      // Old-growth forest is darker and denser than young regrowth
+      : mix(low, shade(forestColor(w, i, h, vegetationParams.treeLine, S4), 1.1 - 0.25 * w.forestAge[i], S4), smooth(0.55, 0.8, v), S3);
     // Tundra above the tree line
     const tl = vegetationParams.treeLine;
     if (h > tl) mix(col, C.tundra, smooth(tl, tl + 8, h) * smooth(0.08, 0.3, v) * 0.85, col);
@@ -366,6 +374,7 @@ const SLOPE_LO = [0.2, 0.7, 0.3], SLOPE_HI = [0.9, 0.2, 0.15];
 const DRY = [0.85, 0.72, 0.50], WET = [0.15, 0.40, 0.80];
 const SOIL_THIN = [0.88, 0.85, 0.76], SOIL_MID = [0.72, 0.48, 0.24], SOIL_DEEP = [0.22, 0.13, 0.07];
 const SOIL_COVER = [0.86, 0.84, 0.78];
+const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 
 /** Barren brown (0) → light-green grassland (0.5) → deep-green forest (1). */

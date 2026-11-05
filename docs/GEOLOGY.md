@@ -254,7 +254,17 @@ times their type's rate), so a stripped forest floor recovers most of its soil q
 grassland takes far longer. Erosion strips soil, lava and ash bury it, and fire burns part of it.
 Deep soil holds water (wetter ground), speeds plant regrowth and slightly reduces erosion. Roots
 also break up fresh lava and ash, so new rock next to a forest weathers into soil much faster
-than isolated rock. See it with **Overlays → Soil depth**, and where rock shows through (thin
+than isolated rock.
+
+**Forest age.** Forests mature slowly while left alone, from young regrowth to old growth over
+roughly 1,000+ vegetation steps, and lose their age when they thin out, burn or are buried. Old
+growth is darker and far more robust. In tests comparing all-young with all-old forest on the
+same map: after a drought, 29% of old forest survived versus none of the young; old forest ground
+eroded about a third less under rain; and the same eruption's wildfire burned half as much old
+forest. Old stands also build soil up to 40% faster, hold steeper slopes and lose less cover to
+disturbance. See it with **Overlays → Forest age**.
+
+See soil with **Overlays → Soil depth**, and where rock shows through (thin
 soil, cliffs, fresh lava and ash) with **Overlays → Bare rock**, which colours exposed bedrock by
 type and leaves soil-covered ground pale.
 

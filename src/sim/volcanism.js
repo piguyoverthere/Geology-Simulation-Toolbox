@@ -226,6 +226,7 @@ function depositRock(world, i, thick, rock) {
   world.height[i] = h + thick;
   world.prevHeight[i] = world.height[i]; // the vegetation step shouldn't count this as erosion
   world.humus[i] = 0;                    // the old soil is buried
+  world.forestAge[i] = 0;
 }
 
 /**

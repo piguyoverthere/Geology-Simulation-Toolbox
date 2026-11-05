@@ -57,6 +57,7 @@ export class World {
     this.fire = new Float32Array(n);      // wildfire intensity (0 = not burning)
     this.burnt = new Float32Array(n);     // 1 = freshly burnt to ash; fades as plants return
     this.humus = new Float32Array(n);     // soil depth/fertility 0..1, built by plants (see sim/vegetation.js)
+    this.forestAge = new Float32Array(n); // forest maturity 0 (young/none) … 1 (old growth)
     this.fireCells = [];                  // indices of burning cells (for smoke)
     this.flows = [];                      // moving pyroclastic flows {x, z, vx, vz, mass, age}
     this.intrusionRock = new Int8Array(n).fill(-1);
@@ -138,7 +139,9 @@ export class World {
    */
   erodibilityAt(h, i) {
     // Deep soil binds the surface a little on top of what roots do
-    return (1.15 - this.hardnessAt(h, i)) * (1.4 - 1.25 * this.vegetation[i]) * (1.1 - 0.25 * this.humus[i]);
+    // Old-growth forest (big root mats, deep litter) protects the ground more than young forest
+    return (1.15 - this.hardnessAt(h, i)) * (1.4 - 1.25 * this.vegetation[i]) * (1.1 - 0.25 * this.humus[i])
+      * (1 - 0.35 * this.forestAge[i]);
   }
 
   /** Forget lava, deposits, intrusions, faults and running events (new terrain). */

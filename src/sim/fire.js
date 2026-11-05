@@ -57,7 +57,7 @@ export function fireStep(world, dt) {
         V[i] -= p.burnRate * dt * F[i];
         if (V[i] <= 0.03 || F[i] < 0.05) {
           V[i] = Math.max(0, V[i]);
-          if (V[i] <= 0.03) { B[i] = 1; V[i] = 0; world.humus[i] *= 0.6; } // litter and topsoil burn
+          if (V[i] <= 0.03) { B[i] = 1; V[i] = 0; world.humus[i] *= 0.6; world.forestAge[i] = 0; } // litter and topsoil burn
           F[i] = 0;
           continue;
         }
@@ -73,7 +73,10 @@ export function fireStep(world, dt) {
         const j = nz * N + nx;
         if (F[j] > 0 || ignite[j] || V[j] < p.minFuel || L[j] > 0.02) continue;
         // Forest type matters: resinous conifers and dry woodland burn readily, rainforest and swamp barely
-        const kind = V[j] > 0.62 ? FOREST_TYPES[forestTypeAt(world, j, H[j], vegetationParams.treeLine)].flammability : 1;
+        // Old-growth forest (thick bark, damp shaded floor) is harder to ignite than young stands
+        const kind = V[j] > 0.62
+          ? FOREST_TYPES[forestTypeAt(world, j, H[j], vegetationParams.treeLine)].flammability * (1 - 0.35 * world.forestAge[j])
+          : 1;
         const fuel = flammability(V[j]) * kind;
         const damp = (1 - 0.7 * (W ? W[j] : 0)) * (D[j] > 0.05 ? 0.1 : 1) * (raining ? 0.3 : 1);
         const uphill = 1 + Math.min(2, Math.max(0, H[j] - H[i]) * 1.5);

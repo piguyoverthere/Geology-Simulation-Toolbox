@@ -44,7 +44,7 @@ export function thermalStep(world, region = null, strength = 1) {
       const h = H[i];
       // Harder rock stands steeper (about 0.85x to 1.3x the base talus slope)
       // Roots also bind slopes: forested ground holds up to ~30% steeper than bare ground
-      const tanLimit = baseTan * (0.8 + 0.5 * world.hardnessAt(h, i)) * (1 + 0.3 * world.vegetation[i]);
+      const tanLimit = baseTan * (0.8 + 0.5 * world.hardnessAt(h, i)) * (1 + 0.3 * world.vegetation[i] + 0.25 * world.forestAge[i]);
 
       let total = 0, maxDiff = 0;
       const diffs = [0, 0, 0, 0, 0, 0, 0, 0];

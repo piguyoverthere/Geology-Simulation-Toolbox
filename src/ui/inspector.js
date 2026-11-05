@@ -51,6 +51,7 @@ export class Inspector {
       ['Surface water', depth > 0.005 ? `${depth.toFixed(2)} deep · ${speed.toFixed(1)} speed` : 'dry'],
       ['Sediment load', w.sediment[i] > 0.001 ? w.sediment[i].toFixed(3) : '—'],
       ['Plant cover', `${bar(v, '#4caf50')} <span class="ins-dim">${cover}</span>`],
+      ...(v > 0.6 ? [['Forest age', `${bar(w.forestAge[i], '#2e7d32')} <span class="ins-dim">${w.forestAge[i] > 0.75 ? 'old growth' : w.forestAge[i] > 0.35 ? 'mature' : 'young'}</span>`]] : []),
       ['Soil depth', bar(w.humus[i], '#8a6a45')],
       ['Bare rock', bar(w.bareExposure(i, slope), '#b0a090')],
       ...(w.fire[i] > 0 ? [['Fire', `<span style="color:#ff8a4a">burning · ${Math.round(w.fire[i] * 100)}% intensity</span>`]] : []),

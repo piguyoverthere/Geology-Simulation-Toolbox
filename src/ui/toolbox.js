@@ -204,6 +204,7 @@ export class Toolbox {
     if (mode === 'rock' || (mode === 'natural' && !this.app.renderer.showVegetation)) items('Rock types', ROCKS);
     else if (mode === 'bare') items('Exposed rock (pale = under soil)', [{ label: 'Soil-covered', color: [0.86, 0.84, 0.78], help: 'Bedrock buried under soil deep enough to grow on.' }, ...ROCKS]);
     else if (mode === 'natural' || mode === 'biome') items(mode === 'biome' ? 'Biomes' : 'Biomes (blended)', Object.values(BIOMES));
+    else if (mode === 'age') ramp('Forest age (pale = no forest)', 'young', 'old growth', [[0.72, 0.86, 0.42], [0.05, 0.24, 0.10]]);
     else if (mode === 'soil') ramp('Soil depth', 'bare rock', 'deep soil', [[0.88, 0.85, 0.76], [0.72, 0.48, 0.24], [0.22, 0.13, 0.07]]);
     else if (mode === 'moisture') ramp('Soil wetness', 'dry', 'saturated', [[0.85, 0.72, 0.5], [0.15, 0.4, 0.8]]);
     else if (mode === 'vegetation') items('Plant cover', [BIOMES.barren, BIOMES.grassland, { ...BIOMES.broadleaf, label: 'Forest' }]);

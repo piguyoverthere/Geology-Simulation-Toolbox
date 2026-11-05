@@ -63,8 +63,8 @@ and how much it has been eroded or built up since the baseline.
 - **Volcanism & tectonics**: eruption type and size, intrusion type, fault type, slip and number
   of earthquakes, and a button to stop all running events.
 - **Water & climate**: sim speed, global rain, evaporation, plant growth, climate wetness, tree line.
-- **Overlays**: colour the map by one data layer (biomes, vegetation, wetness, soil depth, bare
-  rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
+- **Overlays**: colour the map by one data layer (biomes, vegetation, forest age, wetness, soil
+  depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
 - **Terrain**: presets (hills, mountains, plateau, volcano, flat), seed, undo/redo, PNG

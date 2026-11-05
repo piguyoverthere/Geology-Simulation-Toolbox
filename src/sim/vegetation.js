@@ -27,6 +27,12 @@
 // regrow faster and protects the ground a little from erosion. Plant roots also pry apart fresh
 // lava and ash, so recolonisation speeds up once pioneers (and nearby forest) get a foothold.
 //
+// Forest age (world.forestAge, 0 = young or none, 1 = old growth) builds up slowly while a spot
+// stays forested and is lost quickly when the forest thins, burns or is buried. Old forest is more
+// robust: deeper roots and a big soil store make it more drought-tolerant (it survives on drier
+// soil and dies back more slowly), it shrugs off disturbance, holds steeper slopes, protects the
+// ground from erosion better, resists fire, and builds soil a little faster.
+//
 // Elevation: above the tree line it is too cold and windy for trees. Forest gives way to alpine
 // grassland, which thins out to bare rock higher up.
 //
@@ -55,6 +61,8 @@ export const vegetationParams = {
   grassBuffer: 10,    // forest keeps roughly 1–2× this many cells away from arid ground (grassland between)
   climate: 1,         // regional wetness multiplier (0 = desert, 1 = normal, 1.5 = rainforest)
   forestWater: 0.46,  // soil moisture a forest needs to sustain itself
+  ageRate: 0.0012,    // forest maturity gained per step (≈ 830 steps from young to old growth)
+  ageLoss: 0.03,      // maturity lost per step where cover drops below forest
   ashRecovery: 0.004, // how fast burnt ground recovers per step
   soilBuild: 0.004,      // soil formed per step under full plant cover (× forest type)
   forestSoilBoost: 3,    // forests build soil this many times faster than grassland
@@ -87,6 +95,10 @@ export function initVegetation(world, seed = 1) {
     for (let i = 0; i < N * N; i++) world.vegetation[i] = potential(world, i, f);
     // Mature soils: deepest under long-standing forest
     for (let i = 0; i < N * N; i++) world.humus[i] = Math.min(1, 1.1 * world.vegetation[i] ** 1.5);
+    // Existing forests start part-way mature; wetter, long-established stands are older
+    for (let i = 0; i < N * N; i++) {
+      world.forestAge[i] = world.vegetation[i] > 0.66 ? 0.3 + 0.55 * world.moisture[i] : 0;
+    }
   }
   world.prevHeight.set(world.height);
   world.dirty = true;
@@ -149,6 +161,7 @@ function potential(world, i, f) {
 
   // Blend this cell's soil with its neighbourhood's: a stand shares (and shades) its water
   const soil = 0.4 * world.soil[i] + 0.6 * f.standSoil[i];
+  const age = world.forestAge[i];
   const steep = 1 - 0.85 * smoothstep(0.6, 1.8, slope);
   // Above the tree line plants get sparser, down to bare ground at the top of the alpine band
   const alpine = 1 - 0.95 * smoothstep(p.treeLine, p.treeLine + p.alpineBand, h);
@@ -161,7 +174,8 @@ function potential(world, i, f) {
   // Forest (cover above ~0.6) needs all three, judged over the whole stand: gentle ground for deep
   // soil, enough water, and to be below the tree line. Otherwise the site tops out as grassland.
   const forestOk = (1 - smoothstep(f.gentle * 0.85, f.gentle * 1.1, f.standSlope[i]))
-    * smoothstep(p.forestWater - 0.15, p.forestWater + 0.05, soil)
+    // Old forest's deep roots reach water young trees can't, so it survives on drier ground
+    * smoothstep(p.forestWater - 0.15 - 0.12 * age, p.forestWater + 0.05 - 0.12 * age, soil)
     * (1 - smoothstep(p.treeLine - 6, p.treeLine, h))
     * (1 - smoothstep(0.005, 0.06, f.nearArid[i]));
   v = Math.min(v, 0.58 + 0.42 * forestOk);
@@ -183,10 +197,12 @@ export function vegetationStep(world) {
     const burnt = world.burnt[i];
     // Slow creep is tolerated; only real scouring or burial damages plants
     const change = Math.max(0, Math.abs(H[i] - P[i]) - 0.05);
-    let v = V[i] - change * p.disturbance;
+    const age = world.forestAge[i];
+    let v = V[i] - change * p.disturbance * (1 - 0.6 * age); // old stands shrug off disturbance
     let target = potential(world, i, f);
-    // Regrowth is faster near water; dieback (drought, cold) runs at the normal rate
-    let rate = target > v ? p.growth * (1 + p.riparianBoost * W[i]) * (0.5 + SO[i]) : p.growth;
+    // Regrowth is faster near water and on deep soil; dieback (drought, cold) is slowed by forest
+    // age, since mature trees ride out bad years on their reserves
+    let rate = target > v ? p.growth * (1 + p.riparianBoost * W[i]) * (0.5 + SO[i]) : p.growth * (1 - 0.75 * age);
     if (burnt > 0) {
       if (target > v) rate *= 1 - 0.8 * burnt;
       world.burnt[i] = Math.max(0, burnt - p.ashRecovery * (1 + 2 * SO[i]));
@@ -209,11 +225,18 @@ export function vegetationStep(world) {
     // Soil: built by plants (forests fastest, by type), lost to erosion/burial and on bare ground
     let soil = SO[i];
     const build = v > 0.66
-      ? p.forestSoilBoost * FOREST_TYPES[forestTypeAt(world, i, H[i], p.treeLine)].soilBuild
+      ? p.forestSoilBoost * FOREST_TYPES[forestTypeAt(world, i, H[i], p.treeLine)].soilBuild * (1 + 0.4 * age)
       : 1;
     soil += p.soilBuild * v * v * build * (1 - soil) - p.soilDecay * soil * (1 - v) - change * p.soilErosion;
     if (F[i] > 0) soil = Math.min(soil, 1 - F[i]);
     SO[i] = soil < 0 ? 0 : soil > 1 ? 1 : soil;
+
+    // Forest age: matures while forested, lost quickly when the cover thins or the ground is torn up
+    let a = age;
+    if (v > 0.66) a += p.ageRate * (1 - a);
+    else a -= p.ageLoss;
+    a -= change * 2;
+    world.forestAge[i] = a < 0 ? 0 : a > 1 ? 1 : a;
   }
   P.set(H);
   world.dirty = true;
