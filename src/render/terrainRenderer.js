@@ -93,11 +93,13 @@ export class TerrainRenderer {
     this.lavaGeo = new THREE.BufferGeometry();
     this.lavaGeo.setIndex(indexAttr);
     this.lPos = new Float32Array(N * N * 3);
-    this.lCol = new Float32Array(N * N * 3);
+    this.lCol = new Float32Array(N * N * 4); // RGBA: alpha 0 marks "no lava/fire here"
     this.lavaGeo.setAttribute('position', new THREE.BufferAttribute(this.lPos, 3));
-    this.lavaGeo.setAttribute('color', new THREE.BufferAttribute(this.lCol, 3));
+    this.lavaGeo.setAttribute('color', new THREE.BufferAttribute(this.lCol, 4));
     this.lava = new THREE.Mesh(this.lavaGeo, new THREE.MeshBasicMaterial({
-      vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+      // Fragments where the interpolated alpha drops below 0.5 are discarded, so lava and fire end
+      // cleanly halfway between a covered cell and an empty one. No need to bury hidden vertices.
+      vertexColors: true, alphaTest: 0.5,
     }));
     this.lava.visible = false;
     scene.add(this.lava);
@@ -200,24 +202,27 @@ export class TerrainRenderer {
         // Palette is authored in sRGB; vertex colours are linear, so square to approximate the conversion
         this.tCol[i3] = col[0] * col[0]; this.tCol[i3 + 1] = col[1] * col[1]; this.tCol[i3 + 2] = col[2] * col[2];
 
-        // Lava surface, hidden below ground where there is none
+        // Lava and fire layer: alpha 1 where present, 0 (discarded) elsewhere
+        const l4 = i * 4;
         this.lPos[i3] = x - off; this.lPos[i3 + 2] = z - off;
+        let lc = null;
         if (LV[i] > 0.02) {
-          anyLava = true;
-          this.lPos[i3 + 1] = h + LV[i];
-          const lc = lavaColor(LT[i]);
-          this.lCol[i3] = lc[0] * lc[0]; this.lCol[i3 + 1] = lc[1] * lc[1]; this.lCol[i3 + 2] = lc[2] * lc[2];
+          this.lPos[i3 + 1] = h + Math.max(LV[i], 0.1);
+          lc = lavaColor(LT[i]);
         } else if (FI[i] > 0.02) {
-          // Fire: a glowing layer just above the ground. Height stays fixed (raising single vertices
-          // makes spikes); only the colour flickers.
-          anyLava = true;
-          this.lPos[i3 + 1] = h + 0.12;
-          const fc = lavaColor(0.45 + 0.5 * FI[i] * (0.75 + 0.25 * Math.random()));
-          this.lCol[i3] = fc[0] * fc[0]; this.lCol[i3 + 1] = fc[1] * fc[1]; this.lCol[i3 + 2] = fc[2] * fc[2];
+          // Fire glows just above the ground; only its colour flickers (moving single vertices up
+          // and down makes spikes)
+          this.lPos[i3 + 1] = h + 0.15;
+          lc = lavaColor(0.45 + 0.5 * FI[i] * (0.75 + 0.25 * Math.random()));
         } else {
-          // Hidden just under the ground; dark so edge triangles blend into the crust colour
-          this.lPos[i3 + 1] = h - 0.08;
-          this.lCol[i3] = 0.03; this.lCol[i3 + 1] = 0.01; this.lCol[i3 + 2] = 0.005;
+          this.lPos[i3 + 1] = h + 0.05;
+        }
+        if (lc) {
+          anyLava = true;
+          this.lCol[l4] = lc[0] * lc[0]; this.lCol[l4 + 1] = lc[1] * lc[1]; this.lCol[l4 + 2] = lc[2] * lc[2];
+          this.lCol[l4 + 3] = 1;
+        } else {
+          this.lCol[l4 + 3] = 0;
         }
 
         // Water surface: hide (sink below ground) where it is too thin to see
