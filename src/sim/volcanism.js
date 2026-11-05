@@ -165,6 +165,11 @@ export function lavaStep(world, dt = LAVA_DT) {
       const s = H[i] + L[i];
       nb[0] = x > 0 ? i - 1 : -1; nb[1] = x < N - 1 ? i + 1 : -1;
       nb[2] = z > 0 ? i - N : -1; nb[3] = z < N - 1 ? i + N : -1;
+      // Lava reaching the map edge flows off it instead of piling up against the border
+      if (x === 0 || z === 0 || x === N - 1 || z === N - 1) {
+        L[i] -= Math.min(L[i], L[i] * 0.3 + 0.02);
+        if (L[i] < 1e-3) { L[i] = 0; T[i] = 0; continue; }
+      }
       let total = 0;
       for (let k = 0; k < 4; k++) {
         const j = nb[k];

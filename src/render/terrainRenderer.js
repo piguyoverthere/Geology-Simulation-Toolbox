@@ -208,13 +208,16 @@ export class TerrainRenderer {
           const lc = lavaColor(LT[i]);
           this.lCol[i3] = lc[0] * lc[0]; this.lCol[i3 + 1] = lc[1] * lc[1]; this.lCol[i3 + 2] = lc[2] * lc[2];
         } else if (FI[i] > 0.02) {
-          // Flames at canopy height, flickering
+          // Fire: a glowing layer just above the ground. Height stays fixed (raising single vertices
+          // makes spikes); only the colour flickers.
           anyLava = true;
-          this.lPos[i3 + 1] = h + 0.3 + w.vegetation[i] * 1.6 * (0.7 + 0.6 * Math.random());
-          const fc = lavaColor(0.55 + 0.45 * FI[i] * Math.random());
+          this.lPos[i3 + 1] = h + 0.12;
+          const fc = lavaColor(0.45 + 0.5 * FI[i] * (0.75 + 0.25 * Math.random()));
           this.lCol[i3] = fc[0] * fc[0]; this.lCol[i3 + 1] = fc[1] * fc[1]; this.lCol[i3 + 2] = fc[2] * fc[2];
         } else {
-          this.lPos[i3 + 1] = h - 0.5;
+          // Hidden just under the ground; dark so edge triangles blend into the crust colour
+          this.lPos[i3 + 1] = h - 0.08;
+          this.lCol[i3] = 0.03; this.lCol[i3 + 1] = 0.01; this.lCol[i3 + 2] = 0.005;
         }
 
         // Water surface: hide (sink below ground) where it is too thin to see

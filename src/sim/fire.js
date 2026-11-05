@@ -47,10 +47,11 @@ export function fireStep(world, dt) {
       any = true;
 
       if (F[i] > 0) {
-        // Burn this cell's fuel; water and rain dampen it
-        if (D[i] > 0.05 || raining) F[i] *= raining ? 0.92 : 0.8;
-        // Intensity builds up to what the fuel can sustain: a grass fire never gets as hot as a crown fire
-        F[i] = Math.min(Math.min(1, 0.2 + V[i] * 1.2), F[i] + dt * 2);
+        // Standing water puts fire out quickly, rain more slowly; otherwise intensity builds up to
+        // what the fuel can sustain (a grass fire never gets as hot as a crown fire)
+        if (D[i] > 0.05) F[i] -= dt * 6;
+        else if (raining) F[i] -= dt * 1.2;
+        else F[i] = Math.min(Math.min(1, 0.2 + V[i] * 1.2), F[i] + dt * 2);
         V[i] -= p.burnRate * dt * F[i];
         if (V[i] <= 0.03 || F[i] < 0.05) {
           V[i] = Math.max(0, V[i]);
