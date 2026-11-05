@@ -56,6 +56,7 @@ export class World {
     this.freshRock = new Float32Array(n); // 1 = newly erupted lava/ash with no soil yet; weathers back to 0
     this.fire = new Float32Array(n);      // wildfire intensity (0 = not burning)
     this.burnt = new Float32Array(n);     // 1 = freshly burnt to ash; fades as plants return
+    this.humus = new Float32Array(n);     // soil depth/fertility 0..1, built by plants (see sim/vegetation.js)
     this.fireCells = [];                  // indices of burning cells (for smoke)
     this.intrusionRock = new Int8Array(n).fill(-1);
     this.intrusionTop = new Float32Array(n).fill(-Infinity);
@@ -122,7 +123,8 @@ export class World {
    * plant cover protects the ground: forest ≈ 0.15x, grassland ≈ 0.8x, barren ≈ 1.4x.
    */
   erodibilityAt(h, i) {
-    return (1.15 - this.hardnessAt(h, i)) * (1.4 - 1.25 * this.vegetation[i]);
+    // Deep soil binds the surface a little on top of what roots do
+    return (1.15 - this.hardnessAt(h, i)) * (1.4 - 1.25 * this.vegetation[i]) * (1.1 - 0.25 * this.humus[i]);
   }
 
   /** Forget lava, deposits, intrusions, faults and running events (new terrain). */

@@ -20,6 +20,13 @@
 // marks it (1 = just erupted) and fades as the rock breaks down, faster where it's moist. Ash
 // weathers into fertile soil much sooner than solid lava does.
 //
+// Soil (world.humus, 0 = bare mineral ground, 1 = deep fertile soil) is built by plants: leaf
+// litter, roots and the life they feed turn rock debris into soil. Forests build it about three
+// times faster than grassland, at a rate that depends on the forest type. Erosion strips it,
+// lava and ash bury it, and fire burns some of it off. Deep soil holds more water, lets plants
+// regrow faster and protects the ground a little from erosion. Plant roots also pry apart fresh
+// lava and ash, so recolonisation speeds up once pioneers (and nearby forest) get a foothold.
+//
 // Elevation: above the tree line it is too cold and windy for trees. Forest gives way to alpine
 // grassland, which thins out to bare rock higher up.
 //
@@ -30,6 +37,7 @@
 
 import { createNoise2D, fbm } from '../core/noise.js';
 import { boxBlur } from '../core/grid.js';
+import { FOREST_TYPES, forestTypeAt } from './forests.js';
 import { waterParams } from './water.js';
 
 export const vegetationParams = {
@@ -48,6 +56,10 @@ export const vegetationParams = {
   climate: 1,         // regional wetness multiplier (0 = desert, 1 = normal, 1.5 = rainforest)
   forestWater: 0.46,  // soil moisture a forest needs to sustain itself
   ashRecovery: 0.004, // how fast burnt ground recovers per step
+  soilBuild: 0.004,      // soil formed per step under full plant cover (× forest type)
+  forestSoilBoost: 3,    // forests build soil this many times faster than grassland
+  soilDecay: 0.0015,     // bare soil slowly washes/blows away where nothing grows
+  soilErosion: 1.5,      // soil lost per unit of ground eroded or buried
   weathering: 0.0009, // how fast fresh lava/ash breaks down into soil per step (×(0.4 + soil))
   uptake: 0.2,        // how much full plant cover draws down soil moisture
   soilMemory: 0.04,   // how fast soil moisture moves toward its supply each step
@@ -59,6 +71,7 @@ export function initVegetation(world, seed = 1) {
   const noise = createNoise2D(seed * 31 + 5);
   if (!world.moisture) world.moisture = new Float32Array(N * N);
   if (!world.soil) world.soil = new Float32Array(N * N);
+  world.humus.fill(0.3);
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
       // Wet and dry regions (rain shadows, soil differences) give distinct biome patches
@@ -72,6 +85,8 @@ export function initVegetation(world, seed = 1) {
     for (let i = 0; i < N * N; i++) world.soil[i] = soilSupply(world, i);
     const f = neighbourhood(world);
     for (let i = 0; i < N * N; i++) world.vegetation[i] = potential(world, i, f);
+    // Mature soils: deepest under long-standing forest
+    for (let i = 0; i < N * N; i++) world.humus[i] = Math.min(1, 1.1 * world.vegetation[i] ** 1.5);
   }
   world.prevHeight.set(world.height);
   world.dirty = true;
@@ -83,7 +98,8 @@ function soilSupply(world, i) {
   const s = p.climate * world.moisture[i]
     + waterParams.rain * 8
     + 0.6 * world.nearWater[i]
-    - p.uptake * world.vegetation[i];
+    - p.uptake * world.vegetation[i]
+    + 0.15 * world.humus[i]; // deep, organic soil holds water like a sponge
   return s < 0 ? 0 : s > 1 ? 1 : s;
 }
 
@@ -157,7 +173,7 @@ export function vegetationStep(world) {
   const V = world.vegetation, H = world.height, P = world.prevHeight, S = world.soil;
   const p = vegetationParams;
   updateNearWater(world);
-  const W = world.nearWater, F = world.freshRock;
+  const W = world.nearWater, F = world.freshRock, SO = world.humus;
   for (let i = 0; i < V.length; i++) S[i] += (soilSupply(world, i) - S[i]) * p.soilMemory;
   const f = neighbourhood(world);
   for (let i = 0; i < V.length; i++) {
@@ -170,10 +186,10 @@ export function vegetationStep(world) {
     let v = V[i] - change * p.disturbance;
     let target = potential(world, i, f);
     // Regrowth is faster near water; dieback (drought, cold) runs at the normal rate
-    let rate = target > v ? p.growth * (1 + p.riparianBoost * W[i]) : p.growth;
+    let rate = target > v ? p.growth * (1 + p.riparianBoost * W[i]) * (0.5 + SO[i]) : p.growth;
     if (burnt > 0) {
       if (target > v) rate *= 1 - 0.8 * burnt;
-      world.burnt[i] = Math.max(0, burnt - p.ashRecovery);
+      world.burnt[i] = Math.max(0, burnt - p.ashRecovery * (1 + 2 * SO[i]));
     }
     const fresh = F[i];
     if (fresh > 0) {
@@ -183,11 +199,21 @@ export function vegetationStep(world) {
       else {
         target = Math.min(target, 1 - fresh);
         if (target > v) rate *= (1 - fresh) * (1 - fresh);
-        F[i] = Math.max(0, fresh - p.weathering * (0.4 + S[i]));
+        // Roots of the pioneers here and of the forest nearby break the rock down faster
+        F[i] = Math.max(0, fresh - p.weathering * (0.4 + S[i]) * (1 + 3 * v + 4 * f.standCover[i]));
       }
     }
     v += (target - v) * Math.min(1, rate);
     V[i] = v < 0 ? 0 : v > 1 ? 1 : v;
+
+    // Soil: built by plants (forests fastest, by type), lost to erosion/burial and on bare ground
+    let soil = SO[i];
+    const build = v > 0.66
+      ? p.forestSoilBoost * FOREST_TYPES[forestTypeAt(world, i, H[i], p.treeLine)].soilBuild
+      : 1;
+    soil += p.soilBuild * v * v * build * (1 - soil) - p.soilDecay * soil * (1 - v) - change * p.soilErosion;
+    if (F[i] > 0) soil = Math.min(soil, 1 - F[i]);
+    SO[i] = soil < 0 ? 0 : soil > 1 ? 1 : soil;
   }
   P.set(H);
   world.dirty = true;

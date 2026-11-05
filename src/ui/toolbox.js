@@ -203,8 +203,9 @@ export class Toolbox {
     };
     if (mode === 'rock' || (mode === 'natural' && !this.app.renderer.showVegetation)) items('Rock types', ROCKS);
     else if (mode === 'natural' || mode === 'biome') items(mode === 'biome' ? 'Biomes' : 'Biomes (blended)', Object.values(BIOMES));
+    else if (mode === 'soil') ramp('Soil depth', 'bare rock', 'deep soil', [[0.80, 0.74, 0.62], [0.24, 0.16, 0.09]]);
     else if (mode === 'moisture') ramp('Soil wetness', 'dry', 'saturated', [[0.85, 0.72, 0.5], [0.15, 0.4, 0.8]]);
-    else if (mode === 'vegetation') items('Plant cover', [BIOMES.barren, BIOMES.grassland, BIOMES.forest]);
+    else if (mode === 'vegetation') items('Plant cover', [BIOMES.barren, BIOMES.grassland, { ...BIOMES.broadleaf, label: 'Forest' }]);
     else if (mode === 'hardness') ramp('Rock hardness', 'soft', 'hard', [[0.68, 0.52, 0.4], [0.58, 0.55, 0.51]]);
     else if (mode === 'change') ramp('Since baseline', 'eroded', 'deposited', [[0.85, 0.25, 0.2], [0.75, 0.75, 0.72], [0.2, 0.45, 0.9]]);
     else if (mode === 'slope') ramp('Slope', 'flat', 'steep', [[0.2, 0.7, 0.3], [0.9, 0.2, 0.15]]);

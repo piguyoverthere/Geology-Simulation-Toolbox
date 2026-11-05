@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import { BIOMES, classifyBiome, DRY_SOIL } from './biomes.js';
 import { vegetationParams } from '../sim/vegetation.js';
 import { ROCKS } from '../core/rocks.js';
+import { forestColor } from '../sim/forests.js';
 
 // Colour palette (linear-ish RGB 0..1)
 const C = {
-  forest: BIOMES.forest.color,
+  forest: BIOMES.broadleaf.color,
   grass: BIOMES.grassland.color,
   shrub: BIOMES.shrubland.color,
   desert: BIOMES.desert.color,
@@ -30,6 +31,7 @@ export const OVERLAYS = {
   biome: 'Biomes',
   vegetation: 'Vegetation',
   moisture: 'Wetness',
+  soil: 'Soil depth',
   rock: 'Rock type',
   hardness: 'Rock hardness',
   change: 'Erosion / deposition',
@@ -186,6 +188,8 @@ export class TerrainRenderer {
           col = mix(C.rockSoft, C.rockHard, hard, S3);
         } else if (mode === 'vegetation') {
           col = shade(vegColor(w.vegetation[i], S3), 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'soil') {
+          col = shade(mix(SOIL_THIN, SOIL_DEEP, w.humus[i], S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'moisture') {
           const m = w.soil ? w.soil[i] : 0;
           col = shade(mix(DRY, WET, m, S3), 0.75 + 0.25 * ny, S3);
@@ -309,7 +313,9 @@ export class TerrainRenderer {
     if (mesa > 0) shade(mix(bare, C.mesa, mesa, bare), 1 - 0.14 * mesa * (0.5 + 0.5 * Math.sin(h * 1.7)), bare);
     // Sparse cover: green grass on moist ground, olive scrub as it dries
     const low = mix(C.grass, C.shrub, 1 - smooth(0.28, 0.42, soil), S2);
-    const col = v < 0.5 ? mix(bare, low, smooth(0.12, 0.42, v), S3) : mix(low, C.forest, smooth(0.55, 0.8, v), S3);
+    // Forests take the colour of whichever type suits the spot (blended at the borders)
+    const col = v < 0.5 ? mix(bare, low, smooth(0.12, 0.42, v), S3)
+      : mix(low, forestColor(w, i, h, vegetationParams.treeLine, S4), smooth(0.55, 0.8, v), S3);
     // Tundra above the tree line
     const tl = vegetationParams.treeLine;
     if (h > tl) mix(col, C.tundra, smooth(tl, tl + 8, h) * smooth(0.08, 0.3, v) * 0.85, col);
@@ -352,6 +358,7 @@ export class TerrainRenderer {
 const S1 = [0, 0, 0], S2 = [0, 0, 0], S3 = [0, 0, 0], S4 = [0, 0, 0];
 const SLOPE_LO = [0.2, 0.7, 0.3], SLOPE_HI = [0.9, 0.2, 0.15];
 const DRY = [0.85, 0.72, 0.50], WET = [0.15, 0.40, 0.80];
+const SOIL_THIN = [0.80, 0.74, 0.62], SOIL_DEEP = [0.24, 0.16, 0.09];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 
 /** Barren brown (0) → light-green grassland (0.5) → deep-green forest (1). */

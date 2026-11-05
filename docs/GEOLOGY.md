@@ -228,13 +228,35 @@ forested hillside and watch gullies open up where the trees were.
 
 ---
 
+### Forest types and soil
+
+Forests differ with water, warmth and drainage:
+
+| Forest | Grows where | Fire | Builds soil |
+| --- | --- | --- | --- |
+| Rainforest | wettest lowland ground | hard to burn | fastest |
+| Broadleaf | moderately moist, gentle ground | normal | fast (rich leaf litter) |
+| Conifer | cool ground within ~16 units below the tree line | burns hottest (resin) | slow (acidic needles) |
+| Dry woodland | the dry edge of where trees survive | fire-prone | slow |
+| Swamp forest | flat, waterlogged ground beside rivers and lakes | barely burns | fast (peat) |
+
+**Soil depth** is built by plants: litter, roots and soil life turn rock debris into soil.
+Forests build it about six times faster than grassland in practice (three times the base rate,
+times their type's rate), so a stripped forest floor recovers most of its soil quickly while
+grassland takes far longer. Erosion strips soil, lava and ash bury it, and fire burns part of it.
+Deep soil holds water (wetter ground), speeds plant regrowth and slightly reduces erosion. Roots
+also break up fresh lava and ash, so new rock next to a forest weathers into soil much faster
+than isolated rock. See it with **Overlays → Soil depth**.
+
+---
+
 ## 8. Biomes
 
 Plant cover, soil water, slope and height together decide what the surface looks like:
 
 | Biome | Where | Look |
 | --- | --- | --- |
-| Forest | moist, gentle ground below the tree line | deep green |
+| Forest (5 types) | moist ground below the tree line: rainforest, broadleaf, conifer, dry woodland, swamp | shades of green |
 | Wetland | flat, waterlogged ground beside rivers and lakes | dark olive |
 | Grassland | moderately moist ground, or slopes too steep for forest | light green |
 | Shrubland | semi-arid: drying soil, sparse cover | olive tan |

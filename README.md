@@ -63,8 +63,8 @@ and how much it has been eroded or built up since the baseline.
 - **Volcanism & tectonics**: eruption type and size, intrusion type, fault type, slip and number
   of earthquakes, and a button to stop all running events.
 - **Water & climate**: sim speed, global rain, evaporation, plant growth, climate wetness, tree line.
-- **Overlays**: colour the map by one data layer (biomes, vegetation, wetness, rock type, rock
-  hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
+- **Overlays**: colour the map by one data layer (biomes, vegetation, wetness, soil depth, rock
+  type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
 - **Terrain**: presets (hills, mountains, plateau, volcano, flat), seed, undo/redo, PNG
@@ -92,6 +92,7 @@ src/sim/droplet.js      Particle raindrop erosion (long-term weathering, gullies
 src/sim/thermal.js      Thermal erosion / mass wasting (slopes relax to the angle of repose)
 src/sim/vegetation.js   Forest / grassland / barren cover that grows, dies and protects soil
 src/sim/volcanism.js    Eruptions, lava flow and cooling, ash fall, plutons and dikes
+src/sim/forests.js      Forest types (rainforest, broadleaf, conifer, dry woodland, swamp)
 src/sim/fire.js         Wildfire: ignition by lava, spread through vegetation, burn scars
 src/sim/tectonics.js    Faults: normal, reverse and strike-slip, slipping in earthquakes
 src/render/effects.js   Eruption plumes, vent glow, fault traces and earthquake shake
