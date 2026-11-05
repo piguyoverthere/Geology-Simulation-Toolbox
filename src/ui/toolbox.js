@@ -65,6 +65,12 @@ export class Toolbox {
         'Thermal erosion: slopes steeper than the angle of repose crumble into scree.', this),
       slider('Repose angle °', app.thermalParams, 'talusAngle', 15, 60, 1,
         'Steepest stable slope for loose rock. Real rubble is about 30-40°. Hard strata can stand steeper.', this),
+      toggle('Big landslides', app.landslideParams, 'enabled',
+        'Whole hillsides fail and pour downhill as debris avalanches, mostly on steep, soaked slopes during heavy rain. Tall, steep mountains can occasionally collapse an entire flank.', this),
+      slider('Slide frequency', app.landslideParams, 'frequency', 0, 5, 0.1,
+        'How often big landslides happen.', this),
+      slider('Rain weakening', app.landslideParams, 'satWeakening', 0, 0.8, 0.05,
+        'How much saturated ground loses its grip. Water pressure between grains cancels friction, so soaked slopes slump at much gentler angles.', this),
     );
     const eroBtns = el('div', 'tb-row');
     eroBtns.append(button('Erode ×50k drops', () => app.bulkErode(50000), '', 'Instantly run 50,000 raindrops of erosion over the whole map.', this));

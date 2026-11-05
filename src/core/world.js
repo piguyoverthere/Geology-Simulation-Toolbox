@@ -60,6 +60,8 @@ export class World {
     this.forestAge = new Float32Array(n); // forest maturity 0 (young/none) … 1 (old growth)
     this.fireCells = [];                  // indices of burning cells (for smoke)
     this.flows = [];                      // moving pyroclastic flows {x, z, vx, vz, mass, age}
+    this.debris = [];                     // moving landslide debris avalanches {x, z, vx, vz, mass, age}
+    this.landslides = [];                 // record of big landslides {x, z, r, mega, volume, time}
     this.intrusionRock = new Int8Array(n).fill(-1);
     this.intrusionTop = new Float32Array(n).fill(-Infinity);
     this.events = [];
@@ -148,7 +150,7 @@ export class World {
   resetEvents() {
     this.lava.fill(0); this.lavaTemp.fill(0);
     this.surfaceRock.fill(-1); this.surfaceBase.fill(0); this.freshRock.fill(0);
-    this.fire.fill(0); this.burnt.fill(0); this.fireCells.length = 0; this.flows.length = 0;
+    this.fire.fill(0); this.burnt.fill(0); this.fireCells.length = 0; this.flows.length = 0; this.debris.length = 0; this.landslides.length = 0;
     this.intrusionRock.fill(-1); this.intrusionTop.fill(-Infinity);
     this.strataWarp.set(this.strataWarp0);
     this.events.length = 0; this.faults.length = 0; this.quake = 0;

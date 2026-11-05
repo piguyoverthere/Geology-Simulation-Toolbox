@@ -59,7 +59,8 @@ and how much it has been eroded or built up since the baseline.
 ### Side panel
 
 - **Erosion**: a master **Erosion enabled** switch, then the processes (river erosion,
-  background weathering, landslides, angle of repose, bulk erode).
+  background weathering, landslides, angle of repose, big landslides with frequency and rain
+  weakening, bulk erode).
 - **Volcanism & tectonics**: eruption type and size, intrusion type, fault type, slip and number
   of earthquakes, and a button to stop all running events.
 - **Water & climate**: sim speed, global rain, evaporation, plant growth, climate wetness, tree line.
@@ -94,6 +95,7 @@ src/sim/vegetation.js   Forest / grassland / barren cover that grows, dies and p
 src/sim/volcanism.js    Eruptions, lava flow and cooling, ash fall, plutons and dikes
 src/sim/forests.js      Forest types (rainforest, broadleaf, conifer, dry woodland, swamp)
 src/sim/fire.js         Wildfire: ignition by lava, spread through vegetation, burn scars
+src/sim/landslides.js   Rain-triggered big landslides, sector collapses and debris avalanches
 src/sim/tectonics.js    Faults: normal, reverse and strike-slip, slipping in earthquakes
 src/render/effects.js   Eruption plumes, vent glow, fault traces and earthquake shake
 src/tools/brushes.js    Tool definitions + undo history

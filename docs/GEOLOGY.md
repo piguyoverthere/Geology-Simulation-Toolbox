@@ -73,6 +73,16 @@ Solid, hard rock can hold much steeper faces than loose or soft rock.
 fraction of the excess height moves down to the lower neighbours. Repeat until everything is
 stable. With rock types on, harder rock gets a steeper limit.
 
+**Rain and big landslides** (`src/sim/landslides.js`). Water in the ground pushes grains apart
+and cancels much of their friction, so saturated slopes fail at far gentler angles: that's why
+most landslides strike during or right after heavy rain. The stable angle here drops by up to 45%
+(the **Rain weakening** slider) as ground saturates, and the sim keeps scanning for steep, tall,
+soaked slopes. When one fails, a spoon-shaped section of hillside detaches and pours downhill as a
+debris avalanche that strips plants and soil and spreads into a debris fan. Where relief is large
+it can be a **sector collapse** that takes out a whole mountain flank. In a test on the mountains
+map, heavy rain set off 57 big slides (2 flank collapses) where dry weather set off one.
+**Inspect** shows each spot's saturation and how close its slope is to failing.
+
 **Try it.** Raise a tall spike with a small brush, then use **Crumble** on it, or set the
 **Repose angle** to 20° and watch the whole landscape slump.
 

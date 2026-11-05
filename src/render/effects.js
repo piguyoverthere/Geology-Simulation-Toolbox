@@ -18,26 +18,28 @@ export class Effects {
     this.frame = 0;
     this.shake = new THREE.Vector3();
     this.smoke = this.makeSmoke();
-    this.flowCloud = this.makeFlowCloud();
+    this.flowCloud = this.makeFlowCloud(0x8f857a);
+    this.dustCloud = this.makeFlowCloud(0x9a7f60); // landslide debris dust
   }
 
   /** Billowing grey-brown clouds riding on each pyroclastic flow, hugging the ground. */
-  makeFlowCloud() {
+  makeFlowCloud(color) {
     const M = 2000;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(M * 3).fill(-9999), 3));
     geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
     const points = new THREE.Points(geo, new THREE.PointsMaterial({
-      color: 0x8f857a, size: 7, sizeAttenuation: true, transparent: true, opacity: 0.6, depthWrite: false,
+      color, size: 7, sizeAttenuation: true, transparent: true, opacity: 0.6, depthWrite: false,
     }));
     this.scene.add(points);
     return { points, M, life: new Float32Array(M), vel: new Float32Array(M * 3), next: 0 };
   }
 
-  updateFlowCloud(dt) {
-    const c = this.flowCloud, w = this.world;
+  /** Advance a ground-hugging cloud fed by a list of moving parcels (pyroclastic flows or debris). */
+  updateFlowCloud(c, parcels, dt) {
+    const w = this.world;
     const pos = c.points.geometry.attributes.position;
-    for (const f of w.flows) {
+    for (const f of parcels) {
       const n = Math.ceil(2 + f.mass * 3);
       for (let s = 0; s < n; s++) {
         const k = c.next; c.next = (c.next + 1) % c.M;
@@ -104,7 +106,8 @@ export class Effects {
     this.frame++;
     this.updatePlumes(dt);
     this.updateSmoke(dt);
-    this.updateFlowCloud(dt);
+    this.updateFlowCloud(this.flowCloud, this.world.flows, dt);
+    this.updateFlowCloud(this.dustCloud, this.world.debris, dt);
     this.updateFaults();
   }
 

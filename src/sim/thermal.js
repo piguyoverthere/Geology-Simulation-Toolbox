@@ -10,6 +10,8 @@ export const thermalParams = {
   rate: 0.5,       // fraction of the excess moved per step
 };
 
+import { saturation, landslideParams } from './landslides.js';
+
 const NEIGHBORS = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
 
 let delta = null;
@@ -23,7 +25,6 @@ export function thermalStep(world, region = null, strength = 1) {
   const N = world.N;
   const H = world.height;
   if (!delta || delta.length !== H.length) delta = new Float32Array(H.length);
-  delta.fill(0);
 
   const baseTan = Math.tan((thermalParams.talusAngle * Math.PI) / 180);
   let x0 = 1, x1 = N - 1, z0 = 1, z1 = N - 1;
@@ -31,6 +32,10 @@ export function thermalStep(world, region = null, strength = 1) {
     x0 = Math.max(1, Math.floor(region.x - region.r)); x1 = Math.min(N - 1, Math.ceil(region.x + region.r));
     z0 = Math.max(1, Math.floor(region.z - region.r)); z1 = Math.min(N - 1, Math.ceil(region.z + region.r));
   }
+  // Only the processed box (plus the neighbours it can push material into) is cleared and applied,
+  // so relaxing a small region is cheap
+  const ax0 = x0 - 1, ax1 = Math.min(N - 1, x1), az0 = z0 - 1, az1 = Math.min(N - 1, z1);
+  for (let z = az0; z <= az1; z++) delta.fill(0, z * N + ax0, z * N + ax1 + 1);
 
   for (let z = z0; z < z1; z++) {
     for (let x = x0; x < x1; x++) {
@@ -44,7 +49,9 @@ export function thermalStep(world, region = null, strength = 1) {
       const h = H[i];
       // Harder rock stands steeper (about 0.85x to 1.3x the base talus slope)
       // Roots also bind slopes: forested ground holds up to ~30% steeper than bare ground
-      const tanLimit = baseTan * (0.8 + 0.5 * world.hardnessAt(h, i)) * (1 + 0.3 * world.vegetation[i] + 0.25 * world.forestAge[i]);
+      // Rain-soaked ground loses much of its friction, so saturated slopes slump at gentler angles
+      const tanLimit = baseTan * (0.8 + 0.5 * world.hardnessAt(h, i)) * (1 + 0.3 * world.vegetation[i] + 0.25 * world.forestAge[i])
+        * (1 - landslideParams.satWeakening * saturation(world, i));
 
       let total = 0, maxDiff = 0;
       const diffs = [0, 0, 0, 0, 0, 0, 0, 0];
@@ -71,6 +78,6 @@ export function thermalStep(world, region = null, strength = 1) {
     }
   }
 
-  for (let i = 0; i < H.length; i++) H[i] += delta[i];
+  for (let z = az0; z <= az1; z++) for (let i = z * N + ax0; i <= z * N + ax1; i++) H[i] += delta[i];
   world.dirty = true;
 }

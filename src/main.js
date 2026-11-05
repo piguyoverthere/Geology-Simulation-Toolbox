@@ -13,6 +13,7 @@ import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
 import { fireStep, fireParams } from './sim/fire.js';
+import { landslideCheck, debrisStep, landslideParams } from './sim/landslides.js';
 import { faultSettings } from './sim/tectonics.js';
 import { Effects } from './render/effects.js';
 
@@ -28,6 +29,7 @@ class App {
     this.volcanoSettings = volcanoSettings;
     this.faultSettings = faultSettings;
     this.fireParams = fireParams;
+    this.landslideParams = landslideParams;
 
     this.tool = 'raise';
     this.brush = { radius: 12, strength: 0.5 };
@@ -378,6 +380,8 @@ class App {
       // Landslides keep pace with the water: faster sim speed means more relaxation per frame
       if (this.sim.thermal && this.frame % 2 === 0) thermalStep(this.world, null, Math.min(1, 0.25 * this.sim.substeps / 6 * 2));
       if (this.sim.vegetation && this.frame % 10 === 0) vegetationStep(this.world);
+      // Look for slopes about to fail a few times a second (scaled with sim speed)
+      if (this.frame % 5 === 0) landslideCheck(this.world, 0.25 * this.sim.substeps / 6);
       // Eruptions, intrusions and faults advance in simulated time, faster at higher sim speed
       const steps = Math.max(1, Math.round(this.sim.substeps / 3));
       for (let k = 0; k < steps; k++) {
@@ -385,6 +389,7 @@ class App {
         for (let e = w.events.length - 1; e >= 0; e--) if (w.events[e].update(w, 0.05)) w.events.splice(e, 1);
         lavaStep(w, 0.05);
         flowStep(w, 0.05);
+        debrisStep(w, 0.05);
         fireStep(w, 0.05);
       }
     }

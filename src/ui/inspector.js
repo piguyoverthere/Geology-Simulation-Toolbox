@@ -3,6 +3,7 @@
 import { BIOMES, classifyBiome } from '../render/biomes.js';
 import { waterParams } from '../sim/water.js';
 import { ROCKS, PROVINCES, ROCK_INDEX } from '../core/rocks.js';
+import { saturation, stableSlope } from '../sim/landslides.js';
 
 export class Inspector {
   /** @param {HTMLElement} root  @param {object} app */
@@ -54,6 +55,8 @@ export class Inspector {
       ...(v > 0.6 ? [['Forest age', `${bar(w.forestAge[i], '#2e7d32')} <span class="ins-dim">${w.forestAge[i] > 0.75 ? 'old growth' : w.forestAge[i] > 0.35 ? 'mature' : 'young'}</span>`]] : []),
       ['Soil depth', bar(w.humus[i], '#8a6a45')],
       ['Bare rock', bar(w.bareExposure(i, slope), '#b0a090')],
+      ['Saturation', bar(saturation(w, i), '#4f8ce0')],
+      ['Slope stability', stability(slope / stableSlope(w, i))],
       ...(w.fire[i] > 0 ? [['Fire', `<span style="color:#ff8a4a">burning · ${Math.round(w.fire[i] * 100)}% intensity</span>`]] : []),
       ...(w.burnt[i] > 0.01 ? [['Burnt', `${bar(w.burnt[i], '#777')} <span class="ins-dim">ash</span>`]] : []),
       ...(w.freshRock[i] > 0.01 ? [['Fresh rock', `${bar(w.freshRock[i], '#ff8a4a')} <span class="ins-dim">no soil yet</span>`]] : []),
@@ -79,6 +82,13 @@ function formation(w, i, h) {
   if (s >= 0 && h > w.surfaceBase[i] + 1e-3) return s === ROCK_INDEX.tuff ? 'Ash fall' : 'Lava flow';
   if (w.intrusionRock[i] >= 0 && h <= w.intrusionTop[i]) return w.intrusionTop[i] === Infinity ? 'Dike' : 'Pluton';
   return PROVINCES[w.province[i]];
+}
+
+/** Slope vs. its stable limit: below ~0.8 is safe, near 1 is failing. */
+function stability(r) {
+  const label = r < 0.6 ? 'stable' : r < 0.85 ? 'marginal' : r < 1 ? 'unstable' : 'failing';
+  const color = r < 0.6 ? 'inherit' : r < 0.85 ? '#e0c060' : '#ff6a4a';
+  return `<span style="color:${color}">${label}</span> <span class="ins-dim">${Math.round(r * 100)}% of limit</span>`;
 }
 
 function rgb(c) { return `rgb(${c.map((v) => Math.round(v * 255)).join(',')})`; }
