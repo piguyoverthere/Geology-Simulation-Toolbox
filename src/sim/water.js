@@ -26,6 +26,7 @@ export const waterParams = {
 };
 
 let tmpSed = null;
+let dBed = null; // this step's erosion (−) and deposition (+), applied smoothed at the end
 
 /** @param {import('../core/world.js').World} world */
 export function waterStep(world) {
@@ -36,7 +37,8 @@ export function waterStep(world) {
   const fL = world.fluxL, fR = world.fluxR, fT = world.fluxT, fB = world.fluxB;
   const VX = world.velX, VZ = world.velZ;
   const n = N * N;
-  if (!tmpSed || tmpSed.length !== n) tmpSed = new Float32Array(n);
+  if (!tmpSed || tmpSed.length !== n) { tmpSed = new Float32Array(n); dBed = new Float32Array(n); }
+  dBed.fill(0);
 
   // 1. Water sources: rain, springs, and the sea acting as a constant-level reservoir
   if (p.rain > 0) {
@@ -115,14 +117,16 @@ export function waterStep(world) {
         // its load moving across gentle ground and cuts down, capturing smaller flows, while a thin
         // sheet of runoff carries little. Still pools stay below critSpeed, so they don't dig pits.
         const depthFactor = Math.min(1, d / p.channelDepth);
-        const cap = p.capacity * sinTilt * Math.max(0, speed - p.critSpeed) * depthFactor;
+        // Never pick up more than the water can actually hold for its depth (otherwise fast, shallow
+        // sheets would scour sediment and immediately have to dump it again, building cones)
+        const cap = Math.min(p.maxConcentration * d, p.capacity * sinTilt * Math.max(0, speed - p.critSpeed) * depthFactor);
         if (cap > S[i]) {
           const amt = Math.min(p.erode * (cap - S[i]) * dt * world.erodibilityAt(B[i], i), 0.05);
-          B[i] -= amt;
+          dBed[i] -= amt;
           S[i] += amt;
         } else {
           const amt = p.deposit * (S[i] - cap) * dt;
-          B[i] += amt;
+          dBed[i] += amt;
           S[i] -= amt;
         }
       }
@@ -164,7 +168,7 @@ export function waterStep(world) {
     // Water can only hold so much sediment for its depth; the rest settles out on the spot
     for (let i = 0; i < n; i++) {
       const maxLoad = p.maxConcentration * D[i] + 0.005;
-      if (tmpSed[i] > maxLoad) { B[i] += tmpSed[i] - maxLoad; tmpSed[i] = maxLoad; }
+      if (tmpSed[i] > maxLoad) { dBed[i] += tmpSed[i] - maxLoad; tmpSed[i] = maxLoad; }
       S[i] = tmpSed[i];
     }
   }
@@ -179,11 +183,32 @@ export function waterStep(world) {
     D[i] *= evap;
     if (D[i] < 1e-4) {
       D[i] = 0;
-      if (S[i] > 0) { B[i] += S[i]; S[i] = 0; }
+      if (S[i] > 0) { dBed[i] += S[i]; S[i] = 0; }
     }
   }
 
+  // 7. Apply the bed changes, each shared with its 3×3 neighbourhood (40% centre, 10% sides,
+  // 5% corners). Real erosion and deposition act over a footprint, not a single grid cell;
+  // applying them per cell lets neighbouring cells drift apart into pits and cones.
+  applySmoothed(B, dBed, N);
+
   world.dirty = true;
+}
+
+/** Scatter each cell's change over its 3×3 neighbourhood (edge cells keep their own change). */
+function applySmoothed(B, dB, N) {
+  for (let z = 0; z < N; z++) {
+    for (let x = 0; x < N; x++) {
+      const i = z * N + x;
+      const v = dB[i];
+      if (v === 0) continue;
+      if (x === 0 || z === 0 || x === N - 1 || z === N - 1) { B[i] += v; continue; }
+      const side = v * 0.1, corner = v * 0.05;
+      B[i] += v * 0.4;
+      B[i - 1] += side; B[i + 1] += side; B[i - N] += side; B[i + N] += side;
+      B[i - N - 1] += corner; B[i - N + 1] += corner; B[i + N - 1] += corner; B[i + N + 1] += corner;
+    }
+  }
 }
 
 /** Add water in a soft circular brush (the Rain tool). */
