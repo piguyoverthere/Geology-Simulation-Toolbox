@@ -1,13 +1,24 @@
 // Shallow-water flow with sediment transport ("virtual pipes" model, Mei, Decaudin & Hu 2007).
 //
-// Every cell is a column of water connected to its four neighbours by virtual pipes. Water
+// Every cell is a column of water connected to its eight neighbours by virtual pipes. Water
 // accelerates through a pipe in proportion to the difference in water-surface height, so it fills
 // lakes, spills over, and gathers into streams. From the outflow we get a velocity per cell.
+// (The original model uses only the four side neighbours; then water flows most easily along the
+// grid axes, valleys cut fastest in those four directions and every mountain slowly erodes into a
+// grid-aligned pyramid. Weighting side and diagonal pipes like an isotropic 9-point stencil makes
+// flow behave the same in every direction.)
 //
 // Moving water can hold an amount of sediment proportional to how fast it flows and how steep the
 // bed is (its *transport capacity*). Fast water on steep ground erodes its bed; when it slows down
 // (entering a lake, the sea or flat ground) it drops sediment, building deltas and floodplains.
-// Sediment is carried along with the velocity field (semi-Lagrangian advection).
+// Sediment is carried along with the velocity field.
+
+// Pipe directions: 4 sides then 4 diagonals. PIPE weights follow the isotropic 9-point Laplacian
+// (sides 4×, diagonals 1×), scaled so the total conductance matches the old 4-pipe model.
+const DX = [-1, 1, 0, 0, -1, 1, -1, 1];
+const DZ = [0, 0, -1, 1, -1, -1, 1, 1];
+const OPP = [1, 0, 3, 2, 7, 6, 5, 4];
+const PIPE = [0.8, 0.8, 0.8, 0.8, 0.2, 0.2, 0.2, 0.2];
 
 export const waterParams = {
   rain: 0,             // global rainfall per second (0 = off)
@@ -34,7 +45,7 @@ export function waterStep(world) {
   const p = waterParams;
   const dt = p.dt;
   const B = world.height, D = world.water, S = world.sediment;
-  const fL = world.fluxL, fR = world.fluxR, fT = world.fluxT, fB = world.fluxB;
+  const F = world.flux; // 8 outflows per cell: F[i * 8 + k], direction DIRS[k]
   const VX = world.velX, VZ = world.velZ;
   const n = N * N;
   if (!tmpSed || tmpSed.length !== n) { tmpSed = new Float32Array(n); dBed = new Float32Array(n); }
@@ -54,48 +65,55 @@ export function waterStep(world) {
   const sea = world.seaLevel;
   for (let i = 0; i < n; i++) if (B[i] < sea && B[i] + D[i] < sea) D[i] = sea - B[i];
 
-  // 2. Outflow flux through the virtual pipes (pipe cross-section area and length are 1)
+  // 2. Outflow flux through the 8 virtual pipes
   const k = dt * p.gravity;
   const drain = world.edgeDrain;
+  const damp = p.damping;
+  const out = [0, 0, 0, 0, 0, 0, 0, 0];
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
-      const i = z * N + x;
+      const i = z * N + x, f = i * 8;
       const hi = B[i] + D[i];
-      // Off-map neighbours are either walls (no flow) or a drop to ground level (water leaves)
-      const hL = x > 0 ? B[i - 1] + D[i - 1] : (drain ? B[i] : Infinity);
-      const hR = x < N - 1 ? B[i + 1] + D[i + 1] : (drain ? B[i] : Infinity);
-      const hT = z > 0 ? B[i - N] + D[i - N] : (drain ? B[i] : Infinity);
-      const hB = z < N - 1 ? B[i + N] + D[i + N] : (drain ? B[i] : Infinity);
-      const damp = p.damping;
-      let l = Math.max(0, fL[i] * damp + k * (hi - hL));
-      let r = Math.max(0, fR[i] * damp + k * (hi - hR));
-      let t = Math.max(0, fT[i] * damp + k * (hi - hT));
-      let b = Math.max(0, fB[i] * damp + k * (hi - hB));
-      // Never let more water leave than the cell holds
-      const out = (l + r + t + b) * dt;
-      if (out > D[i] && out > 0) {
-        const s = D[i] / out;
-        l *= s; r *= s; t *= s; b *= s;
+      let total = 0;
+      for (let d = 0; d < 8; d++) {
+        const nx = x + DX[d], nz = z + DZ[d];
+        // Off-map neighbours are either walls (no flow) or a drop to ground level (water leaves)
+        const inside = nx >= 0 && nz >= 0 && nx < N && nz < N;
+        if (!inside && !drain) { out[d] = 0; continue; }
+        const hn = inside ? B[nz * N + nx] + D[nz * N + nx] : B[i];
+        const q = Math.max(0, F[f + d] * damp + k * PIPE[d] * (hi - hn));
+        out[d] = q; total += q;
       }
-      fL[i] = l; fR[i] = r; fT[i] = t; fB[i] = b;
+      // Never let more water leave than the cell holds
+      const s = total * dt > D[i] && total > 0 ? D[i] / (total * dt) : 1;
+      for (let d = 0; d < 8; d++) F[f + d] = out[d] * s;
     }
   }
 
-  // 3. Update water depth and derive velocity
+  // 3. Update water depth and derive velocity (average of the in- and outflow vectors)
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
-      const i = z * N + x;
-      const inL = x > 0 ? fR[i - 1] : 0;
-      const inR = x < N - 1 ? fL[i + 1] : 0;
-      const inT = z > 0 ? fB[i - N] : 0;
-      const inB = z < N - 1 ? fT[i + N] : 0;
+      const i = z * N + x, f = i * 8;
+      let inflow = 0, outflow = 0, fx = 0, fz = 0;
+      for (let d = 0; d < 8; d++) {
+        const o = F[f + d];
+        outflow += o; fx += o * DX[d]; fz += o * DZ[d];
+        // Water arriving from the neighbour in direction d travels the opposite way (into this cell)
+        const nx = x + DX[d], nz = z + DZ[d];
+        if (nx < 0 || nz < 0 || nx >= N || nz >= N) continue;
+        const q = F[(nz * N + nx) * 8 + OPP[d]];
+        inflow += q; fx -= q * DX[d]; fz -= q * DZ[d];
+      }
       const before = D[i];
-      const after = Math.max(0, before + dt * (inL + inR + inT + inB - fL[i] - fR[i] - fT[i] - fB[i]));
+      const after = Math.max(0, before + dt * (inflow - outflow));
       D[i] = after;
       const avg = (before + after) * 0.5;
       if (avg > 1e-3) {
-        VX[i] = clamp((inL - fL[i] + fR[i] - inR) * 0.5 / avg, -10, 10);
-        VZ[i] = clamp((inT - fT[i] + fB[i] - inB) * 0.5 / avg, -10, 10);
+        let vx = fx * 0.5 / avg, vz = fz * 0.5 / avg;
+        // Limit the speed itself, not each axis separately (which let diagonal flow run 40% faster)
+        const sp = Math.sqrt(vx * vx + vz * vz);
+        if (sp > 10) { vx *= 10 / sp; vz *= 10 / sp; }
+        VX[i] = vx; VZ[i] = vz;
       } else {
         VX[i] = 0; VZ[i] = 0;
       }
@@ -187,9 +205,11 @@ export function waterStep(world) {
     }
   }
 
-  // 7. Apply the bed changes, each shared with its 3×3 neighbourhood (40% centre, 10% sides,
-  // 5% corners). Real erosion and deposition act over a footprint, not a single grid cell;
-  // applying them per cell lets neighbouring cells drift apart into pits and cones.
+  // 7. Apply the bed changes, each shared with its 3×3 neighbourhood using 1-2-1 binomial weights
+  // (25% centre, 12.5% sides, 6.25% corners). Real erosion and deposition act over a footprint,
+  // not a single grid cell; per-cell changes let neighbours drift apart into pits and cones. The
+  // binomial weights also cancel a checkerboard (high-low-high) pattern exactly, which otherwise
+  // builds up in shallow water and renders as a field of little hexagons.
   applySmoothed(B, dBed, N);
 
   world.dirty = true;
@@ -203,8 +223,8 @@ function applySmoothed(B, dB, N) {
       const v = dB[i];
       if (v === 0) continue;
       if (x === 0 || z === 0 || x === N - 1 || z === N - 1) { B[i] += v; continue; }
-      const side = v * 0.1, corner = v * 0.05;
-      B[i] += v * 0.4;
+      const side = v * 0.125, corner = v * 0.0625;
+      B[i] += v * 0.25;
       B[i - 1] += side; B[i + 1] += side; B[i - N] += side; B[i + N] += side;
       B[i - N - 1] += corner; B[i - N + 1] += corner; B[i + N - 1] += corner; B[i + N + 1] += corner;
     }

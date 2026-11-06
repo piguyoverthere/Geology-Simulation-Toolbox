@@ -6,7 +6,7 @@
 //   baseline  – height when the terrain was generated/last "set"; used to show erosion vs. deposition
 //   water     – depth of surface water sitting on each cell
 //   sediment  – sediment suspended in that water (carried along by the flow)
-//   flux      – outflow of water to the 4 neighbours (L, R, T, B) for the pipe model
+//   flux      – outflow of water to the 8 neighbours for the pipe model
 //   velX/velZ – water velocity, derived from flux
 //   vegetation – plant cover 0..1 (barren → grassland → forest); roots resist erosion
 //   province  – geological province per cell (see core/rocks.js); with height it picks the rock type
@@ -30,10 +30,7 @@ export class World {
     this.baseline = new Float32Array(n);
     this.water = new Float32Array(n);
     this.sediment = new Float32Array(n);
-    this.fluxL = new Float32Array(n);
-    this.fluxR = new Float32Array(n);
-    this.fluxT = new Float32Array(n);
-    this.fluxB = new Float32Array(n);
+    this.flux = new Float32Array(n * 8); // water outflow to each of the 8 neighbours (sim/water.js)
     this.velX = new Float32Array(n);
     this.velZ = new Float32Array(n);
     this.vegetation = new Float32Array(n);
@@ -166,7 +163,7 @@ export class World {
     this.water.fill(0);
     this.lastWet.fill(-1);
     this.sediment.fill(0);
-    this.fluxL.fill(0); this.fluxR.fill(0); this.fluxT.fill(0); this.fluxB.fill(0);
+    this.flux.fill(0);
     this.velX.fill(0); this.velZ.fill(0);
     this.dirty = true;
   }

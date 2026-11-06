@@ -53,21 +53,51 @@ export function thermalStep(world, region = null, strength = 1) {
       const tanLimit = baseTan * (0.8 + 0.5 * world.hardnessAt(h, i)) * (1 + 0.3 * world.vegetation[i] + 0.25 * world.forestAge[i])
         * (1 - landslideParams.satWeakening * saturation(world, i));
 
-      let total = 0, maxDiff = 0;
+      const scale = thermalParams.rate * strength * falloff;
+
+      // Direction-free slumping: measure the true slope with a rotation-invariant (Scharr)
+      // gradient and move the excess one cell straight downhill, split bilinearly between the
+      // cells around the landing point. Every slope sheds the same amount the same distance
+      // whichever way it faces. (Comparing against the 8 neighbours one by one carved every
+      // mountain into a grid-aligned pyramid over time.)
+      const gx = (3 * (H[i - N + 1] - H[i - N - 1]) + 10 * (H[i + 1] - H[i - 1]) + 3 * (H[i + N + 1] - H[i + N - 1])) / 32;
+      const gz = (3 * (H[i + N - 1] - H[i - N - 1]) + 10 * (H[i + N] - H[i - N]) + 3 * (H[i + N + 1] - H[i - N + 1])) / 32;
+      const slope = Math.sqrt(gx * gx + gz * gz);
+      if (slope > tanLimit) {
+        const tx = x - gx / slope, tz = z - gz / slope; // one cell downhill
+        const cx = Math.floor(tx), cz = Math.floor(tz), fx = tx - cx, fz = tz - cz;
+        const j = cz * N + cx;
+        // The gradient comes from the neighbours, so a cell sitting in a dip on a steep slope would
+        // still "see" a steep slope. Only move material if the landing spot is really lower,
+        // otherwise it gets pushed uphill into bumps. (The amount still comes from the true slope:
+        // basing it on this interpolated drop made diagonal slopes shed more on curved ground.)
+        const drop = h - ((H[j] * (1 - fx) + H[j + 1] * fx) * (1 - fz) + (H[j + N] * (1 - fx) + H[j + N + 1] * fx) * fz);
+        if (drop <= 0) continue;
+        const move = Math.min(slope * 0.5, slope - tanLimit, drop * 0.4) * scale;
+        delta[i] -= move;
+        delta[j] += move * (1 - fx) * (1 - fz);
+        delta[j + 1] += move * fx * (1 - fz);
+        delta[j + N] += move * (1 - fx) * fz;
+        delta[j + N + 1] += move * fx * fz;
+        continue;
+      }
+
+      // A lone spike has no clear downhill direction (its gradient is ~0): shed it to whichever
+      // neighbours it towers over
+      let total = 0, maxSlope = 0;
       const diffs = [0, 0, 0, 0, 0, 0, 0, 0];
       for (let k = 0; k < 8; k++) {
         const j = (z + NEIGHBORS[k][1]) * N + (x + NEIGHBORS[k][0]);
         const dist = k < 4 ? 1 : Math.SQRT2;
         const d = h - H[j];
         if (d / dist > tanLimit) {
-          diffs[k] = d - tanLimit * dist;
+          diffs[k] = (d - tanLimit * dist) * (k < 4 ? 1 : Math.SQRT1_2);
           total += diffs[k];
-          if (d > maxDiff) maxDiff = d;
+          if (d / dist > maxSlope) maxSlope = d / dist;
         }
       }
       if (total <= 0) continue;
-
-      const move = Math.min(maxDiff * 0.5, total) * thermalParams.rate * strength * falloff;
+      const move = Math.min(maxSlope * 0.5, total) * scale;
       delta[i] -= move;
       for (let k = 0; k < 8; k++) {
         if (diffs[k] > 0) {
