@@ -55,6 +55,7 @@ export class World {
     this.burnt = new Float32Array(n);     // 1 = freshly burnt to ash; fades as plants return
     this.humus = new Float32Array(n);     // soil depth/fertility 0..1, built by plants (see sim/vegetation.js)
     this.forestAge = new Float32Array(n); // forest maturity 0 (young/none) … 1 (old growth)
+    this.temperature = new Float32Array(n); // °C, from height and sun exposure (sim/climate.js)
     this.fireCells = [];                  // indices of burning cells (for smoke)
     this.flows = [];                      // moving pyroclastic flows {x, z, vx, vz, mass, age}
     this.debris = [];                     // moving landslide debris avalanches {x, z, vx, vz, mass, age}

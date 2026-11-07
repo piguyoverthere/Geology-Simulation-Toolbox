@@ -9,6 +9,7 @@ import { runDroplets } from './sim/droplet.js';
 import { thermalStep, thermalParams } from './sim/thermal.js';
 import { waterStep, waterParams } from './sim/water.js';
 import { initVegetation, vegetationStep, vegetationParams } from './sim/vegetation.js';
+import { climateParams, updateTemperature } from './sim/climate.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
@@ -26,6 +27,7 @@ class App {
     this.waterParams = waterParams;
     this.thermalParams = thermalParams;
     this.vegetationParams = vegetationParams;
+    this.climateParams = climateParams;
     this.volcanoSettings = volcanoSettings;
     this.faultSettings = faultSettings;
     this.fireParams = fireParams;
@@ -308,6 +310,12 @@ class App {
   clearWater() { this.world.clearWater(); this.world.sources.length = 0; this.applySea(); }
   undo() { this.history.undo(this.world); }
   redo() { this.history.redo(this.world); }
+  /** Recompute temperatures after the climate changes, and redraw. */
+  climateChanged() {
+    updateTemperature(this.world);
+    this.world.dirty = true;
+  }
+
   setBaseline() { this.world.setBaseline(); this.world.dirty = true; }
 
   exportPNG() {
@@ -379,7 +387,10 @@ class App {
       if (this.sim.dropletsPerFrame > 0) runDroplets(this.world, this.sim.dropletsPerFrame);
       // Landslides keep pace with the water: faster sim speed means more relaxation per frame
       if (this.sim.thermal && this.frame % 2 === 0) thermalStep(this.world, null, Math.min(1, 0.25 * this.sim.substeps / 6 * 2));
-      if (this.sim.vegetation && this.frame % 10 === 0) vegetationStep(this.world);
+      if (this.frame % 10 === 0) {
+        if (this.sim.vegetation) vegetationStep(this.world); // also refreshes temperature
+        else updateTemperature(this.world);                  // terrain may have been reshaped
+      }
       // Look for slopes about to fail a few times a second (scaled with sim speed)
       if (this.frame % 5 === 0) landslideCheck(this.world, 0.25 * this.sim.substeps / 6);
       // Eruptions, intrusions and faults advance in simulated time, faster at higher sim speed

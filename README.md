@@ -63,14 +63,15 @@ and how much it has been eroded or built up since the baseline.
   weakening, bulk erode).
 - **Volcanism & tectonics**: eruption type and size, intrusion type, fault type, slip and number
   of earthquakes, and a button to stop all running events.
-- **Water & climate**: sim speed, global rain, evaporation, plant growth, climate wetness, tree line.
-- **Overlays**: colour the map by one data layer (biomes, vegetation, forest age, wetness, soil
-  depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
+- **Water & climate**: sim speed, global rain, evaporation, plant growth, climate wetness, and
+  **Temperature** (sea-level °C), which sets the snow line, tree line and forest types.
+- **Overlays**: colour the map by one data layer (biomes, vegetation, forest age, temperature,
+  wetness, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
 - **Terrain**: presets (hills, mountains, plateau, volcano, flat), seed, undo/redo, PNG
   heightmap export/import.
-- **View**: water, snow line, wireframe.
+- **View**: water, wireframe.
 
 Try this: pick **Layered plateau**, turn on **Sea** at level 8, drop two **Springs** on top, and set
 **Overlays → Erosion / deposition**. Red shows where ground was carved away and blue shows where
@@ -93,7 +94,8 @@ src/sim/droplet.js      Particle raindrop erosion (long-term weathering, gullies
 src/sim/thermal.js      Thermal erosion / mass wasting (slopes relax to the angle of repose)
 src/sim/vegetation.js   Forest / grassland / barren cover that grows, dies and protects soil
 src/sim/volcanism.js    Eruptions, lava flow and cooling, ash fall, plutons and dikes
-src/sim/forests.js      Forest types (rainforest, broadleaf, conifer, dry woodland, swamp)
+src/sim/climate.js      Temperature (height, sun exposure) and snow cover
+src/sim/forests.js      Forest types (jungle, tropical dry, temperate rainforest, broadleaf, conifer, dry woodland, swamp)
 src/sim/fire.js         Wildfire: ignition by lava, spread through vegetation, burn scars
 src/sim/landslides.js   Rain-triggered big landslides, sector collapses and debris avalanches
 src/sim/tectonics.js    Faults: normal, reverse and strike-slip, slipping in earthquakes

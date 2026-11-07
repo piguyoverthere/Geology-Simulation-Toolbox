@@ -1,8 +1,8 @@
 // Biomes: what the land surface looks like, decided by plant cover, soil water, slope and height.
 // The Natural view blends between them smoothly; the Biomes view shows the hard categories.
 
-import { vegetationParams } from '../sim/vegetation.js';
 import { FOREST_TYPES, forestTypeAt } from '../sim/forests.js';
+import { climateParams, snowAt } from '../sim/climate.js';
 
 const forestBiomes = Object.fromEntries(FOREST_TYPES.map((f) => [f.id, { label: f.label, color: f.color, help: f.help }]));
 
@@ -15,8 +15,8 @@ export const BIOMES = {
   desert:    { label: 'Desert',    color: [0.88, 0.78, 0.48], help: 'Dry, flat ground: loose sand with almost no plants. Erodes easily.' },
   mesa:      { label: 'Mesa',      color: [0.78, 0.42, 0.24], help: 'Dry, steep ground: bare banded red rock, like mesas and badlands.' },
   barren:    { label: 'Barren',    color: [0.55, 0.43, 0.30], help: 'Bare soil and rock: recently eroded, buried or too steep to grow on.' },
-  tundra:    { label: 'Tundra',    color: [0.56, 0.58, 0.48], help: 'Above the tree line: low alpine grasses and lichen thinning to rock.' },
-  snow:      { label: 'Snow',      color: [0.95, 0.96, 0.98], help: 'High, gentle ground above the snow line.' },
+  tundra:    { label: 'Tundra',    color: [0.56, 0.58, 0.48], help: 'Too cold for trees: low alpine grasses and lichen thinning to rock.' },
+  snow:      { label: 'Snow',      color: [0.95, 0.96, 0.98], help: 'Below freezing with enough moisture, on slopes gentle enough to hold snow.' },
 };
 
 export const DRY_SOIL = 0.28;     // soil moisture below this is arid (desert / mesa)
@@ -26,17 +26,15 @@ export const DRY_SOIL = 0.28;     // soil moisture below this is arid (desert / 
  * @param {import('../core/world.js').World} world
  * @param {number} i      cell index
  * @param {number} slope  rise/run at the cell
- * @param {number} snowLine
  */
-export function classifyBiome(world, i, slope, snowLine) {
-  const h = world.height[i];
+export function classifyBiome(world, i, slope) {
   const v = world.vegetation[i];
   const soil = world.soil ? world.soil[i] : 0.5;
   const near = world.nearWater ? world.nearWater[i] : 0;
-  const treeLine = vegetationParams.treeLine;
-  if (h > snowLine && slope < 0.6) return 'snow';
-  if (h > treeLine + 2 && v > 0.12) return 'tundra';
-  if (v > 0.66) return FOREST_TYPES[forestTypeAt(world, i, h, treeLine)].id;
+  const T = world.temperature ? world.temperature[i] : 12;
+  if (snowAt(world, i, slope) > 0.5) return 'snow';
+  if (T < climateParams.treeLineTemp - 0.5 && v > 0.12) return 'tundra';
+  if (v > 0.66) return FOREST_TYPES[forestTypeAt(world, i)].id;
   if (near > 0.5 && soil > 0.7 && slope < 0.25 && v > 0.4) return 'wetland';
   if (v > 0.42) return soil < 0.36 ? 'shrubland' : 'grassland';
   if (v > 0.25 && soil >= DRY_SOIL) return 'shrubland';

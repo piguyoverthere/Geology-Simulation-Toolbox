@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { BIOMES, classifyBiome, DRY_SOIL } from './biomes.js';
-import { vegetationParams } from '../sim/vegetation.js';
 import { ROCKS } from '../core/rocks.js';
 import { forestColor } from '../sim/forests.js';
+import { climateParams, snowAt } from '../sim/climate.js';
 
 // Colour palette (linear-ish RGB 0..1)
 const C = {
@@ -34,6 +34,7 @@ export const OVERLAYS = {
   soil: 'Soil depth',
   bare: 'Bare rock',
   age: 'Forest age',
+  temp: 'Temperature',
   rock: 'Rock type',
   hardness: 'Rock hardness',
   change: 'Erosion / deposition',
@@ -49,7 +50,6 @@ export class TerrainRenderer {
     this.colorMode = 'natural'; // key of OVERLAYS
     this.showVegetation = true; // off: natural view shows bare ground and bedrock
     this.showWater = true;
-    this.snowLine = 44;
 
     const N = world.N;
     this.offset = (N - 1) / 2;
@@ -209,7 +209,9 @@ export class TerrainRenderer {
         } else if (mode === 'rock') {
           col = shade(this.rockColor(h, i), 0.7 + 0.3 * ny, S3);
         } else if (mode === 'biome') {
-          col = shade(BIOMES[classifyBiome(w, i, tan, this.snowLine)].color, 0.8 + 0.2 * ny, S3);
+          col = shade(BIOMES[classifyBiome(w, i, tan)].color, 0.8 + 0.2 * ny, S3);
+        } else if (mode === 'temp') {
+          col = shade(tempColor(w.temperature[i], S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'slope') {
           const t = Math.min(1, slope / 0.35);
           col = mix(SLOPE_LO, SLOPE_HI, t, S3);
@@ -329,10 +331,10 @@ export class TerrainRenderer {
     // Forests take the colour of whichever type suits the spot (blended at the borders)
     const col = v < 0.5 ? mix(bare, low, smooth(0.12, 0.42, v), S3)
       // Old-growth forest is darker and denser than young regrowth
-      : mix(low, shade(forestColor(w, i, h, vegetationParams.treeLine, S4), 1.1 - 0.25 * w.forestAge[i], S4), smooth(0.55, 0.8, v), S3);
-    // Tundra above the tree line
-    const tl = vegetationParams.treeLine;
-    if (h > tl) mix(col, C.tundra, smooth(tl, tl + 8, h) * smooth(0.08, 0.3, v) * 0.85, col);
+      : mix(low, shade(forestColor(w, i, S4), 1.1 - 0.25 * w.forestAge[i], S4), smooth(0.55, 0.8, v), S3);
+    // Tundra where it's too cold for trees
+    const T = w.temperature[i], tl = climateParams.treeLineTemp;
+    if (T < tl + 1) mix(col, C.tundra, smooth(tl + 1, tl - 3, T) * smooth(0.08, 0.3, v) * 0.85, col);
     // Wetlands on flat, waterlogged ground beside rivers and lakes
     const marsh = smooth(0.4, 0.8, near) * smooth(0.65, 0.85, soil) * (1 - smooth(0.15, 0.35, tan)) * smooth(0.3, 0.5, v);
     if (marsh > 0) mix(col, C.marsh, marsh * 0.8, col);
@@ -349,8 +351,8 @@ export class TerrainRenderer {
     // Beaches just above sea level
     if (h > w.seaLevel - 0.3 && h < w.seaLevel + 1.5) mix(col, C.sand, 0.8, col);
     else if (h <= w.seaLevel - 0.3) mix(col, C.soil, 0.6, col); // muddy sea floor
-    // Snow on high, gentle ground
-    if (h > this.snowLine) mix(col, C.snow, smooth(this.snowLine, this.snowLine + 6, h) * (1 - smooth(0.12, 0.3, slope)), col);
+    // Snow where it's below freezing, shaped by moisture, steepness, hollows, canopy and sun
+    if (T < 1.5) mix(col, C.snow, snowAt(w, i, tan), col);
     // Wet ground is darker
     if (water > 0.005) shade(col, 0.88, col);
     return col;
@@ -382,6 +384,19 @@ function vegColor(v, out) {
   // Sharpen the transitions a little so the three biomes read as distinct patches
   if (v < 0.5) return mix(C.barren, C.grass, smooth(0.15, 0.45, v), out);
   return mix(C.grass, C.forest, smooth(0.55, 0.8, v), out);
+}
+
+/** Temperature ramp: deep blue (−15 °C) → white (0) → green (12) → yellow (22) → red (35). */
+const TEMP_RAMP = [[-15, [0.15, 0.25, 0.65]], [0, [0.92, 0.94, 0.98]], [12, [0.35, 0.65, 0.35]], [22, [0.95, 0.80, 0.30]], [35, [0.80, 0.20, 0.12]]];
+function tempColor(t, out) {
+  if (t <= TEMP_RAMP[0][0]) return mix(TEMP_RAMP[0][1], TEMP_RAMP[0][1], 0, out);
+  for (let k = 1; k < TEMP_RAMP.length; k++) {
+    if (t <= TEMP_RAMP[k][0]) {
+      const [t0, c0] = TEMP_RAMP[k - 1], [t1, c1] = TEMP_RAMP[k];
+      return mix(c0, c1, (t - t0) / (t1 - t0), out);
+    }
+  }
+  return mix(TEMP_RAMP[4][1], TEMP_RAMP[4][1], 0, out);
 }
 
 /** Lava glow by temperature: dark crust → red → orange → yellow-white at the vent. */

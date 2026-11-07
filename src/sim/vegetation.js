@@ -33,8 +33,9 @@
 // soil and dies back more slowly), it shrugs off disturbance, holds steeper slopes, protects the
 // ground from erosion better, resists fire, and builds soil a little faster.
 //
-// Elevation: above the tree line it is too cold and windy for trees. Forest gives way to alpine
-// grassland, which thins out to bare rock higher up.
+// Cold (world.temperature, see sim/climate.js): below the tree-line temperature it is too cold for
+// trees, so forest gives way to alpine grassland, which thins to bare rock where colder still.
+// Since temperature also depends on sun exposure, shady slopes lose their trees lower down.
 //
 // Forests are communities, not individual cells: seeds spread from neighbouring trees and a canopy
 // keeps its own ground moist and shaded. So whether a spot can hold forest is judged on its
@@ -44,13 +45,12 @@
 import { createNoise2D, fbm } from '../core/noise.js';
 import { boxBlur } from '../core/grid.js';
 import { FOREST_TYPES, forestTypeAt } from './forests.js';
+import { climateParams, updateTemperature } from './climate.js';
 import { waterParams } from './water.js';
 
 export const vegetationParams = {
   growth: 0.03,       // how fast cover moves toward the site's potential per step
   disturbance: 0.6,   // cover lost per unit of ground removed or buried
-  treeLine: 38,       // forests give way to alpine grassland above this height
-  alpineBand: 18,     // grassland thins out to bare ground over this much height above the tree line
   forestShare: 0.6,   // forest can take the gentlest this-fraction of the land (relative to the map)
   forestSlopeMax: 0.85, // …but never on ground steeper than this (rise/run, ≈ 40°)
   riparianReach: 4,   // how far (cells, roughly ×2) the wet zone extends from open water
@@ -87,6 +87,7 @@ export function initVegetation(world, seed = 1) {
     }
   }
   updateNearWater(world);
+  updateTemperature(world);
   world.vegetation.fill(0);
   // A few passes of soil ⇄ vegetation lets the plants' own water use and seed spread settle in
   for (let pass = 0; pass < 4; pass++) {
@@ -111,6 +112,7 @@ function soilSupply(world, i) {
     + waterParams.rain * 8
     + 0.6 * world.nearWater[i]
     - p.uptake * world.vegetation[i]
+    - 0.012 * Math.max(0, world.temperature[i] - 18) // heat dries the soil out faster
     + 0.15 * world.humus[i]; // deep, organic soil holds water like a sponge
   return s < 0 ? 0 : s > 1 ? 1 : s;
 }
@@ -164,7 +166,9 @@ function potential(world, i, f) {
   const age = world.forestAge[i];
   const steep = 1 - 0.85 * smoothstep(0.6, 1.8, slope);
   // Above the tree line plants get sparser, down to bare ground at the top of the alpine band
-  const alpine = 1 - 0.95 * smoothstep(p.treeLine, p.treeLine + p.alpineBand, h);
+  // Too cold above the tree line: plants thin out to bare ground as it gets colder still
+  const T = world.temperature[i], tl = climateParams.treeLineTemp;
+  const alpine = 1 - 0.95 * smoothstep(tl, tl - 7, T);
   // Lakes drown plants; shallow floodwater on a floodplain does not
   const drowned = 1 - smoothstep(1, 3, world.water[i]);
   let v = (0.05 + 1.1 * soil) * steep * alpine * drowned;
@@ -176,7 +180,7 @@ function potential(world, i, f) {
   const forestOk = (1 - smoothstep(f.gentle * 0.85, f.gentle * 1.1, f.standSlope[i]))
     // Old forest's deep roots reach water young trees can't, so it survives on drier ground
     * smoothstep(p.forestWater - 0.15 - 0.12 * age, p.forestWater + 0.05 - 0.12 * age, soil)
-    * (1 - smoothstep(p.treeLine - 6, p.treeLine, h))
+    * smoothstep(tl, tl + 2.5, T)
     * (1 - smoothstep(0.005, 0.06, f.nearArid[i]));
   v = Math.min(v, 0.58 + 0.42 * forestOk);
   return Math.max(0, Math.min(1, v));
@@ -187,6 +191,7 @@ export function vegetationStep(world) {
   const V = world.vegetation, H = world.height, P = world.prevHeight, S = world.soil;
   const p = vegetationParams;
   updateNearWater(world);
+  updateTemperature(world);
   const W = world.nearWater, F = world.freshRock, SO = world.humus;
   for (let i = 0; i < V.length; i++) S[i] += (soilSupply(world, i) - S[i]) * p.soilMemory;
   const f = neighbourhood(world);
@@ -202,7 +207,10 @@ export function vegetationStep(world) {
     let target = potential(world, i, f);
     // Regrowth is faster near water and on deep soil; dieback (drought, cold) is slowed by forest
     // age, since mature trees ride out bad years on their reserves
-    let rate = target > v ? p.growth * (1 + p.riparianBoost * W[i]) * (0.5 + SO[i]) : p.growth * (1 - 0.75 * age);
+    // (and slower in the cold: a short growing season)
+    let rate = target > v
+      ? p.growth * (1 + p.riparianBoost * W[i]) * (0.5 + SO[i]) * (0.25 + 0.75 * smoothstep(-2, 12, world.temperature[i]))
+      : p.growth * (1 - 0.75 * age);
     if (burnt > 0) {
       if (target > v) rate *= 1 - 0.8 * burnt;
       world.burnt[i] = Math.max(0, burnt - p.ashRecovery * (1 + 2 * SO[i]));
@@ -225,7 +233,7 @@ export function vegetationStep(world) {
     // Soil: built by plants (forests fastest, by type), lost to erosion/burial and on bare ground
     let soil = SO[i];
     const build = v > 0.66
-      ? p.forestSoilBoost * FOREST_TYPES[forestTypeAt(world, i, H[i], p.treeLine)].soilBuild * (1 + 0.4 * age)
+      ? p.forestSoilBoost * FOREST_TYPES[forestTypeAt(world, i)].soilBuild * (1 + 0.4 * age)
       : 1;
     soil += p.soilBuild * v * v * build * (1 - soil) - p.soilDecay * soil * (1 - v) - change * p.soilErosion;
     if (F[i] > 0) soil = Math.min(soil, 1 - F[i]);

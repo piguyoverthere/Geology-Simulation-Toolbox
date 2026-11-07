@@ -280,21 +280,50 @@ type and leaves soil-covered ground pale.
 
 ---
 
+### Climate: temperature, tree line and snow (`src/sim/climate.js`)
+
+Air cools as it rises, about 0.4 °C per unit of height here (from the **Temperature** slider's
+sea-level value). Slopes facing the sun are up to 3 °C warmer and shady ones up to 3 °C colder,
+so the tree line and snow line sit lower on shaded faces. Trees need more than ~2.5 °C, so colder
+ground becomes tundra and then bare rock. Plants grow more slowly in the cold, and heat dries soil
+and evaporates water faster.
+
+Snow lies below freezing, but not evenly. In one test band of the volcano, 37% of shady slopes were
+snow-covered versus 6% of sunny ones, and 46% of gentle ground versus none of the cliffs. It also
+needs moisture (dry country gets a dusting), drifts into hollows and off crests, and forest canopy
+hides some of it.
+
+| Forest | Climate |
+| --- | --- |
+| Tropical jungle | hot (above ~19 °C) and very wet |
+| Tropical dry forest | hot with a dry season |
+| Temperate rainforest | mild and very wet |
+| Broadleaf | mild, moderately moist |
+| Conifer (taiga) | cold (below ~9 °C) |
+| Dry woodland | the dry edge of forest |
+| Swamp forest | waterlogged flats beside water |
+
+On the volcano map, a sea-level temperature of 8 °C gives only taiga and a big snowcap; 22 °C gives
+jungle, tropical dry forest, broadleaf, temperate rainforest and dry woodland with a small summit
+cap; 30 °C gives only tropical forest and no snow. See it with **Overlays → Temperature**.
+
+---
+
 ## 8. Biomes
 
 Plant cover, soil water, slope and height together decide what the surface looks like:
 
 | Biome | Where | Look |
 | --- | --- | --- |
-| Forest (5 types) | moist ground below the tree line: rainforest, broadleaf, conifer, dry woodland, swamp | shades of green |
+| Forest (7 types) | moist ground warm enough for trees: jungle, tropical dry, temperate rainforest, broadleaf, conifer, dry woodland, swamp | shades of green |
 | Wetland | flat, waterlogged ground beside rivers and lakes | dark olive |
 | Grassland | moderately moist ground, or slopes too steep for forest | light green |
 | Shrubland | semi-arid: drying soil, sparse cover | olive tan |
 | Desert | dry and flat | sand yellow |
 | Mesa | dry and steep: bare, banded rock (mesas, buttes, badlands) | orange-red |
 | Barren | recently eroded or buried ground, not dry enough for desert | brown |
-| Tundra | above the tree line | grey-green |
-| Snow | high, gentle ground above the snow line | white |
+| Tundra | too cold for trees | grey-green |
+| Snow | below freezing, on slopes that can hold it | white |
 
 Biomes follow broad climate regions (wet and dry zones a hundred or more cells across), so
 they form large areas rather than patches. Forest never borders desert directly: a closed

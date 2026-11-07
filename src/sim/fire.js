@@ -11,7 +11,6 @@
 
 import { waterParams } from './water.js';
 import { FOREST_TYPES, forestTypeAt } from './forests.js';
-import { vegetationParams } from './vegetation.js';
 
 export const fireParams = {
   enabled: true,
@@ -75,7 +74,7 @@ export function fireStep(world, dt) {
         // Forest type matters: resinous conifers and dry woodland burn readily, rainforest and swamp barely
         // Old-growth forest (thick bark, damp shaded floor) is harder to ignite than young stands
         const kind = V[j] > 0.62
-          ? FOREST_TYPES[forestTypeAt(world, j, H[j], vegetationParams.treeLine)].flammability * (1 - 0.35 * world.forestAge[j])
+          ? FOREST_TYPES[forestTypeAt(world, j)].flammability * (1 - 0.35 * world.forestAge[j])
           : 1;
         const fuel = flammability(V[j]) * kind;
         const damp = (1 - 0.7 * (W ? W[j] : 0)) * (D[j] > 0.05 ? 0.1 : 1) * (raining ? 0.3 : 1);
