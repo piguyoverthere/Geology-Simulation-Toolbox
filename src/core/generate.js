@@ -88,12 +88,14 @@ function smoothLowlands(world, noise) {
   const N = world.N, H = world.height;
   let lo = Infinity, hi = -Infinity;
   for (const h of H) { if (h < lo) lo = h; if (h > hi) hi = h; }
-  const blurred = boxBlur(boxBlur(H, N, 3), N, 3);
+  // A light blur: enough to remove noise dimples, not so much that valleys turn into broad flat
+  // floors (water spreads across those as a sheet instead of gathering into a river)
+  const blurred = boxBlur(H, N, 2);
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
       const i = z * N + x;
       const t = (H[i] - lo) / (hi - lo || 1);
-      const low = 1 - smoothstep(0.2, 0.55, t);
+      const low = 1 - smoothstep(0.15, 0.4, t);
       const keepRough = smoothstep(0.68, 0.82, 0.5 + 0.5 * noise(x / 60 + 91.7, z / 60 - 13.2));
       const w = low * (1 - keepRough);
       H[i] += (blurred[i] - H[i]) * w;

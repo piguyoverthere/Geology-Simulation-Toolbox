@@ -134,16 +134,27 @@ export function waterStep(world) {
         // Capacity grows with discharge (depth × speed), like stream power: a big trunk river keeps
         // its load moving across gentle ground and cuts down, capturing smaller flows, while a thin
         // sheet of runoff carries little. Still pools stay below critSpeed, so they don't dig pits.
-        const depthFactor = Math.min(1, d / p.channelDepth);
+        // Deeper flow cuts disproportionately harder than a thin sheet: channels that start to
+        // deepen gather more water and deepen further, so runoff organises into rivers.
+        const depthFactor = Math.min(1, (d / p.channelDepth) ** 1.5);
         // Never pick up more than the water can actually hold for its depth (otherwise fast, shallow
         // sheets would scour sediment and immediately have to dump it again, building cones)
         const cap = Math.min(p.maxConcentration * d, p.capacity * sinTilt * Math.max(0, speed - p.critSpeed) * depthFactor);
+        // Neighbouring bed heights: lowest and mean of the 4 sides
+        const bl = B[i - 1], br = B[i + 1], bt = B[i - N], bb = B[i + N];
+        const lowest = Math.min(bl, br, bt, bb), mean = (bl + br + bt + bb) * 0.25;
         if (cap > S[i]) {
-          const amt = Math.min(p.erode * (cap - S[i]) * dt * world.erodibilityAt(B[i], i), 0.05);
+          // Never dig below the lowest neighbour: a channel keeps running downhill instead of
+          // hollowing out a pit (pit → slowdown → lip → pool is how slopes turn into stairs)
+          const room = Math.max(0, B[i] - lowest) * 0.5;
+          const amt = Math.min(p.erode * (cap - S[i]) * dt * world.erodibilityAt(B[i], i), 0.05, room);
           dBed[i] -= amt;
           S[i] += amt;
         } else {
-          const amt = p.deposit * (S[i] - cap) * dt;
+          // Settle sediment only into low spots; where it would pile into a lip the load stays in
+          // the water and is carried on down
+          const room = Math.max(0, mean - B[i]) + 0.003;
+          const amt = Math.min(p.deposit * (S[i] - cap) * dt, room);
           dBed[i] += amt;
           S[i] -= amt;
         }
@@ -206,11 +217,10 @@ export function waterStep(world) {
     }
   }
 
-  // 7. Apply the bed changes, each shared with its 3×3 neighbourhood using 1-2-1 binomial weights
-  // (25% centre, 12.5% sides, 6.25% corners). Real erosion and deposition act over a footprint,
-  // not a single grid cell; per-cell changes let neighbours drift apart into pits and cones. The
-  // binomial weights also cancel a checkerboard (high-low-high) pattern exactly, which otherwise
-  // builds up in shallow water and renders as a field of little hexagons.
+  // 7. Apply the bed changes over a small footprint (50% centre, 12.5% to each side). Per-cell
+  // changes let neighbours drift apart into pits and cones; these weights also cancel a
+  // checkerboard (high-low-high) pattern exactly, which otherwise builds up in shallow water and
+  // renders as a field of little hexagons, while keeping channels narrow rather than smeared out.
   applySmoothed(B, dBed, N);
 
   world.dirty = true;
@@ -224,10 +234,9 @@ function applySmoothed(B, dB, N) {
       const v = dB[i];
       if (v === 0) continue;
       if (x === 0 || z === 0 || x === N - 1 || z === N - 1) { B[i] += v; continue; }
-      const side = v * 0.125, corner = v * 0.0625;
-      B[i] += v * 0.25;
+      const side = v * 0.125;
+      B[i] += v * 0.5;
       B[i - 1] += side; B[i + 1] += side; B[i - N] += side; B[i + N] += side;
-      B[i - N - 1] += corner; B[i - N + 1] += corner; B[i + N - 1] += corner; B[i + N + 1] += corner;
     }
   }
 }

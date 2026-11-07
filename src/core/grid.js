@@ -75,12 +75,25 @@ export function breachDepressions(H, N, eps = 0.02) {
     if (isMin) pits.push(i);
   }
   pits.sort((a, b) => H[a] - H[b]);
+  const path = [];
   for (const pit of pits) {
-    let level = H[pit];
+    // Find where the outlet path reaches ground that already drains (lower than the pit)
+    path.length = 0;
+    let end = -1, level = H[pit];
     for (let c = parent[pit]; c !== -1; c = parent[c]) {
       level -= eps;
-      if (H[c] <= level) break; // reached ground that already drains
-      H[c] = level;
+      if (H[c] <= level) { end = c; break; }
+      path.push(c);
+    }
+    if (!path.length) continue;
+    // Cut one evenly sloping channel from the basin floor down to that point. (Lowering each cell
+    // just eps below the last left long flat runs ending in a drop: a staircase that water pooled
+    // on step by step.)
+    const top = H[pit];
+    const bottom = end >= 0 ? H[end] : top - eps * (path.length + 1);
+    for (let k = 0; k < path.length; k++) {
+      const target = top + (bottom - top) * (k + 1) / (path.length + 1);
+      if (H[path[k]] > target) H[path[k]] = target;
     }
   }
 }
@@ -92,7 +105,7 @@ export function breachDepressions(H, N, eps = 0.02) {
  * drainage area), so small tributaries feed into ever-deeper trunk streams. Run after
  * breachDepressions so every cell has somewhere to drain. Modifies `H` in place.
  */
-export function carveRivers(H, N, { threshold = 150, depth = 1.5, perDoubling = 0.9, maxDepth = 7 } = {}) {
+export function carveRivers(H, N, { threshold = 150, depth = 2.5, perDoubling = 1.1, maxDepth = 9 } = {}) {
   const n = N * N;
   const receiver = new Int32Array(n).fill(-1);
   for (let z = 0; z < N; z++) {
@@ -119,9 +132,10 @@ export function carveRivers(H, N, { threshold = 150, depth = 1.5, perDoubling = 
   for (let i = 0; i < n; i++) {
     if (area[i] >= threshold) cut[i] = Math.min(maxDepth, depth + perDoubling * Math.log2(area[i] / threshold));
   }
-  // Give channels some width: a soft V across ~3 cells
+  // A narrow, steep-banked channel (full depth in the middle, banks sloping over a cell each side)
+  // that can hold the river instead of spilling it across the valley floor
   const soft = boxBlur(cut, N, 1);
-  for (let i = 0; i < n; i++) H[i] -= Math.max(soft[i], cut[i] * 0.8);
+  for (let i = 0; i < n; i++) H[i] -= Math.max(soft[i] * 0.7, cut[i]);
 }
 
 class MinHeap {

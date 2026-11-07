@@ -355,8 +355,12 @@ it spills over and cuts an outlet.
    for larger drainage areas. So tributaries feed into ever-deeper trunk streams instead of each
    spreading out into its own delta.
 
-Sediment capacity also grows with discharge (depth × speed), so big rivers keep their load moving
-and keep cutting down, capturing the smaller flows around them.
+Sediment capacity also grows faster than linearly with water depth, so deepening channels cut
+harder, gather more water and organise runoff into rivers rather than sheets. Water never digs a
+cell below its lowest neighbour and only drops sediment into low spots. Pits followed by sediment
+lips are what turn a slope into a staircase of pools, so neither is allowed to form. Valley
+floors are only lightly smoothed and channels are cut narrow and deep, so the river stays in its
+channel instead of spreading across a flat floor.
 
 ---
 
