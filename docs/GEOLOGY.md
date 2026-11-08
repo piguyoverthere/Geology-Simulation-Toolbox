@@ -288,10 +288,17 @@ so the tree line and snow line sit lower on shaded faces. Trees need more than ~
 ground becomes tundra and then bare rock. Plants grow more slowly in the cold, and heat dries soil
 and evaporates water faster.
 
-Snow lies below freezing, but not evenly. In one test band of the volcano, 37% of shady slopes were
-snow-covered versus 6% of sunny ones, and 46% of gentle ground versus none of the cliffs. It also
-needs moisture (dry country gets a dusting), drifts into hollows and off crests, and forest canopy
-hides some of it.
+**Clouds, precipitation and snow.** Moist air blows across the map with the prevailing wind (the
+**Wind direction** slider). Where it is pushed uphill it cools, its water condenses into cloud and
+falls: windward slopes get the most rain and snow. Beyond the crest the air is dry, so the lee side
+sits in a **rain shadow** (on the volcano, windward slopes get about 6× the lee's precipitation).
+Precipitation falls as snow when the *cloud* above a spot is below freezing, not the ground, so
+snow can fall where the ground is slightly above zero. It then builds a **snowpack** that melts with
+ground warmth (sunny slopes first) and drifts into hollows. Thin snow slides off steep slopes and
+piles below them, but once the snowpack around a steep face is deep, the face holds snow too. At
+the same height on the volcano, windward snow averaged 1.84 deep and lee snow 0.08. See
+**Overlays → Precipitation** and **Overlays → Snow depth**, and hide the clouds with **View → Show
+clouds**.
 
 | Forest | Climate |
 | --- | --- |

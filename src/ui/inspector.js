@@ -4,7 +4,7 @@ import { BIOMES, classifyBiome } from '../render/biomes.js';
 import { waterParams } from '../sim/water.js';
 import { ROCKS, PROVINCES, ROCK_INDEX } from '../core/rocks.js';
 import { saturation, stableSlope } from '../sim/landslides.js';
-import { snowAt } from '../sim/climate.js';
+import { snowAt, climateParams } from '../sim/climate.js';
 
 export class Inspector {
   /** @param {HTMLElement} root  @param {object} app */
@@ -46,7 +46,9 @@ export class Inspector {
     const rows = [
       ['Altitude', `${h.toFixed(1)}${sea ? ` <span class="ins-dim">(${(h - w.seaLevel) >= 0 ? '+' : ''}${(h - w.seaLevel).toFixed(1)} vs sea)</span>` : ''}`],
       ['Slope', `${(Math.atan(slope) * 180 / Math.PI).toFixed(0)}°`],
-      ['Temperature', `${w.temperature[i].toFixed(1)} °C${snowAt(w, i, slope) > 0.05 ? ` <span class="ins-dim">· snow ${Math.round(snowAt(w, i, slope) * 100)}%</span>` : ''}`],
+      ['Temperature', `${w.temperature[i].toFixed(1)} °C <span class="ins-dim">· clouds ${(w.temperature[i] - climateParams.lapse * climateParams.cloudLift).toFixed(1)} °C</span>`],
+      ['Precipitation', `${bar(w.precip ? w.precip[i] : 0, '#4f8ce0')} <span class="ins-dim">${(w.temperature[i] - climateParams.lapse * climateParams.cloudLift) < 0 ? 'snow' : 'rain'}</span>`],
+      ...(w.snow && w.snow[i] > 0.01 ? [['Snow depth', `${w.snow[i].toFixed(2)} <span class="ins-dim">· covers ${Math.round(snowAt(w, i, slope) * 100)}%</span>`]] : []),
       ['Soil wetness', bar(w.soil ? w.soil[i] : 0, '#4f8ce0')],
       ['Climate', bar(w.moisture ? w.moisture[i] : 0, '#7fa7d6')],
       ['Last watered', lastWater],

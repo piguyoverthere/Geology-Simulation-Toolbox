@@ -11,6 +11,7 @@
 
 import { waterParams } from './water.js';
 import { thermalParams, thermalStep } from './thermal.js';
+import { breachDepressions } from '../core/grid.js';
 
 export const landslideParams = {
   enabled: true,
@@ -125,6 +126,7 @@ export function triggerLandslide(world, site) {
   }
   world.quake = Math.min(2.5, world.quake + 0.3 + R / (mega ? 25 : 60));
   world.landslides.push({ x: cx, z: cz, r: R, mega, volume: removed, time: world.time });
+  world.slideAreas.push({ x: cx, z: cz, r: R + 35 });
   world.dirty = true;
   return { R, mega, removed };
 }
@@ -159,8 +161,28 @@ export function debrisStep(world, dt) {
   }
   // Loose debris can't stand steeper than its angle of repose: slump fresh piles into a fan
   for (const s of settled) for (let k = 0; k < 8; k++) thermalStep(world, s, 1);
+  if (!D.length) drainSlideAreas(world);
   world.dirty = true;
   return true;
+}
+
+/**
+ * Once the debris has stopped, give any hollow left in the scar or behind a debris dam an outlet,
+ * so water runs on through instead of filling a staircase of ponds. Only basins in the disturbed
+ * area are opened (lakes elsewhere, e.g. ones you dug, are left alone).
+ */
+function drainSlideAreas(world) {
+  const areas = world.slideAreas;
+  if (!areas.length) return;
+  const N = world.N, keep = world.keepBasin;
+  breachDepressions(world.height, N, 0.02, (i) => {
+    if (keep && keep(i)) return true;
+    const x = i % N, z = (i / N) | 0;
+    return !areas.some((a) => (x - a.x) ** 2 + (z - a.z) ** 2 < a.r * a.r);
+  });
+  world.prevHeight.set(world.height);
+  areas.length = 0;
+  world.dirty = true;
 }
 
 function smooth01(t) { t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); }

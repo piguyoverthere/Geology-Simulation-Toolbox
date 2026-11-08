@@ -34,7 +34,7 @@ export function boxBlur(src, N, r) {
  * from neighbouring basins join the same tree, so the carved channels merge into a branching
  * (dendritic) network that drains to the map edge. Modifies `H` in place.
  */
-export function breachDepressions(H, N, eps = 0.02) {
+export function breachDepressions(H, N, eps = 0.02, keep = null) {
   const n = N * N;
   const done = new Uint8Array(n);
   const parent = new Int32Array(n).fill(-1);
@@ -77,6 +77,7 @@ export function breachDepressions(H, N, eps = 0.02) {
   pits.sort((a, b) => H[a] - H[b]);
   const path = [];
   for (const pit of pits) {
+    if (keep && keep(pit)) continue; // a basin meant to stay closed (e.g. a volcano's crater)
     // Find where the outlet path reaches ground that already drains (lower than the pit)
     path.length = 0;
     let end = -1, level = H[pit];

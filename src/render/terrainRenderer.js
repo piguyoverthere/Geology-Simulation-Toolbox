@@ -35,6 +35,8 @@ export const OVERLAYS = {
   bare: 'Bare rock',
   age: 'Forest age',
   temp: 'Temperature',
+  precip: 'Precipitation',
+  snowDepth: 'Snow depth',
   rock: 'Rock type',
   hardness: 'Rock hardness',
   change: 'Erosion / deposition',
@@ -49,6 +51,7 @@ export class TerrainRenderer {
     this.scene = scene;
     this.colorMode = 'natural'; // key of OVERLAYS
     this.showVegetation = true; // off: natural view shows bare ground and bedrock
+    this.showClouds = true;
     this.showWater = true;
 
     const N = world.N;
@@ -210,6 +213,11 @@ export class TerrainRenderer {
           col = shade(this.rockColor(h, i), 0.7 + 0.3 * ny, S3);
         } else if (mode === 'biome') {
           col = shade(BIOMES[classifyBiome(w, i, tan)].color, 0.8 + 0.2 * ny, S3);
+        } else if (mode === 'precip') {
+          col = shade(mix(PRECIP_DRY, PRECIP_WET, w.precip ? w.precip[i] : 0, S3), 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'snowDepth') {
+          const d = w.snow ? w.snow[i] : 0;
+          col = shade(d < 0.02 ? NO_SNOW : d < 1.5 ? mix(SNOW_THIN, SNOW_MID, d / 1.5, S3) : mix(SNOW_MID, SNOW_DEEP, Math.min(1, (d - 1.5) / 3), S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'temp') {
           col = shade(tempColor(w.temperature[i], S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'slope') {
@@ -352,7 +360,7 @@ export class TerrainRenderer {
     if (h > w.seaLevel - 0.3 && h < w.seaLevel + 1.5) mix(col, C.sand, 0.8, col);
     else if (h <= w.seaLevel - 0.3) mix(col, C.soil, 0.6, col); // muddy sea floor
     // Snow where it's below freezing, shaped by moisture, steepness, hollows, canopy and sun
-    if (T < 1.5) mix(col, C.snow, snowAt(w, i, tan), col);
+    if (w.snow && w.snow[i] > 0.005) mix(col, C.snow, snowAt(w, i, tan), col);
     // Wet ground is darker
     if (water > 0.005) shade(col, 0.88, col);
     return col;
@@ -376,6 +384,8 @@ const SLOPE_LO = [0.2, 0.7, 0.3], SLOPE_HI = [0.9, 0.2, 0.15];
 const DRY = [0.85, 0.72, 0.50], WET = [0.15, 0.40, 0.80];
 const SOIL_THIN = [0.88, 0.85, 0.76], SOIL_MID = [0.72, 0.48, 0.24], SOIL_DEEP = [0.22, 0.13, 0.07];
 const SOIL_COVER = [0.86, 0.84, 0.78];
+const PRECIP_DRY = [0.86, 0.74, 0.52], PRECIP_WET = [0.12, 0.35, 0.75];
+const NO_SNOW = [0.55, 0.53, 0.48], SNOW_THIN = [0.88, 0.92, 0.98], SNOW_MID = [0.55, 0.72, 0.95], SNOW_DEEP = [0.18, 0.30, 0.75];
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 

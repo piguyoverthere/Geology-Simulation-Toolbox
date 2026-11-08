@@ -9,7 +9,7 @@ import { runDroplets } from './sim/droplet.js';
 import { thermalStep, thermalParams } from './sim/thermal.js';
 import { waterStep, waterParams } from './sim/water.js';
 import { initVegetation, vegetationStep, vegetationParams } from './sim/vegetation.js';
-import { climateParams, updateTemperature } from './sim/climate.js';
+import { climateParams, updateTemperature, updatePrecip, updateSnow } from './sim/climate.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
@@ -50,6 +50,7 @@ class App {
     generateTerrain(this.world, this.gen.preset, this.gen.seed);
     this.renderer = new TerrainRenderer(this.world, this.scene);
     this.effects = new Effects(this.scene, this.world, this.renderer);
+    this.effects.climateParams = climateParams;
     this.setupCursor();
     this.setupInput();
 
@@ -313,6 +314,8 @@ class App {
   /** Recompute temperatures after the climate changes, and redraw. */
   climateChanged() {
     updateTemperature(this.world);
+    updatePrecip(this.world);
+    updateSnow(this.world, 30); // let the snowpack respond quickly to the new climate
     this.world.dirty = true;
   }
 
@@ -389,7 +392,7 @@ class App {
       if (this.sim.thermal && this.frame % 2 === 0) thermalStep(this.world, null, Math.min(1, 0.25 * this.sim.substeps / 6 * 2));
       if (this.frame % 10 === 0) {
         if (this.sim.vegetation) vegetationStep(this.world); // also refreshes temperature
-        else updateTemperature(this.world);                  // terrain may have been reshaped
+        else { updateTemperature(this.world); updatePrecip(this.world); updateSnow(this.world); } // terrain may have changed
       }
       // Look for slopes about to fail a few times a second (scaled with sim speed)
       if (this.frame % 5 === 0) landslideCheck(this.world, 0.25 * this.sim.substeps / 6);

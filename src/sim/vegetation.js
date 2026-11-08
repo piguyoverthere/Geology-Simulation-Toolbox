@@ -45,7 +45,7 @@
 import { createNoise2D, fbm } from '../core/noise.js';
 import { boxBlur } from '../core/grid.js';
 import { FOREST_TYPES, forestTypeAt } from './forests.js';
-import { climateParams, updateTemperature } from './climate.js';
+import { climateParams, updateTemperature, updatePrecip, updateSnow } from './climate.js';
 import { waterParams } from './water.js';
 
 export const vegetationParams = {
@@ -89,6 +89,7 @@ export function initVegetation(world, seed = 1) {
   updateNearWater(world);
   updateTemperature(world);
   world.vegetation.fill(0);
+  updatePrecip(world);
   // A few passes of soil ⇄ vegetation lets the plants' own water use and seed spread settle in
   for (let pass = 0; pass < 4; pass++) {
     for (let i = 0; i < N * N; i++) world.soil[i] = soilSupply(world, i);
@@ -101,6 +102,10 @@ export function initVegetation(world, seed = 1) {
       world.forestAge[i] = world.vegetation[i] > 0.66 ? 0.3 + 0.55 * world.moisture[i] : 0;
     }
   }
+  // Let the snowpack build to its seasonal state so a new map starts with realistic snow
+  if (world.snow) world.snow.fill(0);
+  updatePrecip(world);
+  updateSnow(world, 250);
   world.prevHeight.set(world.height);
   world.dirty = true;
 }
@@ -113,6 +118,7 @@ function soilSupply(world, i) {
     + 0.6 * world.nearWater[i]
     - p.uptake * world.vegetation[i]
     - 0.012 * Math.max(0, world.temperature[i] - 18) // heat dries the soil out faster
+    + (world.precip ? 0.3 * (world.precip[i] - 0.5) : 0) // windward slopes wetter, rain shadows drier
     + 0.15 * world.humus[i]; // deep, organic soil holds water like a sponge
   return s < 0 ? 0 : s > 1 ? 1 : s;
 }
@@ -192,6 +198,8 @@ export function vegetationStep(world) {
   const p = vegetationParams;
   updateNearWater(world);
   updateTemperature(world);
+  updatePrecip(world);
+  updateSnow(world);
   const W = world.nearWater, F = world.freshRock, SO = world.humus;
   for (let i = 0; i < V.length; i++) S[i] += (soilSupply(world, i) - S[i]) * p.soilMemory;
   const f = neighbourhood(world);

@@ -64,14 +64,16 @@ and how much it has been eroded or built up since the baseline.
 - **Volcanism & tectonics**: eruption type and size, intrusion type, fault type, slip and number
   of earthquakes, and a button to stop all running events.
 - **Water & climate**: sim speed, global rain, evaporation, plant growth, climate wetness, and
-  **Temperature** (sea-level °C), which sets the snow line, tree line and forest types.
+  **Temperature** (sea-level °C), which sets the tree line, forest types and whether clouds drop
+  snow or rain, and **Wind direction**, which decides where clouds form (windward slopes wet, rain
+  shadows dry).
 - **Overlays**: colour the map by one data layer (biomes, vegetation, forest age, temperature,
-  wetness, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
+  precipitation, snow depth, wetness, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
 - **Terrain**: presets (hills, mountains, plateau, volcano, flat), seed, undo/redo, PNG
   heightmap export/import.
-- **View**: water, wireframe.
+- **View**: clouds, water, wireframe.
 
 Try this: pick **Layered plateau**, turn on **Sea** at level 8, drop two **Springs** on top, and set
 **Overlays → Erosion / deposition**. Red shows where ground was carved away and blue shows where

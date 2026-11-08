@@ -63,12 +63,15 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   if (preset !== 'flat') smoothLowlands(world, noise);
   // Real landscapes drain: almost every spot has a downhill route to the sea. Raw noise leaves
   // hundreds of closed basins where each river would die in its own little lake. Carve an outlet
-  // from each one; the outlets merge into a branching valley network. (The volcano keeps its crater.)
-  if (preset !== 'volcano') breachDepressions(h, N, 0.02);
+  // from each one; the outlets merge into a branching valley network. The volcano keeps its crater
+  // but not the little hollows on its flanks (left closed, they fill into stepped ponds).
+  const crater = preset === 'volcano' ? (i) => Math.hypot(i % N - N / 2, ((i / N) | 0) - N / 2) < N * 0.06 : null;
+  world.keepBasin = crater; // later re-breaching (after landslides) leaves the crater alone too
+  breachDepressions(h, N, 0.02, crater);
   // Cut the drainage network: tributaries merging into deeper trunk channels
   if (preset !== 'flat') {
     carveRivers(h, N);
-    if (preset !== 'volcano') breachDepressions(h, N, 0.02);
+    breachDepressions(h, N, 0.02, crater);
   }
 
   generateGeology(world, preset, seed);

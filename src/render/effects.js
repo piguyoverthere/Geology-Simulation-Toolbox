@@ -5,6 +5,23 @@ import * as THREE from 'three';
 
 const MAX_PARTICLES = 600;
 
+let dot = null;
+/** A soft round sprite (white, fading to transparent at the edge) so particles look like puffs, not squares. */
+function softDot() {
+  if (dot) return dot;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.5, 'rgba(255,255,255,0.6)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  dot = new THREE.CanvasTexture(c);
+  return dot;
+}
+
 export class Effects {
   /** @param {THREE.Scene} scene  @param {import('../core/world.js').World} world  @param {object} renderer TerrainRenderer */
   constructor(scene, world, renderer) {
@@ -20,6 +37,51 @@ export class Effects {
     this.smoke = this.makeSmoke();
     this.flowCloud = this.makeFlowCloud(0x8f857a);
     this.dustCloud = this.makeFlowCloud(0x9a7f60); // landslide debris dust
+    this.clouds = this.makeClouds();
+  }
+
+  /** Weather clouds: soft puffs over places where moist air is being lifted and dropping its water. */
+  makeClouds() {
+    const M = 1400;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(M * 3).fill(-9999), 3));
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
+    const points = new THREE.Points(geo, new THREE.PointsMaterial({ map: softDot(), alphaTest: 0.01,
+      color: 0xf4f6fa, size: 24, sizeAttenuation: true, transparent: true, opacity: 0.35, depthWrite: false,
+    }));
+    this.scene.add(points);
+    return { points, M, anchor: new Float32Array(M * 3), drift: 0, refresh: 0 };
+  }
+
+  updateClouds(dt) {
+    const c = this.clouds, w = this.world;
+    c.points.visible = this.renderer.showClouds;
+    if (!c.points.visible || !w.cloud) return;
+    const pos = c.points.geometry.attributes.position;
+    // Re-seed the puffs every couple of seconds from where clouds are forming now
+    c.refresh -= dt;
+    if (c.refresh <= 0) {
+      c.refresh = 2;
+      const N = w.N;
+      let k = 0;
+      for (let tries = 0; tries < c.M * 6 && k < c.M; tries++) {
+        const i = (Math.random() * N * N) | 0;
+        if (Math.random() > w.cloud[i] * 1.4) continue;
+        const x = i % N, z = (i / N) | 0;
+        const p = this.renderer.toWorld(x + Math.random() - 0.5, z + Math.random() - 0.5, w.height[i] + 6 + Math.random() * 4);
+        c.anchor[k * 3] = p.x; c.anchor[k * 3 + 1] = p.y; c.anchor[k * 3 + 2] = p.z;
+        k++;
+      }
+      for (let j = k; j < c.M; j++) c.anchor[j * 3 + 1] = -9999;
+      c.drift = 0;
+    }
+    // Drift gently downwind
+    c.drift += dt;
+    const { climateParams } = this;
+    const a = ((climateParams ? climateParams.windAngle : 20) * Math.PI) / 180;
+    const dx = Math.cos(a) * c.drift * 1.5, dz = Math.sin(a) * c.drift * 1.5;
+    for (let j = 0; j < c.M; j++) pos.setXYZ(j, c.anchor[j * 3] + dx, c.anchor[j * 3 + 1], c.anchor[j * 3 + 2] + dz);
+    pos.needsUpdate = true;
   }
 
   /** Billowing grey-brown clouds riding on each pyroclastic flow, hugging the ground. */
@@ -28,7 +90,7 @@ export class Effects {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(M * 3).fill(-9999), 3));
     geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
-    const points = new THREE.Points(geo, new THREE.PointsMaterial({
+    const points = new THREE.Points(geo, new THREE.PointsMaterial({ map: softDot(), alphaTest: 0.01,
       color, size: 7, sizeAttenuation: true, transparent: true, opacity: 0.6, depthWrite: false,
     }));
     this.scene.add(points);
@@ -68,7 +130,7 @@ export class Effects {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_PARTICLES * 3).fill(-9999), 3));
     geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
-    const points = new THREE.Points(geo, new THREE.PointsMaterial({
+    const points = new THREE.Points(geo, new THREE.PointsMaterial({ map: softDot(), alphaTest: 0.01,
       color: 0x3a3632, size: 4.5, sizeAttenuation: true, transparent: true, opacity: 0.4, depthWrite: false,
     }));
     this.scene.add(points);
@@ -108,6 +170,7 @@ export class Effects {
     this.updateSmoke(dt);
     this.updateFlowCloud(this.flowCloud, this.world.flows, dt);
     this.updateFlowCloud(this.dustCloud, this.world.debris, dt);
+    this.updateClouds(dt);
     this.updateFaults();
   }
 
@@ -152,7 +215,7 @@ export class Effects {
     const arr = new Float32Array(MAX_PARTICLES * 3).fill(-9999);
     geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
     geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
-    const mat = new THREE.PointsMaterial({
+    const mat = new THREE.PointsMaterial({ map: softDot(), alphaTest: 0.01,
       color: explosive ? 0x8a8580 : 0xffa040, size: explosive ? 4 + 2 * column : 1.6, sizeAttenuation: true,
       transparent: true, opacity: explosive ? 0.55 : 0.95, depthWrite: false,
     });
