@@ -3,7 +3,8 @@
 // A forest is a mix of species, each competing where conditions suit it best:
 //   temperature    – spruce and larch take the cold, tropical hardwoods and palms the heat
 //   moisture       – alder and willow need wet ground by water; acacia and juniper tolerate drought
-//   forest age     – pioneers (pine, birch, larch, acacia) colonise young or disturbed ground;
+//   forest age     – pioneers (aspen in every young forest, plus pine, birch, larch, acacia)
+//                    colonise young or disturbed ground;
 //                    shade-tolerant species (fir, beech, tropical hardwoods) take over old growth
 //   soil depth     – beech, maple and fir need deep soil; pine and juniper manage on thin, rocky soil
 //   slope          – pine and juniper cling to steep, rocky ground
@@ -22,17 +23,19 @@ import { ROCK_CHEM } from '../core/rocks.js';
  * soil, 'any'. slope: how steep (relative to the map's typical slope) it tolerates. chem: preferred
  * soil chemistry (−1 acidic … +1 alkaline) and how fussy it is (width). */
 export const SPECIES = [
-  { id: 'pine', label: 'Pine', color: [0.16, 0.31, 0.20], mapColor: [0.20, 0.58, 0.26], temp: [-2, 20], moist: [0.25, 0.75], age: 0.15, ageW: 0.6, soil: 'thin', slope: 1.25, chem: -0.6, chemW: 1.4, flam: 1.6, soilBuild: 0.6,
-    help: 'Pioneer conifer: first to colonise burnt or bare ground. Copes with thin, dry, acidic soil and steep slopes. Resinous: burns readily.' },
-  { id: 'fir', label: 'Fir (abietoid)', color: [0.05, 0.21, 0.15], mapColor: [0.12, 0.32, 0.62], temp: [-3, 13], moist: [0.6, 1.05], age: 0.9, ageW: 0.9, soil: 'deep', slope: 0.9, chem: -0.2, chemW: 1.3, flam: 1.1, soilBuild: 0.9,
-    help: 'Shade-tolerant conifer of cool, moist old-growth forest on deep soil. Takes over as pioneers age.' },
+  { id: 'pine', label: 'Pine', color: [0.16, 0.31, 0.20], mapColor: [0.20, 0.58, 0.26], temp: [-2, 22], moist: [0.12, 0.6], age: 0.15, ageW: 0.5, soil: 'thin', slope: 1.25, chem: -0.4, chemW: 2.4, flam: 1.6, soilBuild: 0.6,
+    help: 'Drought-hardy pioneer conifer: dominates dry ground, and is first to colonise burnt or bare ground. Copes with thin, acidic soil and steep slopes. Resinous: burns readily.' },
+  { id: 'fir', label: 'Fir (abietoid)', color: [0.05, 0.21, 0.15], mapColor: [0.12, 0.32, 0.62], temp: [-4, 11], moist: [0.62, 1.1], age: 0.75, ageW: 0.45, soil: 'any', slope: 1.0, chem: -0.2, chemW: 1.3, flam: 1.1, soilBuild: 0.9,
+    help: 'Fir and hemlock of wet, cool mid-to-high mountain slopes. Shade-tolerant, so it thickens as the forest ages.' },
   { id: 'spruce', label: 'Spruce', color: [0.08, 0.19, 0.17], mapColor: [0.40, 0.28, 0.65], temp: [-6, 9], moist: [0.5, 1.05], age: 0.6, ageW: 0.6, soil: 'any', slope: 0.9, chem: -0.6, chemW: 1.2, flam: 1.4, soilBuild: 0.7,
     help: 'Cold-climate conifer of the boreal forest on acidic soil.' },
   { id: 'larch', label: 'Larch', color: [0.40, 0.50, 0.22], mapColor: [0.88, 0.76, 0.22], temp: [-8, 6], moist: [0.35, 0.85], age: 0.1, ageW: 0.7, soil: 'any', slope: 1.1, chem: -0.3, chemW: 1.6, flam: 0.9, soilBuild: 0.9,
     help: 'Deciduous conifer of the coldest forests near the tree line; a pioneer on open ground.' },
   { id: 'birch', label: 'Birch', color: [0.47, 0.60, 0.28], mapColor: [0.96, 0.92, 0.78], temp: [-4, 15], moist: [0.45, 0.95], age: 0.1, ageW: 0.8, soil: 'any', slope: 0.9, chem: -0.5, chemW: 1.4, flam: 0.8, soilBuild: 1.2,
     help: 'Pioneer broadleaf of cool climates: quickly fills clearings, then gives way to longer-lived trees.' },
-  { id: 'oak', label: 'Oak', color: [0.21, 0.36, 0.13], mapColor: [0.55, 0.35, 0.15], temp: [8, 23], moist: [0.35, 0.8], age: 0.6, ageW: 0.5, soil: 'any', slope: 0.9, chem: -0.2, chemW: 1.5, flam: 1.0, soilBuild: 1.2,
+  { id: 'aspen', label: 'Aspen', color: [0.50, 0.64, 0.28], mapColor: [0.95, 0.55, 0.85], temp: [-8, 22], moist: [0.25, 1.0], age: 0, ageW: 1.1, youngBoost: 0.6, soil: 'any', slope: 1.2, chem: 0, chemW: 2.5, flam: 0.5, soilBuild: 1.3,
+    help: 'Fast pioneer that sprouts in every young forest (often from root suckers after fire), then is shaded out as longer-lived trees take over.' },
+  { id: 'oak', label: 'Oak', color: [0.21, 0.36, 0.13], mapColor: [0.55, 0.35, 0.15], temp: [11, 24], moist: [0.45, 0.85], age: 0.6, ageW: 0.5, soil: 'any', slope: 0.9, chem: -0.2, chemW: 1.5, flam: 1.0, soilBuild: 1.2,
     help: 'Long-lived broadleaf of warm temperate forests; tolerates moderately dry and acidic soil.' },
   { id: 'beech', label: 'Beech', color: [0.17, 0.40, 0.15], mapColor: [0.90, 0.50, 0.20], temp: [5, 18], moist: [0.6, 0.95], age: 0.95, ageW: 0.9, soil: 'deep', slope: 0.8, chem: 0.4, chemW: 1.2, flam: 0.6, soilBuild: 1.5,
     help: 'Shade-tolerant broadleaf that dominates moist old-growth forest on deep, lime-rich or neutral soil.' },
@@ -73,6 +76,7 @@ function suitability(world, i, out) {
     let f = band(T, s.temp[0], s.temp[1], 3) * band(m, s.moist[0], s.moist[1], 0.08);
     if (f <= 0) { out[k] = 0; continue; }
     f *= Math.max(0.1, 1 - s.ageW * Math.abs(age - s.age));
+    if (s.youngBoost) f *= 1 + s.youngBoost * Math.max(0, 1 - age / 0.4); // thrives in young stands
     if (s.soil === 'deep') f *= 0.2 + 0.8 * smooth(0.15, 0.55, soil);
     else if (s.soil === 'thin') f *= 1 - 0.45 * smooth(0.45, 0.9, soil); // out-competed on rich, deep soil
     f *= 1 - 0.85 * smooth(s.slope, s.slope + 0.6, slope);

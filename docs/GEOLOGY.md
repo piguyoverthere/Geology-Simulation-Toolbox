@@ -324,12 +324,13 @@ each species plus open ground between the trees:
 
 | Species | Likes |
 | --- | --- |
-| Pine | young/disturbed ground (pioneer), thin dry acidic soil, steep slopes; burns readily |
-| Fir (abietoid) | cool, moist, deep soil, old growth (shade-tolerant) |
+| Pine | dry ground (forms open woodland where it's too dry for most trees), thin soil, steep slopes; pioneer; burns readily |
+| Fir (abietoid) | wet, cool mid-to-high mountain slopes; thickens as the forest ages |
 | Spruce | cold, acidic soil |
 | Larch | the coldest ground near the tree line; pioneer |
+| Aspen | every young forest (sprouts first after disturbance), then shaded out |
 | Birch | cool; pioneer that fills clearings |
-| Oak | warm temperate; tolerates fairly dry, acidic soil |
+| Oak | warm lowlands with moderately moist soil |
 | Beech | moist old growth on deep neutral or lime-rich soil |
 | Maple | fertile, base-rich soil (basalt, limestone) |
 | Alder & willow | waterlogged riverbanks |
@@ -341,8 +342,9 @@ each species plus open ground between the trees:
 **Soil chemistry** comes from the rock beneath: granite, rhyolite and sandstone weather into
 acidic soil; basalt into fertile base-rich soil; limestone and marble into alkaline soil. On the
 hills map, pine and birch are common on acidic ground but almost absent on limestone, where maple,
-beech and juniper take over. **Succession**: in young forest the pioneers (birch, pine) make up much
-of the mix; as it ages, beech and fir move in and pine falls back. The mix sets the forest's colour,
+beech and juniper take over. **Succession**: every young forest is full of aspen (over half the mix)
+with other pioneers; as it ages, beech and fir move in and aspen fades to a few percent. On the
+mountains map, pine leads on dry ground and fir dominates wet, cool, higher slopes. The mix sets the forest's colour,
 flammability and soil-building rate. See **Overlays → Tree species** and **Overlays → Soil
 chemistry**, and **Inspect** lists each spot's mix in percent.
 

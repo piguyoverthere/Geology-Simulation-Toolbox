@@ -61,7 +61,7 @@ export const vegetationParams = {
   aridSoil: 0.32,     // soil moisture below this counts as arid (desert / mesa country)
   grassBuffer: 10,    // forest keeps roughly 1–2× this many cells away from arid ground (grassland between)
   climate: 1,         // regional wetness multiplier (0 = desert, 1 = normal, 1.5 = rainforest)
-  forestWater: 0.46,  // soil moisture a forest needs to sustain itself
+  forestWater: 0.38,  // soil moisture a forest needs (drought-hardy species like pine take the driest)
   ageRate: 0.0012,    // forest maturity gained per step (≈ 830 steps from young to old growth)
   ageLoss: 0.03,      // maturity lost per step where cover drops below forest
   ashRecovery: 0.004, // how fast burnt ground recovers per step
@@ -180,7 +180,10 @@ function potential(world, i, f) {
   const alpine = 1 - 0.95 * smoothstep(tl, tl - 7, T);
   // Lakes drown plants; shallow floodwater on a floodplain does not
   const drowned = 1 - smoothstep(1, 3, world.water[i]);
-  let v = (0.05 + 1.1 * soil) * steep * alpine * drowned;
+  // Drought-hardy trees (pine, juniper) still form open woodland on dry-ish ground in temperate
+  // climates, so cover there is higher than soil moisture alone would allow
+  const dryWood = 0.32 * smoothstep(0.15, 0.32, soil) * (1 - smoothstep(0.45, 0.6, soil)) * smoothstep(-2, 2, T) * (1 - smoothstep(22, 26, T));
+  let v = (0.05 + 1.1 * soil + dryWood) * steep * alpine * drowned;
   // Seed spread: pulled toward the neighbours' cover, so groves fill in and merge
   v += (f.standCover[i] - v) * p.spread * steep * drowned;
 
