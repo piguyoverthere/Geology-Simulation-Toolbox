@@ -105,19 +105,20 @@ the Grand Canyon has stepped walls and why granite so often forms the highest pe
 | Metamorphic belt | gneiss, schist, marble | rock baked and squeezed around the granite |
 | Stratovolcano (volcano preset) | basalt base, andesite flanks, rhyolite summit | lava gets more silica-rich over a volcano's life |
 
-| Rock | Hardness | Notes |
+| Rock | Hardness | Soil it weathers into |
 | --- | --- | --- |
-| Granite | 0.95 | hardest; domes and peaks |
-| Basalt | 0.85 | dark lava flows; plateaus and cliffs |
-| Gneiss | 0.85 | banded metamorphic |
-| Andesite | 0.80 | grey volcano-building lava |
-| Rhyolite | 0.70 | pale, silica-rich lava |
-| Marble | 0.60 | recrystallised limestone |
-| Limestone | 0.55 | ancient sea floor; dissolves into karst |
-| Sandstone | 0.50 | cemented sand; cliffs and arches |
-| Schist | 0.50 | flaky, mica-rich |
-| Conglomerate | 0.45 | cemented gravel |
-| Shale | 0.15 | compacted mud; softest |
+| Granite | 0.98 | acidic |
+| Basalt | 0.90 | fertile, base-rich |
+| Gneiss | 0.88 | acidic |
+| Andesite | 0.82 | slightly base-rich |
+| Rhyolite | 0.72 | acidic |
+| Limestone | 0.60 | alkaline |
+| Marble | 0.55 | alkaline |
+| Sandstone | 0.45 | acidic |
+| Schist | 0.40 | slightly acidic |
+| Conglomerate | 0.35 | slightly acidic |
+| Tuff | 0.18 | near neutral |
+| Shale | 0.08 | neutral |
 
 Layered provinces are three-dimensional: which rock is at the surface depends on the current
 ground height, so as rivers cut down they expose the layers underneath. The layers dip and
@@ -313,6 +314,44 @@ clouds**.
 On the volcano map, a sea-level temperature of 8 °C gives only taiga and a big snowcap; 22 °C gives
 jungle, tropical dry forest, broadleaf, temperate rainforest and dry woodland with a small summit
 cap; 30 °C gives only tropical forest and no snow. See it with **Overlays → Temperature**.
+
+---
+
+### Tree species and soil chemistry (`src/sim/species.js`)
+
+Forests are mixes of species, each with its own preferences, so every spot has a percentage of
+each species plus open ground between the trees:
+
+| Species | Likes |
+| --- | --- |
+| Pine | young/disturbed ground (pioneer), thin dry acidic soil, steep slopes; burns readily |
+| Fir (abietoid) | cool, moist, deep soil, old growth (shade-tolerant) |
+| Spruce | cold, acidic soil |
+| Larch | the coldest ground near the tree line; pioneer |
+| Birch | cool; pioneer that fills clearings |
+| Oak | warm temperate; tolerates fairly dry, acidic soil |
+| Beech | moist old growth on deep neutral or lime-rich soil |
+| Maple | fertile, base-rich soil (basalt, limestone) |
+| Alder & willow | waterlogged riverbanks |
+| Juniper | dry, rocky, limestone slopes |
+| Tropical hardwoods | hot, wet old-growth jungle |
+| Palm | hot, humid ground near water |
+| Acacia | hot, dry savanna |
+
+**Soil chemistry** comes from the rock beneath: granite, rhyolite and sandstone weather into
+acidic soil; basalt into fertile base-rich soil; limestone and marble into alkaline soil. On the
+hills map, pine and birch are common on acidic ground but almost absent on limestone, where maple,
+beech and juniper take over. **Succession**: in young forest the pioneers (birch, pine) make up much
+of the mix; as it ages, beech and fir move in and pine falls back. The mix sets the forest's colour,
+flammability and soil-building rate. See **Overlays → Tree species** and **Overlays → Soil
+chemistry**, and **Inspect** lists each spot's mix in percent.
+
+**Valleys are wetter**: water drains off ridges and gathers in hollows, so valley floors average
+about twice the soil moisture of ridges (0.51 vs 0.27 on the hills map).
+
+**Cloud altitude**: clouds form lower in humid air (about 3 units above the ground) and higher in
+drier air (up to ~10), and snow vs rain is decided by the temperature at that cloud base. Valley fog
+pools in cool, damp valley bottoms, and a thin high-cloud layer drifts above the peaks.
 
 ---
 

@@ -18,19 +18,31 @@ import { createNoise2D, fbm } from './noise.js';
 
 /** Colours are sRGB 0..1. hardness 0..1 = resistance to erosion. Order is the legend order. */
 export const ROCKS = [
-  { id: 'basalt',       label: 'Basalt',       color: [0.24, 0.24, 0.26], hardness: 0.85, help: 'Dark, fine-grained volcanic rock from runny lava flows. Very hard; forms plateaus, cliffs and columns.' },
-  { id: 'andesite',     label: 'Andesite',     color: [0.47, 0.46, 0.45], hardness: 0.80, help: 'Grey volcanic rock of stratovolcanoes, between basalt and rhyolite in silica. Hard.' },
-  { id: 'rhyolite',     label: 'Rhyolite',     color: [0.82, 0.66, 0.62], hardness: 0.70, help: 'Pale pink, silica-rich volcanic rock from thick, explosive lava. Fairly hard.' },
-  { id: 'granite',      label: 'Granite',      color: [0.80, 0.74, 0.72], hardness: 0.95, help: 'Coarse speckled rock from magma that cooled slowly underground. Hardest here; forms domes and peaks.' },
-  { id: 'gneiss',       label: 'Gneiss',       color: [0.58, 0.55, 0.53], hardness: 0.85, help: 'Banded metamorphic rock cooked at high temperature and pressure. Hard.' },
-  { id: 'schist',       label: 'Schist',       color: [0.48, 0.52, 0.44], hardness: 0.50, help: 'Flaky, glittery metamorphic rock full of mica. Splits easily along its layers.' },
-  { id: 'marble',       label: 'Marble',       color: [0.93, 0.92, 0.89], hardness: 0.60, help: 'Recrystallised limestone: white and fairly soft, and dissolves slowly in rainwater.' },
-  { id: 'sandstone',    label: 'Sandstone',    color: [0.84, 0.63, 0.40], hardness: 0.50, help: 'Cemented sand, often red or tan. Medium strength; forms cliffs, arches and mesas.' },
-  { id: 'shale',        label: 'Shale',        color: [0.40, 0.37, 0.35], hardness: 0.15, help: 'Compacted mud. Very soft; wears back quickly into slopes beneath harder caprock.' },
-  { id: 'limestone',    label: 'Limestone',    color: [0.84, 0.82, 0.72], hardness: 0.55, help: 'Rock made of shells and lime mud from ancient seas. Medium; dissolves into caves and karst.' },
-  { id: 'conglomerate', label: 'Conglomerate', color: [0.66, 0.55, 0.45], hardness: 0.45, help: 'Rounded pebbles cemented together: an old river or beach gravel. Medium-soft.' },
-  { id: 'tuff',         label: 'Tuff',         color: [0.76, 0.73, 0.64], hardness: 0.25, help: 'Volcanic ash fallen from an eruption cloud and compacted. Soft; easily gullied.' },
+  { id: 'basalt',       label: 'Basalt',       color: [0.24, 0.24, 0.26], hardness: 0.90, help: 'Dark, fine-grained volcanic rock from runny lava flows. Very hard; forms plateaus, cliffs and columns.' },
+  { id: 'andesite',     label: 'Andesite',     color: [0.47, 0.46, 0.45], hardness: 0.82, help: 'Grey volcanic rock of stratovolcanoes, between basalt and rhyolite in silica. Hard.' },
+  { id: 'rhyolite',     label: 'Rhyolite',     color: [0.82, 0.66, 0.62], hardness: 0.72, help: 'Pale pink, silica-rich volcanic rock from thick, explosive lava. Fairly hard.' },
+  { id: 'granite',      label: 'Granite',      color: [0.80, 0.74, 0.72], hardness: 0.98, help: 'Coarse speckled rock from magma that cooled slowly underground. Hardest here; forms domes and peaks.' },
+  { id: 'gneiss',       label: 'Gneiss',       color: [0.58, 0.55, 0.53], hardness: 0.88, help: 'Banded metamorphic rock cooked at high temperature and pressure. Hard.' },
+  { id: 'schist',       label: 'Schist',       color: [0.48, 0.52, 0.44], hardness: 0.40, help: 'Flaky, glittery metamorphic rock full of mica. Splits easily along its layers.' },
+  { id: 'marble',       label: 'Marble',       color: [0.93, 0.92, 0.89], hardness: 0.55, help: 'Recrystallised limestone: white and fairly soft, and dissolves slowly in rainwater.' },
+  { id: 'sandstone',    label: 'Sandstone',    color: [0.84, 0.63, 0.40], hardness: 0.45, help: 'Cemented sand, often red or tan. Medium strength; forms cliffs, arches and mesas.' },
+  { id: 'shale',        label: 'Shale',        color: [0.40, 0.37, 0.35], hardness: 0.08, help: 'Compacted mud. Very soft; wears back quickly into slopes beneath harder caprock.' },
+  { id: 'limestone',    label: 'Limestone',    color: [0.84, 0.82, 0.72], hardness: 0.60, help: 'Rock made of shells and lime mud from ancient seas. Medium; dissolves into caves and karst.' },
+  { id: 'conglomerate', label: 'Conglomerate', color: [0.66, 0.55, 0.45], hardness: 0.35, help: 'Rounded pebbles cemented together: an old river or beach gravel. Medium-soft.' },
+  { id: 'tuff',         label: 'Tuff',         color: [0.76, 0.73, 0.64], hardness: 0.18, help: 'Volcanic ash fallen from an eruption cloud and compacted. Soft; easily gullied.' },
 ];
+/**
+ * Soil chemistry each rock weathers into, from −1 (acidic) to +1 (alkaline). Silica-rich rocks
+ * (granite, rhyolite, sandstone, gneiss) give acidic, nutrient-poor soils; basalt and andesite
+ * weather into fertile, base-rich soils; limestone and marble give lime-rich alkaline soils.
+ */
+const CHEM = {
+  basalt: 0.35, andesite: 0.15, rhyolite: -0.6, granite: -0.75, gneiss: -0.5, schist: -0.35,
+  marble: 0.9, sandstone: -0.65, shale: 0.0, limestone: 0.9, conglomerate: -0.3, tuff: -0.1,
+};
+for (const r of ROCKS) r.chem = CHEM[r.id];
+export const ROCK_CHEM = Float32Array.from(ROCKS, (r) => r.chem);
+
 const R = Object.fromEntries(ROCKS.map((r, k) => [r.id, k]));
 /** Rock id → index into ROCKS. */
 export const ROCK_INDEX = R;

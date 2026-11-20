@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BIOMES, classifyBiome, DRY_SOIL } from './biomes.js';
 import { ROCKS } from '../core/rocks.js';
 import { forestColor } from '../sim/forests.js';
+import { SPECIES, OPEN } from '../sim/species.js';
 import { climateParams, snowAt } from '../sim/climate.js';
 
 // Colour palette (linear-ish RGB 0..1)
@@ -34,6 +35,8 @@ export const OVERLAYS = {
   soil: 'Soil depth',
   bare: 'Bare rock',
   age: 'Forest age',
+  species: 'Tree species',
+  chem: 'Soil chemistry',
   temp: 'Temperature',
   precip: 'Precipitation',
   snowDepth: 'Snow depth',
@@ -189,8 +192,9 @@ export class TerrainRenderer {
           const t = Math.min(1, Math.abs(d) / 4);
           col = shade(mix(C.neutral, d < 0 ? C.eroded : C.deposited, t, S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'hardness') {
-          const hard = w.hardnessAt(h, i);
-          col = mix(C.rockSoft, C.rockHard, hard, S3);
+          // Soft (yellow) → medium (orange) → hard (navy), stretched over the map's range
+          const t = Math.min(1, Math.max(0, (w.hardnessAt(h, i) - 0.1) / 0.8)) * 2;
+          col = shade(t < 1 ? mix(HARD_SOFT, HARD_MID, t, S3) : mix(HARD_MID, HARD_HARD, t - 1, S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'vegetation') {
           col = shade(vegColor(w.vegetation[i], S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'age') {
@@ -202,6 +206,13 @@ export class TerrainRenderer {
         } else if (mode === 'bare') {
           // Exposed bedrock in its own colour; soil-covered ground pale
           col = shade(mix(SOIL_COVER, this.rockColor(h, i), w.bareExposure(i, tan), S3), 0.7 + 0.3 * ny, S3);
+        } else if (mode === 'species') {
+          // Dominant species where there's forest; open ground and bare land pale
+          const d = w.domSpecies ? w.domSpecies[i] : -1, v = w.vegetation[i];
+          col = shade(d >= 0 && v > 0.5 ? SPECIES[d].mapColor : v > 0.3 ? OPEN.mapColor : NO_FOREST, 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'chem') {
+          const c = w.soilChem ? w.soilChem[i] : 0;
+          col = shade(c < 0 ? mix(CHEM_NEUTRAL, CHEM_ACID, -c, S3) : mix(CHEM_NEUTRAL, CHEM_ALKALI, c, S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'soil') {
           // Square-root scale so thin-but-present soil stands out from bare rock
           const t = Math.sqrt(w.humus[i]) * 2;
@@ -301,6 +312,14 @@ export class TerrainRenderer {
     this.syncSprings();
   }
 
+  /** The forest's colour from its species mix (falls back to the forest-type blend). Writes S4. */
+  forestMix(w, i) {
+    const c = w.forestColor;
+    if (!c) return forestColor(w, i, S4);
+    S4[0] = c[i * 3]; S4[1] = c[i * 3 + 1]; S4[2] = c[i * 3 + 2];
+    return S4;
+  }
+
   /** Bedrock colour: the rock type's own colour, or plain strata browns when rock types are off. */
   rockColor(h, i) {
     const w = this.world;
@@ -339,7 +358,7 @@ export class TerrainRenderer {
     // Forests take the colour of whichever type suits the spot (blended at the borders)
     const col = v < 0.5 ? mix(bare, low, smooth(0.12, 0.42, v), S3)
       // Old-growth forest is darker and denser than young regrowth
-      : mix(low, shade(forestColor(w, i, S4), 1.1 - 0.25 * w.forestAge[i], S4), smooth(0.55, 0.8, v), S3);
+      : mix(low, shade(this.forestMix(w, i), 1.1 - 0.25 * w.forestAge[i], S4), smooth(0.55, 0.8, v), S3);
     // Tundra where it's too cold for trees
     const T = w.temperature[i], tl = climateParams.treeLineTemp;
     if (T < tl + 1) mix(col, C.tundra, smooth(tl + 1, tl - 3, T) * smooth(0.08, 0.3, v) * 0.85, col);
@@ -384,6 +403,8 @@ const SLOPE_LO = [0.2, 0.7, 0.3], SLOPE_HI = [0.9, 0.2, 0.15];
 const DRY = [0.85, 0.72, 0.50], WET = [0.15, 0.40, 0.80];
 const SOIL_THIN = [0.88, 0.85, 0.76], SOIL_MID = [0.72, 0.48, 0.24], SOIL_DEEP = [0.22, 0.13, 0.07];
 const SOIL_COVER = [0.86, 0.84, 0.78];
+const CHEM_ACID = [0.55, 0.30, 0.62], CHEM_NEUTRAL = [0.88, 0.86, 0.80], CHEM_ALKALI = [0.20, 0.62, 0.56];
+const HARD_SOFT = [0.98, 0.84, 0.36], HARD_MID = [0.86, 0.45, 0.24], HARD_HARD = [0.16, 0.20, 0.44];
 const PRECIP_DRY = [0.86, 0.74, 0.52], PRECIP_WET = [0.12, 0.35, 0.75];
 const NO_SNOW = [0.55, 0.53, 0.48], SNOW_THIN = [0.88, 0.92, 0.98], SNOW_MID = [0.55, 0.72, 0.95], SNOW_DEEP = [0.18, 0.30, 0.75];
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];

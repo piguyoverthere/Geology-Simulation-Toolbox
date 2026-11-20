@@ -46,6 +46,7 @@ import { createNoise2D, fbm } from '../core/noise.js';
 import { boxBlur } from '../core/grid.js';
 import { FOREST_TYPES, forestTypeAt } from './forests.js';
 import { climateParams, updateTemperature, updatePrecip, updateSnow } from './climate.js';
+import { updateForestComposition } from './species.js';
 import { waterParams } from './water.js';
 
 export const vegetationParams = {
@@ -106,6 +107,7 @@ export function initVegetation(world, seed = 1) {
   if (world.snow) world.snow.fill(0);
   updatePrecip(world);
   updateSnow(world, 250);
+  updateForestComposition(world);
   world.prevHeight.set(world.height);
   world.dirty = true;
 }
@@ -119,6 +121,7 @@ function soilSupply(world, i) {
     - p.uptake * world.vegetation[i]
     - 0.012 * Math.max(0, world.temperature[i] - 18) // heat dries the soil out faster
     + (world.precip ? 0.3 * (world.precip[i] - 0.5) : 0) // windward slopes wetter, rain shadows drier
+    + (world.valley ? 0.28 * world.valley[i] : 0);     // valley bottoms collect water; ridges drain dry
     + 0.15 * world.humus[i]; // deep, organic soil holds water like a sponge
   return s < 0 ? 0 : s > 1 ? 1 : s;
 }
@@ -241,7 +244,7 @@ export function vegetationStep(world) {
     // Soil: built by plants (forests fastest, by type), lost to erosion/burial and on bare ground
     let soil = SO[i];
     const build = v > 0.66
-      ? p.forestSoilBoost * FOREST_TYPES[forestTypeAt(world, i)].soilBuild * (1 + 0.4 * age)
+      ? p.forestSoilBoost * (world.forestSoilBuild ? world.forestSoilBuild[i] : FOREST_TYPES[forestTypeAt(world, i)].soilBuild) * (1 + 0.4 * age)
       : 1;
     soil += p.soilBuild * v * v * build * (1 - soil) - p.soilDecay * soil * (1 - v) - change * p.soilErosion;
     if (F[i] > 0) soil = Math.min(soil, 1 - F[i]);
@@ -255,6 +258,7 @@ export function vegetationStep(world) {
     world.forestAge[i] = a < 0 ? 0 : a > 1 ? 1 : a;
   }
   P.set(H);
+  updateForestComposition(world);
   world.dirty = true;
 }
 
@@ -267,6 +271,15 @@ function updateNearWater(world) {
   const spread = boxBlur(boxBlur(wet, world.N, r), world.N, r);
   for (let i = 0; i < spread.length; i++) spread[i] = Math.min(1, spread[i] * 3);
   world.nearWater = spread;
+
+  // Valleyness: how far a spot sits below the surrounding ground (−1 ridge … +1 valley floor).
+  // Groundwater and runoff gather in hollows and drain away from crests.
+  const H = world.height, around = boxBlur(H, world.N, 10);
+  if (!world.valley) world.valley = new Float32Array(H.length);
+  for (let i = 0; i < H.length; i++) {
+    const v = (around[i] - H[i]) / 6;
+    world.valley[i] = v < -1 ? -1 : v > 1 ? 1 : v;
+  }
 }
 
 function smoothstep(e0, e1, x) {

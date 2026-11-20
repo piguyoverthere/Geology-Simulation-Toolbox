@@ -8,6 +8,7 @@ import { OVERLAYS } from '../render/terrainRenderer.js';
 import { ROCKS } from '../core/rocks.js';
 import { ERUPTION_TYPES, INTRUSION_TYPES } from '../sim/volcanism.js';
 import { FAULT_TYPES } from '../sim/tectonics.js';
+import { SPECIES, OPEN } from '../sim/species.js';
 import { BIOMES } from '../render/biomes.js';
 
 export class Toolbox {
@@ -215,11 +216,13 @@ export class Toolbox {
     else if (mode === 'precip') ramp('Precipitation', 'dry (rain shadow)', 'wet (windward)', [[0.86, 0.74, 0.52], [0.12, 0.35, 0.75]]);
     else if (mode === 'snowDepth') ramp('Snow depth (grey = none)', 'thin', 'deep', [[0.88, 0.92, 0.98], [0.55, 0.72, 0.95], [0.18, 0.30, 0.75]]);
     else if (mode === 'temp') ramp('Temperature', '−15 °C', '35 °C', [[0.15, 0.25, 0.65], [0.92, 0.94, 0.98], [0.35, 0.65, 0.35], [0.95, 0.80, 0.30], [0.80, 0.20, 0.12]]);
+    else if (mode === 'species') items('Dominant tree species', [...SPECIES, OPEN].map((s) => ({ ...s, color: s.mapColor })));
+    else if (mode === 'chem') ramp('Soil chemistry (from the rock below)', 'acidic (granite, sandstone)', 'alkaline (limestone, marble)', [[0.55, 0.30, 0.62], [0.88, 0.86, 0.80], [0.20, 0.62, 0.56]]);
     else if (mode === 'age') ramp('Forest age (pale = no forest)', 'young', 'old growth', [[0.72, 0.86, 0.42], [0.05, 0.24, 0.10]]);
     else if (mode === 'soil') ramp('Soil depth', 'bare rock', 'deep soil', [[0.88, 0.85, 0.76], [0.72, 0.48, 0.24], [0.22, 0.13, 0.07]]);
     else if (mode === 'moisture') ramp('Soil wetness', 'dry', 'saturated', [[0.85, 0.72, 0.5], [0.15, 0.4, 0.8]]);
     else if (mode === 'vegetation') items('Plant cover', [BIOMES.barren, BIOMES.grassland, { ...BIOMES.broadleaf, label: 'Forest' }]);
-    else if (mode === 'hardness') ramp('Rock hardness', 'soft', 'hard', [[0.68, 0.52, 0.4], [0.58, 0.55, 0.51]]);
+    else if (mode === 'hardness') ramp('Rock hardness', 'soft (shale, tuff)', 'hard (granite, basalt)', [[0.98, 0.84, 0.36], [0.86, 0.45, 0.24], [0.16, 0.20, 0.44]]);
     else if (mode === 'change') ramp('Since baseline', 'eroded', 'deposited', [[0.85, 0.25, 0.2], [0.75, 0.75, 0.72], [0.2, 0.45, 0.9]]);
     else if (mode === 'slope') ramp('Slope', 'flat', 'steep', [[0.2, 0.7, 0.3], [0.9, 0.2, 0.15]]);
   }

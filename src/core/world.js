@@ -73,7 +73,7 @@ export class World {
     this.erosionEnabled = true; // master switch: water erosion, weathering and landslides
     this.rocksEnabled = true;  // rock types differ in hardness (off = uniform rock everywhere)
     this.strataSpacing = 7;    // base thickness of rock layers
-    this.strataStrength = 0.5; // hardness contrast: 0 = all rock erodes alike, 1 = full difference
+    this.strataStrength = 0.85; // hardness contrast: 0 = all rock erodes alike, 1 = full difference
     // Real rock layers are rarely perfectly level: they dip and fold. This per-cell offset warps
     // the layers so they don't line up with the contours (which would cut every slope into rings).
     this.strataWarp = new Float32Array(n);

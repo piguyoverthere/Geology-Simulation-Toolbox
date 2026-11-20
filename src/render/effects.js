@@ -38,6 +38,8 @@ export class Effects {
     this.flowCloud = this.makeFlowCloud(0x8f857a);
     this.dustCloud = this.makeFlowCloud(0x9a7f60); // landslide debris dust
     this.clouds = this.makeClouds();
+    this.fog = this.makeLayer(1200, 0xe6eaee, 10, 0.22);   // valley fog: low, flat, faint
+    this.cirrus = this.makeLayer(500, 0xffffff, 40, 0.12); // high, thin wisps above everything
   }
 
   /** Weather clouds: soft puffs over places where moist air is being lifted and dropping its water. */
@@ -68,7 +70,9 @@ export class Effects {
         const i = (Math.random() * N * N) | 0;
         if (Math.random() > w.cloud[i] * 1.4) continue;
         const x = i % N, z = (i / N) | 0;
-        const p = this.renderer.toWorld(x + Math.random() - 0.5, z + Math.random() - 0.5, w.height[i] + 6 + Math.random() * 4);
+        // At the cloud base (low in humid air, higher in drier air), billowing a little above it
+        const base = w.cloudBase ? w.cloudBase[i] : w.height[i] + 6;
+        const p = this.renderer.toWorld(x + Math.random() - 0.5, z + Math.random() - 0.5, base + Math.random() * 4);
         c.anchor[k * 3] = p.x; c.anchor[k * 3 + 1] = p.y; c.anchor[k * 3 + 2] = p.z;
         k++;
       }
@@ -81,6 +85,80 @@ export class Effects {
     const a = ((climateParams ? climateParams.windAngle : 20) * Math.PI) / 180;
     const dx = Math.cos(a) * c.drift * 1.5, dz = Math.sin(a) * c.drift * 1.5;
     for (let j = 0; j < c.M; j++) pos.setXYZ(j, c.anchor[j * 3] + dx, c.anchor[j * 3 + 1], c.anchor[j * 3 + 2] + dz);
+    pos.needsUpdate = true;
+  }
+
+  /** A plain sprite layer (used for fog and high cloud). */
+  makeLayer(M, color, size, opacity) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(M * 3).fill(-9999), 3));
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
+    const points = new THREE.Points(geo, new THREE.PointsMaterial({
+      map: softDot(), alphaTest: 0.01, color, size, sizeAttenuation: true, transparent: true, opacity, depthWrite: false,
+    }));
+    this.scene.add(points);
+    return { points, M, anchor: new Float32Array(M * 3), drift: 0, refresh: 0 };
+  }
+
+  /** Fog pooled in damp, cool valley bottoms, hugging the ground. */
+  updateFog(dt) {
+    const f = this.fog, w = this.world;
+    f.points.visible = this.renderer.showClouds;
+    if (!f.points.visible || !w.fog) return;
+    const pos = f.points.geometry.attributes.position;
+    f.refresh -= dt;
+    if (f.refresh <= 0) {
+      f.refresh = 3;
+      const N = w.N;
+      let k = 0;
+      for (let tries = 0; tries < f.M * 6 && k < f.M; tries++) {
+        const i = (Math.random() * N * N) | 0;
+        if (Math.random() > w.fog[i]) continue;
+        const x = i % N, z = (i / N) | 0;
+        const p = this.renderer.toWorld(x + Math.random() - 0.5, z + Math.random() - 0.5, w.height[i] + w.water[i] + 0.8 + Math.random() * 1.5);
+        f.anchor[k * 3] = p.x; f.anchor[k * 3 + 1] = p.y; f.anchor[k * 3 + 2] = p.z;
+        k++;
+      }
+      for (let j = k; j < f.M; j++) f.anchor[j * 3 + 1] = -9999;
+    }
+    for (let j = 0; j < f.M; j++) pos.setXYZ(j, f.anchor[j * 3], f.anchor[j * 3 + 1], f.anchor[j * 3 + 2]);
+    pos.needsUpdate = true;
+  }
+
+  /** High, thin cloud far above the terrain, drifting faster than the low cloud. */
+  updateCirrus(dt) {
+    const c = this.cirrus, w = this.world;
+    c.points.visible = this.renderer.showClouds;
+    if (!c.points.visible) return;
+    const pos = c.points.geometry.attributes.position;
+    const N = w.N, half = N / 2;
+    if (c.top === undefined || (c.refresh -= dt) <= 0) {
+      c.refresh = 10;
+      let top = 0;
+      for (let i = 0; i < N * N; i += 7) if (w.height[i] > top) top = w.height[i];
+      c.top = top + 25;
+      // Streaks: a few long bands of puffs
+      let k = 0;
+      while (k < c.M) {
+        const sx = (Math.random() - 0.5) * N * 1.2, sz = (Math.random() - 0.5) * N * 1.2;
+        const len = 20 + Math.random() * 40, ang = Math.random() * 0.5;
+        for (let s = 0; s < 25 && k < c.M; s++, k++) {
+          const t = s / 25;
+          c.anchor[k * 3] = sx + Math.cos(ang) * len * t + (Math.random() - 0.5) * 4;
+          c.anchor[k * 3 + 1] = c.top + Math.random() * 3;
+          c.anchor[k * 3 + 2] = sz + Math.sin(ang) * len * t + (Math.random() - 0.5) * 4;
+        }
+      }
+    }
+    c.drift += dt;
+    const a = ((this.climateParams ? this.climateParams.windAngle : 20) * Math.PI) / 180;
+    for (let j = 0; j < c.M; j++) {
+      // Wrap around so the layer keeps covering the map as it drifts
+      let x = c.anchor[j * 3] + Math.cos(a) * c.drift * 4, z = c.anchor[j * 3 + 2] + Math.sin(a) * c.drift * 4;
+      x = ((x + half * 1.2) % (N * 1.2) + N * 1.2) % (N * 1.2) - half * 1.2;
+      z = ((z + half * 1.2) % (N * 1.2) + N * 1.2) % (N * 1.2) - half * 1.2;
+      pos.setXYZ(j, x, c.anchor[j * 3 + 1], z);
+    }
     pos.needsUpdate = true;
   }
 
@@ -171,6 +249,8 @@ export class Effects {
     this.updateFlowCloud(this.flowCloud, this.world.flows, dt);
     this.updateFlowCloud(this.dustCloud, this.world.debris, dt);
     this.updateClouds(dt);
+    this.updateFog(dt);
+    this.updateCirrus(dt);
     this.updateFaults();
   }
 

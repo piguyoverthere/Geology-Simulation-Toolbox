@@ -58,7 +58,11 @@ export function updateTemperature(world) {
  */
 export function updatePrecip(world) {
   const N = world.N, H = world.height, n = N * N, p = climateParams;
-  if (!world.precip) { world.precip = new Float32Array(n); world.cloud = new Float32Array(n); world.humidity = new Float32Array(n); }
+  if (!world.precip) {
+    world.precip = new Float32Array(n); world.cloud = new Float32Array(n); world.humidity = new Float32Array(n);
+    world.cloudBase = new Float32Array(n); world.fog = new Float32Array(n);
+  }
+  const CB = world.cloudBase, FG = world.fog;
   const a = (p.windAngle * Math.PI) / 180;
   const wx = Math.cos(a), wz = Math.sin(a);
   const sx = wx >= 0 ? 1 : -1, sz = wz >= 0 ? 1 : -1;
@@ -86,12 +90,21 @@ export function updatePrecip(world) {
       Q[i] = Math.min(p.humidity, qIn - fall + regain);
       P[i] = fall;
       C[i] = Math.min(1, fall * 22);
+      // Cloud base: moist air condenses after only a little lifting (low cloud hugging the slopes);
+      // drier air has to rise much further first (higher cloud)
+      const dryness = 1 - Math.min(1, qIn / p.humidity);
+      CB[i] = Math.max(0, H[i]) + 2.5 + 8 * dryness;
       total += fall;
     }
   }
   // Normalise so the map average is 0.5
   const mean = total / n || 1;
   for (let i = 0; i < n; i++) P[i] = Math.min(1, (P[i] / mean) * 0.5);
+  // Valley fog: cool, damp air pools in valley bottoms
+  const T = world.temperature, Vy = world.valley, S = world.soil;
+  for (let i = 0; i < n; i++) {
+    FG[i] = Vy && S && T ? smooth(0.25, 0.7, Vy[i]) * smooth(0.6, 0.9, S[i]) * (1 - smooth(10, 18, T[i])) * Math.min(1, Q[i] / p.humidity + 0.3) : 0;
+  }
 }
 
 /**
@@ -110,7 +123,8 @@ export function updateSnow(world, steps = 1) {
     for (let z = 1; z < N - 1; z++) {
       for (let x = 1; x < N - 1; x++) {
         const i = z * N + x;
-        const cloudT = p.seaTemp - p.lapse * (Math.max(0, H[i]) + p.cloudLift);
+        // Snow or rain is decided at the cloud base, which is lower in humid air
+        const cloudT = cloudTempAt(world, i);
         const asSnow = smooth(1, -1, cloudT);
         // Drifting: hollows collect snow, crests are scoured
         const curv = (H[i - 1] + H[i + 1] + H[i - N] + H[i + N]) * 0.25 - H[i];
@@ -138,6 +152,13 @@ export function updateSnow(world, steps = 1) {
       }
     }
   }
+}
+
+/** Temperature (°C) at the base of the clouds over cell i. */
+export function cloudTempAt(world, i) {
+  const p = climateParams;
+  const base = world.cloudBase ? world.cloudBase[i] : Math.max(0, world.height[i]) + p.cloudLift;
+  return p.seaTemp - p.lapse * base;
 }
 
 /**

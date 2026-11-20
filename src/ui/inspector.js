@@ -4,7 +4,8 @@ import { BIOMES, classifyBiome } from '../render/biomes.js';
 import { waterParams } from '../sim/water.js';
 import { ROCKS, PROVINCES, ROCK_INDEX } from '../core/rocks.js';
 import { saturation, stableSlope } from '../sim/landslides.js';
-import { snowAt, climateParams } from '../sim/climate.js';
+import { snowAt, cloudTempAt } from '../sim/climate.js';
+import { compositionAt } from '../sim/species.js';
 
 export class Inspector {
   /** @param {HTMLElement} root  @param {object} app */
@@ -46,8 +47,9 @@ export class Inspector {
     const rows = [
       ['Altitude', `${h.toFixed(1)}${sea ? ` <span class="ins-dim">(${(h - w.seaLevel) >= 0 ? '+' : ''}${(h - w.seaLevel).toFixed(1)} vs sea)</span>` : ''}`],
       ['Slope', `${(Math.atan(slope) * 180 / Math.PI).toFixed(0)}°`],
-      ['Temperature', `${w.temperature[i].toFixed(1)} °C <span class="ins-dim">· clouds ${(w.temperature[i] - climateParams.lapse * climateParams.cloudLift).toFixed(1)} °C</span>`],
-      ['Precipitation', `${bar(w.precip ? w.precip[i] : 0, '#4f8ce0')} <span class="ins-dim">${(w.temperature[i] - climateParams.lapse * climateParams.cloudLift) < 0 ? 'snow' : 'rain'}</span>`],
+      ['Temperature', `${w.temperature[i].toFixed(1)} °C`],
+      ['Cloud base', w.cloudBase ? `${(w.cloudBase[i] - h).toFixed(1)} above · ${cloudTempAt(w, i).toFixed(1)} °C` : '—'],
+      ['Precipitation', `${bar(w.precip ? w.precip[i] : 0, '#4f8ce0')} <span class="ins-dim">${cloudTempAt(w, i) < 0 ? 'snow' : 'rain'}</span>`],
       ...(w.snow && w.snow[i] > 0.01 ? [['Snow depth', `${w.snow[i].toFixed(2)} <span class="ins-dim">· covers ${Math.round(snowAt(w, i, slope) * 100)}%</span>`]] : []),
       ['Soil wetness', bar(w.soil ? w.soil[i] : 0, '#4f8ce0')],
       ['Climate', bar(w.moisture ? w.moisture[i] : 0, '#7fa7d6')],
@@ -57,7 +59,9 @@ export class Inspector {
       ['Sediment load', w.sediment[i] > 0.001 ? w.sediment[i].toFixed(3) : '—'],
       ['Plant cover', `${bar(v, '#4caf50')} <span class="ins-dim">${cover}</span>`],
       ...(v > 0.6 ? [['Forest age', `${bar(w.forestAge[i], '#2e7d32')} <span class="ins-dim">${w.forestAge[i] > 0.75 ? 'old growth' : w.forestAge[i] > 0.35 ? 'mature' : 'young'}</span>`]] : []),
+      ...(v > 0.3 ? [['Forest mix', compositionAt(w, i).slice(0, 4).map((s) => `<div><span class="tb-swatch ins-swatch" style="background:${rgb(s.color)}"></span>${s.label} ${Math.round(s.share * 100)}%</div>`).join('')]] : []),
       ['Soil depth', bar(w.humus[i], '#8a6a45')],
+      ['Soil chemistry', chemLabel(w.soilChem ? w.soilChem[i] : 0)],
       ['Bare rock', bar(w.bareExposure(i, slope), '#b0a090')],
       ['Saturation', bar(saturation(w, i), '#4f8ce0')],
       ['Slope stability', stability(slope / stableSlope(w, i))],
@@ -86,6 +90,11 @@ function formation(w, i, h) {
   if (s >= 0 && h > w.surfaceBase[i] + 1e-3) return s === ROCK_INDEX.tuff ? 'Ash fall' : 'Lava flow';
   if (w.intrusionRock[i] >= 0 && h <= w.intrusionTop[i]) return w.intrusionTop[i] === Infinity ? 'Dike' : 'Pluton';
   return PROVINCES[w.province[i]];
+}
+
+function chemLabel(c) {
+  const name = c < -0.45 ? 'acidic' : c < -0.15 ? 'slightly acidic' : c <= 0.15 ? 'neutral' : c <= 0.5 ? 'base-rich' : 'alkaline (limey)';
+  return `${name} <span class="ins-dim">${c >= 0 ? '+' : ''}${c.toFixed(2)}</span>`;
 }
 
 /** Slope vs. its stable limit: below ~0.8 is safe, near 1 is failing. */
