@@ -233,8 +233,9 @@ export function updateSnow(world, steps = 1, runoff = false) {
   if (!world.precip) updatePrecip(world);
   const S = world.snow, T = world.temperature, P = world.precip, st = world.seasonT || 0;
   const melts = Math.max(st, world.groundSeason ?? st);
-  // With storms on, most snow arrives in storms (sim/weather.js); a little falls between them
-  const background = (p.storms > 0 ? 0.15 : 1) * seasonalRain();
+  // With storms on, all snow comes from storms (sim/weather.js): snowstorms build the pack. Only with
+  // the Storms slider at 0 does a steady background snowfall stand in for them.
+  const background = p.storms > 0 ? 0 : seasonalRain();
   const D = world.water, now = world.time, W = world.lastWet;
   world.meltRate = 0;
   for (let s = 0; s < steps; s++) {

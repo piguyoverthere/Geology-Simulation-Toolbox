@@ -339,7 +339,7 @@ export class TerrainRenderer {
     if (d > 0.005) {
       const L = w.leafOn[i], a = w.autumn[i], DC = w.decidColor, AC = w.autumnColor, i3 = i * 3;
       // Autumn colour is boosted so it reads through the open ground and evergreens mixed in
-      const boost = 1 + 0.9 * Math.min(1, d * 1.4);
+      const boost = 1 + 1.3 * Math.min(1, d * 1.4);
       for (let k = 0; k < 3; k++) {
         const leaves = DC[i3 + k] + (AC[i3 + k] - DC[i3 + k]) * a * boost;
         const v = S4[k] + L * leaves + (1 - L) * d * TWIGS[k] - DC[i3 + k];
@@ -399,6 +399,16 @@ export class TerrainRenderer {
       // (turning leaves show even where the canopy is a little thinner)
       : mix(low, shade(this.forestMix(w, i), 1.1 - 0.25 * w.forestAge[i] * (1 - (w.autumn ? w.autumn[i] : 0)), S4),
         Math.max(smooth(0.55, 0.8, v), w.autumn && w.decid ? w.autumn[i] * Math.min(1, w.decid[i] * 1.5) * smooth(0.45, 0.65, v) : 0), S3);
+    // Autumn: pull the whole canopy toward its deciduous trees' turning colours, so the colour
+    // shows strongly even through the evergreens and open ground mixed in
+    if (w.autumn && w.decid && v > 0.4) {
+      const d = w.decid[i], a = w.autumn[i] * w.leafOn[i];
+      if (d > 0.02 && a > 0.02) {
+        const AC = w.autumnColor, i3 = i * 3, t = a * Math.min(1, d * 1.6) * 0.6 * smooth(0.4, 0.6, v);
+        S4[0] = Math.min(1, AC[i3] / d); S4[1] = Math.min(1, AC[i3 + 1] / d); S4[2] = Math.min(1, AC[i3 + 2] / d);
+        mix(col, S4, t, col);
+      }
+    }
     // Tundra where it's too cold for trees
     const T = (w.vegTemp || w.temperature)[i], tl = climateParams.treeLineTemp;
     if (T < tl + 1) mix(col, C.tundra, smooth(tl + 1, tl - 3, T) * smooth(0.08, 0.3, v) * 0.85, col);

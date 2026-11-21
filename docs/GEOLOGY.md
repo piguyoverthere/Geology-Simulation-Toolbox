@@ -400,6 +400,13 @@ low down too. On the Cascades map, snow covers the peaks from October and the up
 November, but reaches the lowland only from mid-December, peaking at the end of January; the
 upper-slope pack lasts into June.
 
+**Mountain storms come first.** The wet season reaches the high country weeks before the
+lowlands. From mid-September, moist air forced up over the ranges breeds storms that cling to the
+peaks, and with cold air aloft they fall as snow. All snow comes from storms (unless the Storms
+slider is at 0). On the Cascades map the peaks had snow from early October, the upper slopes from
+November, and by mid-January 56–60% of the high ground was snow-covered while the lowlands were
+still nearly bare.
+
 **Snowpack and the spring flood.** In winter, storm after storm drops snow (decided by the
 temperature at the cloud base), building the pack up on the mountains. In spring it melts, and
 the meltwater runs off into the streams, so the rivers run highest in late winter and spring.
