@@ -189,9 +189,14 @@ function potential(world, i, f) {
   const steep = 1 - 0.85 * smoothstep(1.0, 2.4, slope);
   // Above the tree line plants get sparser, down to bare ground at the top of the alpine band
   // Too cold above the tree line: plants thin out to bare ground as it gets colder still
-  // Fir (subalpine fir, mountain hemlock) is the hardiest tree of wet mountains: where it's wet
+  // Fir (subalpine fir, mountain hemlock) is the hardiest tree of the mountains: where it's moist
   // enough for fir, closed forest climbs ~2.5 °C colder (about 6 units higher) than elsewhere
-  const tl = climateParams.treeLineTemp - 2.5 * smoothstep(0.42, 0.62, soil);
+  // The tree line is ragged, not a contour: it pushes up in tongues and drops back in bays
+  // (seed years, avalanche paths, old fires, soil), climbs higher in sheltered gullies and stops
+  // lower on wind-blasted ridges and crests
+  const valley = world.valley ? world.valley[i] : 0;
+  const tl = climateParams.treeLineTemp - 2.5 * smoothstep(0.3, 0.5, soil)
+    - 2.4 * treeLinePatch(world, i) - 1.6 * valley;
   const T = (world.vegTemp || world.temperature)[i];
   const alpine = 1 - 0.95 * smoothstep(tl, tl - 7, T);
   // Lakes drown plants; shallow floodwater on a floodplain does not
@@ -218,7 +223,7 @@ function potential(world, i, f) {
   const forestOk = (1 - smoothstep(steepOk * 0.85, steepOk * 1.1, f.standSlope[i]))
     // Old forest's deep roots reach water young trees can't, so it survives on drier ground
     * Math.max(smoothstep(p.forestWater - 0.15 - 0.12 * age, p.forestWater + 0.05 - 0.12 * age, soil), pineDry)
-    * smoothstep(tl - 0.5, tl + 1, T) // closed forest runs right up to the tree line
+    * smoothstep(tl - 1.5, tl + 1.5, T) // closed forest thins out over a band at the tree line
     // (drought-hardy pine woodland is the exception: it runs right up to the steppe)
     * (1 - smoothstep(0.005, 0.06, f.nearArid[i]) * (1 - 0.9 * pineDry));
   v = Math.min(v, 0.58 + 0.42 * forestOk);
@@ -321,6 +326,22 @@ function adaptTemperature(world) {
     const forest = smoothstep(0.45, 0.8, V[i]);
     VT[i] += (T[i] - VT[i]) * k * (4 - 3 * forest);
   }
+}
+
+/** Patchy −1..1 offset of the tree line at cell i (fixed per map: tongues and bays of forest). */
+function treeLinePatch(world, i) {
+  if (!world.treeLineNoise || world.treeLineNoise.length !== world.N * world.N) {
+    const N = world.N, a = createNoise2D(777), out = new Float32Array(N * N);
+    for (let z = 0; z < N; z++) {
+      for (let x = 0; x < N; x++) {
+        // Broad bays and tongues plus finer, ragged fingers
+        const v = 0.75 * fbm(a, x / 40, z / 40, 3) + 0.45 * fbm(a, x / 9 + 50, z / 9 - 20, 2);
+        out[z * N + x] = Math.max(-1, Math.min(1, v * 1.6));
+      }
+    }
+    world.treeLineNoise = out;
+  }
+  return world.treeLineNoise[i];
 }
 
 /** world.nearWater: 1 at open water, fading to 0 a few cells away from it. */

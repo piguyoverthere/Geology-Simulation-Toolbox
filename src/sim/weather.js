@@ -17,9 +17,10 @@
 // after storm builds the pack up on the mountains. In spring the warmth melts it, and the meltwater
 // (climate.updateSnow) swells the rivers: the spring flood.
 //
-// Mountain storms: the wet season reaches the high country first. From mid-September storms build
-// over the ranges and cling to the peaks, so the mountains get many storms weeks before the
-// lowlands; with cold air aloft they fall as snow, and they are what builds the high snowpack.
+// Mountain storms: the wet season reaches the high country first. From mid-September through
+// December storms build over the ranges one after another and cling to the peaks, so the mountains
+// get many storms weeks before the lowlands; with cold air aloft they fall as snow, building the
+// high snowpack. The rest of the year storms are the ordinary, travelling kind.
 // Snow comes only from storms (unless the Storms slider is at 0).
 //
 // Thunderstorms: in warm weather the air near the ground is warm and buoyant, and storms grow into
@@ -61,9 +62,9 @@ export function weatherStep(world, simDt) {
   // Moist air forced up over the ranges breeds storms that cling to the peaks, and as soon as it's
   // cold aloft they come down as snow: the first snowstorms of the year build the high snowpack
   // while the lowlands are still dry.
-  const mRate = 0.35 * p.storms * mountainSeason();
+  const mRate = 0.6 * p.storms * mountainSeason();
   const nMountain = list.reduce((c, s) => c + (s.mountain ? 1 : 0), 0);
-  if (mRate > 0 && Math.random() < mRate * simDt && nMountain < 9) list.push(newMountainStorm(world));
+  if (mRate > 0 && Math.random() < mRate * simDt && nMountain < 12) list.push(newMountainStorm(world));
 
   const a = (p.windAngle * Math.PI) / 180, wx = Math.cos(a), wz = Math.sin(a);
   const D = world.water, S = world.snow, P = world.precip, W = world.lastWet, now = world.time, H = world.height;
@@ -71,6 +72,8 @@ export function weatherStep(world, simDt) {
   for (let s = list.length - 1; s >= 0; s--) {
     const st = list[s];
     st.age += simDt;
+    // Once the fall storm season is over, the mountain storms break up
+    if (st.mountain && seasonParams.enabled && mountainSeason() < 0.05) st.life = Math.min(st.life, st.age + 10);
     // Steered by the wind, with a slow wander of its own
     const wob = Math.sin(st.age * 0.05 + st.seed) * 0.6;
     const dx = wx * Math.cos(wob) - wz * Math.sin(wob), dz = wz * Math.cos(wob) + wx * Math.sin(wob);
@@ -216,9 +219,10 @@ function holdovers(world, simDt) {
 function mountainSeason() {
   if (!seasonParams.enabled) return 0.4;
   const ph = seasonParams.phase;
-  // Busiest in autumn (one snowstorm after another on the peaks), still active through winter
-  if (ph >= 0.4) return smooth(0.46, 0.54, ph) * (1 + 1.5 * smooth(0.5, 0.56, ph) * (1 - smooth(0.72, 0.8, ph)));
-  return 1 - smooth(0.02, 0.12, ph);                  // fades out by mid-April
+  // A fall thing: from mid-September one snowstorm after another builds over the peaks, through
+  // December, fading out in January. The rest of the year storms are the ordinary kind (rain,
+  // or snow only where it's cold enough).
+  return smooth(0.46, 0.52, ph) * (1 - smooth(0.76, 0.86, ph));
 }
 
 /** A storm born over the high ground: slow, clinging to the peaks. */
@@ -253,7 +257,9 @@ function newMountainStorm(world) {
     x: best % N, z: (best / N) | 0, vx: Math.cos(a) * speed, vz: Math.sin(a) * speed, speed, r, lobes,
     thunder: false, dry: false, mountain: true, hLow, hHigh: Math.max(hHigh, hLow + 1),
     fuel, maxFuel: fuel * 1.2, peak: 0.9 + Math.random() * 0.6,
-    age: 0, life: 120 + Math.random() * 120, strength: 0, snow: 0, seed: Math.random() * 1000,
+    // A few days each (seconds of play); shorter at fast season speeds so they stay seasonal
+    age: 0, life: (40 + Math.random() * 40) / Math.max(1, seasonParams.enabled ? seasonParams.speed : 1),
+    strength: 0, snow: 0, seed: Math.random() * 1000,
   };
 }
 

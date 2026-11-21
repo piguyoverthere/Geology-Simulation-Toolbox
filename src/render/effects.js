@@ -52,7 +52,8 @@ export class Effects {
     this.stormCloud = this.makeLayer(3000, 0x7d858f, 34, 0.3); // dark storm cloud decks
     this.rain = this.makeLayer(6000, 0xa9c0da, 0.7, 0.55);       // falling rain
     this.snowfall = this.makeLayer(6000, 0xffffff, 1.1, 0.9);    // falling snow
-    this.thunderCloud = this.makeLayer(1200, 0x575d66, 28, 0.32); // towering dark thunderheads
+    this.thunderCloud = this.makeLayer(1200, 0x575d66, 28, 0.32);
+    this.snowCloud = this.makeLayer(4000, 0xdde3ea, 32, 0.38); // pale, soft snowstorm clouds // towering dark thunderheads
     this.time = 0;
     // Lightning bolts: jagged line segments, plus a flash of light
     const BOLTS = 12, SEG = 14;
@@ -111,18 +112,21 @@ export class Effects {
     const w = this.world, show = this.renderer.showClouds;
     this.time += dt;
     this.updateLightning(dt);
-    const layers = [this.stormCloud, this.thunderCloud, this.rain, this.snowfall];
+    const layers = [this.stormCloud, this.thunderCloud, this.snowCloud, this.rain, this.snowfall];
     for (const l of layers) l.points.visible = show;
     const storms = w.storms || [];
     if (!show) return;
     const N = w.N, t = this.time;
     const cp = this.stormCloud.points.geometry.attributes.position;
     const tp = this.thunderCloud.points.geometry.attributes.position;
-    let kt = 0;
+    const sp2 = this.snowCloud.points.geometry.attributes.position;
+    let kt = 0, ks2 = 0;
     const rp = this.rain.points.geometry.attributes.position;
     const sp = this.snowfall.points.geometry.attributes.position;
     let kc = 0, kr = 0, ks = 0;
-    const per = Math.floor(this.stormCloud.M / 4), drops = Math.floor(this.rain.M / 4);
+    // Share the particles out so a dozen storms all get clouds and rain
+    const share = Math.max(1, storms.length);
+    const per = Math.floor(Math.min(this.stormCloud.M / 4, 3600 / share)), drops = Math.floor(Math.min(this.rain.M / 4, 5400 / share));
     for (const st of storms) {
       const amount = Math.min(1, st.strength / 0.8);
       const ci = clampCell(st.x, N) + clampCell(st.z, N) * N;
@@ -134,7 +138,9 @@ export class Effects {
         const [ox, oz] = disc(st.seed + j * 7.13, l.r * 0.9);
         const tall = st.thunder ? hash(st.seed + j * 2.3) * 12 : hash(st.seed + j * 3.7) * 3;
         const p = this.renderer.toWorld(st.x + l.ox + ox, st.z + l.oz + oz, base + tall);
+        // Dark thunderheads, pale snowstorms, grey rain clouds
         if (st.thunder) { if (kt < this.thunderCloud.M) tp.setXYZ(kt++, p.x, p.y, p.z); }
+        else if (st.snow > 0.5) { if (ks2 < this.snowCloud.M) sp2.setXYZ(ks2++, p.x, p.y, p.z); }
         else if (kc < this.stormCloud.M) cp.setXYZ(kc++, p.x, p.y, p.z);
       }
       const nDrop = Math.floor(drops * amount);
@@ -160,7 +166,8 @@ export class Effects {
     }
     for (let j = kc; j < this.stormCloud.M; j++) cp.setXYZ(j, 0, -9999, 0);
     for (let j = kt; j < this.thunderCloud.M; j++) tp.setXYZ(j, 0, -9999, 0);
-    tp.needsUpdate = true;
+    for (let j = ks2; j < this.snowCloud.M; j++) sp2.setXYZ(j, 0, -9999, 0);
+    tp.needsUpdate = true; sp2.needsUpdate = true;
     for (let j = kr; j < this.rain.M; j++) rp.setXYZ(j, 0, -9999, 0);
     for (let j = ks; j < this.snowfall.M; j++) sp.setXYZ(j, 0, -9999, 0);
     cp.needsUpdate = rp.needsUpdate = sp.needsUpdate = true;

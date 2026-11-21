@@ -400,16 +400,28 @@ low down too. On the Cascades map, snow covers the peaks from October and the up
 November, but reaches the lowland only from mid-December, peaking at the end of January; the
 upper-slope pack lasts into June.
 
-**Fall snowstorms.** Autumn is the busiest time for mountain storms: up to nine at once over the
+**Fall snowstorms.** Mountain snowstorms are a fall thing: from mid-September through December up
+to a dozen at once build over the high ground, fading out in January; the rest of the year storms
+are the ordinary travelling kind, mostly rain. Snowstorm clouds are drawn pale and soft, rain clouds
+dark grey, thunderheads darker still. In the fall the mountain storms come one after another over the
 high ground, each dropping heavy snow when it's cold aloft. Wet mountain snow sticks to slopes up
 to about 47° (only steeper crags shed it). On the Cascades map, 41% of the peaks were white by early
 October. By late December, 71–76% of the high ground in the north and middle of the range was
 snow-covered, about a metre deep on average (1 unit). The south, where much of the high ground is
 the lower flanks of the volcanoes, is often warm enough for rain.
 
-**Fir climbs highest.** Where it's wet enough for fir (subalpine fir and mountain hemlock in
+**Fir climbs highest.** Where it's moist enough for fir (subalpine fir and mountain hemlock in
 reality), closed forest reaches about 2.5 °C colder than the general tree line, about 6 units
-higher up the mountain. Dry slopes keep the lower tree line.
+higher up the mountain. Fir also grows on fairly dry ground mixed with pine (like Douglas fir with
+ponderosa pine on the east side of the Cascades), so the dry slopes carry fir–pine forest that
+turns to pure pine toward the desert.
+
+**A ragged tree line.** Real tree lines aren't contour lines. Forest pushes up in tongues and
+drops back in bays (good seed years, avalanche paths, old fires, soil), climbs higher in sheltered
+gullies and stops lower on wind-blasted ridges. Here the tree line shifts up to about ±2.5 °C from
+place to place, valleys lift it and crests lower it, and the forest thins over a band rather than
+stopping dead. On the Cascades map, forest fades from 80% to 8% over about 14 units of height,
+with fingers reaching higher still.
 
 **Mountain storms come first.** The wet season reaches the high country weeks before the
 lowlands. From mid-September, moist air forced up over the ranges breeds storms that cling to the
