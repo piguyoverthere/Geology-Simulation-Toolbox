@@ -400,9 +400,13 @@ low down too. On the Cascades map, snow covers the peaks from October and the up
 November, but reaches the lowland only from mid-December, peaking at the end of January; the
 upper-slope pack lasts into June.
 
-**Fall snowstorms.** Mountain snowstorms are a fall thing: from mid-September through December up
-to a dozen at once build over the high ground, fading out in January; the rest of the year storms
-are the ordinary travelling kind, mostly rain. Snowstorm clouds are drawn pale and soft, rain clouds
+**The wet season.** From late October to mid-March the winter storm track sits over the region and
+storms are practically constant: on the Cascades map there was a storm on the map 100% of the time
+from mid-October to the end of March (2–4 travelling storms plus up to a dozen mountain snowstorms),
+dropping to 40% in early April and 13% by late April. Mountain snowstorms start in mid-September,
+before the lowland rains, and last through the wet season; the rest of the year storms are the
+ordinary travelling kind, mostly rain. Rivers run high through the winter and again in April
+with the snowmelt. Snowstorm clouds are drawn pale and soft, rain clouds
 dark grey, thunderheads darker still. In the fall the mountain storms come one after another over the
 high ground, each dropping heavy snow when it's cold aloft. Wet mountain snow sticks to slopes up
 to about 47° (only steeper crags shed it). On the Cascades map, 41% of the peaks were white by early

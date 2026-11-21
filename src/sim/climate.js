@@ -21,6 +21,7 @@ export const climateParams = {
   snowfall: 0.06,     // snow added per step at average precipitation
   melt: 0.009,        // snow melted per step per °C above meltTemp
   meltTemp: 2,        // snow only melts above this temperature (°C): a pack stays cold and reflects sunlight
+  snowSlope: 47,      // steepest slope (degrees) snow accumulates on; steeper faces shed it unless the pack around is deep
   deepSnow: 2,        // snowpack depth around a slope at which steep faces start holding snow
   storms: 1,          // how often storms sweep across the map (0 = none; see sim/weather.js)
   meltRunoff: 0.6,    // water depth released into the flow model per unit of snow melted
@@ -234,6 +235,7 @@ export function updateSnow(world, steps = 1, runoff = false) {
   if (!world.precip) updatePrecip(world);
   const S = world.snow, T = world.temperature, P = world.precip, st = world.seasonT || 0;
   const melts = Math.max(st, world.groundSeason ?? st);
+  const holdTan = Math.tan((Math.min(85, Math.max(5, p.snowSlope)) * Math.PI) / 180);
   // With storms on, all snow comes from storms (sim/weather.js): snowstorms build the pack. Only with
   // the Storms slider at 0 does a steady background snowfall stand in for them.
   const background = p.storms > 0 ? 0 : seasonalRain();
@@ -272,8 +274,9 @@ export function updateSnow(world, steps = 1, runoff = false) {
         const gx = (H[i + 1] - H[i - 1]) * 0.5, gz = (H[i + N] - H[i - N]) * 0.5;
         const slope = Math.sqrt(gx * gx + gz * gz);
         const around = (S[i - 1] + S[i + 1] + S[i - N] + S[i + N]) * 0.25;
-        // Wet mountain snow sticks to slopes up to ~47° (steeper faces shed it unless the pack is deep)
-        const hold = 1.08 + 0.7 * smooth(p.deepSnow * 0.4, p.deepSnow, around);
+        // Snow sticks to slopes up to the Snow slope limit (steeper faces shed it unless the pack
+        // around them is deep)
+        const hold = holdTan + 0.7 * smooth(p.deepSnow * 0.4, p.deepSnow, around);
         if (slope <= hold) continue;
         let low = i, lh = H[i] + S[i];
         for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] + S[j] < lh) { lh = H[j] + S[j]; low = j; }

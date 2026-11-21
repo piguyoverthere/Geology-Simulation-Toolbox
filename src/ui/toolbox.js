@@ -130,6 +130,8 @@ export class Toolbox {
         'How often thunderstorms (warm weather only) throw lightning. Strikes can start wildfires, most easily in dry woodland and pine; fires there are also much harder for rain to put out.', this),
       toggle('Seasons', app.seasonParams, 'enabled',
         'Cycle through spring, summer, autumn and winter. Winter storms build up snow that melts in spring and swells the rivers. Deciduous trees turn colour in autumn (birch and aspen yellow, maple red and orange, oak brown), from the high slopes down to the valleys, drop their leaves, and come back fresh green in spring. Exposed ridges turn first; sheltered valleys last.', this, () => app.climateChanged()),
+      slider('Snow slope limit °', app.climateParams, 'snowSlope', 15, 75, 1,
+        'Steepest slope snow builds up on. Steeper faces shed their snow in small slides that pile up below, unless the snowpack around them is already deep. Lower it for bare rocky crags above snowy slopes, raise it to plaster the mountains white.', this, () => app.climateChanged()),
       slider('Dry summers', app.climateParams, 'summerDry', 0, 1, 0.05,
         'With Seasons on: how much of the year\'s rain comes from autumn to spring instead of summer. High values give a Mediterranean-type climate like the Pacific Northwest: wet, stormy winters that build the snowpack, and dry summers with fewer storms and a wildfire season. The Cascade Range preset sets this.', this),
       slider('Season speed', app.seasonParams, 'speed', 0.1, 6, 0.1,

@@ -17,8 +17,10 @@
 // after storm builds the pack up on the mountains. In spring the warmth melts it, and the meltwater
 // (climate.updateSnow) swells the rivers: the spring flood.
 //
+// Wet season: from late October to mid-March storms are practically constant.
+//
 // Mountain storms: the wet season reaches the high country first. From mid-September through
-// December storms build over the ranges one after another and cling to the peaks, so the mountains
+// mid-March storms build over the ranges one after another and cling to the peaks, so the mountains
 // get many storms weeks before the lowlands; with cold air aloft they fall as snow, building the
 // high snowpack. The rest of the year storms are the ordinary, travelling kind.
 // Snow comes only from storms (unless the Storms slider is at 0).
@@ -57,6 +59,10 @@ export function weatherStep(world, simDt) {
   // …and hot weather adds thunderstorms that bubble up over the land
   rate *= 1 + 1.5 * thunderChance(world);
   const nRegular = list.reduce((c, s) => c + (s.mountain ? 0 : 1), 0);
+  // The wet season (late October to mid-March): one storm after another, so there's practically
+  // always a storm somewhere; if the map falls quiet, the next one rolls in almost at once
+  const wet = wetSeason();
+  if (wet > 0) rate *= 1 + 1.5 * wet * (nRegular < 2 ? 15 : 1);
   if (Math.random() < rate * simDt && nRegular < 8) list.push(newStorm(world));
   // Mountain storms: the autumn storm season reaches the high country weeks before the lowlands.
   // Moist air forced up over the ranges breeds storms that cling to the peaks, and as soon as it's
@@ -219,10 +225,20 @@ function holdovers(world, simDt) {
 function mountainSeason() {
   if (!seasonParams.enabled) return 0.4;
   const ph = seasonParams.phase;
-  // A fall thing: from mid-September one snowstorm after another builds over the peaks, through
-  // December, fading out in January. The rest of the year storms are the ordinary kind (rain,
-  // or snow only where it's cold enough).
-  return smooth(0.46, 0.52, ph) * (1 - smooth(0.76, 0.86, ph));
+  // Starts in mid-September, then one snowstorm after another builds over the peaks right through
+  // the wet season, ending around mid-March. The rest of the year storms are the ordinary kind
+  // (mostly rain, or snow only where it's cold enough).
+  return smooth(0.46, 0.52, ph) * (1 - smooth(0.97, 0.995, ph));
+}
+
+/**
+ * The wet season, 0..1 (with Seasons on): from late October to mid-March storms are practically
+ * constant (the winter storm track sits over the region). Phase 0.6 ≈ 25 October, 0.986 ≈ 15 March.
+ */
+export function wetSeason() {
+  if (!seasonParams.enabled) return 0;
+  const ph = seasonParams.phase;
+  return smooth(0.57, 0.6, ph) * (1 - smooth(0.975, 0.995, ph));
 }
 
 /** A storm born over the high ground: slow, clinging to the peaks. */
@@ -302,7 +318,8 @@ function newStorm(world) {
     x: cx, z: cz, vx: wx * speed, vz: wz * speed, speed, r, lobes, thunder, dry,
     fuel, maxFuel: fuel * 1.2,
     peak: thunder ? 1.4 + Math.random() * 0.8 : 0.5 + Math.random() * 0.8,
-    age: 0, life: thunder ? 60 + Math.random() * 80 : (N + 2 * r) / speed * (0.7 + Math.random() * 0.5),
+    // (shorter at fast season speeds, so a storm doesn't outlast the season it belongs to)
+    age: 0, life: (thunder ? 60 + Math.random() * 80 : (N + 2 * r) / speed * (0.7 + Math.random() * 0.5)) / Math.max(1, seasonParams.enabled ? seasonParams.speed : 1),
     strength: 0, snow: 0, seed: Math.random() * 1000,
   };
 }
