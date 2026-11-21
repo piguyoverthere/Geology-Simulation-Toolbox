@@ -406,6 +406,12 @@ pine make that far more likely.
 flare up again, and resinous pine burns hot and long. So rain or standing water quenches a fire in
 a damp broadleaf forest quickly but barely slows one in a dry pine wood.
 
+**Fire season.** Fuels dry out through the summer (grass cures, litter and fallen wood dry, trees
+get drought-stressed), so fire danger peaks in late summer, around mid-to-late August. At the peak,
+fire spreads several times faster, is much harder to put out, runs through grass, and throws
+embers downwind that start spot fires ahead of the front. From the same five ignitions on the
+Cascades map, a late-summer fire burned about 3.5× more ground than a spring one in the same time.
+
 **Dry summers and dry lightning.** With **Dry summers** up (the Cascade Range preset sets it),
 storms come mostly from autumn to spring, like the Pacific Northwest, where the winter storm track
 brings months of rain and mountain snow and a summer high-pressure ridge shuts it off. Late summer
@@ -445,8 +451,12 @@ Pacific:
   shrub-steppe, then comes juniper and shrubland, and finally the dry basalt plateau of the
   Columbia flood basalts.
 
-The range rises steeply out of the lowland with only small foothills, its peaks climbing well above
-the tree line. On a 512 map, forest covers about 85% of the western lowland and 80% of the western
+The range rises steeply out of the lowland with only small foothills. Its mountains are long crests
+leading up to summits (as in satellite images), with smooth slopes between them rather than
+jagged noise. The lowland and the plateau are nearly flat, and only a few big rivers cut them, as
+in reality (the Skagit, the Snoqualmie, the Yakima). Broadleaf trees thin out with height and
+give way to conifers, gradually and patchily: on the 512 map they are about 47% of the lowland
+forest, about 30% at mid-height, and about 10% near the tree line (mostly hardy aspen and birch). On a 512 map, forest covers about 85% of the western lowland and 80% of the western
 mid-slopes, with fir leading at every height (58% of the lowland forest, 66% mid-slope, still
 first just below the tree line). Pine leads the drier east slopes, and desert or shrub-steppe
 covers most of the far east. Forests and biomes count as conifer or temperate rainforest when most

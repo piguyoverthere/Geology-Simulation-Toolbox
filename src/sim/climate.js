@@ -58,9 +58,18 @@ export function seasonalRain() {
   return Math.max(0.05, 1 + s * Math.cos(2 * Math.PI * (seasonParams.phase - 0.83)));
 }
 
-/** Summer drought 0..1: how far into the dry season we are (fire danger). */
+/**
+ * Fire season 0..1 (with Seasons on). Fuels dry out through the summer: dead grass cures, litter and
+ * fallen wood lose their moisture, and the trees themselves are drought-stressed. So fire danger
+ * builds through summer and peaks in late summer (around mid-to-late August), well after the
+ * driest weather, then fades with the autumn rains. Dry summers make it much stronger; even a
+ * climate with summer rain has a milder version.
+ */
 export function drySeason() {
-  return seasonParams.enabled ? Math.max(0, 1 - seasonalRain()) * climateParams.summerDry : 0;
+  if (!seasonParams.enabled) return 0;
+  const d = seasonParams.phase - 0.43; // late summer
+  const bump = Math.abs(d) < 0.16 ? Math.cos((d / 0.16) * Math.PI * 0.5) ** 2 : 0;
+  return bump * (0.4 + 0.6 * climateParams.summerDry);
 }
 
 /** +1 while the year is warming (late winter → midsummer), −1 while it cools. */

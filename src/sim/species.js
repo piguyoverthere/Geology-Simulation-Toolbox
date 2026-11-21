@@ -60,8 +60,12 @@ export const OPEN = { label: 'Open ground', color: [0.52, 0.66, 0.30], mapColor:
 
 const K = SPECIES.length;
 const MIXA = [0, 0, 0];
-const PINE = SPECIES.findIndex((s) => s.id === 'pine');
 const CONIFER = SPECIES.map((s) => ['pine', 'fir', 'spruce', 'larch', 'juniper'].includes(s.id));
+// Broadleaf trees give way to conifers with height: their thin leaves and soft wood can't take the
+// short, cold growing season and heavy snow. The change is gradual and patchy (aspect, shelter,
+// soil), not a line on the mountain. Pioneers (birch, aspen) climb a few degrees higher.
+const BROAD_COLD = SPECIES.map((s) => (CONIFER[SPECIES.indexOf(s)] ? null : s.id === 'birch' || s.id === 'aspen' ? -2.5 : 1.5));
+const PINE = SPECIES.findIndex((s) => s.id === 'pine');
 const scratch = new Float32Array(K);
 
 function band(x, lo, hi, soft) {
@@ -77,10 +81,14 @@ function suitability(world, i, out) {
   const slope = (world.standSlope ? world.standSlope[i] : 0.5) / (world.gentleSlope || 0.6);
   const chem = world.soilChem ? world.soilChem[i] : 0;
   const near = world.nearWater ? world.nearWater[i] : 0;
+  // A patchy ±1.5 °C offset so the broadleaf limit wanders up and down the slopes
+  const px = i % world.N, pz = (i / world.N) | 0;
+  const patch = 1.5 * Math.sin(px * 0.21 + pz * 0.13) * Math.cos(pz * 0.17 - px * 0.08);
   let total = 0;
   for (let k = 0; k < K; k++) {
     const s = SPECIES[k];
     let f = band(T, s.temp[0], s.temp[1], 3) * band(m, s.moist[0], s.moist[1], 0.08);
+    if (f > 0 && BROAD_COLD[k] !== null) f *= smooth(BROAD_COLD[k], BROAD_COLD[k] + 6, T + patch);
     if (f <= 0) { out[k] = 0; continue; }
     f *= Math.max(0.1, 1 - s.ageW * Math.abs(age - s.age));
     if (s.youngBoost) f *= 1 + s.youngBoost * Math.max(0, 1 - age / 0.4); // thrives in young stands

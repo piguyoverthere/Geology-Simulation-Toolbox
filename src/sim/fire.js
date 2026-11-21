@@ -13,7 +13,7 @@
 // fades as the vegetation step regrows the land.
 
 import { waterParams } from './water.js';
-import { drySeason } from './climate.js';
+import { drySeason, climateParams } from './climate.js';
 import { FOREST_TYPES, forestTypeAt } from './forests.js';
 
 export const fireParams = {
@@ -48,7 +48,8 @@ export function fireStep(world, dt) {
   // How hard a fire here is to put out: dry soil and pine make it stubborn (1 ≈ ordinary)
   // A dry summer (with Seasons on and Dry summers set) makes the whole landscape tinder
   const drought = drySeason();
-  const resist = (i) => (0.6 + 1.6 * (1 - (SO ? SO[i] : 0.5))) * (1 + 1.5 * (PS ? PS[i] : 0)) * (1 + drought);
+  const wind = (climateParams.windAngle * Math.PI) / 180;
+  const resist = (i) => (0.6 + 1.6 * (1 - (SO ? SO[i] : 0.5))) * (1 + 1.5 * (PS ? PS[i] : 0)) * (1 + 3 * drought);
   const rainingAt = (i) => globalRain || now - LW[i] < 0.5;
   const cells = world.fireCells;
   cells.length = 0;
@@ -91,15 +92,27 @@ export function fireStep(world, dt) {
           ? (world.forestFlam ? world.forestFlam[j] : FOREST_TYPES[forestTypeAt(world, j)].flammability) * (1 - 0.35 * world.forestAge[j])
           : 1;
         // Grass and shrubs only burn well when they've dried out (cured grass in a dry summer)
-        const grassy = V[j] <= 0.62 ? 0.3 + 0.8 * (1 - (SO ? SO[j] : 0.5)) + 1.5 * drought : 1;
+        const grassy = V[j] <= 0.62 ? 0.3 + 0.8 * (1 - (SO ? SO[j] : 0.5)) + 4 * drought : 1;
         const fuel = flammability(V[j]) * kind * grassy;
         const rj = resist(j);
         const damp = (1 - 0.7 * (W ? W[j] : 0)) * (D[j] > 0.05 ? Math.min(1, 0.1 * rj) : 1)
           * (rainingAt(j) ? Math.min(1, 0.3 * rj) : 1) * (0.7 + 0.6 * (1 - (SO ? SO[j] : 0.5)));
         const uphill = 1 + Math.min(2, Math.max(0, H[j] - H[i]) * 1.5);
         const diag = k < 4 ? 1 : 0.7;
-        const chance = hotLava ? 0.5 * fuel : p.spread * dt * heat * fuel * damp * uphill * diag * (1 + 0.8 * drought);
+        // Late-summer fire season: bone-dry fuels let fire run several times faster
+        const chance = hotLava ? 0.5 * fuel : p.spread * dt * heat * fuel * damp * uphill * diag * (1 + 4 * drought);
         if (Math.random() < chance) ignite[j] = 1;
+      }
+      // Spotting: in the fire season, burning embers blow downwind and start new fires ahead of the
+      // front (often hundreds of metres), so big fires leap roads, rivers and firebreaks
+      if (!hotLava && drought > 0.2 && F[i] > 0.4 && Math.random() < 0.6 * drought * F[i] * dt) {
+        const dist = 2 + Math.random() * (3 + 6 * drought);
+        const a = wind + (Math.random() - 0.5) * 0.9;
+        const sx = Math.round(x + Math.cos(a) * dist), sz = Math.round(z + Math.sin(a) * dist);
+        if (sx >= 0 && sz >= 0 && sx < N && sz < N) {
+          const j = sz * N + sx;
+          if (F[j] <= 0 && V[j] >= p.minFuel && D[j] <= 0.05 && L[j] <= 0.02) ignite[j] = 1;
+        }
       }
     }
   }

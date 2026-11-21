@@ -75,6 +75,10 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
     }
   }
 
+  if (preset === 'cascades') {
+    // Soften any remaining roughness; the big crests and summits survive a light blur
+    h.set(boxBlur(h, N, 1));
+  }
   if (preset !== 'flat') smoothLowlands(world, noise);
   // Real landscapes drain: almost every spot has a downhill route to the sea. Raw noise leaves
   // hundreds of closed basins where each river would die in its own little lake. Carve an outlet
@@ -85,7 +89,9 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   breachDepressions(h, N, 0.02, crater);
   // Cut the drainage network: tributaries merging into deeper trunk channels
   if (preset !== 'flat') {
-    carveRivers(h, N);
+    // The Cascades have a few big rivers (Skagit, Snoqualmie, Yakima…) in broad valleys, not a
+    // channel in every hollow, and the lowland and plateau are mostly flat
+    carveRivers(h, N, preset === 'cascades' ? { threshold: 2500 * (N / 256) ** 2, depth: 1.2, perDoubling: 0.7, maxDepth: 4 } : undefined);
     breachDepressions(h, N, 0.02, crater);
   }
 
@@ -156,12 +162,16 @@ function cascadeHeight(c, noise, lu, lv, u, v) {
   const pass = Math.exp(-((lv - 0.56) ** 2) / (2 * 0.035 * 0.035));
   const clusters = 0.5 + 0.5 * noise(lv * 4 + 11, 0.3); // other knots of higher peaks
   const amp = (34 + 18 * north + 12 * clusters) * (1 - 0.6 * pass);
-  // Sharp peaks and deep valleys between them, most rugged in the high clusters
-  const rugged = ridged(noise, u * 2.6, v * 2.6, 6);
-  const sharp = 0.6 + 0.2 * north + 0.2 * clusters;
-  let y = lowland + plateau + range * amp * (0.5 + sharp * (1.3 * Math.pow(rugged, 1.2) - 0.35));
-  // Low, small foothills, and the dissected plateau
-  y += (1 + 2 * range) * fbm(noise, u * 5, v * 5, 4);
+  // Mountains as crests leading up to summits (as they look from above): a few octaves of warped
+  // ridged noise give long, clean ridgelines with smooth flanks between them, and a broad "massif"
+  // field lifts groups of crests into summits. No fine noise, so slopes aren't jagged.
+  const wu = u + 0.12 * noise(u * 3 + 5.1, v * 3), wv = v + 0.12 * noise(u * 3, v * 3 + 9.3);
+  const crest = ridged(noise, wu * 2.1, wv * 2.1, 3);
+  const massif = 0.5 + 0.5 * noise(u * 1.4 + 21.7, v * 1.4 - 7.2);
+  const mountain = (0.4 + 1.35 * Math.pow(crest, 1.4)) * (0.65 + 0.85 * massif * massif);
+  let y = lowland + plateau + range * amp * mountain;
+  // Gentle swells on the lowland and plateau (both are nearly flat in reality)
+  y += (0.6 + 1.2 * range) * fbm(noise, u * 4, v * 4, 3);
   // Stratovolcanoes rise above everything around them
   for (const k of c.cones) {
     const r = Math.hypot(lu * c.N - k.x, lv * c.N - k.z) / k.r;
