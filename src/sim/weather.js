@@ -68,9 +68,11 @@ export function weatherStep(world, simDt) {
   // Moist air forced up over the ranges breeds storms that cling to the peaks, and as soon as it's
   // cold aloft they come down as snow: the first snowstorms of the year build the high snowpack
   // while the lowlands are still dry.
-  const mRate = 0.6 * p.storms * mountainSeason();
+  // They are huge (each blankets a whole region), so only a few at once, but in the season there's
+  // nearly always one over the mountains: when none is, the next builds quickly
   const nMountain = list.reduce((c, s) => c + (s.mountain ? 1 : 0), 0);
-  if (mRate > 0 && Math.random() < mRate * simDt && nMountain < 12) list.push(newMountainStorm(world));
+  const mRate = 0.05 * p.storms * mountainSeason() * (nMountain === 0 ? 6 : 1);
+  if (mRate > 0 && Math.random() < mRate * simDt && nMountain < 3) list.push(newMountainStorm(world));
 
   const a = (p.windAngle * Math.PI) / 180, wx = Math.cos(a), wz = Math.sin(a);
   const D = world.water, S = world.snow, P = world.precip, W = world.lastWet, now = world.time, H = world.height;
@@ -89,7 +91,7 @@ export function weatherStep(world, simDt) {
     for (const l of st.lobes) {
       l.a += l.spin * simDt;
       l.ox = Math.cos(l.a) * l.d; l.oz = Math.sin(l.a) * l.d;
-      l.w = 0.55 + 0.45 * Math.sin(st.age * l.pulse + l.ph);
+      l.w = st.mountain ? 0.85 + 0.15 * Math.sin(st.age * l.pulse + l.ph) : 0.55 + 0.45 * Math.sin(st.age * l.pulse + l.ph);
     }
     // Spent (out of fuel), past its life, or blown off the map
     const fuelF = smooth(0.08, 0.3, st.fuel);
@@ -105,7 +107,7 @@ export function weatherStep(world, simDt) {
     const nt = st.age * 0.015;
     // Big storms: sample the rain pattern on a 2×2 grid (it's smooth at that scale), then rain on
     // every cell
-    const b = st.r > 24 ? 2 : 1;
+    const b = st.r > 60 ? 3 : st.r > 24 ? 2 : 1;
     for (let zb = z0; zb <= z1; zb += b) {
       for (let xb = x0; xb <= x1; xb += b) {
         const q = intensityAt(st, xb + (b - 1) / 2, zb + (b - 1) / 2, nt);
@@ -118,7 +120,7 @@ export function weatherStep(world, simDt) {
         // Mountain storms drop most of their load on the high ground
         if (st.mountain) amount *= 0.2 + 1.3 * smooth(st.hLow, st.hHigh, H[i]);
         const snow = S ? smooth(1, -1, cloudTempAt(world, i)) : 0;
-        if (snow > 0) S[i] = Math.min(6, S[i] + amount * (st.mountain ? 0.1 : 0.05) * snow);
+        if (snow > 0) S[i] = Math.min(6, S[i] + amount * (st.mountain ? 0.12 : 0.05) * snow);
         if (snow < 1) { D[i] += amount * 0.045 * (1 - snow); W[i] = now; }
         total += amount; cells++;
         if (snow > 0.5) snowCells++;
@@ -150,7 +152,8 @@ export function intensityAt(st, x, z, nt = st.age * 0.015) {
   // Bands and holes that drift through the storm
   const s = 5 + st.r * 0.25; // band size scales with the storm
   const n = noise((x - st.x) / s + st.seed, (z - st.z) / s + nt);
-  return Math.min(1.2, q) * Math.max(0, 0.45 + 0.75 * n);
+  // Regional snowstorms are a broad, even blanket; other storms are ragged with holes
+  return st.mountain ? Math.min(1, q) * (0.8 + 0.25 * n) : Math.min(1.2, q) * Math.max(0, 0.45 + 0.75 * n);
 }
 
 /** Lightning: strikes the ground under a thunderstorm; can ignite forest. */
@@ -258,23 +261,24 @@ function newMountainStorm(world) {
   }
   if (best < 0) best = (Math.random() * N * N) | 0;
   const p = climateParams, a = (p.windAngle * Math.PI) / 180;
-  const r = 20 + Math.random() * 22, speed = 0.2 + Math.random() * 0.35; // they linger over the range
+  // A regional system: a third to half of the map across, smooth and slow-moving
+  const r = N * (0.17 + Math.random() * 0.08), speed = 0.15 + Math.random() * 0.2;
   const lobes = [];
-  const nl = 3 + Math.floor(Math.random() * 3);
+  const nl = 3 + Math.floor(Math.random() * 2);
   for (let k = 0; k < nl; k++) {
     lobes.push({
-      a: Math.random() * Math.PI * 2, d: (k === 0 ? 0 : 0.35 + Math.random() * 0.55) * r,
-      r: r * (k === 0 ? 0.75 : 0.35 + Math.random() * 0.45), spin: (Math.random() - 0.5) * 0.03,
-      pulse: 0.03 + Math.random() * 0.06, ph: Math.random() * 6, ox: 0, oz: 0, w: 1,
+      a: Math.random() * Math.PI * 2, d: (k === 0 ? 0 : 0.3 + Math.random() * 0.4) * r,
+      r: r * (k === 0 ? 1.0 : 0.6 + Math.random() * 0.3), spin: (Math.random() - 0.5) * 0.01,
+      pulse: 0.01 + Math.random() * 0.02, ph: Math.random() * 6, ox: 0, oz: 0, w: 1,
     });
   }
   const fuel = 1 + Math.random() * 0.4;
   return {
     x: best % N, z: (best / N) | 0, vx: Math.cos(a) * speed, vz: Math.sin(a) * speed, speed, r, lobes,
     thunder: false, dry: false, mountain: true, hLow, hHigh: Math.max(hHigh, hLow + 1),
-    fuel, maxFuel: fuel * 1.2, peak: 0.9 + Math.random() * 0.6,
+    fuel, maxFuel: fuel * 1.2, peak: 1.0 + Math.random() * 0.4,
     // A few days each (seconds of play); shorter at fast season speeds so they stay seasonal
-    age: 0, life: (40 + Math.random() * 40) / Math.max(1, seasonParams.enabled ? seasonParams.speed : 1),
+    age: 0, life: (60 + Math.random() * 50) / Math.max(1, seasonParams.enabled ? seasonParams.speed : 1),
     strength: 0, snow: 0, seed: Math.random() * 1000,
   };
 }

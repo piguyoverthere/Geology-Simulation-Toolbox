@@ -400,6 +400,13 @@ low down too. On the Cascades map, snow covers the peaks from October and the up
 November, but reaches the lowland only from mid-December, peaking at the end of January; the
 upper-slope pack lasts into June.
 
+**Regional snowstorms.** A mountain snowstorm is a regional system, a third to half of the map
+across. It moves slowly and lays an even blanket of heavy snow over a whole stretch of the range
+(mostly on the high ground) rather than a patchwork. Only a few are on the map at once, and in the
+season the next one builds quickly when none is. On the Cascades map the high ground went from a
+patchy 55% cover in early October to 86% by late December and complete cover by early January,
+about 3.5 units deep, with the depth far more even than before.
+
 **The wet season.** From late October to mid-March the winter storm track sits over the region and
 storms are practically constant: on the Cascades map there was a storm on the map 100% of the time
 from mid-October to the end of March (2–4 travelling storms plus up to a dozen mountain snowstorms),
