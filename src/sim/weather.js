@@ -268,6 +268,41 @@ export function wetSeason() {
 }
 
 /**
+ * Bring a storm in at (x, z) (the Storm tool). It's a snowstorm or a rainstorm depending on how
+ * cold it is up there; `thunder` makes it a thunderstorm instead. Slow-moving, so it stays where
+ * it was called for a while.
+ */
+export function spawnStormAt(world, x, z, r, thunder = false) {
+  if (!world.storms) world.storms = [];
+  const N = world.N, i = Math.min(N - 1, Math.max(0, Math.round(z))) * N + Math.min(N - 1, Math.max(0, Math.round(x)));
+  const st = newStorm(world, { thunder });
+  const cold = cloudTempAt(world, i) < 0;
+  const a = (climateParams.windAngle * Math.PI) / 180;
+  st.x = x; st.z = z; st.r = r;
+  st.lobes = makeLobes(r, cold && !thunder);
+  st.speed = 0.3; st.vx = Math.cos(a) * 0.3; st.vz = Math.sin(a) * 0.3;
+  st.thunder = thunder; st.dry = false; st.arctic = false;
+  if (cold && !thunder) { st.mountain = true; st.hLow = -1e9; st.hHigh = -1e9 + 1; } // an even snow blanket over the area
+  st.fuel = st.maxFuel = 1.3; st.peak = thunder ? 1.8 : 1.2;
+  st.age = 0; st.life = 60 + Math.random() * 30;
+  world.storms.push(st);
+  return st;
+}
+
+function makeLobes(r, smooth) {
+  const lobes = [], nl = smooth ? 4 : 3 + Math.floor(Math.random() * 4);
+  for (let k = 0; k < nl; k++) {
+    lobes.push({
+      a: Math.random() * Math.PI * 2, d: (k === 0 ? 0 : (smooth ? 0.3 : 0.35) + Math.random() * (smooth ? 0.4 : 0.55)) * r,
+      r: r * (k === 0 ? (smooth ? 1 : 0.75) : (smooth ? 0.6 : 0.35) + Math.random() * (smooth ? 0.3 : 0.45)),
+      spin: (Math.random() - 0.5) * (smooth ? 0.01 : 0.03), pulse: (smooth ? 0.01 : 0.03) + Math.random() * (smooth ? 0.02 : 0.06),
+      ph: Math.random() * 6, ox: 0, oz: 0, w: 1,
+    });
+  }
+  return lobes;
+}
+
+/**
  * Waves of snowstorms: 1 while a wave of fronts is rolling in, near 0 in the breaks between waves
  * (about two waves a month, each lasting around a week).
  */
@@ -338,11 +373,11 @@ function thunderChance(world) {
   return 0.75 * smooth(14, 24, climateParams.seaTemp + (world.seasonT || 0));
 }
 
-function newStorm(world) {
+function newStorm(world, force = null) {
   const N = world.N, p = climateParams;
   const a = (p.windAngle * Math.PI) / 180, wx = Math.cos(a), wz = Math.sin(a);
   // Warm weather breeds thunderstorms: compact, violent and short-lived
-  const thunder = Math.random() < thunderChance(world);
+  const thunder = force ? !!force.thunder : Math.random() < thunderChance(world);
   // One or two Arctic outbreaks a winter: cold air pours in from the interior and a storm meeting it
   // brings snow all the way down to the lowlands
   // (each winter gets one or two, on random dates between mid-December and late February)
@@ -354,7 +389,7 @@ function newStorm(world) {
     a2 = world.arctic = { dates: dates.sort(), count: 0, used: false };
   }
   let arctic = false;
-  if (seasonParams.enabled && !thunder && a2.count < a2.dates.length && ph >= a2.dates[a2.count] && ph < 0.97) {
+  if (!force && seasonParams.enabled && !thunder && a2.count < a2.dates.length && ph >= a2.dates[a2.count] && ph < 0.97) {
     arctic = true; a2.count++; a2.used = true;
   }
   // Frontal storms are big, regional systems; thunderstorms are smaller cells (but still sizeable);

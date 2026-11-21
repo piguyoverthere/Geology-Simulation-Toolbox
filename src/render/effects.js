@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { intensityAt } from '../sim/weather.js';
 
-const MAX_PARTICLES = 600;
+const MAX_PARTICLES = 4000; // wildfire smoke
 
 let dot = null;
 /** A soft round sprite (white, fading to transparent at the edge) so particles look like puffs, not squares. */
@@ -374,17 +374,32 @@ export class Effects {
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_PARTICLES * 3).fill(-9999), 3));
     geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
     const points = new THREE.Points(geo, new THREE.PointsMaterial({ map: softDot(), alphaTest: 0.01,
-      color: 0x3a3632, size: 4.5, sizeAttenuation: true, transparent: true, opacity: 0.4, depthWrite: false,
+      color: 0x3a3632, size: 8, sizeAttenuation: true, transparent: true, opacity: 0.45, depthWrite: false,
     }));
     this.scene.add(points);
-    return { points, life: new Float32Array(MAX_PARTICLES), vel: new Float32Array(MAX_PARTICLES * 3), next: 0, spawn: 0 };
+    // Smog: a low, long-lived brown haze that spreads downwind from big fires
+    const SM = 3000;
+    const sgeo = new THREE.BufferGeometry();
+    sgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SM * 3).fill(-9999), 3));
+    sgeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
+    const smog = new THREE.Points(sgeo, new THREE.PointsMaterial({ map: softDot(), alphaTest: 0.01,
+      color: 0x8f7d68, size: 34, sizeAttenuation: true, transparent: true, opacity: 0.22, depthWrite: false,
+    }));
+    this.scene.add(smog);
+    return {
+      points, life: new Float32Array(MAX_PARTICLES), vel: new Float32Array(MAX_PARTICLES * 3), next: 0, spawn: 0,
+      smog, sM: SM, sLife: new Float32Array(SM), sVel: new Float32Array(SM * 2), sNext: 0, sSpawn: 0,
+    };
   }
 
   updateSmoke(dt) {
     const s = this.smoke, w = this.world, cells = w.fireCells;
     const pos = s.points.geometry.attributes.position;
+    const a = ((this.climateParams ? this.climateParams.windAngle : 20) * Math.PI) / 180;
+    const wx = Math.cos(a), wz = Math.sin(a);
+    // Wildfires pour out smoke: dense columns that rise, then bend over and spread downwind
     if (cells.length) {
-      s.spawn += dt * Math.min(220, 20 + cells.length * 1.5);
+      s.spawn += dt * Math.min(1500, 60 + cells.length * 6);
       while (s.spawn >= 1) {
         s.spawn--;
         const i = cells[(Math.random() * cells.length) | 0];
@@ -392,19 +407,46 @@ export class Effects {
         const p = this.renderer.toWorld(x + Math.random() - 0.5, z + Math.random() - 0.5, w.height[i] + 1.5);
         const k = s.next; s.next = (s.next + 1) % MAX_PARTICLES;
         pos.setXYZ(k, p.x, p.y, p.z);
-        s.vel[k * 3] = (Math.random() - 0.5) * 1.5; s.vel[k * 3 + 1] = 4 + Math.random() * 5; s.vel[k * 3 + 2] = (Math.random() - 0.5) * 1.5;
-        s.life[k] = 2.5 + Math.random() * 2;
+        s.vel[k * 3] = (Math.random() - 0.5) * 2; s.vel[k * 3 + 1] = 5 + Math.random() * 7; s.vel[k * 3 + 2] = (Math.random() - 0.5) * 2;
+        s.life[k] = 5 + Math.random() * 6;
       }
+      // …and feed the smog haze
+      s.sSpawn += dt * Math.min(120, 6 + cells.length * 0.4);
     }
     for (let k = 0; k < MAX_PARTICLES; k++) {
       if (s.life[k] <= 0) continue;
       s.life[k] -= dt;
       if (s.life[k] <= 0) { pos.setY(k, -9999); continue; }
-      // Smoke drifts downwind as it rises
-      s.vel[k * 3] += 1.8 * dt; s.vel[k * 3 + 2] += 0.6 * dt;
+      // Rising smoke slows, spreads and is carried off downwind
+      s.vel[k * 3] += 3 * wx * dt; s.vel[k * 3 + 2] += 3 * wz * dt;
+      s.vel[k * 3 + 1] *= 1 - 0.25 * dt;
       pos.setXYZ(k, pos.getX(k) + s.vel[k * 3] * dt, pos.getY(k) + s.vel[k * 3 + 1] * dt, pos.getZ(k) + s.vel[k * 3 + 2] * dt);
     }
     pos.needsUpdate = true;
+
+    // Smog: settles a little above the ground and drifts with the wind for a long time
+    const sp = s.smog.geometry.attributes.position;
+    while (s.sSpawn >= 1 && cells.length) {
+      s.sSpawn--;
+      const i = cells[(Math.random() * cells.length) | 0];
+      const x = i % w.N + (Math.random() - 0.5) * 10, z = ((i / w.N) | 0) + (Math.random() - 0.5) * 10;
+      const p = this.renderer.toWorld(x, z, w.height[i] + 6 + Math.random() * 10);
+      const k = s.sNext; s.sNext = (s.sNext + 1) % s.sM;
+      sp.setXYZ(k, p.x, p.y, p.z);
+      s.sVel[k * 2] = wx * (1 + Math.random()) + (Math.random() - 0.5); s.sVel[k * 2 + 1] = wz * (1 + Math.random()) + (Math.random() - 0.5);
+      s.sLife[k] = 30 + Math.random() * 40;
+    }
+    let live = 0;
+    for (let k = 0; k < s.sM; k++) {
+      if (s.sLife[k] <= 0) continue;
+      s.sLife[k] -= dt;
+      if (s.sLife[k] <= 0) { sp.setY(k, -9999); continue; }
+      live++;
+      sp.setXYZ(k, sp.getX(k) + s.sVel[k * 2] * dt, sp.getY(k), sp.getZ(k) + s.sVel[k * 2 + 1] * dt);
+    }
+    sp.needsUpdate = true;
+    // How smoky the air is overall (the app tints the sky and dims the sun with it)
+    this.smogLevel = Math.min(1, live / 900);
   }
 
   update(dt) {

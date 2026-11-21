@@ -1,7 +1,8 @@
 // Sculpting and simulation brushes. Each tool's `apply` is called every frame while the mouse is
 // held down over the terrain, with the brush centre in grid coordinates.
 
-import { strike } from '../sim/weather.js';
+import { strike, spawnStormAt } from '../sim/weather.js';
+import { addIce } from '../sim/glacier.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -13,7 +14,7 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F' };
+const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G' };
 export function toolKey(id) { return LETTER_KEYS[id] || TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
 
 /** Smooth bell-shaped falloff: 1 at the centre, 0 at the brush edge. */
@@ -171,6 +172,34 @@ export const TOOLS = {
     help: 'Drag along a line to break the crust. It slips in a series of earthquakes. Choose normal, reverse or strike-slip in the side panel.',
     place({ world }, a, b) { startFault(world, a, b, faultSettings); },
   },
+  storm: {
+    label: 'Storm', group: 'Weather', icon: '☁', editsTerrain: false, click: true,
+    help: 'Click to bring a storm in over that spot (about twice the brush size). It snows if it is cold enough up there and rains if not, and drifts slowly downwind. Shift-click for a thunderstorm with lightning.',
+    apply({ world, x, z, radius, invert }) {
+      spawnStormAt(world, x, z, Math.max(12, radius * 2), invert);
+      world.dirty = true;
+    },
+  },
+  snow: {
+    label: 'Snow', group: 'Weather', icon: '❄', editsTerrain: false,
+    help: 'Paint snow onto the ground. It melts away if it is warm (above 2 °C), slides off very steep slopes, and lasts where it is cold. Hold Shift to clear snow.',
+    apply({ world, x, z, radius, strength, dt, invert }) {
+      if (!world.snow) return;
+      const s = strength * 4 * dt * (invert ? -1 : 1);
+      forEachCell(world, x, z, radius, (i, w) => {
+        world.snow[i] = Math.min(6, Math.max(0, world.snow[i] + s * w));
+      });
+      world.dirty = true;
+    },
+  },
+  glacier: {
+    label: 'Glacier', group: 'Weather', icon: '▼', editsTerrain: true,
+    help: 'Paint glacier ice, e.g. into the head of a valley. The ice creeps downhill, grinding the valley into a U shape, carries the rock it erodes and drops it as moraines where it melts. It melts away below the snowline; above it, deep lasting snow keeps feeding it. Hold Shift to remove ice.',
+    apply({ world, x, z, radius, strength, dt, invert }) {
+      const s = strength * 6 * dt * (invert ? -1 : 1);
+      forEachCell(world, x, z, radius, (i, w) => addIce(world, i, s * w));
+    },
+  },
   lightning: {
     label: 'Lightning', group: 'Weather', icon: 'ϟ', editsTerrain: false, click: true,
     help: 'Click to call down a lightning strike. In forest it usually starts a fire, most easily in dry woodland, in pine and during a dry summer; in grass or shrubland it starts a slow creeping fire; wet ground, standing water or bare rock won\'t burn.',
@@ -202,6 +231,19 @@ export const TOOLS = {
     label: 'Draw path / polygon', group: 'View', icon: '✎', editsTerrain: false, draw: true,
     help: 'Click to add points along the ground. Double-click or Enter finishes a path; click the first point again to close a polygon. Backspace removes the last point, Esc cancels. Each shape shows its length along the ground, climb and descent, height range and (polygons) area. Choose path or polygon and the colour under Drawings in the side panel.',
     apply() {},
+  },
+  drain: {
+    label: 'Drain', group: 'Water', icon: '⊘', editsTerrain: false,
+    help: 'Paint to soak up surface water and the sediment it carries: drain a lake, a flood or a river reach. (Springs keep flowing; remove those with Shift-click in the Spring tool.)',
+    apply({ world, x, z, radius, strength, dt }) {
+      const k = Math.min(1, strength * 8 * dt);
+      forEachCell(world, x, z, radius, (i, w) => {
+        world.water[i] *= 1 - k * w;
+        world.sediment[i] *= 1 - k * w;
+        if (world.water[i] < 1e-3) { world.water[i] = 0; world.sediment[i] = 0; }
+      });
+      world.dirty = true;
+    },
   },
 };
 

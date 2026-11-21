@@ -52,6 +52,7 @@ export function landslideCheck(world, dt) {
   for (let k = 0; k < 300; k++) {
     const x = 3 + ((Math.random() * (N - 6)) | 0), z = 3 + ((Math.random() * (N - 6)) | 0);
     const i = z * N + x;
+    if (world.ice && world.ice[i] > 0.3) continue; // slopes held up by glacier ice don't fail
     const { gx, gz, tan } = slopeAt(world, x, z);
     if (tan < 0.3) continue;
     const sat = saturation(world, i);

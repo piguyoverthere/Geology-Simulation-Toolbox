@@ -13,6 +13,7 @@ import { climateParams, seasonParams, advanceSeason, seasonName, updateTemperatu
 import { phenologyStep } from './sim/phenology.js';
 import { updateForestComposition } from './sim/species.js';
 import { weatherStep, weatherParams } from './sim/weather.js';
+import { glacierFlow, glacierBalance, glacierParams } from './sim/glacier.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
@@ -43,6 +44,7 @@ class App {
     this.faultSettings = faultSettings;
     this.fireParams = fireParams;
     this.landslideParams = landslideParams;
+    this.glacierParams = glacierParams;
 
     this.tool = 'raise';
     this.brush = { radius: 12, strength: 0.5 };
@@ -181,6 +183,7 @@ class App {
     if (!show) return;
     const pos = this.cursor.geometry.attributes.position;
     const small = { spring: 3, inspect: 1.5, erupt: 3, fault: 1.5, draw: 1.2, lightning: 2 };
+    if (this.tool === 'storm') small.storm = Math.max(12, this.brush.radius * 2);
     const r = this.tool === 'intrude' && volcanoSettings.intrusion === 'dike' ? 1.5 : small[this.tool] ?? this.brush.radius;
     for (let k = 0; k <= 64; k++) {
       const a = (k / 64) * Math.PI * 2;
@@ -264,6 +267,8 @@ class App {
       if (e.key === 'd' && !mod) { this.setTool('draw'); return; }
       if (e.key === 'l' && !mod) { this.setTool('lightning'); return; }
       if (e.key === 'f' && !mod) { this.setTool('wildfire'); return; }
+      const letters = { c: 'storm', w: 'drain', n: 'snow', g: 'glacier' };
+      if (letters[e.key] && !mod) { this.setTool(letters[e.key]); return; }
       if (e.key === '[') { this.brush.radius = Math.max(2, this.brush.radius - 2); this.toolbox.refresh(); }
       if (e.key === ']') { this.brush.radius = Math.min(60, this.brush.radius + 2); this.toolbox.refresh(); }
       const k = TOOL_KEYS.indexOf(e.key);
@@ -430,7 +435,11 @@ class App {
     this.overcast = o;
     this.sun.intensity = 2.6 * (1 - 0.55 * o);
     this.hemi.intensity = 1.1 * (1 - 0.15 * o);
-    const sky = SKY_CLEAR.clone().lerp(SKY_GREY, o);
+    // Wildfire smoke: a brown-orange sky and a dim, reddened sun
+    const smog = this.effects.smogLevel || 0;
+    this.sun.intensity *= 1 - 0.55 * smog;
+    this.sun.color.copy(SUN_CLEAR).lerp(SUN_SMOKY, smog);
+    const sky = SKY_CLEAR.clone().lerp(SKY_GREY, o).lerp(SKY_SMOKE, Math.min(1, smog * 1.1));
     this.scene.background.copy(sky);
     this.scene.fog.color.copy(sky);
     this.effects.overcast = season;
@@ -578,11 +587,14 @@ class App {
         if (this.sim.vegetation) vegetationStep(this.world); // also refreshes temperature
         else { updateTemperature(this.world); updatePrecip(this.world); updateSnow(this.world, 1, true); } // terrain may have changed
         phenologyStep(this.world);
+        glacierBalance(this.world);
         if (seasonParams.enabled || this.seasonWasOn) this.world.dirty = true;
         this.seasonWasOn = seasonParams.enabled;
       }
       // Look for slopes about to fail a few times a second (scaled with sim speed)
       if (this.frame % 10 === 5 && this.sim.vegetation) compositionStep(this.world);
+      // Glacier ice creeps a little every frame (faster at higher sim speed)
+      if (this.world.ice) glacierFlow(this.world, this.sim.substeps / 6);
       if (this.frame % 5 === 0) landslideCheck(this.world, 0.25 * this.sim.substeps / 6);
       // Eruptions, intrusions and faults advance in simulated time, faster at higher sim speed
       const steps = Math.max(1, Math.round(this.sim.substeps / 3));
@@ -618,7 +630,8 @@ class App {
   }
 }
 
-const SKY_CLEAR = new THREE.Color(0x9cc4e4), SKY_GREY = new THREE.Color(0x98a1aa);
+const SKY_CLEAR = new THREE.Color(0x9cc4e4), SKY_GREY = new THREE.Color(0x98a1aa), SKY_SMOKE = new THREE.Color(0xb59a78);
+const SUN_CLEAR = new THREE.Color(0xfff1dc), SUN_SMOKY = new THREE.Color(0xffa060);
 function smoothstep(e0, e1, x) { const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1); return t * t * (3 - 2 * t); }
 function fmt(v) { return v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v.toFixed(0); }
 function clampI(v, n) { return Math.min(n - 1, Math.max(0, Math.round(v))); }

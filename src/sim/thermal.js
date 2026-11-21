@@ -23,7 +23,7 @@ let delta = null;
 export function thermalStep(world, region = null, strength = 1) {
   if (!world.erosionEnabled) return;
   const N = world.N;
-  const H = world.height;
+  const H = world.height, IC = world.ice;
   if (!delta || delta.length !== H.length) delta = new Float32Array(H.length);
 
   const baseTan = Math.tan((thermalParams.talusAngle * Math.PI) / 180);
@@ -46,6 +46,8 @@ export function thermalStep(world, region = null, strength = 1) {
         falloff = 1 - d * d;
       }
       const i = z * N + x;
+      // Glacier ice buttresses the slopes it fills (its own erosion shapes the bed)
+      if (IC && IC[i] > 0.3) continue;
       const h = H[i];
       // Harder rock stands steeper (about 0.85x to 1.3x the base talus slope)
       // Roots also bind slopes: forested ground holds up to ~30% steeper than bare ground

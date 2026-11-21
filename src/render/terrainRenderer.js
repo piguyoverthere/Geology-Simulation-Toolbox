@@ -40,6 +40,7 @@ export const OVERLAYS = {
   temp: 'Temperature',
   precip: 'Precipitation',
   snowDepth: 'Snow depth',
+  ice: 'Glacier ice',
   decid: 'Deciduous trees',
   rock: 'Rock type',
   hardness: 'Rock hardness',
@@ -166,7 +167,7 @@ export class TerrainRenderer {
     const off = this.offset;
     const mode = this.colorMode;
     const sea = w.seaLevel;
-    const LV = w.lava, LT = w.lavaTemp, FI = w.fire;
+    const LV = w.lava, LT = w.lavaTemp, FI = w.fire, IC = w.ice;
     let anyLava = false;
     // Colouring is the expensive part. On big maps recolour an interleaved share of the rows each
     // frame (the full map every few frames); heights, normals and water still update every frame.
@@ -181,7 +182,9 @@ export class TerrainRenderer {
         const i = z * N + x, i3 = i * 3;
         const h = H[i];
         this.tPos[i3] = x - off;
-        this.tPos[i3 + 1] = h;
+        // Glacier ice is drawn on top of its bed
+        const ice = IC ? IC[i] : 0;
+        this.tPos[i3 + 1] = h + ice;
         this.tPos[i3 + 2] = z - off;
 
         // Normal from central differences
@@ -243,6 +246,9 @@ export class TerrainRenderer {
           // Share of the ground under deciduous trees (the ones that change colour and drop leaves)
           const d = w.decid ? w.decid[i] : 0;
           col = shade(w.vegetation[i] > 0.3 ? mix(DECID_NONE, DECID_FULL, Math.min(1, d / 0.8), S3) : NO_FOREST, 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'ice') {
+          const t = IC ? IC[i] : 0;
+          col = shade(t < 0.02 ? NO_SNOW : t < 3 ? mix(ICE_THIN, ICE_MID, t / 3, S3) : mix(ICE_MID, ICE_DEEP, Math.min(1, (t - 3) / 8), S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'temp') {
           // Today's temperature (annual mean + season)
           col = shade(tempColor(w.temperature[i] + (w.seasonT || 0), S3), 0.75 + 0.25 * ny, S3);
@@ -253,6 +259,12 @@ export class TerrainRenderer {
           col = this.naturalColor(h, slope, tan, h - BASE[i], D[i], i);
         }
         // Palette is authored in sRGB; vertex colours are linear, so square to approximate the conversion
+        // Glacier ice: blue-white, greyer where it carries rock debris
+        if (col && ice > 0.02 && (mode === 'natural' || mode === 'ice')) {
+          const t = Math.min(1, ice / 0.6);
+          const dirty = Math.min(0.5, (w.iceDebris ? w.iceDebris[i] : 0) * 2);
+          mix(col, mix(ICE, ICE_DIRTY, dirty, S4), t * 0.92, col);
+        }
         if (col) { this.tCol[i3] = col[0] * col[0]; this.tCol[i3 + 1] = col[1] * col[1]; this.tCol[i3 + 2] = col[2] * col[2]; }
 
         // Lava and fire layer: alpha 1 where present, 0 (discarded) elsewhere
@@ -284,7 +296,7 @@ export class TerrainRenderer {
         this.wPos[i3] = x - off;
         this.wPos[i3 + 2] = z - off;
         // Thin runoff films just darken the ground; draw a water surface only where it's a real stream/lake
-        if (d > 0.1) {
+        if (d > 0.1 && ice < 0.2) { // (meltwater under a glacier stays hidden)
           this.wPos[i3 + 1] = h + d;
           const mud = Math.min(1, (S[i] / Math.max(d, 0.05)) * 4);
           const deep = Math.min(1, d / 6);
@@ -457,6 +469,8 @@ const CHEM_ACID = [0.55, 0.30, 0.62], CHEM_NEUTRAL = [0.88, 0.86, 0.80], CHEM_AL
 const HARD_SOFT = [0.98, 0.84, 0.36], HARD_MID = [0.86, 0.45, 0.24], HARD_HARD = [0.16, 0.20, 0.44];
 const PRECIP_DRY = [0.86, 0.74, 0.52], PRECIP_WET = [0.12, 0.35, 0.75];
 const NO_SNOW = [0.55, 0.53, 0.48], SNOW_THIN = [0.88, 0.92, 0.98], SNOW_MID = [0.55, 0.72, 0.95], SNOW_DEEP = [0.18, 0.30, 0.75];
+const ICE = [0.80, 0.89, 0.97], ICE_DIRTY = [0.55, 0.55, 0.55];
+const ICE_THIN = [0.82, 0.93, 0.98], ICE_MID = [0.45, 0.72, 0.92], ICE_DEEP = [0.12, 0.28, 0.62];
 const DECID_NONE = [0.10, 0.32, 0.22], DECID_FULL = [0.95, 0.60, 0.12];
 const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.64, 0.40];
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];

@@ -28,6 +28,7 @@ To put it online, turn on **GitHub Pages** for this repo (Settings → Pages →
 | Shift + tool | Invert it (Raise ↔ Lower, Rain → soak up, Spring → remove) |
 | `1`–`9`, `0`, `-`, `=` | Pick a tool (numbers shown on the tool bar) |
 | `D`, `L`, `F` | Draw paths and polygons, Lightning, Wildfire |
+| `C`, `N`, `G`, `W` | Storm, Snow, Glacier, Drain |
 | Enter / double-click, Backspace, Esc | While drawing: finish, remove last point, cancel |
 | `[` / `]` | Shrink / grow brush |
 | Space | Pause / resume the simulation |
@@ -37,8 +38,12 @@ Hover any tool or control to see what it does in the info box at the bottom righ
 
 ### Tool bar (bottom)
 
-Every tool as a small icon, grouped: **View** (Orbit, Inspect, Draw), **Weather** (Lightning: click
-for a strike that may start a fire; Wildfire: paint fire onto the vegetation, Shift to put it out), **Sculpt** (Raise, Lower, Smooth,
+Every tool as a small icon, grouped: **View** (Orbit, Inspect, Draw), **Weather** (Storm: click to
+bring a storm in over a spot, snow or rain depending on the cold, Shift for a thunderstorm; Snow:
+paint snowpack, Shift to clear; Glacier: paint ice into a valley and watch it flow, carve a U-shaped
+trough and leave moraines, Shift to remove; Lightning: click for a strike that may start a fire;
+Wildfire: paint fire onto the vegetation, Shift to put it out), **Water** also has Drain (soak up
+water and sediment), **Sculpt** (Raise, Lower, Smooth,
 Flatten, Roughen), **Water** (Rain, Spring: a permanent source that carves a river), **Life**
 (Plant; Shift to clear), **Erosion** (Weather: thousands of raindrops in the brush area;
 Crumble: landslides) and **Tectonics**, plus brush **Size** and **Strength**:
@@ -89,7 +94,7 @@ and how much it has been eroded or built up since the baseline.
   mostly from autumn to spring, and a summer fire season with dry lightning storms), and **Snow slope
   limit** (the steepest slope snow builds up on).
 - **Overlays**: colour the map by one data layer (biomes, vegetation, tree species, forest age,
-  temperature, precipitation, snow depth, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
+  temperature, precipitation, snow depth, glacier ice, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
 - **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes.
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
@@ -129,6 +134,7 @@ src/sim/vegetation.js   Forest / grassland / barren cover that grows, dies and p
 src/sim/volcanism.js    Eruptions, lava flow and cooling, ash fall, plutons and dikes
 src/sim/climate.js      Temperature (height, sun, seasons), clouds, precipitation, evaporation, snowpack
 src/sim/weather.js      Storms, thunderstorms and lightning
+src/sim/glacier.js      Glaciers: ice flow, U-shaped valley carving, moraines, melt
 src/sim/phenology.js    Seasonal leaves: autumn colour, leaf fall, spring flush
 src/sim/species.js      Tree species, their preferences, and each cell's forest mix
 src/sim/forests.js      Forest types (jungle, tropical dry, temperate rainforest, broadleaf, conifer, dry woodland, swamp)

@@ -200,7 +200,8 @@ function potential(world, i, f) {
   const T = (world.vegTemp || world.temperature)[i];
   const alpine = 1 - 0.95 * smoothstep(tl, tl - 7, T);
   // Lakes drown plants; shallow floodwater on a floodplain does not
-  const drowned = 1 - smoothstep(1, 3, world.water[i]);
+  // (and nothing grows on glacier ice)
+  const drowned = (1 - smoothstep(1, 3, world.water[i])) * (world.ice ? 1 - smoothstep(0.05, 0.4, world.ice[i]) : 1);
   // Drought-hardy trees (pine, juniper) still form open woodland on dry-ish ground in temperate
   // climates, so cover there is higher than soil moisture alone would allow
   const dryWood = 0.32 * smoothstep(0.15, 0.32, soil) * (1 - smoothstep(0.45, 0.6, soil)) * smoothstep(-2, 2, T) * (1 - smoothstep(22, 26, T));

@@ -551,6 +551,31 @@ Forest doesn't need soaking-wet ground: plant cover levels off once the soil is 
 and trees grow on slopes up to about 45°. So the mountains are forested up to the tree line
 without the lowlands having to flood.
 
+## Glaciers (`src/sim/glacier.js`)
+
+A glacier is a river of ice. Where snow survives the summer year after year it compacts into ice
+(here: whatever snow is still lying at the end of summer). Thick ice creeps downhill under its
+own weight, fastest where it is thickest and steepest, so it flows down valleys as a tongue that
+tapers to a snout.
+
+**Carving.** The sliding ice grinds and plucks its bed, and scours the valley walls hardest (it
+presses against them as it flows past). The walls are cut back until the floor is broad and flat,
+while above the ice they are untouched: the V of a river valley becomes a **U-shaped trough**. In a
+test valley, a glacier turned a V that bottomed out at a point into a floor flat across ~10 cells with
+steeper walls above. Ice holds the valley walls up, so they don't slump while it fills the valley.
+
+**Moraines.** The rock the glacier erodes rides along in the ice (`iceDebris`) and is dropped where
+the ice melts: ridges along its sides and a horseshoe at the snout, left behind when it retreats.
+
+**Melt.** Bare ice melts above freezing, feeding meltwater into the streams; the glacier ends where
+flow and melt balance. Nothing grows on ice. Paint ice with the **Glacier** tool (keep painting at
+the head of a valley to feed it) and watch it with **Overlays → Glacier ice**; **Inspect** shows its
+thickness, flow and the rock it carries.
+
+**Wildfire smoke.** Big fires pour out smoke: dense columns that rise, bend over and stream
+downwind, and a brown smog haze that settles over the land and lingers long after. The sky turns
+smoky tan and the sun dims and reddens, like a wildfire smoke day.
+
 ## 8. Biomes
 
 Plant cover, soil water, slope and height together decide what the surface looks like:
