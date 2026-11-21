@@ -12,6 +12,11 @@ export const PRESETS = {
   mountains: { label: 'Ridged mountains' },
   plateau: { label: 'Layered plateau' },
   volcano: { label: 'Volcanic cone' },
+  cascades: {
+    label: 'Cascade Range',
+    // Prevailing westerlies off the Pacific (wind blowing toward +x, i.e. east), cool temperate
+    climate: { seaTemp: 11, windAngle: 0, summerDry: 0.8 },
+  },
   flat: { label: 'Flat plain' },
 };
 
@@ -19,13 +24,19 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   const N = world.N;
   const noise = createNoise2D(seed);
   const h = world.height;
-  const scale = 1 / N;
+  // Noise is sampled per 256 cells, so a bigger map shows more land at the same level of detail;
+  // the layout (centre, falloff, the Cascade crest) is relative to the map.
+  const scale = 1 / 256, layout = 1 / N;
+  world.cones = [];
+  world.moistureBias = null;
+  const cascades = preset === 'cascades' ? cascadeLayout(N, noise) : null;
+  if (cascades) { world.cones = cascades.cones; world.moistureBias = new Float32Array(N * N); }
 
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
       const u = x * scale, v = z * scale;
       // Distance from centre, for presets that fall off toward the edges
-      const dx = u - 0.5, dz = v - 0.5;
+      const dx = x * layout - 0.5, dz = z * layout - 0.5;
       const r = Math.sqrt(dx * dx + dz * dz);
       let y = 0;
 
@@ -52,6 +63,10 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
           y = 8 + 75 * Math.pow(cone, 1.6) - 22 * crater * crater + 3 * fbm(noise, u * 9, v * 9, 5);
           break;
         }
+        case 'cascades':
+          y = cascadeHeight(cascades, noise, x * layout, z * layout, u, v);
+          world.moistureBias[z * N + x] = cascadeMoisture(cascades, x * layout, z * layout);
+          break;
         case 'flat':
         default:
           y = 10 + 0.6 * fbm(noise, u * 6, v * 6, 3);
@@ -104,6 +119,61 @@ function smoothLowlands(world, noise) {
       H[i] += (blurred[i] - H[i]) * w;
     }
   }
+}
+
+/**
+ * The Cascade Range, simplified. A north–south volcanic and metamorphic range across the middle of
+ * the map, between a low, wet, forested lowland to the west (the Puget Sound lowland) and a high,
+ * dry basalt plateau to the east (the Columbia Plateau), in the rain shadow.
+ *
+ * Along the range: the far north is a dense cluster of rugged, glaciated peaks (the North
+ * Cascades); a lower gap crosses the range a little south of the middle (Snoqualmie Pass, where
+ * I-90 crosses at only ~900 m); the south is a medium-height range topped by a few big, isolated
+ * stratovolcanoes standing far above it (Rainier, Adams, St Helens). The crest wanders a little.
+ */
+function cascadeLayout(N, noise) {
+  const cones = [];
+  // Big volcanoes: one giant just west of the crest south of the pass, two smaller further south,
+  // and one in the north cluster (Glacier Peak / Baker)
+  const at = (u, v, height, radius) => cones.push({ x: u * N, z: v * N, height, r: radius * Math.min(N, 384) });
+  at(0.47, 0.70, 46, 0.075);
+  at(0.55, 0.88, 32, 0.06);
+  at(0.42, 0.86, 26, 0.05);
+  at(0.50, 0.14, 26, 0.05);
+  return { N, cones, crest: (v) => 0.5 + 0.05 * noise(v * 2.2, 3.7) };
+}
+
+function cascadeHeight(c, noise, lu, lv, u, v) {
+  const axis = c.crest(lv);
+  const d = lu - axis; // − west, + east of the crest
+  // Cross-section: low wet lowland in the west, the range, then a high dry plateau in the east
+  const range = Math.exp(-(d * d) / (2 * 0.11 * 0.11));
+  const plateau = smoothstep(0.08, 0.28, d) * 6;
+  const lowland = 3 + 3 * smoothstep(-0.45, -0.15, d);
+  // Along the range: dense high cluster in the north, the pass, medium heights in the south
+  const north = 1 - smoothstep(0.25, 0.42, lv);
+  const pass = Math.exp(-((lv - 0.56) ** 2) / (2 * 0.035 * 0.035));
+  const clusters = 0.5 + 0.5 * noise(lv * 4 + 11, 0.3); // other knots of higher peaks
+  const amp = (20 + 22 * north + 10 * clusters) * (1 - 0.6 * pass);
+  // Rugged peaks only in the high clusters; elsewhere broader forested ridges
+  const rugged = ridged(noise, u * 2.4, v * 2.4, 6);
+  const sharp = 0.35 + 0.45 * north + 0.2 * clusters;
+  let y = lowland + plateau + range * amp * (0.6 + sharp * (rugged - 0.4));
+  // Foothills and the dissected plateau
+  y += (1.5 + 2.5 * range) * fbm(noise, u * 5, v * 5, 4);
+  // Stratovolcanoes rise above everything around them
+  for (const k of c.cones) {
+    const r = Math.hypot(lu * c.N - k.x, lv * c.N - k.z) / k.r;
+    if (r < 1) y += k.height * Math.pow(1 - r, 1.7);
+  }
+  return y;
+}
+
+/** Long-term wetness offset: the Pacific side soaked, the plateau beyond the mountains dry. */
+function cascadeMoisture(c, lu, lv) {
+  const d = lu - c.crest(lv);
+  // Wet west; pine on the drier east slopes; then shrub-steppe, and desert only far to the east
+  return 0.45 - 0.75 * smoothstep(-0.04, 0.34, d);
 }
 
 function smoothstep(e0, e1, x) {

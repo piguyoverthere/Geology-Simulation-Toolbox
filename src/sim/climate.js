@@ -23,6 +23,7 @@ export const climateParams = {
   deepSnow: 2,        // snowpack depth around a slope at which steep faces start holding snow
   storms: 1,          // how often storms sweep across the map (0 = none; see sim/weather.js)
   meltRunoff: 0.6,    // water depth released into the flow model per unit of snow melted
+  summerDry: 0,       // 0 = rain all year; 1 = almost all of it from autumn to spring, dry summers
 };
 
 /**
@@ -44,6 +45,24 @@ const LAG = 0.08; // the warmest day comes this fraction of a year after the sum
 export function seasonOffset() {
   return seasonParams.enabled ? seasonParams.swing * Math.sin(2 * Math.PI * (seasonParams.phase - LAG)) : 0;
 }
+/**
+ * How stormy today is relative to the yearly average (1 = average), with Seasons on. A
+ * Mediterranean-type climate (like the Pacific Northwest or California) gets its rain from autumn to
+ * spring, when the jet stream and its storm track shift south over it, and has a dry summer under a
+ * high-pressure ridge. `summerDry` sets how strong that swing is; wettest around midwinter, driest
+ * in late summer. Even without it, storms are a little more frequent in winter.
+ */
+export function seasonalRain() {
+  if (!seasonParams.enabled) return 1;
+  const s = Math.max(0.3, climateParams.summerDry);
+  return Math.max(0.05, 1 + s * Math.cos(2 * Math.PI * (seasonParams.phase - 0.83)));
+}
+
+/** Summer drought 0..1: how far into the dry season we are (fire danger). */
+export function drySeason() {
+  return seasonParams.enabled ? Math.max(0, 1 - seasonalRain()) * climateParams.summerDry : 0;
+}
+
 /** +1 while the year is warming (late winter → midsummer), −1 while it cools. */
 export function seasonTrend() {
   return Math.cos(2 * Math.PI * (seasonParams.phase - LAG)) >= 0 ? 1 : -1;
@@ -182,7 +201,7 @@ export function updateSnow(world, steps = 1, runoff = false) {
   if (!world.precip) updatePrecip(world);
   const S = world.snow, T = world.temperature, P = world.precip, st = world.seasonT || 0;
   // With storms on, most snow arrives in storms (sim/weather.js); a little falls between them
-  const background = p.storms > 0 ? 0.15 : 1;
+  const background = (p.storms > 0 ? 0.15 : 1) * seasonalRain();
   const D = world.water, now = world.time, W = world.lastWet;
   world.meltRate = 0;
   for (let s = 0; s < steps; s++) {

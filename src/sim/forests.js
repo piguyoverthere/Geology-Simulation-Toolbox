@@ -39,7 +39,7 @@ export function forestTypeAt(world, i) {
   const soil = world.soil ? world.soil[i] : 0.5;
   const near = world.nearWater ? world.nearWater[i] : 0;
   const slope = world.standSlope ? world.standSlope[i] : 0.5;
-  const T = world.temperature ? world.temperature[i] : 12;
+  const T = (world.vegTemp || world.temperature) ? (world.vegTemp || world.temperature)[i] : 12;
   if (near > 0.6 && soil > 0.72 && slope < world.gentleSlope * 0.7) return FOREST.swamp;
   if (T < COLD) return FOREST.conifer;
   if (T > HOT) return soil > 0.85 ? FOREST.jungle : FOREST.tropicalDry;
@@ -53,7 +53,7 @@ export function forestColor(world, i, out) {
   const soil = world.soil ? world.soil[i] : 0.5;
   const near = world.nearWater ? world.nearWater[i] : 0;
   const slope = world.standSlope ? world.standSlope[i] : 0.5;
-  const T = world.temperature ? world.temperature[i] : 12;
+  const T = (world.vegTemp || world.temperature) ? (world.vegTemp || world.temperature)[i] : 12;
   const C = (id) => FOREST_TYPES[FOREST[id]].color;
   const blend = (c, t) => { out[0] += (c[0] - out[0]) * t; out[1] += (c[1] - out[1]) * t; out[2] += (c[2] - out[2]) * t; };
   const base = C('broadleaf');

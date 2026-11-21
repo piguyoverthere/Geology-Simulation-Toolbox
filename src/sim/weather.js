@@ -23,11 +23,13 @@
 // pine, and much less often where the downpour has soaked everything ("dry lightning" at the edge
 // of a storm, or under a storm that has rained itself out, is the dangerous kind). A strike often
 // smoulders for a while (a *holdover* fire) and only breaks out once the rain has moved on.
+// *Dry* thunderstorms (common in dry summers and hot weather) are high-based: their rain
+// evaporates on the way down (virga) but their lightning still reaches the ground.
 //
 // world.storms: [{ x, z, vx, vz, r, lobes, fuel, peak, age, life, thunder, … }] (grid cells,
 // simulated seconds). world.strikes: recent lightning strikes for the renderer.
 
-import { climateParams, seasonParams, cloudTempAt } from './climate.js';
+import { climateParams, seasonParams, cloudTempAt, seasonalRain, drySeason } from './climate.js';
 import { createNoise2D } from '../core/noise.js';
 
 export const weatherParams = {
@@ -43,9 +45,8 @@ export function weatherStep(world, simDt) {
   if (!world.holdovers) world.holdovers = [];
   holdovers(world, simDt);
   const list = world.storms;
-  // New storms arrive from upwind: more often in winter and spring when seasons are on
-  let rate = 0.03 * p.storms;
-  if (seasonParams.enabled) rate *= 1 + 0.4 * Math.cos(2 * Math.PI * (seasonParams.phase - 0.9));
+  // New storms arrive from upwind: more often in winter, and hardly at all in a dry summer
+  let rate = 0.03 * p.storms * seasonalRain();
   // …and hot weather adds thunderstorms that bubble up over the land
   rate *= 1 + 1.5 * thunderChance(world);
   if (Math.random() < rate * simDt && list.length < 8) list.push(newStorm(world));
@@ -85,7 +86,8 @@ export function weatherStep(world, simDt) {
         if (q <= 0.01) continue;
         const i = z * N + x;
         // Heaviest on windward slopes, light in rain shadows
-        const amount = st.strength * q * (0.35 + 1.3 * (P ? P[i] : 0.5)) * simDt;
+        // A dry thunderstorm's rain mostly evaporates on the way down (virga): little reaches the ground
+        const amount = st.strength * q * (0.35 + 1.3 * (P ? P[i] : 0.5)) * simDt * (st.dry ? 0.08 : 1);
         const snow = S ? smooth(1, -1, cloudTempAt(world, i)) : 0;
         if (snow > 0) S[i] = Math.min(6, S[i] + amount * 0.05 * snow);
         if (snow < 1) { D[i] += amount * 0.045 * (1 - snow); W[i] = now; }
@@ -101,11 +103,6 @@ export function weatherStep(world, simDt) {
     st.fuel = Math.min(st.maxFuel, st.fuel + (overWater / area) * 0.004 * simDt);
 
     if (st.thunder && weatherParams.lightning > 0) lightning(world, st, simDt);
-  }
-  // Old strikes fade (the renderer draws the bolt and flash)
-  for (let k = world.strikes.length - 1; k >= 0; k--) {
-    world.strikes[k].age += simDt;
-    if (world.strikes[k].age > 2) world.strikes.splice(k, 1);
   }
 }
 
@@ -128,7 +125,8 @@ export function intensityAt(st, x, z, nt = st.age * 0.015) {
 /** Lightning: strikes the ground under a thunderstorm; can ignite forest. */
 function lightning(world, st, simDt) {
   const N = world.N;
-  if (Math.random() > 0.06 * weatherParams.lightning * st.strength * simDt) return;
+  // Dry thunderstorms throw more ground strikes (and nothing to douse them)
+  if (Math.random() > 0.06 * weatherParams.lightning * st.strength * (st.dry ? 1.6 : 1) * simDt) return;
   // Somewhere under the storm; strikes favour tall things: high ground and trees
   let best = -1, bh = -Infinity;
   for (let k = 0; k < 4; k++) {
@@ -139,19 +137,33 @@ function lightning(world, st, simDt) {
     const h = world.height[i] * 0.3 + 4 * world.vegetation[i] + Math.random() * 3;
     if (h > bh) { bh = h; best = i; }
   }
-  if (best < 0) return;
-  const i = best, V = world.vegetation;
+  if (best >= 0) strike(world, best);
+}
+
+/**
+ * A lightning strike at cell i: draws the bolt and may start a fire. Fire needs fuel; dry ground,
+ * a dry season and resinous trees (pine) catch far more easily, and a soaking downpour (water on
+ * the ground) usually smothers it. A natural strike usually smoulders first (a holdover fire);
+ * `direct` (the Lightning tool) ignites at once if it catches.
+ */
+export function strike(world, i, direct = false) {
+  const N = world.N, V = world.vegetation;
+  if (!world.strikes) world.strikes = [];
+  if (!world.holdovers) world.holdovers = [];
   world.strikes.push({ x: i % N, z: (i / N) | 0, age: 0, seed: Math.random() * 1000, top: (world.cloudBase ? world.cloudBase[i] : world.height[i] + 8) + 4 });
   world.lightningCount = (world.lightningCount || 0) + 1;
-  // Does it start a fire? Needs fuel; dry ground and resinous trees (pine) catch far more easily.
-  // A soaking downpour (water on the ground) usually smothers it.
-  if (V[i] < 0.35 || world.fire[i] > 0 || world.water[i] > 0.15) return;
+  world.dirty = true;
+  if (V[i] < 0.2 || world.fire[i] > 0 || world.water[i] > 0.15) return false;
   const soil = world.soil ? world.soil[i] : 0.5;
   const flam = world.forestFlam ? world.forestFlam[i] : 1;
   const pine = world.pineShare ? world.pineShare[i] : 0;
-  const chance = 0.55 * Math.min(1.5, flam) * (1 - smooth(0.35, 0.85, soil)) * (1 + 1.5 * pine) * smooth(0.35, 0.7, V[i]);
-  // The strike smoulders in a snag or the litter and may flare up once the storm has passed
+  const chance = 0.55 * (1 + drySeason()) * Math.min(1.5, flam) * (1 - smooth(0.35, 0.85, soil)) * (1 + 1.5 * pine) * smooth(0.2, 0.7, V[i]);
+  if (direct) {
+    if (Math.random() < Math.min(1, 0.35 + chance * 2)) { world.fire[i] = 0.7; world.lightningFires = (world.lightningFires || 0) + 1; return true; }
+    return false;
+  }
   if (Math.random() < chance) world.holdovers.push({ i, t: 4 + Math.random() * 20 });
+  return false;
 }
 
 /** Smouldering strikes: once the rain has moved on, those that survived break out into fire. */
@@ -205,8 +217,11 @@ function newStorm(world) {
     });
   }
   const fuel = thunder ? 0.5 + Math.random() * 0.4 : 0.7 + Math.random() * 0.6;
+  // Dry thunderstorms: high-based storms over hot, dry country whose rain evaporates before it lands
+  // but whose lightning still reaches the ground. The classic wildfire starter of dry summers.
+  const dry = thunder && Math.random() < 0.15 + 0.7 * drySeason() + 0.3 * smooth(26, 34, p.seaTemp + (world.seasonT || 0));
   return {
-    x: cx, z: cz, vx: wx * speed, vz: wz * speed, speed, r, lobes, thunder,
+    x: cx, z: cz, vx: wx * speed, vz: wz * speed, speed, r, lobes, thunder, dry,
     fuel, maxFuel: fuel * 1.2,
     peak: thunder ? 1.4 + Math.random() * 0.8 : 0.5 + Math.random() * 0.8,
     age: 0, life: thunder ? 60 + Math.random() * 80 : (N + 2 * r) / speed * (0.7 + Math.random() * 0.5),

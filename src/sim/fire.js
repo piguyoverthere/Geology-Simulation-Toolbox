@@ -13,6 +13,7 @@
 // fades as the vegetation step regrows the land.
 
 import { waterParams } from './water.js';
+import { drySeason } from './climate.js';
 import { FOREST_TYPES, forestTypeAt } from './forests.js';
 
 export const fireParams = {
@@ -22,10 +23,14 @@ export const fireParams = {
   minFuel: 0.12,    // cover below this can't carry fire
 };
 
-/** How readily cover catches: forest (crowns touching) very readily, sparse grass barely. */
+/**
+ * How readily cover catches: forest (crowns touching) very readily; grassland and shrubland
+ * (dry grass, sagebrush) carry a slower, creeping fire; bare ground barely at all.
+ */
 function flammability(v) {
   const t = Math.min(Math.max((v - 0.62) / 0.25, 0), 1);
-  return t * t * (3 - 2 * t) + 0.015 * v;
+  const g = Math.min(Math.max((v - 0.15) / 0.3, 0), 1);
+  return t * t * (3 - 2 * t) + 0.035 * g * g * (3 - 2 * g);
 }
 
 const NEIGHBORS = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
@@ -41,7 +46,9 @@ export function fireStep(world, dt) {
   const globalRain = waterParams.rain > 0.01;
   const LW = world.lastWet, now = world.time, SO = world.soil, PS = world.pineShare;
   // How hard a fire here is to put out: dry soil and pine make it stubborn (1 ≈ ordinary)
-  const resist = (i) => (0.6 + 1.6 * (1 - (SO ? SO[i] : 0.5))) * (1 + 1.5 * (PS ? PS[i] : 0));
+  // A dry summer (with Seasons on and Dry summers set) makes the whole landscape tinder
+  const drought = drySeason();
+  const resist = (i) => (0.6 + 1.6 * (1 - (SO ? SO[i] : 0.5))) * (1 + 1.5 * (PS ? PS[i] : 0)) * (1 + drought);
   const rainingAt = (i) => globalRain || now - LW[i] < 0.5;
   const cells = world.fireCells;
   cells.length = 0;
@@ -83,13 +90,15 @@ export function fireStep(world, dt) {
         const kind = V[j] > 0.62
           ? (world.forestFlam ? world.forestFlam[j] : FOREST_TYPES[forestTypeAt(world, j)].flammability) * (1 - 0.35 * world.forestAge[j])
           : 1;
-        const fuel = flammability(V[j]) * kind;
+        // Grass and shrubs only burn well when they've dried out (cured grass in a dry summer)
+        const grassy = V[j] <= 0.62 ? 0.3 + 0.8 * (1 - (SO ? SO[j] : 0.5)) + 1.5 * drought : 1;
+        const fuel = flammability(V[j]) * kind * grassy;
         const rj = resist(j);
         const damp = (1 - 0.7 * (W ? W[j] : 0)) * (D[j] > 0.05 ? Math.min(1, 0.1 * rj) : 1)
           * (rainingAt(j) ? Math.min(1, 0.3 * rj) : 1) * (0.7 + 0.6 * (1 - (SO ? SO[j] : 0.5)));
         const uphill = 1 + Math.min(2, Math.max(0, H[j] - H[i]) * 1.5);
         const diag = k < 4 ? 1 : 0.7;
-        const chance = hotLava ? 0.5 * fuel : p.spread * dt * heat * fuel * damp * uphill * diag;
+        const chance = hotLava ? 0.5 * fuel : p.spread * dt * heat * fuel * damp * uphill * diag * (1 + 0.8 * drought);
         if (Math.random() < chance) ignite[j] = 1;
       }
     }

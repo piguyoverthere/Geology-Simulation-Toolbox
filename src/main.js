@@ -1,16 +1,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/OrbitControls.js';
 import { World } from './core/world.js';
-import { generateTerrain } from './core/generate.js';
+import { generateTerrain, PRESETS } from './core/generate.js';
 import { generateGeology } from './core/rocks.js';
 import { TerrainRenderer } from './render/terrainRenderer.js';
 import { TOOLS, TOOL_KEYS, History } from './tools/brushes.js';
 import { runDroplets } from './sim/droplet.js';
 import { thermalStep, thermalParams } from './sim/thermal.js';
 import { waterStep, waterParams } from './sim/water.js';
-import { initVegetation, vegetationStep, vegetationParams } from './sim/vegetation.js';
+import { initVegetation, vegetationStep, compositionStep, vegetationParams } from './sim/vegetation.js';
 import { climateParams, seasonParams, advanceSeason, seasonName, updateTemperature, updatePrecip, updateSnow } from './sim/climate.js';
 import { phenologyStep } from './sim/phenology.js';
+import { updateForestComposition } from './sim/species.js';
 import { weatherStep, weatherParams } from './sim/weather.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
@@ -21,7 +22,10 @@ import { landslideCheck, debrisStep, landslideParams } from './sim/landslides.js
 import { faultSettings } from './sim/tectonics.js';
 import { Effects } from './render/effects.js';
 
-const GRID = 256;
+// Map size (cells per side) comes from the URL (?size=384), so changing it reloads the page.
+export const MAP_SIZES = [128, 192, 256, 384, 512];
+const params = new URLSearchParams(location.search);
+const GRID = MAP_SIZES.includes(+params.get('size')) ? +params.get('size') : 256;
 
 class App {
   constructor() {
@@ -49,9 +53,10 @@ class App {
       seaEnabled: false,
       seaLevel: 12,
     };
-    this.gen = { preset: 'mountains', seed: 7 };
+    this.gen = { preset: PRESETS[params.get('preset')] ? params.get('preset') : 'mountains', seed: +params.get('seed') || 7, size: GRID };
 
     this.setupThree();
+    if (PRESETS[this.gen.preset].climate) Object.assign(climateParams, PRESETS[this.gen.preset].climate);
     generateTerrain(this.world, this.gen.preset, this.gen.seed);
     this.renderer = new TerrainRenderer(this.world, this.scene);
     this.effects = new Effects(this.scene, this.world, this.renderer);
@@ -86,26 +91,27 @@ class App {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x9cc4e4);
-    scene.fog = new THREE.Fog(0x9cc4e4, 400, 900);
+    const k = GRID / 256; // camera, fog and shadows scale with the map
+    scene.fog = new THREE.Fog(0x9cc4e4, 400 * k, 900 * k);
     this.scene = scene;
 
-    this.camera = new THREE.PerspectiveCamera(45, 1, 0.5, 3000);
-    this.camera.position.set(190, 170, 220);
+    this.camera = new THREE.PerspectiveCamera(45, 1, 0.5, 3000 * k);
+    this.camera.position.set(190 * k, 170 * k, 220 * k);
 
     this.controls = new OrbitControls(this.camera, gl.domElement);
     this.controls.target.set(0, 15, 0);
     this.controls.enableDamping = true;
     this.controls.maxPolarAngle = Math.PI * 0.49;
     this.controls.minDistance = 20;
-    this.controls.maxDistance = 900;
+    this.controls.maxDistance = 900 * k;
 
     scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x4a3b2a, 1.1));
     const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
-    sun.position.set(-160, 220, 90);
+    sun.position.set(-160 * k, 220 * k, 90 * k);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera;
-    sc.left = -180; sc.right = 180; sc.top = 180; sc.bottom = -180; sc.near = 10; sc.far = 700;
+    sc.left = -180 * k; sc.right = 180 * k; sc.top = 180 * k; sc.bottom = -180 * k; sc.near = 10; sc.far = 700 * k;
     sun.shadow.bias = -0.0005;
     sun.shadow.normalBias = 0.6;
     scene.add(sun);
@@ -157,7 +163,7 @@ class App {
     this.cursor.visible = show;
     if (!show) return;
     const pos = this.cursor.geometry.attributes.position;
-    const small = { spring: 3, inspect: 1.5, erupt: 3, fault: 1.5, draw: 1.2 };
+    const small = { spring: 3, inspect: 1.5, erupt: 3, fault: 1.5, draw: 1.2, lightning: 2 };
     const r = this.tool === 'intrude' && volcanoSettings.intrusion === 'dike' ? 1.5 : small[this.tool] ?? this.brush.radius;
     for (let k = 0; k <= 64; k++) {
       const a = (k / 64) * Math.PI * 2;
@@ -239,6 +245,8 @@ class App {
         if (e.key === 'Backspace') { e.preventDefault(); this.drawings.undoPoint(); return; }
       }
       if (e.key === 'd' && !mod) { this.setTool('draw'); return; }
+      if (e.key === 'l' && !mod) { this.setTool('lightning'); return; }
+      if (e.key === 'f' && !mod) { this.setTool('wildfire'); return; }
       if (e.key === '[') { this.brush.radius = Math.max(2, this.brush.radius - 2); this.toolbox.refresh(); }
       if (e.key === ']') { this.brush.radius = Math.min(60, this.brush.radius + 2); this.toolbox.refresh(); }
       const k = TOOL_KEYS.indexOf(e.key);
@@ -257,7 +265,7 @@ class App {
     const w = this.world;
     const step = 0.5;
     let prevT = 0;
-    for (let t = 0; t < 2500; t += step) {
+    for (let t = 0; t < 2500 * GRID / 256; t += step) {
       const x = origin.x + direction.x * t + off, z = origin.z + direction.z * t + off, y = origin.y + direction.y * t;
       if (x < 0 || z < 0 || x > GRID - 1 || z > GRID - 1) { prevT = t; continue; }
       if (y <= w.sampleHeight(x, z)) {
@@ -297,7 +305,16 @@ class App {
 
   toggleSim() { this.sim.running = !this.sim.running; this.toolbox.refresh(); }
 
+  /** Reload with a different map size, keeping the preset and seed. */
+  setMapSize(size) {
+    const q = new URLSearchParams({ size, preset: this.gen.preset, seed: this.gen.seed });
+    location.search = q.toString();
+  }
+
   generate() {
+    // Some presets come with their own climate (e.g. the Cascades' westerly wind and dry summers)
+    const pc = PRESETS[this.gen.preset]?.climate;
+    if (pc) { Object.assign(this.climateParams, pc); this.toolbox?.refresh(); }
     generateTerrain(this.world, this.gen.preset, this.gen.seed);
     this.history.push(this.world);
     this.applySea();
@@ -333,6 +350,7 @@ class App {
     updatePrecip(this.world);
     updateSnow(this.world, 30); // let the snowpack respond quickly to the new climate
     phenologyStep(this.world);
+    updateForestComposition(this.world); // all of it, so the new climate shows at once
     this.world.dirty = true;
   }
 
@@ -404,8 +422,17 @@ class App {
 
     if (this.sim.running) {
       advanceSeason(dt);
-      if (this.climateParams.storms > 0 || this.world.storms?.length) weatherStep(this.world, this.sim.substeps * this.waterParams.dt);
-      for (let k = 0; k < this.sim.substeps; k++) waterStep(this.world);
+      // Water substeps, within a time budget so big maps stay responsive (the simulation then runs
+      // slower than the Sim speed setting asks for, rather than the frame rate collapsing)
+      const t0 = performance.now();
+      let done = 0;
+      while (done < this.sim.substeps) {
+        waterStep(this.world);
+        done++;
+        if (performance.now() - t0 > 28) break;
+      }
+      this.stepsDone = (this.stepsDone ?? done) * 0.9 + done * 0.1;
+      if (this.climateParams.storms > 0 || this.world.storms?.length || this.world.holdovers?.length) weatherStep(this.world, done * this.waterParams.dt);
       if (this.sim.dropletsPerFrame > 0) runDroplets(this.world, this.sim.dropletsPerFrame);
       // Landslides keep pace with the water: faster sim speed means more relaxation per frame
       if (this.sim.thermal && this.frame % 2 === 0) thermalStep(this.world, null, Math.min(1, 0.25 * this.sim.substeps / 6 * 2));
@@ -417,6 +444,7 @@ class App {
         this.seasonWasOn = seasonParams.enabled;
       }
       // Look for slopes about to fail a few times a second (scaled with sim speed)
+      if (this.frame % 10 === 5 && this.sim.vegetation) compositionStep(this.world);
       if (this.frame % 5 === 0) landslideCheck(this.world, 0.25 * this.sim.substeps / 6);
       // Eruptions, intrusions and faults advance in simulated time, faster at higher sim speed
       const steps = Math.max(1, Math.round(this.sim.substeps / 3));
@@ -442,6 +470,7 @@ class App {
       const s = this.world.stats();
       this.toolbox.setStats(
         `<span>${this.fps.toFixed(0)} fps</span><span>water ${fmt(s.water)}</span>` +
+        (this.stepsDone !== undefined && this.stepsDone < this.sim.substeps - 0.5 ? `<span title="Water steps per frame actually run: the map is too big for the requested sim speed">speed ${this.stepsDone.toFixed(1)}/${this.sim.substeps}</span>` : '') +
         `<span>sediment ${fmt(s.sed)}</span><span class="ero">eroded ${fmt(s.eroded)}</span>` +
         `<span class="dep">deposited ${fmt(s.deposited)}</span><span>springs ${this.world.sources.length}</span>` +
         (this.world.events.length ? `<span class="evt">events ${this.world.events.length}</span>` : '') +

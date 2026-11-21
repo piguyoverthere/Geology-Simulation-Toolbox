@@ -1,6 +1,7 @@
 // Sculpting and simulation brushes. Each tool's `apply` is called every frame while the mouse is
 // held down over the terrain, with the brush centre in grid coordinates.
 
+import { strike } from '../sim/weather.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -12,7 +13,8 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-export function toolKey(id) { return id === 'draw' ? 'D' : TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
+const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F' };
+export function toolKey(id) { return LETTER_KEYS[id] || TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
 
 /** Smooth bell-shaped falloff: 1 at the centre, 0 at the brush edge. */
 function falloff(d, r) {
@@ -168,6 +170,33 @@ export const TOOLS = {
     label: 'Fault', group: 'Tectonics', icon: '⫽', editsTerrain: true, line: true,
     help: 'Drag along a line to break the crust. It slips in a series of earthquakes. Choose normal, reverse or strike-slip in the side panel.',
     place({ world }, a, b) { startFault(world, a, b, faultSettings); },
+  },
+  lightning: {
+    label: 'Lightning', group: 'Weather', icon: 'ϟ', editsTerrain: false, click: true,
+    help: 'Click to call down a lightning strike. In forest it usually starts a fire, most easily in dry woodland, in pine and during a dry summer; in grass or shrubland it starts a slow creeping fire; wet ground, standing water or bare rock won\'t burn.',
+    apply({ world, x, z }) {
+      const N = world.N, i = Math.min(N - 1, Math.max(0, Math.round(z))) * N + Math.min(N - 1, Math.max(0, Math.round(x)));
+      strike(world, i, true);
+    },
+  },
+  wildfire: {
+    label: 'Wildfire', group: 'Weather', icon: '✹', editsTerrain: false,
+    help: 'Paint to set the vegetation alight. Forest burns fast and hot, especially dry pine; grass and shrubland only creep, unless it\'s a dry summer. Wet ground, water and bare rock won\'t burn. Hold Shift to put fires out instead.',
+    apply({ world, x, z, radius, strength, dt, invert }) {
+      const N = world.N, r = Math.max(1.5, radius * 0.5), F = world.fire, V = world.vegetation;
+      const x0 = Math.max(0, Math.floor(x - r)), x1 = Math.min(N - 1, Math.ceil(x + r));
+      const z0 = Math.max(0, Math.floor(z - r)), z1 = Math.min(N - 1, Math.ceil(z + r));
+      for (let zz = z0; zz <= z1; zz++) {
+        for (let xx = x0; xx <= x1; xx++) {
+          if ((xx - x) ** 2 + (zz - z) ** 2 > r * r) continue;
+          const i = zz * N + xx;
+          if (invert) { F[i] = 0; continue; }
+          // A scattering of spot fires that then spread on their own
+          if (F[i] <= 0 && V[i] > 0.15 && world.water[i] < 0.05 && Math.random() < strength * Math.max(dt, 1 / 60) * 6) F[i] = 0.6;
+        }
+      }
+      world.dirty = true;
+    },
   },
   draw: {
     label: 'Draw path / polygon', group: 'View', icon: '✎', editsTerrain: false, draw: true,

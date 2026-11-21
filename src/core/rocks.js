@@ -76,6 +76,11 @@ export function generateGeology(world, preset, seed) {
       const core = fbm(a, x / 110, z / 110, 3) + 0.35 * t;
       if (core > 0.42) p = META;
       if (core > 0.58) p = PLUT;
+      if (preset === 'cascades') {
+        // Columbia River flood basalts east of the range; the volcanoes are stratovolcanoes
+        if (x / N > 0.72) p = VOLC;
+        for (const c of world.cones || []) if (Math.hypot(x - c.x, z - c.z) < c.r * 0.85) p = STRATO;
+      }
       if (preset === 'volcano') {
         const r = Math.hypot(x / N - 0.5, z / N - 0.5);
         if (r < 0.4) p = STRATO;

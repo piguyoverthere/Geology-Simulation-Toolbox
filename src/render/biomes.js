@@ -31,7 +31,7 @@ export function classifyBiome(world, i, slope) {
   const v = world.vegetation[i];
   const soil = world.soil ? world.soil[i] : 0.5;
   const near = world.nearWater ? world.nearWater[i] : 0;
-  const T = world.temperature ? world.temperature[i] : 12;
+  const T = (world.vegTemp || world.temperature) ? (world.vegTemp || world.temperature)[i] : 12;
   if (snowAt(world, i, slope) > 0.5) return 'snow';
   if (T < climateParams.treeLineTemp - 0.5 && v > 0.12) return 'tundra';
   if (v > 0.66) return FOREST_TYPES[forestTypeAt(world, i)].id;

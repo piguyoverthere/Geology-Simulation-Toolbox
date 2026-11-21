@@ -62,6 +62,7 @@ export const vegetationParams = {
   grassBuffer: 10,    // forest keeps roughly 1–2× this many cells away from arid ground (grassland between)
   climate: 1,         // regional wetness multiplier (0 = desert, 1 = normal, 1.5 = rainforest)
   forestWater: 0.38,  // soil moisture a forest needs (drought-hardy species like pine take the driest)
+  adapt: 0.003,       // how fast forests catch up with a changed climate per step (grass 4× faster)
   ageRate: 0.0012,    // forest maturity gained per step (≈ 830 steps from young to old growth)
   ageLoss: 0.03,      // maturity lost per step where cover drops below forest
   ashRecovery: 0.004, // how fast burnt ground recovers per step
@@ -84,11 +85,13 @@ export function initVegetation(world, seed = 1) {
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
       // Wet and dry regions (rain shadows, soil differences) give distinct biome patches
-      world.moisture[z * N + x] = Math.min(1, Math.max(0, 0.5 + 1.15 * fbm(noise, x / 170, z / 170, 3)));
+      const bias = world.moistureBias ? world.moistureBias[z * N + x] : 0; // e.g. a preset's rain shadow
+      world.moisture[z * N + x] = Math.min(1, Math.max(0, 0.5 + bias + 1.15 * (world.moistureBias ? 0.5 : 1) * fbm(noise, x / 170, z / 170, 3)));
     }
   }
   updateNearWater(world);
   updateTemperature(world);
+  world.vegTemp = Float32Array.from(world.temperature); // a new map starts adapted to its climate
   world.vegetation.fill(0);
   updatePrecip(world);
   // A few passes of soil ⇄ vegetation lets the plants' own water use and seed spread settle in
@@ -148,8 +151,14 @@ function neighbourhood(world) {
   const nearArid = boxBlur(boxBlur(arid, N, vegetationParams.grassBuffer), N, vegetationParams.grassBuffer);
   // "Gentle" is relative to this landscape: the slope below which `forestShare` of the land lies
   // (estimated from a fixed sample of cells so it's cheap and stable from step to step)
+  // Only land moist enough for trees counts: a big flat desert elsewhere on the map shouldn't make
+  // the forested hills look steep by comparison
   const sample = [];
-  for (let k = 0; k < 4096; k++) sample.push(standSlope[(k * 2654435761) % (N * N) >>> 0]);
+  for (let k = 0; k < 4096; k++) {
+    const i = (k * 2654435761) % (N * N) >>> 0;
+    if (world.soil[i] >= vegetationParams.aridSoil) sample.push(standSlope[i]);
+  }
+  if (sample.length < 200) for (let k = 0; k < 4096; k++) sample.push(standSlope[(k * 2654435761) % (N * N) >>> 0]);
   sample.sort((a, b) => a - b);
   const p = vegetationParams;
   const gentle = Math.min(p.forestSlopeMax, sample[Math.floor(p.forestShare * (sample.length - 1))]);
@@ -177,7 +186,7 @@ function potential(world, i, f) {
   const steep = 1 - 0.85 * smoothstep(0.6, 1.8, slope);
   // Above the tree line plants get sparser, down to bare ground at the top of the alpine band
   // Too cold above the tree line: plants thin out to bare ground as it gets colder still
-  const T = world.temperature[i], tl = climateParams.treeLineTemp;
+  const T = (world.vegTemp || world.temperature)[i], tl = climateParams.treeLineTemp;
   const alpine = 1 - 0.95 * smoothstep(tl, tl - 7, T);
   // Lakes drown plants; shallow floodwater on a floodplain does not
   const drowned = 1 - smoothstep(1, 3, world.water[i]);
@@ -194,7 +203,8 @@ function potential(world, i, f) {
     // Old forest's deep roots reach water young trees can't, so it survives on drier ground
     * smoothstep(p.forestWater - 0.15 - 0.12 * age, p.forestWater + 0.05 - 0.12 * age, soil)
     * smoothstep(tl, tl + 2.5, T)
-    * (1 - smoothstep(0.005, 0.06, f.nearArid[i]));
+    // (drought-hardy pine woodland is the exception: it runs right up to the steppe)
+    * (1 - smoothstep(0.005, 0.06, f.nearArid[i]) * (1 - 0.8 * dryWood / 0.32));
   v = Math.min(v, 0.58 + 0.42 * forestOk);
   return Math.max(0, Math.min(1, v));
 }
@@ -207,6 +217,8 @@ export function vegetationStep(world) {
   updateTemperature(world);
   updatePrecip(world);
   updateSnow(world, 1, true);
+  adaptTemperature(world);
+  const VT = world.vegTemp;
   // With seasons on, plants grow in the warm season and rest in the cold
   const st = world.seasonT || 0, seasonal = seasonParams.enabled;
   const W = world.nearWater, F = world.freshRock, SO = world.humus;
@@ -226,7 +238,7 @@ export function vegetationStep(world) {
     // age, since mature trees ride out bad years on their reserves
     // (and slower in the cold: a short growing season)
     let rate = target > v
-      ? p.growth * (1 + p.riparianBoost * W[i]) * (0.5 + SO[i]) * (0.25 + 0.75 * smoothstep(-2, 12, world.temperature[i]))
+      ? p.growth * (1 + p.riparianBoost * W[i]) * (0.5 + SO[i]) * (0.25 + 0.75 * smoothstep(-2, 12, VT[i]))
         * (seasonal ? 0.3 + 1.1 * smoothstep(0, 10, world.temperature[i] + st) : 1)
       : p.growth * (1 - 0.75 * age);
     if (burnt > 0) {
@@ -265,8 +277,34 @@ export function vegetationStep(world) {
     world.forestAge[i] = a < 0 ? 0 : a > 1 ? 1 : a;
   }
   P.set(H);
-  updateForestComposition(world);
   world.dirty = true;
+}
+
+/**
+ * Refresh the species mix. It changes slowly, so each call redoes a quarter of the rows; the app
+ * runs it on a different frame from vegetationStep to spread the work.
+ */
+export function compositionStep(world) {
+  world.compPhase = ((world.compPhase || 0) + 1) % 4;
+  updateForestComposition(world, 4, world.compPhase);
+  world.dirty = true;
+}
+
+/**
+ * world.vegTemp: the temperature the plant cover has adapted to. When the climate changes,
+ * vegetation doesn't switch at once: grassland and pioneers respond within years, but an
+ * established forest hangs on for decades to centuries (long-lived trees survive in a climate where
+ * their seedlings no longer would). So biomes, forest types, species mixes and the tree line all
+ * follow this lagging temperature, and drift toward the new climate over a while.
+ */
+function adaptTemperature(world) {
+  const T = world.temperature, n = T.length, V = world.vegetation;
+  if (!world.vegTemp || world.vegTemp.length !== n) { world.vegTemp = Float32Array.from(T); return; }
+  const VT = world.vegTemp, k = vegetationParams.adapt;
+  for (let i = 0; i < n; i++) {
+    const forest = smoothstep(0.45, 0.8, V[i]);
+    VT[i] += (T[i] - VT[i]) * k * (4 - 3 * forest);
+  }
 }
 
 /** world.nearWater: 1 at open water, fading to 0 a few cells away from it. */

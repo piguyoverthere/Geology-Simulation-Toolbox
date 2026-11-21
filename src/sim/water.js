@@ -73,6 +73,8 @@ export function waterStep(world) {
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
       const i = z * N + x, f = i * 8;
+      // A dry cell has nothing to send (most of the map, most of the time): skip the 8 pipes
+      if (D[i] <= 0) { F[f] = F[f + 1] = F[f + 2] = F[f + 3] = F[f + 4] = F[f + 5] = F[f + 6] = F[f + 7] = 0; continue; }
       const hi = B[i] + D[i];
       let total = 0;
       for (let d = 0; d < 8; d++) {

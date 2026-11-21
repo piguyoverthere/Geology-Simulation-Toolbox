@@ -69,7 +69,7 @@ function band(x, lo, hi, soft) {
 
 /** How well each species suits cell i (writes into `out`); returns the total. */
 function suitability(world, i, out) {
-  const T = world.temperature[i];
+  const T = (world.vegTemp || world.temperature)[i]; // the climate the forest has adapted to
   const m = world.soil ? world.soil[i] : 0.5;
   const age = world.forestAge[i];
   const soil = world.humus[i];
@@ -103,7 +103,7 @@ function treeCover(v) { return smooth(0.35, 0.85, v); }
  * Recompute the soil chemistry and the per-cell forest mix: blended colour, flammability and
  * soil-building rate (world.forestColor / forestFlam / forestSoilBuild) and the dominant species.
  */
-export function updateForestComposition(world) {
+export function updateForestComposition(world, stride = 1, phase = 0) {
   const N = world.N, n = N * N, H = world.height, V = world.vegetation;
   if (!world.forestColor) {
     world.forestColor = new Float32Array(n * 3);
@@ -119,7 +119,10 @@ export function updateForestComposition(world) {
   const PS = world.pineShare;
   const DS = world.decid, DC = world.decidColor, AC = world.autumnColor;
   const C = world.forestColor, F = world.forestFlam, B = world.forestSoilBuild, D = world.domSpecies, CH = world.soilChem;
+  // With stride > 1 only every stride-th row is redone (the mix changes slowly, so the map is
+  // refreshed in interleaved passes to spread the cost over several steps)
   for (let i = 0; i < n; i++) {
+    if (stride > 1 && ((i / N) | 0) % stride !== phase) { i += N - 1; continue; }
     CH[i] = world.rocksEnabled ? ROCK_CHEM[world.rockAt(H[i], i)] : 0;
     DS[i] = 0; PS[i] = 0; DC[i * 3] = DC[i * 3 + 1] = DC[i * 3 + 2] = 0; AC[i * 3] = AC[i * 3 + 1] = AC[i * 3 + 2] = 0;
     if (V[i] < 0.3) { D[i] = -1; F[i] = 1; B[i] = 1; continue; }

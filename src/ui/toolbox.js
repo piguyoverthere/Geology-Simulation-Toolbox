@@ -121,7 +121,7 @@ export class Toolbox {
       slider('Climate wetness', app.vegetationParams, 'climate', 0, 1.5, 0.05,
         'Long-term rainfall of the region. Dry it out and forests retreat to grassland, then to bare ground, holding on longest along rivers and lakes.', this),
       slider('Temperature °C', app.climateParams, 'seaTemp', -10, 35, 0.5,
-        'Sea-level temperature. It gets about 0.4 °C colder per unit of height, and sunny slopes are warmer than shady ones. Sets the tree line, which forests grow (tropical jungle when hot and wet, conifers when cold) and whether clouds drop snow or rain.', this, () => app.climateChanged()),
+        'Sea-level temperature. It gets about 0.4 °C colder per unit of height, and sunny slopes are warmer than shady ones. Sets the tree line, which forests grow (tropical jungle when hot and wet, conifers when cold) and whether clouds drop snow or rain. Snow and rain respond at once, but plants shift gradually: grassland within a short while, established forests much more slowly.', this, () => app.climateChanged()),
       slider('Wind direction °', app.climateParams, 'windAngle', 0, 360, 5,
         'Direction the moist prevailing wind blows toward. Slopes facing into it get the most rain and snow; the far side of a range sits in a dry rain shadow. See the Precipitation overlay.', this, () => app.climateChanged()),
       slider('Storms', app.climateParams, 'storms', 0, 4, 0.1,
@@ -130,6 +130,8 @@ export class Toolbox {
         'How often thunderstorms (warm weather only) throw lightning. Strikes can start wildfires, most easily in dry woodland and pine; fires there are also much harder for rain to put out.', this),
       toggle('Seasons', app.seasonParams, 'enabled',
         'Cycle through spring, summer, autumn and winter. Winter storms build up snow that melts in spring and swells the rivers. Deciduous trees turn colour in autumn (birch and aspen yellow, maple red and orange, oak brown), from the high slopes down to the valleys, drop their leaves, and come back fresh green in spring. Exposed ridges turn first; sheltered valleys last.', this, () => app.climateChanged()),
+      slider('Dry summers', app.climateParams, 'summerDry', 0, 1, 0.05,
+        'With Seasons on: how much of the year\'s rain comes from autumn to spring instead of summer. High values give a Mediterranean-type climate like the Pacific Northwest: wet, stormy winters that build the snowpack, and dry summers with fewer storms and a wildfire season. The Cascade Range preset sets this.', this),
       slider('Season speed', app.seasonParams, 'speed', 0.1, 6, 0.1,
         'Years per minute of real time (while the simulation runs).', this),
       slider('Season swing °C', app.seasonParams, 'swing', 0, 20, 0.5,
@@ -174,6 +176,9 @@ export class Toolbox {
 
     // --- Terrain -----------------------------------------------------------------------------
     const ter = this.section('Terrain', false);
+    ter.append(select('Map size', Object.fromEntries([128, 192, 256, 384, 512].map((n) => [n, `${n} × ${n}${n > 256 ? ' (slower)' : n < 256 ? ' (faster)' : ''}`])),
+      app.gen, 'size', 'Cells per side. A bigger map shows more land at the same detail but takes more work every frame (512 is 4× the work of 256). Changing it starts a new map with the current preset and seed.', this,
+      () => app.setMapSize(app.gen.size)));
     const presetSel = select('Preset', Object.fromEntries(Object.entries(PRESETS).map(([k, v]) => [k, v.label])),
       app.gen, 'preset', 'Starting landscape for the simulation.', this);
     const seed = numberInput('Seed', app.gen, 'seed', 'Random seed. Same seed + preset = same terrain.', this);

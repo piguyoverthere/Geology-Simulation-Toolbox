@@ -68,8 +68,10 @@ export class Effects {
   }
 
   /** Lightning: a jagged bolt from the cloud base to the ground for a moment, and a flash. */
-  updateLightning() {
+  updateLightning(dt) {
     const w = this.world, strikes = w.strikes || [];
+    // Bolts flash in real time (also while paused), then are forgotten
+    for (let k = strikes.length - 1; k >= 0; k--) if ((strikes[k].age += dt) > 1) strikes.splice(k, 1);
     const { BOLTS, SEG } = this.boltCap;
     const pos = this.bolts.geometry.attributes.position;
     let k = 0, flash = 0;
@@ -108,7 +110,7 @@ export class Effects {
   updateStorms(dt) {
     const w = this.world, show = this.renderer.showClouds;
     this.time += dt;
-    this.updateLightning();
+    this.updateLightning(dt);
     const layers = [this.stormCloud, this.thunderCloud, this.rain, this.snowfall];
     for (const l of layers) l.points.visible = show;
     const storms = w.storms || [];
@@ -143,7 +145,9 @@ export class Effects {
         if (hash(st.seed + j * 4.3) > intensityAt(st, x, z)) continue; // only where it's raining
         const i = clampCell(x, N) + clampCell(z, N) * N;
         const ground = w.height[i] + w.water[i];
-        const top = Math.max(base, ground + 2), range = top - ground;
+        const top = Math.max(base, ground + 2);
+        // Virga: a dry storm's rain evaporates partway down and never reaches the ground
+        const range = (top - ground) * (st.dry ? 0.45 : 1);
         const isSnow = hash(st.seed + j * 1.91) < st.snow;
         const fall = isSnow ? 3 : 22;
         const y = top - ((t * fall + hash(st.seed + j * 9.7) * range) % range);

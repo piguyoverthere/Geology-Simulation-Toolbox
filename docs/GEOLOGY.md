@@ -406,12 +406,47 @@ pine make that far more likely.
 flare up again, and resinous pine burns hot and long. So rain or standing water quenches a fire in
 a damp broadleaf forest quickly but barely slows one in a dry pine wood.
 
+**Dry summers and dry lightning.** With **Dry summers** up (the Cascade Range preset sets it),
+storms come mostly from autumn to spring, like the Pacific Northwest, where the winter storm track
+brings months of rain and mountain snow and a summer high-pressure ridge shuts it off. Late summer
+then becomes fire season: everything burns more readily and is harder to put out. Thunderstorms in
+dry, hot weather are often *dry*: their cloud base is so high that the rain evaporates on the way
+down (*virga*, the streaks that fade before reaching the ground), but their lightning still strikes.
+Fire also creeps slowly through grass and shrubland. In normal conditions such fires usually die
+out, but in a dry summer they keep spreading.
+
+**Biomes change gradually.** Snow and rain respond to a new temperature at once, but plants don't.
+Grass and pioneers adjust within a few years. Established forest hangs on for decades to
+centuries, because long-lived trees survive in a climate where their seedlings no longer could.
+So biomes, forest types, species and the tree line follow a lagging "adapted" temperature that
+drifts toward the new climate, slowly under forest and about 4× faster elsewhere.
+
 **Regional evaporation.** The **Evaporation** slider is the overall rate. Each spot evaporates
 faster in warm air, in direct sun and on bare ground, and slower in shaded valley bottoms and under
 forest (canopy shade and damp, still air). This also dries the soil a little on sunny, bare slopes.
 **Inspect** shows each spot's rate.
 
 ---
+
+## Cascade Range preset
+
+A simplified Cascade Range of Washington, with the prevailing westerlies blowing in off the
+Pacific:
+
+- **West: the Puget lowland.** Low, wet and mild, under fir (Douglas fir and hemlock in reality)
+  with broadleaf patches.
+- **The range.** North–south across the middle. The far north is a dense cluster of rugged, glaciated
+  peaks (the North Cascades, granite and gneiss). A little south of the middle, a low pass crosses
+  it, like Snoqualmie Pass, where I-90 crosses at only about 900 m. To the south is a medium-height
+  forested range topped by isolated stratovolcanoes standing far above it (Rainier, Adams, St Helens;
+  Glacier Peak in the north).
+- **East: the rain shadow.** The air has dropped its water on the west slopes, so the east side dries
+  out quickly. Pine woodland (ponderosa pine in reality) grows right up to the edge of the
+  shrub-steppe, then comes juniper and shrubland, and finally the dry basalt plateau of the
+  Columbia flood basalts.
+
+On a 512 map: about 60–75% forest in the west, pine leading the east slopes, and desert or
+shrub-steppe over most of the far east.
 
 ## 8. Biomes
 

@@ -168,6 +168,13 @@ export class TerrainRenderer {
     const sea = w.seaLevel;
     const LV = w.lava, LT = w.lavaTemp, FI = w.fire;
     let anyLava = false;
+    // Colouring is the expensive part. On big maps recolour an interleaved share of the rows each
+    // frame (the full map every few frames); heights, normals and water still update every frame.
+    const stride = Math.min(4, Math.ceil((N * N) / 70000));
+    const allColor = force || stride === 1 || mode !== this.lastMode || this.showVegetation !== this.lastVeg;
+    this.lastMode = mode; this.lastVeg = this.showVegetation;
+    this.colorPhase = ((this.colorPhase || 0) + 1) % stride;
+    const phase = this.colorPhase;
 
     for (let z = 0; z < N; z++) {
       for (let x = 0; x < N; x++) {
@@ -187,8 +194,10 @@ export class TerrainRenderer {
 
         const slope = 1 - ny; // 0 = flat, ~0.3 = 45°
         const tan = Math.sqrt((hl - hr) * (hl - hr) + (hu - hd) * (hu - hd)) * 0.5; // rise/run
-        let col;
-        if (mode === 'change') {
+        let col = null;
+        if (!allColor && z % stride !== phase) {
+          // this row is recoloured on another frame
+        } else if (mode === 'change') {
           const d = h - BASE[i];
           const t = Math.min(1, Math.abs(d) / 4);
           col = shade(mix(C.neutral, d < 0 ? C.eroded : C.deposited, t, S3), 0.75 + 0.25 * ny, S3);
@@ -244,7 +253,7 @@ export class TerrainRenderer {
           col = this.naturalColor(h, slope, tan, h - BASE[i], D[i], i);
         }
         // Palette is authored in sRGB; vertex colours are linear, so square to approximate the conversion
-        this.tCol[i3] = col[0] * col[0]; this.tCol[i3 + 1] = col[1] * col[1]; this.tCol[i3 + 2] = col[2] * col[2];
+        if (col) { this.tCol[i3] = col[0] * col[0]; this.tCol[i3 + 1] = col[1] * col[1]; this.tCol[i3 + 2] = col[2] * col[2]; }
 
         // Lava and fire layer: alpha 1 where present, 0 (discarded) elsewhere
         const l4 = i * 4;
@@ -391,7 +400,7 @@ export class TerrainRenderer {
       : mix(low, shade(this.forestMix(w, i), 1.1 - 0.25 * w.forestAge[i] * (1 - (w.autumn ? w.autumn[i] : 0)), S4),
         Math.max(smooth(0.55, 0.8, v), w.autumn && w.decid ? w.autumn[i] * Math.min(1, w.decid[i] * 1.5) * smooth(0.45, 0.65, v) : 0), S3);
     // Tundra where it's too cold for trees
-    const T = w.temperature[i], tl = climateParams.treeLineTemp;
+    const T = (w.vegTemp || w.temperature)[i], tl = climateParams.treeLineTemp;
     if (T < tl + 1) mix(col, C.tundra, smooth(tl + 1, tl - 3, T) * smooth(0.08, 0.3, v) * 0.85, col);
     // Wetlands on flat, waterlogged ground beside rivers and lakes
     const marsh = smooth(0.4, 0.8, near) * smooth(0.65, 0.85, soil) * (1 - smooth(0.15, 0.35, tan)) * smooth(0.3, 0.5, v);
