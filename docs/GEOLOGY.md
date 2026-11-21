@@ -357,6 +357,62 @@ pools in cool, damp valley bottoms, and a thin high-cloud layer drifts above the
 
 ---
 
+### Seasons, storms and lightning (`src/sim/climate.js`, `phenology.js`, `weather.js`)
+
+**Seasons** (**Water & climate → Seasons**, with **Season speed** in years per minute and
+**Season swing**). Temperature swings around its yearly average, warmest a little after midsummer
+and coldest a little after midwinter, because land and sea take time to warm and cool. The yearly
+average still decides what can live where; today's temperature decides rain vs snow, melting,
+evaporation and what the leaves are doing. Plants grow in the warm season and rest in the cold.
+
+**Leaves.** Deciduous trees take their cue from shortening days and cooling nights. Their leaves
+stop making chlorophyll and show their other pigments, then drop:
+
+| Tree | Autumn colour | Why |
+| --- | --- | --- |
+| Birch, aspen, larch | yellow / gold | carotenoids, always present but hidden by green |
+| Maple | red to orange | anthocyanins, made fresh in autumn from leftover sugar |
+| Oak | russet brown | tannins |
+| Beech | copper | carotenoids and tannins |
+| Alder & willow | dull yellow-green | they drop their leaves still half green |
+
+The colder a place's climate, the earlier autumn comes (about two days per °C), so the colour starts
+on the high slopes and sweeps down the mountains, and spring leaf-out climbs back up. Exposed
+ridges (cold wind, clear frosty nights) turn and drop first; sheltered valley floors count as up to
+3 °C warmer and turn last. On the mountains map, at mid-height ridges were 51% turned when
+valley floors at the same height were 28%. The effect is strongest where the forest is mostly
+deciduous (**Overlays → Deciduous trees**). Pine, fir and spruce forests barely change. Where winters stay mild, trees keep their leaves.
+New spring leaves and grass are a bright pale green for a few weeks. Grass browns to straw in
+winter. Under leafless trees, winter snow shows on the forest floor.
+
+**Storms.** Rain comes in storms rather than evenly everywhere (**Storms** slider). Each storm is a
+ragged cluster of rain cells drifting with the wind, with heavier and lighter bands moving through
+it, and it rains hardest where its air is forced up windward slopes. A storm carries a limited
+store of water vapour. Rain uses it up, fastest over mountains, so storms weaken as they cross a
+range and die out beyond it: the **rain shadow**. Crossing the sea or a lake recharges them. Storm
+rain goes straight into the rivers.
+
+**Snowpack and the spring flood.** In winter, storm after storm drops snow (decided by the
+temperature at the cloud base), building the pack up on the mountains. In spring it melts, and
+the meltwater runs off into the streams, so the rivers run highest in late winter and spring.
+
+**Thunderstorms and lightning.** Warm weather makes the air near the ground buoyant, so storms grow
+into towering, compact thunderstorms: short-lived, with downpours and lightning (**Lightning**
+slider). Lightning favours high ground and trees. A strike in forest often smoulders in a snag or
+the leaf litter (a *holdover* fire) and breaks out only after the rain has moved on. Dry soil and
+pine make that far more likely.
+
+**Fires are harder to put out where it's dry.** Parched soil and dry litter keep smouldering and
+flare up again, and resinous pine burns hot and long. So rain or standing water quenches a fire in
+a damp broadleaf forest quickly but barely slows one in a dry pine wood.
+
+**Regional evaporation.** The **Evaporation** slider is the overall rate. Each spot evaporates
+faster in warm air, in direct sun and on bare ground, and slower in shaded valley bottoms and under
+forest (canopy shade and damp, still air). This also dries the soil a little on sunny, bare slopes.
+**Inspect** shows each spot's rate.
+
+---
+
 ## 8. Biomes
 
 Plant cover, soil water, slope and height together decide what the surface looks like:

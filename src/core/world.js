@@ -154,6 +154,8 @@ export class World {
     this.intrusionRock.fill(-1); this.intrusionTop.fill(-Infinity);
     this.strataWarp.set(this.strataWarp0);
     this.events.length = 0; this.faults.length = 0; this.quake = 0;
+    if (this.storms) this.storms.length = 0;
+    if (this.holdovers) this.holdovers.length = 0;
     this.dirty = true;
   }
 

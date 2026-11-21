@@ -47,7 +47,8 @@ export class Inspector {
     const rows = [
       ['Altitude', `${h.toFixed(1)}${sea ? ` <span class="ins-dim">(${(h - w.seaLevel) >= 0 ? '+' : ''}${(h - w.seaLevel).toFixed(1)} vs sea)</span>` : ''}`],
       ['Slope', `${(Math.atan(slope) * 180 / Math.PI).toFixed(0)}°`],
-      ['Temperature', `${w.temperature[i].toFixed(1)} °C`],
+      ['Temperature', w.seasonT ? `${(w.temperature[i] + w.seasonT).toFixed(1)} °C <span class="ins-dim">· year avg ${w.temperature[i].toFixed(1)}</span>` : `${w.temperature[i].toFixed(1)} °C`],
+      ['Evaporation', `${bar(Math.min(1, (w.evapRate ? w.evapRate[i] : 1) / 2), '#e0a24f')} <span class="ins-dim">×${(w.evapRate ? w.evapRate[i] : 1).toFixed(2)}</span>`],
       ['Cloud base', w.cloudBase ? `${(w.cloudBase[i] - h).toFixed(1)} above · ${cloudTempAt(w, i).toFixed(1)} °C` : '—'],
       ['Precipitation', `${bar(w.precip ? w.precip[i] : 0, '#4f8ce0')} <span class="ins-dim">${cloudTempAt(w, i) < 0 ? 'snow' : 'rain'}</span>`],
       ...(w.snow && w.snow[i] > 0.01 ? [['Snow depth', `${w.snow[i].toFixed(2)} <span class="ins-dim">· covers ${Math.round(snowAt(w, i, slope) * 100)}%</span>`]] : []),
@@ -60,6 +61,7 @@ export class Inspector {
       ['Plant cover', `${bar(v, '#4caf50')} <span class="ins-dim">${cover}</span>`],
       ...(v > 0.6 ? [['Forest age', `${bar(w.forestAge[i], '#2e7d32')} <span class="ins-dim">${w.forestAge[i] > 0.75 ? 'old growth' : w.forestAge[i] > 0.35 ? 'mature' : 'young'}</span>`]] : []),
       ...(v > 0.3 ? [['Forest mix', compositionAt(w, i).slice(0, 4).map((s) => `<div><span class="tb-swatch ins-swatch" style="background:${rgb(s.color)}"></span>${s.label} ${Math.round(s.share * 100)}%</div>`).join('')]] : []),
+      ...(w.leafOn && w.decid && w.decid[i] > 0.02 && w.seasonT !== undefined && w.flush ? [['Leaves', leafLabel(w, i)]] : []),
       ['Soil depth', bar(w.humus[i], '#8a6a45')],
       ['Soil chemistry', chemLabel(w.soilChem ? w.soilChem[i] : 0)],
       ['Bare rock', bar(w.bareExposure(i, slope), '#b0a090')],
@@ -115,4 +117,12 @@ function fmtTime(s) {
   if (s < 60) return `${s.toFixed(0)} s`;
   if (s < 3600) return `${(s / 60).toFixed(1)} min`;
   return `${(s / 3600).toFixed(1)} h`;
+}
+
+/** Deciduous canopy state: in leaf / turning / bare / fresh spring leaves. */
+function leafLabel(w, i) {
+  const L = w.leafOn[i], a = w.autumn[i], f = w.flush[i], d = Math.round(w.decid[i] * 100);
+  const state = L < 0.15 ? 'bare (leaves fallen)' : a > 0.15 ? `turning ${Math.round(a * 100)}%` + (L < 0.85 ? ', falling' : '')
+    : f > 0.25 ? 'fresh spring leaves' : L < 0.85 ? 'leafing out' : 'in leaf';
+  return `${state} <span class="ins-dim">· ${d}% deciduous</span>`;
 }

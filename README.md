@@ -66,9 +66,14 @@ and how much it has been eroded or built up since the baseline.
 - **Water & climate**: sim speed, global rain, evaporation, plant growth, climate wetness, and
   **Temperature** (sea-level °C), which sets the tree line, forest types and whether clouds drop
   snow or rain, and **Wind direction**, which decides where clouds form (windward slopes wet, rain
-  shadows dry).
+  shadows dry), **Storms** (ragged rain/snow storms drifting downwind that run out of moisture
+  beyond mountain ranges; thunderstorms in warm weather), **Lightning** (strikes can start
+  wildfires, worst in dry pine woods), **Seasons** with **Season speed** and **Season swing** (winter
+  snowpack, spring meltwater floods, autumn colours sweeping down from the high slopes: birch and
+  aspen yellow, maple red-orange, oak brown) and regional **Evaporation** (faster in sun, heat and on
+  bare ground; slower in shaded valleys and under forest).
 - **Overlays**: colour the map by one data layer (biomes, vegetation, tree species, forest age,
-  temperature, precipitation, snow depth, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
+  temperature, precipitation, snow depth, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
 - **Terrain**: presets (hills, mountains, plateau, volcano, flat), seed, undo/redo, PNG
@@ -96,7 +101,9 @@ src/sim/droplet.js      Particle raindrop erosion (long-term weathering, gullies
 src/sim/thermal.js      Thermal erosion / mass wasting (slopes relax to the angle of repose)
 src/sim/vegetation.js   Forest / grassland / barren cover that grows, dies and protects soil
 src/sim/volcanism.js    Eruptions, lava flow and cooling, ash fall, plutons and dikes
-src/sim/climate.js      Temperature (height, sun exposure) and snow cover
+src/sim/climate.js      Temperature (height, sun, seasons), clouds, precipitation, evaporation, snowpack
+src/sim/weather.js      Storms, thunderstorms and lightning
+src/sim/phenology.js    Seasonal leaves: autumn colour, leaf fall, spring flush
 src/sim/species.js      Tree species, their preferences, and each cell's forest mix
 src/sim/forests.js      Forest types (jungle, tropical dry, temperate rainforest, broadleaf, conifer, dry woodland, swamp)
 src/sim/fire.js         Wildfire: ignition by lava, spread through vegetation, burn scars

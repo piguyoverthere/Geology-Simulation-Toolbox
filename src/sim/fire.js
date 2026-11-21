@@ -3,7 +3,10 @@
 // Lava is around 1000 °C, so any vegetation it touches catches fire. Fire then spreads from plant
 // to plant: dense forest carries a fast, intense fire (lots of fuel, crowns touching), grassland a
 // slower one, and bare ground stops it. Fire runs faster uphill (flames lean into the slope and
-// pre-heat the fuel above) and is damped by wet ground, open water and rain. Burnt ground is left
+// pre-heat the fuel above) and is damped by wet ground, open water and rain (the global rain or a
+// storm passing overhead). Fire in dry country is much harder to put out: parched soil and dry
+// litter keep smouldering and flare up again, and resinous pine burns hot and long. So rain and
+// water quench a fire in a damp broadleaf forest quickly, but barely slow one in a dry pine wood. Burnt ground is left
 // barren and ash-covered; plants return more slowly while the ash and charred soil recover.
 //
 // world.fire is the fire intensity per cell (0 = not burning); world.burnt (1 = freshly burnt)
@@ -35,7 +38,11 @@ export function fireStep(world, dt) {
   const B = world.burnt, D = world.water, W = world.nearWater;
   if (!ignite || ignite.length !== n) ignite = new Uint8Array(n);
   const p = fireParams;
-  const raining = waterParams.rain > 0.01;
+  const globalRain = waterParams.rain > 0.01;
+  const LW = world.lastWet, now = world.time, SO = world.soil, PS = world.pineShare;
+  // How hard a fire here is to put out: dry soil and pine make it stubborn (1 ≈ ordinary)
+  const resist = (i) => (0.6 + 1.6 * (1 - (SO ? SO[i] : 0.5))) * (1 + 1.5 * (PS ? PS[i] : 0));
+  const rainingAt = (i) => globalRain || now - LW[i] < 0.5;
   const cells = world.fireCells;
   cells.length = 0;
   let any = false;
@@ -50,8 +57,8 @@ export function fireStep(world, dt) {
       if (F[i] > 0) {
         // Standing water puts fire out quickly, rain more slowly; otherwise intensity builds up to
         // what the fuel can sustain (a grass fire never gets as hot as a crown fire)
-        if (D[i] > 0.05) F[i] -= dt * 6;
-        else if (raining) F[i] -= dt * 1.2;
+        if (D[i] > 0.05) F[i] -= (dt * 6) / resist(i);
+        else if (rainingAt(i)) F[i] -= (dt * 1.2) / resist(i);
         else F[i] = Math.min(Math.min(1, 0.2 + V[i] * 1.2), F[i] + dt * 2);
         V[i] -= p.burnRate * dt * F[i];
         if (V[i] <= 0.03 || F[i] < 0.05) {
@@ -77,7 +84,9 @@ export function fireStep(world, dt) {
           ? (world.forestFlam ? world.forestFlam[j] : FOREST_TYPES[forestTypeAt(world, j)].flammability) * (1 - 0.35 * world.forestAge[j])
           : 1;
         const fuel = flammability(V[j]) * kind;
-        const damp = (1 - 0.7 * (W ? W[j] : 0)) * (D[j] > 0.05 ? 0.1 : 1) * (raining ? 0.3 : 1);
+        const rj = resist(j);
+        const damp = (1 - 0.7 * (W ? W[j] : 0)) * (D[j] > 0.05 ? Math.min(1, 0.1 * rj) : 1)
+          * (rainingAt(j) ? Math.min(1, 0.3 * rj) : 1) * (0.7 + 0.6 * (1 - (SO ? SO[j] : 0.5)));
         const uphill = 1 + Math.min(2, Math.max(0, H[j] - H[i]) * 1.5);
         const diag = k < 4 ? 1 : 0.7;
         const chance = hotLava ? 0.5 * fuel : p.spread * dt * heat * fuel * damp * uphill * diag;

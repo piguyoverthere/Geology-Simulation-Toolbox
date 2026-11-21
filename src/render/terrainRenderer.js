@@ -40,6 +40,7 @@ export const OVERLAYS = {
   temp: 'Temperature',
   precip: 'Precipitation',
   snowDepth: 'Snow depth',
+  decid: 'Deciduous trees',
   rock: 'Rock type',
   hardness: 'Rock hardness',
   change: 'Erosion / deposition',
@@ -229,8 +230,13 @@ export class TerrainRenderer {
         } else if (mode === 'snowDepth') {
           const d = w.snow ? w.snow[i] : 0;
           col = shade(d < 0.02 ? NO_SNOW : d < 1.5 ? mix(SNOW_THIN, SNOW_MID, d / 1.5, S3) : mix(SNOW_MID, SNOW_DEEP, Math.min(1, (d - 1.5) / 3), S3), 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'decid') {
+          // Share of the ground under deciduous trees (the ones that change colour and drop leaves)
+          const d = w.decid ? w.decid[i] : 0;
+          col = shade(w.vegetation[i] > 0.3 ? mix(DECID_NONE, DECID_FULL, Math.min(1, d / 0.8), S3) : NO_FOREST, 0.75 + 0.25 * ny, S3);
         } else if (mode === 'temp') {
-          col = shade(tempColor(w.temperature[i], S3), 0.75 + 0.25 * ny, S3);
+          // Today's temperature (annual mean + season)
+          col = shade(tempColor(w.temperature[i] + (w.seasonT || 0), S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'slope') {
           const t = Math.min(1, slope / 0.35);
           col = mix(SLOPE_LO, SLOPE_HI, t, S3);
@@ -317,6 +323,22 @@ export class TerrainRenderer {
     const c = w.forestColor;
     if (!c) return forestColor(w, i, S4);
     S4[0] = c[i * 3]; S4[1] = c[i * 3 + 1]; S4[2] = c[i * 3 + 2];
+    // Seasons: the deciduous part of the canopy turns its autumn colours, then drops to bare twigs,
+    // and comes back fresh green in spring. Evergreens just get a little spring flush.
+    if (!w.leafOn) return S4;
+    const d = w.decid ? w.decid[i] : 0;
+    if (d > 0.005) {
+      const L = w.leafOn[i], a = w.autumn[i], DC = w.decidColor, AC = w.autumnColor, i3 = i * 3;
+      // Autumn colour is boosted so it reads through the open ground and evergreens mixed in
+      const boost = 1 + 0.9 * Math.min(1, d * 1.4);
+      for (let k = 0; k < 3; k++) {
+        const leaves = DC[i3 + k] + (AC[i3 + k] - DC[i3 + k]) * a * boost;
+        const v = S4[k] + L * leaves + (1 - L) * d * TWIGS[k] - DC[i3 + k];
+        S4[k] = v < 0 ? 0 : v > 1 ? 1 : v;
+      }
+    }
+    const f = w.flush[i];
+    if (f > 0.01) mix(S4, FLUSH, f * (0.18 + 0.4 * Math.min(1, (w.decid ? w.decid[i] : 0) * 1.5)), S4);
     return S4;
   }
 
@@ -355,10 +377,19 @@ export class TerrainRenderer {
     if (mesa > 0) shade(mix(bare, C.mesa, mesa, bare), 1 - 0.14 * mesa * (0.5 + 0.5 * Math.sin(h * 1.7)), bare);
     // Sparse cover: green grass on moist ground, olive scrub as it dries
     const low = mix(C.grass, C.shrub, 1 - smooth(0.28, 0.42, soil), S2);
+    // Seasons: grass goes dormant (straw) in the cold and greens up brightly in spring
+    if (w.leafOn) {
+      const L = w.leafOn[i];
+      if (L < 0.99) mix(low, STRAW, 0.7 * (1 - L), low);
+      const f = w.flush[i];
+      if (f > 0.01) mix(low, FLUSH, 0.45 * f, low);
+    }
     // Forests take the colour of whichever type suits the spot (blended at the borders)
     const col = v < 0.5 ? mix(bare, low, smooth(0.12, 0.42, v), S3)
       // Old-growth forest is darker and denser than young regrowth
-      : mix(low, shade(this.forestMix(w, i), 1.1 - 0.25 * w.forestAge[i], S4), smooth(0.55, 0.8, v), S3);
+      // (turning leaves show even where the canopy is a little thinner)
+      : mix(low, shade(this.forestMix(w, i), 1.1 - 0.25 * w.forestAge[i] * (1 - (w.autumn ? w.autumn[i] : 0)), S4),
+        Math.max(smooth(0.55, 0.8, v), w.autumn && w.decid ? w.autumn[i] * Math.min(1, w.decid[i] * 1.5) * smooth(0.45, 0.65, v) : 0), S3);
     // Tundra where it's too cold for trees
     const T = w.temperature[i], tl = climateParams.treeLineTemp;
     if (T < tl + 1) mix(col, C.tundra, smooth(tl + 1, tl - 3, T) * smooth(0.08, 0.3, v) * 0.85, col);
@@ -407,6 +438,8 @@ const CHEM_ACID = [0.55, 0.30, 0.62], CHEM_NEUTRAL = [0.88, 0.86, 0.80], CHEM_AL
 const HARD_SOFT = [0.98, 0.84, 0.36], HARD_MID = [0.86, 0.45, 0.24], HARD_HARD = [0.16, 0.20, 0.44];
 const PRECIP_DRY = [0.86, 0.74, 0.52], PRECIP_WET = [0.12, 0.35, 0.75];
 const NO_SNOW = [0.55, 0.53, 0.48], SNOW_THIN = [0.88, 0.92, 0.98], SNOW_MID = [0.55, 0.72, 0.95], SNOW_DEEP = [0.18, 0.30, 0.75];
+const DECID_NONE = [0.10, 0.32, 0.22], DECID_FULL = [0.95, 0.60, 0.12];
+const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.64, 0.40];
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 

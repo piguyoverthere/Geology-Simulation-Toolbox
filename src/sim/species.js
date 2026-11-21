@@ -12,6 +12,10 @@
 //                    nutrient-poor soil (pine, spruce, birch); limestone and marble into alkaline soil
 //                    (beech, juniper); basalt into fertile, base-rich soil (maple, beech)
 //
+// Deciduous species (larch, birch, aspen, oak, beech, maple, alder & willow) carry an `autumn`
+// colour: what their leaves turn before they fall (maple varies from red to orange, `autumn2`).
+// See sim/phenology.js for when that happens.
+//
 // Each cell gets a share for every species, plus "open" ground (gaps, meadow, scrub) where the
 // canopy is thin. The mix sets the forest's colour, how readily it burns and how fast it builds soil.
 
@@ -29,19 +33,19 @@ export const SPECIES = [
     help: 'Fir and hemlock of wet, cool mid-to-high mountain slopes. Shade-tolerant, so it thickens as the forest ages.' },
   { id: 'spruce', label: 'Spruce', color: [0.08, 0.19, 0.17], mapColor: [0.40, 0.28, 0.65], temp: [-6, 9], moist: [0.5, 1.05], age: 0.6, ageW: 0.6, soil: 'any', slope: 0.9, chem: -0.6, chemW: 1.2, flam: 1.4, soilBuild: 0.7,
     help: 'Cold-climate conifer of the boreal forest on acidic soil.' },
-  { id: 'larch', label: 'Larch', color: [0.40, 0.50, 0.22], mapColor: [0.88, 0.76, 0.22], temp: [-8, 6], moist: [0.35, 0.85], age: 0.1, ageW: 0.7, soil: 'any', slope: 1.1, chem: -0.3, chemW: 1.6, flam: 0.9, soilBuild: 0.9,
+  { id: 'larch', label: 'Larch', autumn: [0.82, 0.62, 0.16], color: [0.40, 0.50, 0.22], mapColor: [0.88, 0.76, 0.22], temp: [-8, 6], moist: [0.35, 0.85], age: 0.1, ageW: 0.7, soil: 'any', slope: 1.1, chem: -0.3, chemW: 1.6, flam: 0.9, soilBuild: 0.9,
     help: 'Deciduous conifer of the coldest forests near the tree line; a pioneer on open ground.' },
-  { id: 'birch', label: 'Birch', color: [0.47, 0.60, 0.28], mapColor: [0.96, 0.92, 0.78], temp: [-4, 15], moist: [0.45, 0.95], age: 0.1, ageW: 0.8, soil: 'any', slope: 0.9, chem: -0.5, chemW: 1.4, flam: 0.8, soilBuild: 1.2,
+  { id: 'birch', label: 'Birch', autumn: [0.90, 0.76, 0.14], color: [0.47, 0.60, 0.28], mapColor: [0.96, 0.92, 0.78], temp: [-4, 15], moist: [0.45, 0.95], age: 0.1, ageW: 0.8, soil: 'any', slope: 0.9, chem: -0.5, chemW: 1.4, flam: 0.8, soilBuild: 1.2,
     help: 'Pioneer broadleaf of cool climates: quickly fills clearings, then gives way to longer-lived trees.' },
-  { id: 'aspen', label: 'Aspen', color: [0.50, 0.64, 0.28], mapColor: [0.95, 0.55, 0.85], temp: [-8, 22], moist: [0.25, 1.0], age: 0, ageW: 1.1, youngBoost: 0.6, soil: 'any', slope: 1.2, chem: 0, chemW: 2.5, flam: 0.5, soilBuild: 1.3,
+  { id: 'aspen', label: 'Aspen', autumn: [0.95, 0.70, 0.08], color: [0.50, 0.64, 0.28], mapColor: [0.95, 0.55, 0.85], temp: [-8, 22], moist: [0.25, 1.0], age: 0, ageW: 1.1, youngBoost: 0.6, soil: 'any', slope: 1.2, chem: 0, chemW: 2.5, flam: 0.5, soilBuild: 1.3,
     help: 'Fast pioneer that sprouts in every young forest (often from root suckers after fire), then is shaded out as longer-lived trees take over.' },
-  { id: 'oak', label: 'Oak', color: [0.21, 0.36, 0.13], mapColor: [0.55, 0.35, 0.15], temp: [11, 24], moist: [0.45, 0.85], age: 0.6, ageW: 0.5, soil: 'any', slope: 0.9, chem: -0.2, chemW: 1.5, flam: 1.0, soilBuild: 1.2,
+  { id: 'oak', label: 'Oak', autumn: [0.56, 0.33, 0.12], color: [0.21, 0.36, 0.13], mapColor: [0.55, 0.35, 0.15], temp: [11, 24], moist: [0.45, 0.85], age: 0.6, ageW: 0.5, soil: 'any', slope: 0.9, chem: -0.2, chemW: 1.5, flam: 1.0, soilBuild: 1.2,
     help: 'Long-lived broadleaf of warm temperate forests; tolerates moderately dry and acidic soil.' },
-  { id: 'beech', label: 'Beech', color: [0.17, 0.40, 0.15], mapColor: [0.90, 0.50, 0.20], temp: [5, 18], moist: [0.6, 0.95], age: 0.95, ageW: 0.9, soil: 'deep', slope: 0.8, chem: 0.4, chemW: 1.2, flam: 0.6, soilBuild: 1.5,
+  { id: 'beech', label: 'Beech', autumn: [0.80, 0.46, 0.12], color: [0.17, 0.40, 0.15], mapColor: [0.90, 0.50, 0.20], temp: [5, 18], moist: [0.6, 0.95], age: 0.95, ageW: 0.9, soil: 'deep', slope: 0.8, chem: 0.4, chemW: 1.2, flam: 0.6, soilBuild: 1.5,
     help: 'Shade-tolerant broadleaf that dominates moist old-growth forest on deep, lime-rich or neutral soil.' },
-  { id: 'maple', label: 'Maple', color: [0.26, 0.43, 0.12], mapColor: [0.82, 0.18, 0.22], temp: [4, 19], moist: [0.55, 0.95], age: 0.5, ageW: 0.5, soil: 'deep', slope: 0.8, chem: 0.4, chemW: 1.0, flam: 0.8, soilBuild: 1.5,
+  { id: 'maple', label: 'Maple', autumn: [0.84, 0.16, 0.07], autumn2: [0.94, 0.46, 0.06], color: [0.26, 0.43, 0.12], mapColor: [0.82, 0.18, 0.22], temp: [4, 19], moist: [0.55, 0.95], age: 0.5, ageW: 0.5, soil: 'deep', slope: 0.8, chem: 0.4, chemW: 1.0, flam: 0.8, soilBuild: 1.5,
     help: 'Broadleaf of fertile, base-rich soils (e.g. over basalt or limestone).' },
-  { id: 'alder', label: 'Alder & willow', color: [0.23, 0.40, 0.24], mapColor: [0.22, 0.72, 0.78], temp: [-2, 24], moist: [0.75, 1.1], age: 0.3, ageW: 0.4, soil: 'any', slope: 0.6, chem: 0, chemW: 2, riparian: true, flam: 0.4, soilBuild: 1.4,
+  { id: 'alder', label: 'Alder & willow', autumn: [0.52, 0.52, 0.20], color: [0.23, 0.40, 0.24], mapColor: [0.22, 0.72, 0.78], temp: [-2, 24], moist: [0.75, 1.1], age: 0.3, ageW: 0.4, soil: 'any', slope: 0.6, chem: 0, chemW: 2, riparian: true, flam: 0.4, soilBuild: 1.4,
     help: 'Riverbank trees of waterlogged ground beside streams and lakes.' },
   { id: 'juniper', label: 'Juniper', color: [0.30, 0.37, 0.24], mapColor: [0.50, 0.56, 0.34], temp: [2, 26], moist: [0.15, 0.55], age: 0.5, ageW: 0.3, soil: 'thin', slope: 1.4, chem: 0.7, chemW: 1.2, flam: 1.4, soilBuild: 0.5,
     help: 'Tough, drought-hardy conifer of dry, rocky and limestone slopes.' },
@@ -55,6 +59,8 @@ export const SPECIES = [
 export const OPEN = { label: 'Open ground', color: [0.52, 0.66, 0.30], mapColor: [0.80, 0.84, 0.70], help: 'Gaps, meadow and scrub between trees.' };
 
 const K = SPECIES.length;
+const MIXA = [0, 0, 0];
+const PINE = SPECIES.findIndex((s) => s.id === 'pine');
 const scratch = new Float32Array(K);
 
 function band(x, lo, hi, soft) {
@@ -105,10 +111,17 @@ export function updateForestComposition(world) {
     world.forestSoilBuild = new Float32Array(n).fill(1);
     world.domSpecies = new Int8Array(n).fill(-1);
     world.soilChem = new Float32Array(n);
+    world.decid = new Float32Array(n);            // deciduous share of the ground
+    world.decidColor = new Float32Array(n * 3);   // their summer colour × share
+    world.autumnColor = new Float32Array(n * 3);  // their autumn colour × share
+    world.pineShare = new Float32Array(n);        // pine share of the ground (fire behaviour)
   }
+  const PS = world.pineShare;
+  const DS = world.decid, DC = world.decidColor, AC = world.autumnColor;
   const C = world.forestColor, F = world.forestFlam, B = world.forestSoilBuild, D = world.domSpecies, CH = world.soilChem;
   for (let i = 0; i < n; i++) {
     CH[i] = world.rocksEnabled ? ROCK_CHEM[world.rockAt(H[i], i)] : 0;
+    DS[i] = 0; PS[i] = 0; DC[i * 3] = DC[i * 3 + 1] = DC[i * 3 + 2] = 0; AC[i * 3] = AC[i * 3 + 1] = AC[i * 3 + 2] = 0;
     if (V[i] < 0.3) { D[i] = -1; F[i] = 1; B[i] = 1; continue; }
     const total = suitability(world, i, scratch);
     const tc = treeCover(V[i]);
@@ -121,6 +134,17 @@ export function updateForestComposition(world) {
         const s = SPECIES[k];
         r += s.color[0] * share; g += s.color[1] * share; b += s.color[2] * share;
         flam += s.flam * share; build += s.soilBuild * share;
+        if (k === PINE) PS[i] = share;
+        if (s.autumn) {
+          let a = s.autumn;
+          if (s.autumn2) { // vary tree to tree (smoothly, in patches)
+            const x = i % N, z = (i / N) | 0, t = 0.5 + 0.5 * Math.sin(x * 0.29 + z * 0.13) * Math.cos(z * 0.21 - x * 0.09);
+            a = MIXA; a[0] = s.autumn[0] + (s.autumn2[0] - s.autumn[0]) * t; a[1] = s.autumn[1] + (s.autumn2[1] - s.autumn[1]) * t; a[2] = s.autumn[2] + (s.autumn2[2] - s.autumn[2]) * t;
+          }
+          DS[i] += share;
+          DC[i * 3] += s.color[0] * share; DC[i * 3 + 1] += s.color[1] * share; DC[i * 3 + 2] += s.color[2] * share;
+          AC[i * 3] += a[0] * share; AC[i * 3 + 1] += a[1] * share; AC[i * 3 + 2] += a[2] * share;
+        }
         if (share > bestShare) { bestShare = share; best = k; }
       }
       flam /= tc; build /= tc;

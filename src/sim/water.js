@@ -203,14 +203,14 @@ export function waterStep(world) {
   }
 
   // 6. Evaporation. When a puddle dries up its sediment is left behind on the ground.
-  // Warm air evaporates water faster (roughly 3× faster at 30 °C than at freezing)
-  const TT = world.temperature, evapK = p.evaporate * dt;
+  // Warm, sunny, bare ground evaporates fastest; shaded valleys under forest slowest
+  const ER = world.evapRate, evapK = p.evaporate * dt; // regional rate: see climate.updateEvaporation
   world.time += dt;
   const now = world.time, W = world.lastWet;
   if (p.rain > 0) W.fill(now); // rain waters everywhere
   for (let i = 0; i < n; i++) {
     if (D[i] > 0.05) W[i] = now;
-    D[i] *= 1 - evapK * (0.4 + 0.04 * Math.max(0, TT[i]));
+    D[i] *= 1 - evapK * (ER ? ER[i] : 1);
     if (D[i] < 1e-4) {
       D[i] = 0;
       if (S[i] > 0) { dBed[i] += S[i]; S[i] = 0; }

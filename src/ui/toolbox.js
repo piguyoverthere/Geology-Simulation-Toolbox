@@ -115,8 +115,6 @@ export class Toolbox {
         'Water-flow steps per frame. Higher = faster geological time, lower framerate.', this),
       slider('Global rain', app.waterParams, 'rain', 0, 0.1, 0.002,
         'Rainfall over the whole map, fed into the shallow-water flow model. Rivers form where runoff converges.', this),
-      slider('Evaporation', app.waterParams, 'evaporate', 0, 0.3, 0.005,
-        'How fast standing water dries up. Dry lakes leave their sediment behind as flat lake beds.', this),
       toggle('Plant growth', app.sim, 'vegetation',
         'Vegetation regrows toward what each spot can support (gentle, moist, not too high) and dies where ground is washed away, buried or flooded. Forest erodes ~4x slower than barren ground.', this),
       slider('Climate wetness', app.vegetationParams, 'climate', 0, 1.5, 0.05,
@@ -125,6 +123,18 @@ export class Toolbox {
         'Sea-level temperature. It gets about 0.4 °C colder per unit of height, and sunny slopes are warmer than shady ones. Sets the tree line, which forests grow (tropical jungle when hot and wet, conifers when cold) and whether clouds drop snow or rain.', this, () => app.climateChanged()),
       slider('Wind direction °', app.climateParams, 'windAngle', 0, 360, 5,
         'Direction the moist prevailing wind blows toward. Slopes facing into it get the most rain and snow; the far side of a range sits in a dry rain shadow. See the Precipitation overlay.', this, () => app.climateChanged()),
+      slider('Storms', app.climateParams, 'storms', 0, 4, 0.1,
+        'How often storms blow in from upwind. Each is a ragged cluster of rain cells drifting with the wind, heaviest on windward slopes. Storms carry a limited supply of moisture and rain it out fastest climbing over mountains, so they die out beyond a range (rain shadow). Rain raises the rivers; snow builds the snowpack. Warm weather brings thunderstorms. 0 = no storms.', this),
+      slider('Lightning', app.weatherParams, 'lightning', 0, 4, 0.1,
+        'How often thunderstorms (warm weather only) throw lightning. Strikes can start wildfires, most easily in dry woodland and pine; fires there are also much harder for rain to put out.', this),
+      toggle('Seasons', app.seasonParams, 'enabled',
+        'Cycle through spring, summer, autumn and winter. Winter storms build up snow that melts in spring and swells the rivers. Deciduous trees turn colour in autumn (birch and aspen yellow, maple red and orange, oak brown), from the high slopes down to the valleys, drop their leaves, and come back fresh green in spring. Exposed ridges turn first; sheltered valleys last.', this, () => app.climateChanged()),
+      slider('Season speed', app.seasonParams, 'speed', 0.1, 6, 0.1,
+        'Years per minute of real time (while the simulation runs).', this),
+      slider('Season swing °C', app.seasonParams, 'swing', 0, 20, 0.5,
+        'How much warmer midsummer is (and colder midwinter) than the yearly average.', this, () => app.climateChanged()),
+      slider('Evaporation', app.waterParams, 'evaporate', 0, 0.3, 0.005,
+        'Overall evaporation rate. Each spot evaporates faster in warm air, in sun and on bare ground, and slower in shaded valleys and under forest (see Inspect → Evaporation). Dry lakes leave their sediment behind as flat lake beds.', this),
     );
     const simBtns = el('div', 'tb-row');
     simBtns.append(button('Clear water', () => app.clearWater(), '', 'Remove all water, suspended sediment and springs.', this));
@@ -215,7 +225,8 @@ export class Toolbox {
     else if (mode === 'natural' || mode === 'biome') items(mode === 'biome' ? 'Biomes' : 'Biomes (blended)', Object.values(BIOMES));
     else if (mode === 'precip') ramp('Precipitation', 'dry (rain shadow)', 'wet (windward)', [[0.86, 0.74, 0.52], [0.12, 0.35, 0.75]]);
     else if (mode === 'snowDepth') ramp('Snow depth (grey = none)', 'thin', 'deep', [[0.88, 0.92, 0.98], [0.55, 0.72, 0.95], [0.18, 0.30, 0.75]]);
-    else if (mode === 'temp') ramp('Temperature', '−15 °C', '35 °C', [[0.15, 0.25, 0.65], [0.92, 0.94, 0.98], [0.35, 0.65, 0.35], [0.95, 0.80, 0.30], [0.80, 0.20, 0.12]]);
+    else if (mode === 'decid') ramp('Deciduous share (pale = no forest)', 'evergreen', 'all deciduous', [[0.10, 0.32, 0.22], [0.95, 0.60, 0.12]]);
+    else if (mode === 'temp') ramp('Temperature (today)', '−15 °C', '35 °C', [[0.15, 0.25, 0.65], [0.92, 0.94, 0.98], [0.35, 0.65, 0.35], [0.95, 0.80, 0.30], [0.80, 0.20, 0.12]]);
     else if (mode === 'species') items('Dominant tree species', [...SPECIES, OPEN].map((s) => ({ ...s, color: s.mapColor })));
     else if (mode === 'chem') ramp('Soil chemistry (from the rock below)', 'acidic (granite, sandstone)', 'alkaline (limestone, marble)', [[0.55, 0.30, 0.62], [0.88, 0.86, 0.80], [0.20, 0.62, 0.56]]);
     else if (mode === 'age') ramp('Forest age (pale = no forest)', 'young', 'old growth', [[0.72, 0.86, 0.42], [0.05, 0.24, 0.10]]);

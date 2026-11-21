@@ -2,11 +2,20 @@
 // fault traces drawn on the ground, and earthquake camera shake.
 
 import * as THREE from 'three';
+import { intensityAt } from '../sim/weather.js';
 
 const MAX_PARTICLES = 600;
 
 let dot = null;
 /** A soft round sprite (white, fading to transparent at the edge) so particles look like puffs, not squares. */
+function hash(v) { const s = Math.sin(v * 12.9898) * 43758.5453; return s - Math.floor(s); }
+/** A repeatable random point inside a disc of radius r. */
+function disc(seed, r) {
+  const a = hash(seed) * Math.PI * 2, d = Math.sqrt(hash(seed + 0.37)) * r;
+  return [Math.cos(a) * d, Math.sin(a) * d];
+}
+function clampCell(v, N) { return Math.min(N - 1, Math.max(0, Math.round(v))); }
+
 function softDot() {
   if (dot) return dot;
   const c = document.createElement('canvas');
@@ -40,6 +49,117 @@ export class Effects {
     this.clouds = this.makeClouds();
     this.fog = this.makeLayer(1200, 0xe6eaee, 10, 0.22);   // valley fog: low, flat, faint
     this.cirrus = this.makeLayer(500, 0xffffff, 40, 0.12); // high, thin wisps above everything
+    this.stormCloud = this.makeLayer(1400, 0x7d858f, 24, 0.3); // dark storm cloud decks
+    this.rain = this.makeLayer(3000, 0xa9c0da, 0.7, 0.55);       // falling rain
+    this.snowfall = this.makeLayer(3000, 0xffffff, 1.1, 0.9);    // falling snow
+    this.thunderCloud = this.makeLayer(700, 0x575d66, 22, 0.32); // towering dark thunderheads
+    this.time = 0;
+    // Lightning bolts: jagged line segments, plus a flash of light
+    const BOLTS = 12, SEG = 14;
+    const bgeo = new THREE.BufferGeometry();
+    bgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(BOLTS * SEG * 2 * 3), 3));
+    bgeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
+    this.bolts = new THREE.LineSegments(bgeo, new THREE.LineBasicMaterial({ color: 0xf2f4ff, transparent: true, opacity: 0.95 }));
+    this.bolts.frustumCulled = false;
+    this.boltCap = { BOLTS, SEG };
+    scene.add(this.bolts);
+    this.flash = new THREE.PointLight(0xdfe6ff, 0, 160, 1.2);
+    scene.add(this.flash);
+  }
+
+  /** Lightning: a jagged bolt from the cloud base to the ground for a moment, and a flash. */
+  updateLightning() {
+    const w = this.world, strikes = w.strikes || [];
+    const { BOLTS, SEG } = this.boltCap;
+    const pos = this.bolts.geometry.attributes.position;
+    let k = 0, flash = 0;
+    for (const st of strikes) {
+      if (st.age > 0.6 || k >= BOLTS) continue;
+      // Flickers: on, off, on again
+      if (st.age > 0.2 && st.age < 0.32) continue;
+      const i = st.z * w.N + st.x;
+      const ground = w.height[i], top = Math.max(st.top, ground + 6);
+      let px = st.x, pz = st.z, py = top;
+      for (let s = 0; s < SEG; s++) {
+        const t = (s + 1) / SEG;
+        const nx = s === SEG - 1 ? st.x : st.x + (hash(st.seed + s * 3.1) - 0.5) * 3 * (1 - t);
+        const nz = s === SEG - 1 ? st.z : st.z + (hash(st.seed + s * 7.7) - 0.5) * 3 * (1 - t);
+        const ny = top + (ground - top) * t;
+        const a = this.renderer.toWorld(px, pz, py), b = this.renderer.toWorld(nx, nz, ny);
+        const o = (k * SEG + s) * 6;
+        pos.array[o] = a.x; pos.array[o + 1] = a.y; pos.array[o + 2] = a.z;
+        pos.array[o + 3] = b.x; pos.array[o + 4] = b.y; pos.array[o + 5] = b.z;
+        px = nx; pz = nz; py = ny;
+      }
+      if (flash === 0) {
+        const c = this.renderer.toWorld(st.x, st.z, (top + ground) / 2);
+        this.flash.position.copy(c);
+      }
+      flash = Math.max(flash, 1 - st.age / 0.6);
+      k++;
+    }
+    for (let j = k * SEG * 6; j < pos.array.length; j++) pos.array[j] = 0;
+    pos.needsUpdate = true;
+    this.bolts.visible = k > 0;
+    this.flash.intensity = flash * 2500;
+  }
+
+  /** Storms (sim/weather.js): a dark cloud deck over each, with rain or snow falling beneath it. */
+  updateStorms(dt) {
+    const w = this.world, show = this.renderer.showClouds;
+    this.time += dt;
+    this.updateLightning();
+    const layers = [this.stormCloud, this.thunderCloud, this.rain, this.snowfall];
+    for (const l of layers) l.points.visible = show;
+    const storms = w.storms || [];
+    if (!show) return;
+    const N = w.N, t = this.time;
+    const cp = this.stormCloud.points.geometry.attributes.position;
+    const tp = this.thunderCloud.points.geometry.attributes.position;
+    let kt = 0;
+    const rp = this.rain.points.geometry.attributes.position;
+    const sp = this.snowfall.points.geometry.attributes.position;
+    let kc = 0, kr = 0, ks = 0;
+    const per = Math.floor(this.stormCloud.M / 6), drops = Math.floor(this.rain.M / 6);
+    for (const st of storms) {
+      const amount = Math.min(1, st.strength / 0.8);
+      const ci = clampCell(st.x, N) + clampCell(st.z, N) * N;
+      const base = w.cloudBase ? Math.max(w.cloudBase[ci], w.height[ci] + 4) + 3 : w.height[ci] + 10;
+      const nPuff = Math.floor(per * amount);
+      for (let j = 0; j < nPuff; j++) {
+        // Puffs sit over the storm's rain cells, so the cloud is as ragged as the rain
+        const l = st.lobes[j % st.lobes.length];
+        const [ox, oz] = disc(st.seed + j * 7.13, l.r * 0.9);
+        const tall = st.thunder ? hash(st.seed + j * 2.3) * 12 : hash(st.seed + j * 3.7) * 3;
+        const p = this.renderer.toWorld(st.x + l.ox + ox, st.z + l.oz + oz, base + tall);
+        if (st.thunder) { if (kt < this.thunderCloud.M) tp.setXYZ(kt++, p.x, p.y, p.z); }
+        else if (kc < this.stormCloud.M) cp.setXYZ(kc++, p.x, p.y, p.z);
+      }
+      const nDrop = Math.floor(drops * amount);
+      for (let j = 0; j < nDrop; j++) {
+        const [ox, oz] = disc(st.seed + 500 + j * 5.31, st.r * 1.2);
+        const x = st.x + ox, z = st.z + oz;
+        if (x < 0 || z < 0 || x > N - 1 || z > N - 1) continue;
+        if (hash(st.seed + j * 4.3) > intensityAt(st, x, z)) continue; // only where it's raining
+        const i = clampCell(x, N) + clampCell(z, N) * N;
+        const ground = w.height[i] + w.water[i];
+        const top = Math.max(base, ground + 2), range = top - ground;
+        const isSnow = hash(st.seed + j * 1.91) < st.snow;
+        const fall = isSnow ? 3 : 22;
+        const y = top - ((t * fall + hash(st.seed + j * 9.7) * range) % range);
+        // Snow drifts sideways as it falls
+        const sway = isSnow ? Math.sin(t * 1.3 + j) * 0.6 : 0;
+        const p = this.renderer.toWorld(x + sway, z, y);
+        if (isSnow) { if (ks < this.snowfall.M) sp.setXYZ(ks++, p.x, p.y, p.z); }
+        else if (kr < this.rain.M) rp.setXYZ(kr++, p.x, p.y, p.z);
+      }
+    }
+    for (let j = kc; j < this.stormCloud.M; j++) cp.setXYZ(j, 0, -9999, 0);
+    for (let j = kt; j < this.thunderCloud.M; j++) tp.setXYZ(j, 0, -9999, 0);
+    tp.needsUpdate = true;
+    for (let j = kr; j < this.rain.M; j++) rp.setXYZ(j, 0, -9999, 0);
+    for (let j = ks; j < this.snowfall.M; j++) sp.setXYZ(j, 0, -9999, 0);
+    cp.needsUpdate = rp.needsUpdate = sp.needsUpdate = true;
   }
 
   /** Weather clouds: soft puffs over places where moist air is being lifted and dropping its water. */
@@ -251,6 +371,7 @@ export class Effects {
     this.updateClouds(dt);
     this.updateFog(dt);
     this.updateCirrus(dt);
+    this.updateStorms(dt);
     this.updateFaults();
   }
 

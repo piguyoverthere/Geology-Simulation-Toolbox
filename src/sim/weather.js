@@ -1,0 +1,220 @@
+// Weather: storms that cross the map.
+//
+// Real rain doesn't fall evenly everywhere: it comes in storms, regional, ragged patches of cloud
+// carried along by the prevailing wind. Each storm here is a cluster of rain cells that drift
+// around inside it, with heavier and lighter bands that shift as it goes. It rains hardest where
+// the ground forces its air upward (windward slopes: the same orographic effect as the
+// Precipitation overlay).
+//
+// Fuel: a storm carries a fixed store of water vapour. Every drop it rains out is gone, and it
+// rains out fastest while climbing over mountains, so storms that cross a range arrive on the far
+// side weakened or spent: the *rain shadow*. Passing over the sea or a lake tops the store back up.
+// When the fuel runs out the storm breaks up.
+//
+// Rain or snow is decided at the cloud base above each spot (see climate.cloudTempAt), which
+// includes today's season. Rain goes straight into the water simulation, so storms raise streams
+// and can trigger floods and landslides. Snow piles onto the snowpack. Through a winter, storm
+// after storm builds the pack up on the mountains. In spring the warmth melts it, and the meltwater
+// (climate.updateSnow) swells the rivers: the spring flood.
+//
+// Thunderstorms: in warm weather the air near the ground is warm and buoyant, and storms grow into
+// towering, compact, violent cumulonimbus cells: short-lived, with intense downpours, and with
+// lightning. A strike on forest can start a wildfire, most easily in dry woodland and in resinous
+// pine, and much less often where the downpour has soaked everything ("dry lightning" at the edge
+// of a storm, or under a storm that has rained itself out, is the dangerous kind). A strike often
+// smoulders for a while (a *holdover* fire) and only breaks out once the rain has moved on.
+//
+// world.storms: [{ x, z, vx, vz, r, lobes, fuel, peak, age, life, thunder, … }] (grid cells,
+// simulated seconds). world.strikes: recent lightning strikes for the renderer.
+
+import { climateParams, seasonParams, cloudTempAt } from './climate.js';
+import { createNoise2D } from '../core/noise.js';
+
+export const weatherParams = {
+  lightning: 1,    // how often thunderstorms throw lightning (0 = never)
+};
+
+const noise = createNoise2D(911);
+
+export function weatherStep(world, simDt) {
+  const p = climateParams, N = world.N;
+  if (!world.storms) world.storms = [];
+  if (!world.strikes) world.strikes = [];
+  if (!world.holdovers) world.holdovers = [];
+  holdovers(world, simDt);
+  const list = world.storms;
+  // New storms arrive from upwind: more often in winter and spring when seasons are on
+  let rate = 0.03 * p.storms;
+  if (seasonParams.enabled) rate *= 1 + 0.4 * Math.cos(2 * Math.PI * (seasonParams.phase - 0.9));
+  // …and hot weather adds thunderstorms that bubble up over the land
+  rate *= 1 + 1.5 * thunderChance(world);
+  if (Math.random() < rate * simDt && list.length < 8) list.push(newStorm(world));
+
+  const a = (p.windAngle * Math.PI) / 180, wx = Math.cos(a), wz = Math.sin(a);
+  const D = world.water, S = world.snow, P = world.precip, W = world.lastWet, now = world.time, H = world.height;
+  const sea = world.seaLevel;
+  for (let s = list.length - 1; s >= 0; s--) {
+    const st = list[s];
+    st.age += simDt;
+    // Steered by the wind, with a slow wander of its own
+    const wob = Math.sin(st.age * 0.05 + st.seed) * 0.6;
+    const dx = wx * Math.cos(wob) - wz * Math.sin(wob), dz = wz * Math.cos(wob) + wx * Math.sin(wob);
+    st.vx += (dx * st.speed - st.vx) * 0.02 * simDt; st.vz += (dz * st.speed - st.vz) * 0.02 * simDt;
+    st.x += st.vx * simDt; st.z += st.vz * simDt;
+    // Rain cells churn around inside the storm, growing and fading
+    for (const l of st.lobes) {
+      l.a += l.spin * simDt;
+      l.ox = Math.cos(l.a) * l.d; l.oz = Math.sin(l.a) * l.d;
+      l.w = 0.55 + 0.45 * Math.sin(st.age * l.pulse + l.ph);
+    }
+    // Spent (out of fuel), past its life, or blown off the map
+    const fuelF = smooth(0.08, 0.3, st.fuel);
+    const fade = Math.min(1, st.age / 10, (st.life - st.age) / 10) * fuelF;
+    if (fade <= 0 || (st.age > 20 && (st.x < -st.r * 1.5 || st.z < -st.r * 1.5 || st.x > N + st.r * 1.5 || st.z > N + st.r * 1.5))) {
+      list.splice(s, 1); continue;
+    }
+    st.strength = fade * st.peak;
+    const r = st.r * 1.4;
+    const x0 = Math.max(1, Math.floor(st.x - r)), x1 = Math.min(N - 2, Math.ceil(st.x + r));
+    const z0 = Math.max(1, Math.floor(st.z - r)), z1 = Math.min(N - 2, Math.ceil(st.z + r));
+    let snowCells = 0, cells = 0, total = 0, overWater = 0;
+    const nt = st.age * 0.015;
+    for (let z = z0; z <= z1; z++) {
+      for (let x = x0; x <= x1; x++) {
+        const q = intensityAt(st, x, z, nt);
+        if (q <= 0.01) continue;
+        const i = z * N + x;
+        // Heaviest on windward slopes, light in rain shadows
+        const amount = st.strength * q * (0.35 + 1.3 * (P ? P[i] : 0.5)) * simDt;
+        const snow = S ? smooth(1, -1, cloudTempAt(world, i)) : 0;
+        if (snow > 0) S[i] = Math.min(6, S[i] + amount * 0.05 * snow);
+        if (snow < 1) { D[i] += amount * 0.045 * (1 - snow); W[i] = now; }
+        total += amount; cells++;
+        if (snow > 0.5) snowCells++;
+        if (H[i] < sea || D[i] > 1) overWater++;
+      }
+    }
+    st.snow = cells ? snowCells / cells : 0;
+    // Raining uses up the storm's water vapour; open water feeds it
+    const area = Math.PI * st.r * st.r;
+    st.fuel -= (total / area) * (st.thunder ? 0.05 : 0.03);
+    st.fuel = Math.min(st.maxFuel, st.fuel + (overWater / area) * 0.004 * simDt);
+
+    if (st.thunder && weatherParams.lightning > 0) lightning(world, st, simDt);
+  }
+  // Old strikes fade (the renderer draws the bolt and flash)
+  for (let k = world.strikes.length - 1; k >= 0; k--) {
+    world.strikes[k].age += simDt;
+    if (world.strikes[k].age > 2) world.strikes.splice(k, 1);
+  }
+}
+
+/** Precipitation intensity 0..~1 at (x, z) from storm st: a ragged cluster of rain cells. */
+export function intensityAt(st, x, z, nt = st.age * 0.015) {
+  let q = 0;
+  for (const l of st.lobes) {
+    const ddx = x - st.x - l.ox, ddz = z - st.z - l.oz, r2 = l.r * l.r;
+    const d2 = ddx * ddx + ddz * ddz;
+    if (d2 >= r2) continue;
+    const t = 1 - d2 / r2;
+    q += t * t * l.w;
+  }
+  if (q <= 0) return 0;
+  // Bands and holes that drift through the storm
+  const n = noise((x - st.x) / 9 + st.seed, (z - st.z) / 9 + nt);
+  return Math.min(1.2, q) * Math.max(0, 0.45 + 0.75 * n);
+}
+
+/** Lightning: strikes the ground under a thunderstorm; can ignite forest. */
+function lightning(world, st, simDt) {
+  const N = world.N;
+  if (Math.random() > 0.06 * weatherParams.lightning * st.strength * simDt) return;
+  // Somewhere under the storm; strikes favour tall things: high ground and trees
+  let best = -1, bh = -Infinity;
+  for (let k = 0; k < 4; k++) {
+    const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * st.r * 1.1;
+    const x = Math.round(st.x + Math.cos(a) * d), z = Math.round(st.z + Math.sin(a) * d);
+    if (x < 1 || z < 1 || x > N - 2 || z > N - 2) continue;
+    const i = z * N + x;
+    const h = world.height[i] * 0.3 + 4 * world.vegetation[i] + Math.random() * 3;
+    if (h > bh) { bh = h; best = i; }
+  }
+  if (best < 0) return;
+  const i = best, V = world.vegetation;
+  world.strikes.push({ x: i % N, z: (i / N) | 0, age: 0, seed: Math.random() * 1000, top: (world.cloudBase ? world.cloudBase[i] : world.height[i] + 8) + 4 });
+  world.lightningCount = (world.lightningCount || 0) + 1;
+  // Does it start a fire? Needs fuel; dry ground and resinous trees (pine) catch far more easily.
+  // A soaking downpour (water on the ground) usually smothers it.
+  if (V[i] < 0.35 || world.fire[i] > 0 || world.water[i] > 0.15) return;
+  const soil = world.soil ? world.soil[i] : 0.5;
+  const flam = world.forestFlam ? world.forestFlam[i] : 1;
+  const pine = world.pineShare ? world.pineShare[i] : 0;
+  const chance = 0.55 * Math.min(1.5, flam) * (1 - smooth(0.35, 0.85, soil)) * (1 + 1.5 * pine) * smooth(0.35, 0.7, V[i]);
+  // The strike smoulders in a snag or the litter and may flare up once the storm has passed
+  if (Math.random() < chance) world.holdovers.push({ i, t: 4 + Math.random() * 20 });
+}
+
+/** Smouldering strikes: once the rain has moved on, those that survived break out into fire. */
+function holdovers(world, simDt) {
+  const list = world.holdovers;
+  for (let k = list.length - 1; k >= 0; k--) {
+    const h = list[k];
+    // A soaking puts most of them out; dry ground and pine keep them alive
+    const wet = world.water[h.i] > 0.05;
+    const keep = (world.soil ? 1 - world.soil[h.i] : 0.5) + (world.pineShare ? world.pineShare[h.i] : 0);
+    if (wet && Math.random() < 0.02 * simDt / Math.max(0.2, keep)) { list.splice(k, 1); continue; }
+    if (!wet) h.t -= simDt;
+    if (h.t <= 0) {
+      list.splice(k, 1);
+      if (world.vegetation[h.i] > 0.3 && world.fire[h.i] <= 0) {
+        world.fire[h.i] = 0.6;
+        world.lightningFires = (world.lightningFires || 0) + 1;
+      }
+    }
+  }
+}
+
+/** Share of new storms that are thunderstorms: they need warm, buoyant air near the ground. */
+function thunderChance(world) {
+  return 0.75 * smooth(14, 24, climateParams.seaTemp + (world.seasonT || 0));
+}
+
+function newStorm(world) {
+  const N = world.N, p = climateParams;
+  const a = (p.windAngle * Math.PI) / 180, wx = Math.cos(a), wz = Math.sin(a);
+  // Warm weather breeds thunderstorms: compact, violent and short-lived
+  const thunder = Math.random() < thunderChance(world);
+  const r = thunder ? 8 + Math.random() * 10 : 12 + Math.random() * 24;
+  // Pick a spot on the map and start upwind of it, just off the edge
+  const tx = Math.random() * N, tz = Math.random() * N, m = r * 0.6;
+  const back = Math.min(
+    Math.abs(wx) > 1e-3 ? (wx > 0 ? tx + m : N + m - tx) / Math.abs(wx) : Infinity,
+    Math.abs(wz) > 1e-3 ? (wz > 0 ? tz + m : N + m - tz) / Math.abs(wz) : Infinity);
+  // Thunderstorms often build over the land itself rather than blowing in
+  const inland = thunder && Math.random() < 0.6;
+  const cx = inland ? tx : tx - wx * back, cz = inland ? tz : tz - wz * back;
+  const speed = (thunder ? 1.2 : 2.2) + Math.random() * 1.6; // cells per simulated second
+  // A ragged cluster of 3–6 rain cells
+  const lobes = [];
+  const nl = 3 + Math.floor(Math.random() * 4);
+  for (let k = 0; k < nl; k++) {
+    lobes.push({
+      a: Math.random() * Math.PI * 2, d: (k === 0 ? 0 : 0.35 + Math.random() * 0.55) * r,
+      r: r * (k === 0 ? 0.75 : 0.35 + Math.random() * 0.45), spin: (Math.random() - 0.5) * 0.03,
+      pulse: 0.03 + Math.random() * 0.06, ph: Math.random() * 6, ox: 0, oz: 0, w: 1,
+    });
+  }
+  const fuel = thunder ? 0.5 + Math.random() * 0.4 : 0.7 + Math.random() * 0.6;
+  return {
+    x: cx, z: cz, vx: wx * speed, vz: wz * speed, speed, r, lobes, thunder,
+    fuel, maxFuel: fuel * 1.2,
+    peak: thunder ? 1.4 + Math.random() * 0.8 : 0.5 + Math.random() * 0.8,
+    age: 0, life: thunder ? 60 + Math.random() * 80 : (N + 2 * r) / speed * (0.7 + Math.random() * 0.5),
+    strength: 0, snow: 0, seed: Math.random() * 1000,
+  };
+}
+
+function smooth(e0, e1, x) {
+  const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1);
+  return t * t * (3 - 2 * t);
+}

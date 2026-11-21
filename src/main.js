@@ -9,7 +9,9 @@ import { runDroplets } from './sim/droplet.js';
 import { thermalStep, thermalParams } from './sim/thermal.js';
 import { waterStep, waterParams } from './sim/water.js';
 import { initVegetation, vegetationStep, vegetationParams } from './sim/vegetation.js';
-import { climateParams, updateTemperature, updatePrecip, updateSnow } from './sim/climate.js';
+import { climateParams, seasonParams, advanceSeason, seasonName, updateTemperature, updatePrecip, updateSnow } from './sim/climate.js';
+import { phenologyStep } from './sim/phenology.js';
+import { weatherStep, weatherParams } from './sim/weather.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
@@ -28,6 +30,8 @@ class App {
     this.thermalParams = thermalParams;
     this.vegetationParams = vegetationParams;
     this.climateParams = climateParams;
+    this.seasonParams = seasonParams;
+    this.weatherParams = weatherParams;
     this.volcanoSettings = volcanoSettings;
     this.faultSettings = faultSettings;
     this.fireParams = fireParams;
@@ -316,6 +320,7 @@ class App {
     updateTemperature(this.world);
     updatePrecip(this.world);
     updateSnow(this.world, 30); // let the snowpack respond quickly to the new climate
+    phenologyStep(this.world);
     this.world.dirty = true;
   }
 
@@ -386,13 +391,18 @@ class App {
     if (this.painting && hit) TOOLS[this.tool].apply(this.brushCtx(hit, dt));
 
     if (this.sim.running) {
+      advanceSeason(dt);
+      if (this.climateParams.storms > 0 || this.world.storms?.length) weatherStep(this.world, this.sim.substeps * this.waterParams.dt);
       for (let k = 0; k < this.sim.substeps; k++) waterStep(this.world);
       if (this.sim.dropletsPerFrame > 0) runDroplets(this.world, this.sim.dropletsPerFrame);
       // Landslides keep pace with the water: faster sim speed means more relaxation per frame
       if (this.sim.thermal && this.frame % 2 === 0) thermalStep(this.world, null, Math.min(1, 0.25 * this.sim.substeps / 6 * 2));
       if (this.frame % 10 === 0) {
         if (this.sim.vegetation) vegetationStep(this.world); // also refreshes temperature
-        else { updateTemperature(this.world); updatePrecip(this.world); updateSnow(this.world); } // terrain may have changed
+        else { updateTemperature(this.world); updatePrecip(this.world); updateSnow(this.world, 1, true); } // terrain may have changed
+        phenologyStep(this.world);
+        if (seasonParams.enabled || this.seasonWasOn) this.world.dirty = true;
+        this.seasonWasOn = seasonParams.enabled;
       }
       // Look for slopes about to fail a few times a second (scaled with sim speed)
       if (this.frame % 5 === 0) landslideCheck(this.world, 0.25 * this.sim.substeps / 6);
@@ -421,7 +431,9 @@ class App {
         `<span>${this.fps.toFixed(0)} fps</span><span>water ${fmt(s.water)}</span>` +
         `<span>sediment ${fmt(s.sed)}</span><span class="ero">eroded ${fmt(s.eroded)}</span>` +
         `<span class="dep">deposited ${fmt(s.deposited)}</span><span>springs ${this.world.sources.length}</span>` +
-        (this.world.events.length ? `<span class="evt">events ${this.world.events.length}</span>` : ''));
+        (this.world.events.length ? `<span class="evt">events ${this.world.events.length}</span>` : '') +
+        (seasonParams.enabled ? `<span class="season">${seasonName()}</span>` : '') +
+        (this.world.storms?.length ? `<span>storms ${this.world.storms.length}</span>` : ''));
     }
   }
 }

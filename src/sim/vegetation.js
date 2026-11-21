@@ -45,7 +45,7 @@
 import { createNoise2D, fbm } from '../core/noise.js';
 import { boxBlur } from '../core/grid.js';
 import { FOREST_TYPES, forestTypeAt } from './forests.js';
-import { climateParams, updateTemperature, updatePrecip, updateSnow } from './climate.js';
+import { climateParams, seasonParams, updateTemperature, updatePrecip, updateSnow } from './climate.js';
 import { updateForestComposition } from './species.js';
 import { waterParams } from './water.js';
 
@@ -121,7 +121,8 @@ function soilSupply(world, i) {
     - p.uptake * world.vegetation[i]
     - 0.012 * Math.max(0, world.temperature[i] - 18) // heat dries the soil out faster
     + (world.precip ? 0.3 * (world.precip[i] - 0.5) : 0) // windward slopes wetter, rain shadows drier
-    + (world.valley ? 0.28 * world.valley[i] : 0);     // valley bottoms collect water; ridges drain dry
+    + (world.valley ? 0.28 * world.valley[i] : 0)     // valley bottoms collect water; ridges drain dry
+    - (world.evapRate ? 0.08 * (world.evapRate[i] - 1) : 0); // sunny, bare ground dries out; shade keeps it damp
     + 0.15 * world.humus[i]; // deep, organic soil holds water like a sponge
   return s < 0 ? 0 : s > 1 ? 1 : s;
 }
@@ -205,7 +206,9 @@ export function vegetationStep(world) {
   updateNearWater(world);
   updateTemperature(world);
   updatePrecip(world);
-  updateSnow(world);
+  updateSnow(world, 1, true);
+  // With seasons on, plants grow in the warm season and rest in the cold
+  const st = world.seasonT || 0, seasonal = seasonParams.enabled;
   const W = world.nearWater, F = world.freshRock, SO = world.humus;
   for (let i = 0; i < V.length; i++) S[i] += (soilSupply(world, i) - S[i]) * p.soilMemory;
   const f = neighbourhood(world);
@@ -224,6 +227,7 @@ export function vegetationStep(world) {
     // (and slower in the cold: a short growing season)
     let rate = target > v
       ? p.growth * (1 + p.riparianBoost * W[i]) * (0.5 + SO[i]) * (0.25 + 0.75 * smoothstep(-2, 12, world.temperature[i]))
+        * (seasonal ? 0.3 + 1.1 * smoothstep(0, 10, world.temperature[i] + st) : 1)
       : p.growth * (1 - 0.75 * age);
     if (burnt > 0) {
       if (target > v) rate *= 1 - 0.8 * burnt;
