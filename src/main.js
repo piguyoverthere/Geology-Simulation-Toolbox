@@ -540,7 +540,12 @@ class App {
         if (performance.now() - t0 > 28) break;
       }
       this.stepsDone = (this.stepsDone ?? done) * 0.9 + done * 0.1;
-      if (this.climateParams.storms > 0 || this.world.storms?.length || this.world.holdovers?.length) weatherStep(this.world, done * this.waterParams.dt);
+      // Weather runs every other frame with the time of both (half the cost; storms move slowly)
+      this.weatherDt = (this.weatherDt || 0) + done * this.waterParams.dt;
+      if (this.frame % 2 === 0) {
+        if (this.climateParams.storms > 0 || this.world.storms?.length || this.world.holdovers?.length) weatherStep(this.world, this.weatherDt);
+        this.weatherDt = 0;
+      }
       if (this.sim.dropletsPerFrame > 0) runDroplets(this.world, this.sim.dropletsPerFrame);
       // Landslides keep pace with the water: faster sim speed means more relaxation per frame
       if (this.sim.thermal && this.frame % 2 === 0) thermalStep(this.world, null, Math.min(1, 0.25 * this.sim.substeps / 6 * 2));

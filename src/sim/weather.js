@@ -55,14 +55,15 @@ export function weatherStep(world, simDt) {
   let rate = 0.012 * p.storms * seasonalRain();
   // …and hot weather adds thunderstorms that bubble up over the land
   rate *= 1 + 1.5 * thunderChance(world);
-  if (Math.random() < rate * simDt && list.length < 8) list.push(newStorm(world));
+  const nRegular = list.reduce((c, s) => c + (s.mountain ? 0 : 1), 0);
+  if (Math.random() < rate * simDt && nRegular < 8) list.push(newStorm(world));
   // Mountain storms: the autumn storm season reaches the high country weeks before the lowlands.
   // Moist air forced up over the ranges breeds storms that cling to the peaks, and as soon as it's
   // cold aloft they come down as snow: the first snowstorms of the year build the high snowpack
   // while the lowlands are still dry.
-  const mRate = 0.12 * p.storms * mountainSeason();
+  const mRate = 0.35 * p.storms * mountainSeason();
   const nMountain = list.reduce((c, s) => c + (s.mountain ? 1 : 0), 0);
-  if (mRate > 0 && Math.random() < mRate * simDt && nMountain < 5) list.push(newMountainStorm(world));
+  if (mRate > 0 && Math.random() < mRate * simDt && nMountain < 9) list.push(newMountainStorm(world));
 
   const a = (p.windAngle * Math.PI) / 180, wx = Math.cos(a), wz = Math.sin(a);
   const D = world.water, S = world.snow, P = world.precip, W = world.lastWet, now = world.time, H = world.height;
@@ -108,7 +109,7 @@ export function weatherStep(world, simDt) {
         // Mountain storms drop most of their load on the high ground
         if (st.mountain) amount *= 0.2 + 1.3 * smooth(st.hLow, st.hHigh, H[i]);
         const snow = S ? smooth(1, -1, cloudTempAt(world, i)) : 0;
-        if (snow > 0) S[i] = Math.min(6, S[i] + amount * 0.05 * snow);
+        if (snow > 0) S[i] = Math.min(6, S[i] + amount * (st.mountain ? 0.1 : 0.05) * snow);
         if (snow < 1) { D[i] += amount * 0.045 * (1 - snow); W[i] = now; }
         total += amount; cells++;
         if (snow > 0.5) snowCells++;
@@ -215,7 +216,8 @@ function holdovers(world, simDt) {
 function mountainSeason() {
   if (!seasonParams.enabled) return 0.4;
   const ph = seasonParams.phase;
-  if (ph >= 0.4) return smooth(0.46, 0.54, ph);       // mid-September → October and on
+  // Busiest in autumn (one snowstorm after another on the peaks), still active through winter
+  if (ph >= 0.4) return smooth(0.46, 0.54, ph) * (1 + 1.5 * smooth(0.5, 0.56, ph) * (1 - smooth(0.72, 0.8, ph)));
   return 1 - smooth(0.02, 0.12, ph);                  // fades out by mid-April
 }
 
@@ -227,14 +229,16 @@ function newMountainStorm(world) {
   for (let k = 0; k < 1500; k++) sample.push(H[(Math.random() * N * N) | 0]);
   sample.sort((a, b) => a - b);
   const hLow = sample[Math.floor(sample.length * 0.55)], hHigh = sample[Math.floor(sample.length * 0.9)];
-  // Over one of the higher of a handful of random spots
-  let best = 0, bh = -Infinity;
-  for (let k = 0; k < 10; k++) {
+  // Over any part of the high ground (not just the very highest peaks), so every range gets them
+  const cut = hLow + 0.4 * (hHigh - hLow);
+  let best = -1;
+  for (let k = 0; k < 200 && best < 0; k++) {
     const i = (Math.random() * N * N) | 0;
-    if (H[i] > bh) { bh = H[i]; best = i; }
+    if (H[i] >= cut) best = i;
   }
+  if (best < 0) best = (Math.random() * N * N) | 0;
   const p = climateParams, a = (p.windAngle * Math.PI) / 180;
-  const r = 16 + Math.random() * 18, speed = 0.2 + Math.random() * 0.35; // they linger over the range
+  const r = 20 + Math.random() * 22, speed = 0.2 + Math.random() * 0.35; // they linger over the range
   const lobes = [];
   const nl = 3 + Math.floor(Math.random() * 3);
   for (let k = 0; k < nl; k++) {

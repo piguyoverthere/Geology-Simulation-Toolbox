@@ -271,7 +271,8 @@ export function updateSnow(world, steps = 1, runoff = false) {
         const gx = (H[i + 1] - H[i - 1]) * 0.5, gz = (H[i + N] - H[i - N]) * 0.5;
         const slope = Math.sqrt(gx * gx + gz * gz);
         const around = (S[i - 1] + S[i + 1] + S[i - N] + S[i + N]) * 0.25;
-        const hold = 0.8 + 0.9 * smooth(p.deepSnow * 0.4, p.deepSnow, around);
+        // Wet mountain snow sticks to slopes up to ~47° (steeper faces shed it unless the pack is deep)
+        const hold = 1.08 + 0.7 * smooth(p.deepSnow * 0.4, p.deepSnow, around);
         if (slope <= hold) continue;
         let low = i, lh = H[i] + S[i];
         for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] + S[j] < lh) { lh = H[j] + S[j]; low = j; }

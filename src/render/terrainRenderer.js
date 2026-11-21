@@ -411,7 +411,7 @@ export class TerrainRenderer {
     }
     // Tundra where it's too cold for trees
     const T = (w.vegTemp || w.temperature)[i], tl = climateParams.treeLineTemp;
-    if (T < tl + 1) mix(col, C.tundra, smooth(tl + 1, tl - 3, T) * smooth(0.08, 0.3, v) * 0.85, col);
+    if (T < tl + 1) mix(col, C.tundra, smooth(tl + 1, tl - 3, T) * smooth(0.08, 0.3, v) * (1 - smooth(0.6, 0.8, v)) * 0.85, col); // not over forest
     // Wetlands on flat, waterlogged ground beside rivers and lakes
     const marsh = smooth(0.4, 0.8, near) * smooth(0.65, 0.85, soil) * (1 - smooth(0.15, 0.35, tan)) * smooth(0.3, 0.5, v);
     if (marsh > 0) mix(col, C.marsh, marsh * 0.8, col);

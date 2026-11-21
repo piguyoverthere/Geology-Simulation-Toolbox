@@ -33,7 +33,7 @@ export function classifyBiome(world, i, slope) {
   const near = world.nearWater ? world.nearWater[i] : 0;
   const T = (world.vegTemp || world.temperature) ? (world.vegTemp || world.temperature)[i] : 12;
   if (snowAt(world, i, slope) > 0.5) return 'snow';
-  if (T < climateParams.treeLineTemp - 0.5 && v > 0.12) return 'tundra';
+  if (T < climateParams.treeLineTemp - 0.5 && v > 0.12 && v <= 0.66) return 'tundra'; // (high fir forest stays forest)
   if (v > 0.66) return FOREST_TYPES[forestTypeAt(world, i)].id;
   if (near > 0.5 && soil > 0.7 && slope < 0.25 && v > 0.4) return 'wetland';
   if (v > 0.42) return soil < 0.36 ? 'shrubland' : 'grassland';

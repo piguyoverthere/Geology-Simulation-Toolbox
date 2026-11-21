@@ -400,6 +400,17 @@ low down too. On the Cascades map, snow covers the peaks from October and the up
 November, but reaches the lowland only from mid-December, peaking at the end of January; the
 upper-slope pack lasts into June.
 
+**Fall snowstorms.** Autumn is the busiest time for mountain storms: up to nine at once over the
+high ground, each dropping heavy snow when it's cold aloft. Wet mountain snow sticks to slopes up
+to about 47° (only steeper crags shed it). On the Cascades map, 41% of the peaks were white by early
+October. By late December, 71–76% of the high ground in the north and middle of the range was
+snow-covered, about a metre deep on average (1 unit). The south, where much of the high ground is
+the lower flanks of the volcanoes, is often warm enough for rain.
+
+**Fir climbs highest.** Where it's wet enough for fir (subalpine fir and mountain hemlock in
+reality), closed forest reaches about 2.5 °C colder than the general tree line, about 6 units
+higher up the mountain. Dry slopes keep the lower tree line.
+
 **Mountain storms come first.** The wet season reaches the high country weeks before the
 lowlands. From mid-September, moist air forced up over the ranges breeds storms that cling to the
 peaks, and with cold air aloft they fall as snow. All snow comes from storms (unless the Storms

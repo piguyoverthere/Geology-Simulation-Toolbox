@@ -189,7 +189,10 @@ function potential(world, i, f) {
   const steep = 1 - 0.85 * smoothstep(1.0, 2.4, slope);
   // Above the tree line plants get sparser, down to bare ground at the top of the alpine band
   // Too cold above the tree line: plants thin out to bare ground as it gets colder still
-  const T = (world.vegTemp || world.temperature)[i], tl = climateParams.treeLineTemp;
+  // Fir (subalpine fir, mountain hemlock) is the hardiest tree of wet mountains: where it's wet
+  // enough for fir, closed forest climbs ~2.5 °C colder (about 6 units higher) than elsewhere
+  const tl = climateParams.treeLineTemp - 2.5 * smoothstep(0.42, 0.62, soil);
+  const T = (world.vegTemp || world.temperature)[i];
   const alpine = 1 - 0.95 * smoothstep(tl, tl - 7, T);
   // Lakes drown plants; shallow floodwater on a floodplain does not
   const drowned = 1 - smoothstep(1, 3, world.water[i]);
