@@ -80,6 +80,8 @@ export function weatherStep(world, simDt) {
   const a = (p.windAngle * Math.PI) / 180, wx = Math.cos(a), wz = Math.sin(a);
   const D = world.water, S = world.snow, P = world.precip, W = world.lastWet, now = world.time, H = world.height;
   const SM = world.soil, V = world.vegetation;
+  if (!world.snowingAt || world.snowingAt.length !== N * N) world.snowingAt = new Float32Array(N * N).fill(-1e9);
+  const SNW = world.snowingAt;
   const lowCut = lowlandCut(world);
   // Snow per storm-second scales with season speed, so a season gets the same snow at any speed
   const sf = seasonParams.enabled ? seasonParams.speed : 1;
@@ -136,7 +138,14 @@ export function weatherStep(world, simDt) {
         // for the one or two Arctic outbreaks a winter that bring snow right down to sea level
         let snow = S ? smooth(1, -1, cloudTempAt(world, i) - (st.arctic ? 4 : 0)) : 0;
         if (snow > 0 && !st.arctic && H[i] < lowCut + 2) snow *= smooth(lowCut - 1, lowCut + 2, H[i]);
-        if (snow > 0) S[i] = Math.min(6, S[i] + amount * (st.mountain || st.arctic ? 0.18 : 0.05) * snow * sf);
+        if (snow > 0) {
+          // Snow is spread more evenly than rain (it drifts on the wind instead of being wrung out
+          // on the windward slopes), so rain shadows get less but not much less
+          const shadow = (0.6 + 0.8 * (P ? P[i] : 0.5)) / (0.35 + 1.3 * (P ? P[i] : 0.5));
+          S[i] = Math.min(6, S[i] + amount * shadow * (st.mountain || st.arctic ? 0.18 : 0.15) * snow * sf);
+          // Mark it as snowing here: falling snow chills the air, so the ground barely melts it meanwhile
+          if (snow > 0.3) SNW[i] = now;
+        }
         // Rain on snow melts it (how lowland snow usually disappears in a maritime winter)
         else if (S[i] > 0) S[i] = Math.max(0, S[i] - amount * 0.1 * sf);
         if (snow < 1) {

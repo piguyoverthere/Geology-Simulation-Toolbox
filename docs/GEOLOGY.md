@@ -415,6 +415,13 @@ a winter, on random dates: cold air pours out over the whole lowland and a big, 
 it in snow (about half the lowland white for a couple of weeks), until the next rains wash it away.
 Rain on snow melts it.
 
+**Snowstorms pile it up.** Every storm that's snowing drops heavy snow (the travelling storms
+nearly as much as the mountain snowstorms). Snow drifts on the wind rather than being wrung out on
+windward slopes, so rain shadows get less but not much less. And while snow is falling on a spot it
+hardly melts, because the falling snow chills the air to about freezing; it melts afterwards if
+it's warm. A storm called in with the Storm tool covered the ground beneath it within seconds,
+building to about 3.7 units deep.
+
 **Spring melt.** Snow only melts above 2 °C, but then fairly quickly, so on the Cascades map the
 lower alpine snow goes in April and early May and the high alpine pack melts out by early June.
 Melted snow is mostly air, so the spring rise in the rivers is real but no flood. Snowfall and melt

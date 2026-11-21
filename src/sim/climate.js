@@ -244,6 +244,7 @@ export function updateSnow(world, steps = 1, runoff = false) {
   if (!world.precip) updatePrecip(world);
   const S = world.snow, T = world.temperature, P = world.precip, st = world.seasonT || 0;
   const melts = Math.max(st, world.groundSeason ?? st);
+  const SNW = world.snowingAt;
   const meltSpeed = seasonParams.enabled ? seasonParams.speed : 1; // same melt per season at any speed
   const holdTan = Math.tan((Math.min(85, Math.max(5, p.snowSlope)) * Math.PI) / 180);
   // With storms on, all snow comes from storms (sim/weather.js): snowstorms build the pack. Only with
@@ -262,8 +263,10 @@ export function updateSnow(world, steps = 1, runoff = false) {
         const curv = (H[i - 1] + H[i + 1] + H[i - N] + H[i + N]) * 0.25 - H[i];
         const drift = 1 + Math.max(-0.5, Math.min(0.6, curv * 0.8));
         const before = S[i] + p.snowfall * background * P[i] * asSnow * drift;
-        // Snow melts from above (warm air) and from below (ground still warm from summer)
-        let d = before - p.melt * meltSpeed * Math.max(0, T[i] + melts - p.meltTemp);
+        // Snow melts from above (warm air) and from below (ground still warm from summer), but hardly
+        // at all while a snowstorm is falling on it (the falling snow chills the air to freezing)
+        const snowing = SNW && now - SNW[i] < 6 ? 0.08 : 1;
+        let d = before - p.melt * meltSpeed * snowing * Math.max(0, T[i] + melts - p.meltTemp);
         d = d < 0 ? 0 : d > 6 ? 6 : d;
         // Meltwater runs off into the streams: the spring flood of a snowy catchment
         if (runoff && d < before && before > 0.005) {
