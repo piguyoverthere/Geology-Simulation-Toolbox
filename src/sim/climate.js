@@ -145,7 +145,8 @@ export function updateTemperature(world) {
 
 /**
  * Regional evaporation (world.evapRate, × the Evaporation slider). Water evaporates faster in warm
- * air (about 3× faster at 30 °C than at freezing), and in direct sun. Shaded, sheltered valley
+ * air (about 3× faster at 30 °C than at freezing), in direct sun, and the higher up it is (thin, dry,
+ * windy air). Shaded, sheltered valley
  * bottoms lose water slowest: less sun, still, humid air. Plant cover shades the ground and keeps
  * the air above it damp, so bare ground dries much faster than ground under forest (though the
  * plants themselves draw water from the soil: see vegetation uptake).
@@ -153,12 +154,19 @@ export function updateTemperature(world) {
 export function updateEvaporation(world) {
   const n = world.N * world.N, T = world.temperature, st = world.seasonT || 0;
   if (!world.evapRate) world.evapRate = new Float32Array(n).fill(1);
-  const E = world.evapRate, sun = world.sunExpo, Vy = world.valley, V = world.vegetation;
+  if (!world.evapSoil || world.evapSoil.length !== n) world.evapSoil = new Float32Array(n).fill(1);
+  const ES = world.evapSoil; // without the altitude boost: alpine soil stays moist from snowmelt
+  const E = world.evapRate, sun = world.sunExpo, Vy = world.valley, V = world.vegetation, H = world.height;
+  const base = Math.max(0, world.seaLevel) + 6;
   for (let i = 0; i < n; i++) {
     const heat = 0.4 + 0.04 * Math.max(0, T[i] + st);
     const light = 1 + 0.45 * (sun ? sun[i] : 0) - 0.35 * (Vy ? Math.max(0, Vy[i]) : 0);
     const cover = 1.3 - 0.55 * V[i];
-    E[i] = Math.max(0.05, heat * light * cover);
+    // Up high the air is thin, dry and windy and the sunlight strong, so water evaporates faster
+    // the higher it is, even though it's colder (alpine tarns shrink fast in late summer)
+    const altitude = Math.min(4, 1 + 0.09 * Math.max(0, H[i] - base));
+    E[i] = Math.max(0.05, heat * light * cover * altitude);
+    ES[i] = Math.max(0.05, heat * light * cover);
   }
 }
 

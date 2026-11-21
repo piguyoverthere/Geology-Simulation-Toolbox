@@ -127,7 +127,7 @@ function soilSupply(world, i) {
     - 0.012 * Math.max(0, world.temperature[i] - 18) // heat dries the soil out faster
     + (world.precip ? 0.3 * (world.precip[i] - 0.5) : 0) // windward slopes wetter, rain shadows drier
     + (world.valley ? 0.28 * world.valley[i] : 0)     // valley bottoms collect water; ridges drain dry
-    - (world.evapRate ? 0.08 * (world.evapRate[i] - 1) : 0); // sunny, bare ground dries out; shade keeps it damp
+    - (world.evapSoil ? 0.08 * (world.evapSoil[i] - 1) : 0); // sunny, bare ground dries out; shade keeps it damp
     + 0.15 * world.humus[i]; // deep, organic soil holds water like a sponge
   return s < 0 ? 0 : s > 1 ? 1 : s;
 }

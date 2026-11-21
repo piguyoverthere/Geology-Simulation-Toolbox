@@ -507,7 +507,10 @@ drifts toward the new climate, slowly under forest and about 4× faster elsewher
 
 **Regional evaporation.** The **Evaporation** slider is the overall rate. Each spot evaporates
 faster in warm air, in direct sun and on bare ground, and slower in shaded valley bottoms and under
-forest (canopy shade and damp, still air). This also dries the soil a little on sunny, bare slopes.
+forest (canopy shade and damp, still air). Water also evaporates faster the higher it sits (thin,
+dry, windy air and strong sun), which more than makes up for the cold: on the Cascades map in late
+July, alpine tarns evaporate about 2.6× as fast as lowland water and near the summits about 3.3×,
+so high lakes shrink through the summer. (Alpine soil isn't dried by this: snowmelt keeps it moist.) This also dries the soil a little on sunny, bare slopes.
 **Inspect** shows each spot's rate.
 
 ---
