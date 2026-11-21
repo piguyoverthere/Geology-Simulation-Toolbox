@@ -86,7 +86,8 @@ and how much it has been eroded or built up since the baseline.
   snowpack, spring meltwater floods, autumn colours sweeping down from the high slopes: birch and
   aspen yellow, maple red-orange, oak brown) and regional **Evaporation** (faster in sun, heat and on
   bare ground; slower in shaded valleys and under forest) and **Dry summers** (with Seasons: rain
-  mostly from autumn to spring, and a summer fire season with dry lightning storms).
+  mostly from autumn to spring, and a summer fire season with dry lightning storms), and **Snow slope
+  limit** (the steepest slope snow builds up on).
 - **Overlays**: colour the map by one data layer (biomes, vegetation, tree species, forest age,
   temperature, precipitation, snow depth, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.

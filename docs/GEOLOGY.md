@@ -408,8 +408,8 @@ before the lowland rains, and last through the wet season; the rest of the year 
 ordinary travelling kind, mostly rain. Rivers run high through the winter and again in April
 with the snowmelt. Snowstorm clouds are drawn pale and soft, rain clouds
 dark grey, thunderheads darker still. In the fall the mountain storms come one after another over the
-high ground, each dropping heavy snow when it's cold aloft. Wet mountain snow sticks to slopes up
-to about 47° (only steeper crags shed it). On the Cascades map, 41% of the peaks were white by early
+high ground, each dropping heavy snow when it's cold aloft. Snow sticks to slopes up to the
+**Snow slope limit** (47° by default; steeper crags shed it unless the pack around them is deep). On the Cascades map, 41% of the peaks were white by early
 October. By late December, 71–76% of the high ground in the north and middle of the range was
 snow-covered, about a metre deep on average (1 unit). The south, where much of the high ground is
 the lower flanks of the volcanoes, is often warm enough for rain.
