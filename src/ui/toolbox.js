@@ -128,6 +128,8 @@ export class Toolbox {
         'Direction the moist prevailing wind blows toward. Slopes facing into it get the most rain and snow; the far side of a range sits in a dry rain shadow. See the Precipitation overlay.', this, () => app.climateChanged()),
       slider('Storms', app.climateParams, 'storms', 0, 4, 0.1,
         'How often storms blow in from upwind. Each is a ragged cluster of rain cells drifting with the wind, heaviest on windward slopes. Storms carry a limited supply of moisture and rain it out fastest climbing over mountains, so they die out beyond a range (rain shadow). Rain raises the rivers; snow builds the snowpack. Warm weather brings thunderstorms. 0 = no storms.', this),
+      slider('Snowstorms', app.climateParams, 'snowstorms', 0, 3, 0.05,
+        'How many snowstorms build over the mountains each year (×1 = normal). They come in waves through fall and winter and are the main source of the mountain snowpack. 0 = none (only the ordinary storms bring snow).', this),
       slider('Lightning', app.weatherParams, 'lightning', 0, 4, 0.1,
         'How often thunderstorms (warm weather only) throw lightning. Strikes can start wildfires, most easily in dry woodland and pine; fires there are also much harder for rain to put out.', this),
       toggle('Seasons', app.seasonParams, 'enabled',

@@ -90,7 +90,7 @@ and how much it has been eroded or built up since the baseline.
   **Temperature** (sea-level °C), **Lapse rate** (how much colder it gets per unit of height), which sets the tree line, forest types and whether clouds drop
   snow or rain, and **Wind direction**, which decides where clouds form (windward slopes wet, rain
   shadows dry), **Storms** (ragged rain/snow storms drifting downwind that run out of moisture
-  beyond mountain ranges; thunderstorms in warm weather), **Lightning** (strikes can start
+  beyond mountain ranges; thunderstorms in warm weather), **Snowstorms** (how many snowstorms build over the mountains each year), **Lightning** (strikes can start
   wildfires, worst in dry pine woods), **Seasons** with **Season speed** and **Season swing** (winter
   snowpack, spring meltwater floods, autumn colours sweeping down from the high slopes: birch and
   aspen yellow, maple red-orange, oak brown) and regional **Evaporation** (faster in sun, heat and on

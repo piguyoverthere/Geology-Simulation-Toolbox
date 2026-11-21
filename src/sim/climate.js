@@ -24,6 +24,7 @@ export const climateParams = {
   snowSlope: 47,      // steepest slope (degrees) snow accumulates on; steeper faces shed it unless the pack around is deep
   deepSnow: 2,        // snowpack depth around a slope at which steep faces start holding snow
   storms: 1,          // how often storms sweep across the map (0 = none; see sim/weather.js)
+  snowstorms: 1,      // how many mountain snowstorms come each year (× the default; 0 = none)
   meltRunoff: 0.05,   // runoff per unit of snow melted (snow is mostly air, and much of the melt soaks in)
   summerDry: 0,       // 0 = rain all year; 1 = almost all of it from autumn to spring, dry summers
 };
