@@ -92,6 +92,12 @@ and how much it has been eroded or built up since the baseline.
   strips plants away to reveal bare ground and bedrock.
 - **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes.
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
+- **Level**: **Save level** downloads everything (terrain, water, vegetation, soil, snow, rocks,
+  lava and burn scars, springs, drawings, camera and every setting) to a `.geolevel` file, and
+  **Load level** opens one. With **Keep level on reload** (on by default) the level is also
+  autosaved to the browser every 30 seconds and when you leave the page, and restored when the page
+  reloads, so updates don't cost you your level. Each map size keeps its own; **Generate** starts a
+  new one.
 - **Terrain**: map size (128–512 cells per side; bigger maps show more land and run slower),
   presets (hills, mountains, plateau, volcano, Cascade Range, flat), seed, undo/redo, PNG
   heightmap export/import. The **Cascade Range** preset builds a north–south range with a rugged
@@ -136,6 +142,7 @@ src/render/biomes.js    Biome definitions and classification
 src/ui/toolbox.js       Right-hand settings panel and bottom tool bar
 src/ui/inspector.js     Inspect-tool readout
 src/ui/monthbar.js      Month bar: today's date in the seasonal year
+src/core/save.js        Level save/load (.geolevel files) and browser autosave
 vendor/three/           three.js r169 (MIT)
 ```
 

@@ -324,7 +324,7 @@ each species plus open ground between the trees:
 
 | Species | Likes |
 | --- | --- |
-| Pine | dry ground (forms open woodland where it's too dry for most trees), thin soil, steep slopes; pioneer; burns readily |
+| Pine | very drought-resistant (deep taproot, needles that lose little water): holds woodland on ground far too dry for other trees, down to the edge of the desert; thin soil, steep slopes; pioneer; burns readily |
 | Fir (abietoid) | wet, cool climates from mild rainy lowlands to high mountain slopes; steep ground and thin rocky soil; thickens as the forest ages |
 | Spruce | cold, acidic soil |
 | Larch | the coldest ground near the tree line; pioneer |

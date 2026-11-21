@@ -196,11 +196,15 @@ function potential(world, i, f) {
   // Drought-hardy trees (pine, juniper) still form open woodland on dry-ish ground in temperate
   // climates, so cover there is higher than soil moisture alone would allow
   const dryWood = 0.32 * smoothstep(0.15, 0.32, soil) * (1 - smoothstep(0.45, 0.6, soil)) * smoothstep(-2, 2, T) * (1 - smoothstep(22, 26, T));
+  // Pine is far more drought-resistant than other trees (deep taproots, needles that lose little
+  // water): in temperate climates it holds open woodland down to quite dry soil, where everything
+  // else is steppe. pineDry is how well this spot suits that dry pine woodland.
+  const pineDry = smoothstep(0.06, 0.2, soil) * (1 - smoothstep(0.45, 0.6, soil)) * smoothstep(-2, 2, T) * (1 - smoothstep(22, 26, T));
   // Cover rises quickly with water and then levels off: once the soil is moderately moist, more
   // water doesn't make a site much greener (so forests cover a broad range of wetness, and you don't
   // need to flood the lowlands to get trees onto drier mountain slopes)
   const wet = smoothstep(0.1, 0.5, soil);
-  let v = (0.08 + 0.95 * wet + 0.4 * dryWood) * steep * alpine * drowned;
+  let v = Math.max(0.08 + 0.95 * wet + 0.4 * dryWood, 0.74 * pineDry) * steep * alpine * drowned;
   // Seed spread: pulled toward the neighbours' cover, so groves fill in and merge
   v += (f.standCover[i] - v) * p.spread * steep * drowned;
 
@@ -210,10 +214,10 @@ function potential(world, i, f) {
   const steepOk = f.gentle * (1 + 0.45 * (world.conifer ? world.conifer[i] : 0));
   const forestOk = (1 - smoothstep(steepOk * 0.85, steepOk * 1.1, f.standSlope[i]))
     // Old forest's deep roots reach water young trees can't, so it survives on drier ground
-    * smoothstep(p.forestWater - 0.15 - 0.12 * age, p.forestWater + 0.05 - 0.12 * age, soil)
+    * Math.max(smoothstep(p.forestWater - 0.15 - 0.12 * age, p.forestWater + 0.05 - 0.12 * age, soil), pineDry)
     * smoothstep(tl - 0.5, tl + 1, T) // closed forest runs right up to the tree line
     // (drought-hardy pine woodland is the exception: it runs right up to the steppe)
-    * (1 - smoothstep(0.005, 0.06, f.nearArid[i]) * (1 - 0.8 * dryWood / 0.32));
+    * (1 - smoothstep(0.005, 0.06, f.nearArid[i]) * (1 - 0.9 * pineDry));
   v = Math.min(v, 0.58 + 0.42 * forestOk);
   return Math.max(0, Math.min(1, v));
 }

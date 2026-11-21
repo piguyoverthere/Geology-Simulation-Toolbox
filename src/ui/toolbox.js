@@ -174,6 +174,20 @@ export class Toolbox {
       toggle('Drain at edges', app.world, 'edgeDrain', 'Let water flow off the edges of the map instead of being walled in.', this),
     );
 
+    // --- Level -------------------------------------------------------------------------------
+    const lvl = this.section('Level', true);
+    const lvlBtns = el('div', 'tb-row');
+    lvlBtns.append(
+      button('Save level', () => app.saveLevelFile(), 'primary', 'Download everything about this level to a .geolevel file: terrain, water, vegetation, soil, snow, rocks, lava and burn scars, springs, drawings, camera and every setting.', this),
+      button('Load level', () => app.loadLevelFile(), '', 'Open a .geolevel file saved earlier (it switches map size if needed).', this),
+    );
+    lvl.append(lvlBtns,
+      toggle('Keep level on reload', app.keepLevel, 'on',
+        'Autosave the level to this browser every 30 seconds (and when you leave the page), and bring it back when the page reloads, e.g. after an update. Each map size keeps its own. Generate starts a new level.', this,
+        () => { try { localStorage.setItem('geo.keepLevel', app.keepLevel.on ? '1' : '0'); } catch { /* storage blocked */ } if (app.keepLevel.on) app.autosave(); }));
+    this.saveStatusEl = el('div', 'tb-save-status', app.saveStatus || '');
+    lvl.append(this.saveStatusEl);
+
     // --- Terrain -----------------------------------------------------------------------------
     const ter = this.section('Terrain', false);
     ter.append(select('Map size', Object.fromEntries([128, 192, 256, 384, 512].map((n) => [n, `${n} × ${n}${n > 256 ? ' (slower)' : n < 256 ? ' (faster)' : ''}`])),
@@ -344,6 +358,8 @@ export class Toolbox {
   }
 
   setInfo(html) { this.info.innerHTML = html; }
+
+  setSaveStatus(text) { if (this.saveStatusEl) this.saveStatusEl.textContent = text; }
 
   /** Sync all controls and highlight the active tool. Called after state changes from code. */
   refresh() {

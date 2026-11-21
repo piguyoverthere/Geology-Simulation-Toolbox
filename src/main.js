@@ -16,6 +16,7 @@ import { weatherStep, weatherParams } from './sim/weather.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
+import { snapshot, applySnapshot, encodeLevel, decodeLevel, storeLevel, fetchLevel, deleteLevel } from './core/save.js';
 import { Drawings, drawSettings } from './render/drawings.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
 import { fireStep, fireParams } from './sim/fire.js';
@@ -67,9 +68,17 @@ class App {
     this.setupCursor();
     this.setupInput();
 
+    // Keep the level across reloads (autosave to the browser, restore on start-up)
+    let keep = true;
+    try { keep = localStorage.getItem('geo.keepLevel') !== '0'; } catch { /* storage blocked */ }
+    this.keepLevel = { on: keep };
     this.toolbox = new Toolbox(document.getElementById('toolbox'), document.getElementById('toolbar'), this);
     this.inspector = new Inspector(document.getElementById('inspector'), this);
     this.monthBar = new MonthBar(document.getElementById('monthbar'), this);
+    setInterval(() => this.autosave(), 30000);
+    addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this.autosave(); });
+    addEventListener('pagehide', () => this.autosave());
+    this.restoreLevel();
     this.setTool(this.tool);
 
     this.clock = new THREE.Clock();
@@ -307,6 +316,102 @@ class App {
 
   toggleSim() { this.sim.running = !this.sim.running; this.toolbox.refresh(); }
 
+  // --- Saving levels -----------------------------------------------------------------------------
+
+  /** Rebuild everything derived from the saved fields after a level is loaded. */
+  afterLoad() {
+    const w = this.world;
+    updateTemperature(w);
+    updatePrecip(w);
+    phenologyStep(w);
+    updateForestComposition(w);
+    this.history = new History();
+    this.history.push(w);
+    this.applySea();
+    w.dirty = true;
+    this.renderer.update(true);
+    this.toolbox.refresh();
+    this.toolbox.updateLegend();
+    this.toolbox.updateDrawList();
+    this.monthBar.update();
+  }
+
+  /** Download the current level as a .geolevel file. */
+  async saveLevelFile() {
+    const blob = await encodeLevel(snapshot(this));
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+    a.href = URL.createObjectURL(blob);
+    a.download = `geology-${this.gen.preset}-${GRID}-${stamp}.geolevel`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    this.setSaveStatus(`Saved to file (${(blob.size / 1e6).toFixed(1)} MB)`);
+  }
+
+  /** Pick a .geolevel file and load it (reloading at its map size if different). */
+  loadLevelFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.geolevel';
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        const snap = await decodeLevel(file);
+        if (snap.meta.N !== GRID) {
+          // Different map size: hand it over to a reload at the right size
+          await storeLevel('pending', snap);
+          location.search = new URLSearchParams({ size: snap.meta.N, restore: 'pending' }).toString();
+          return;
+        }
+        applySnapshot(this, snap);
+        this.setSaveStatus(`Loaded ${file.name}`);
+        this.autosave();
+      } catch (err) {
+        this.setSaveStatus(`Couldn't load: ${err.message}`);
+      }
+    };
+    input.click();
+  }
+
+  /** Save to the browser so a reload (or an update) picks up where you left off. */
+  async autosave() {
+    if (!this.keepLevel.on || this.loadingLevel) return;
+    try {
+      await storeLevel(`autosave-${GRID}`, snapshot(this));
+      this.setSaveStatus(`Autosaved ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+    } catch (err) {
+      this.setSaveStatus(`Autosave failed: ${err.message}`);
+    }
+  }
+
+  /** On start-up: load a level handed over by a reload, or the last autosave for this map size. */
+  async restoreLevel() {
+    this.loadingLevel = true;
+    try {
+      let snap = null, from = '';
+      if (params.get('restore') === 'pending') {
+        snap = await fetchLevel('pending');
+        await deleteLevel('pending');
+        from = 'Loaded level';
+        window.history.replaceState(null, '', `?size=${GRID}`);
+      } else if (this.keepLevel.on) {
+        snap = await fetchLevel(`autosave-${GRID}`);
+        from = 'Restored your last level';
+      }
+      if (snap && snap.meta.N === GRID) {
+        applySnapshot(this, snap);
+        this.setSaveStatus(`${from} (saved ${new Date(snap.meta.savedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })})`);
+      }
+    } catch (err) {
+      console.warn('Level restore failed', err);
+      this.setSaveStatus(`Couldn't restore the last level: ${err.message}`);
+    }
+    this.loadingLevel = false;
+  }
+
+  setSaveStatus(text) { this.saveStatus = text; this.toolbox.setSaveStatus?.(text); }
+
   /** Reload with a different map size, keeping the preset and seed. */
   setMapSize(size) {
     const q = new URLSearchParams({ size, preset: this.gen.preset, seed: this.gen.seed });
@@ -320,6 +425,7 @@ class App {
     generateTerrain(this.world, this.gen.preset, this.gen.seed);
     this.history.push(this.world);
     this.applySea();
+    this.autosave(); // a new level replaces the kept one
   }
 
   applySea() {
