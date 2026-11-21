@@ -29,8 +29,8 @@ import { ROCK_CHEM } from '../core/rocks.js';
 export const SPECIES = [
   { id: 'pine', label: 'Pine', color: [0.16, 0.31, 0.20], mapColor: [0.20, 0.58, 0.26], temp: [-2, 22], moist: [0.12, 0.6], age: 0.15, ageW: 0.5, soil: 'thin', slope: 1.25, chem: -0.4, chemW: 2.4, flam: 1.6, soilBuild: 0.6,
     help: 'Drought-hardy pioneer conifer: dominates dry ground, and is first to colonise burnt or bare ground. Copes with thin, acidic soil and steep slopes. Resinous: burns readily.' },
-  { id: 'fir', label: 'Fir (abietoid)', color: [0.05, 0.21, 0.15], mapColor: [0.12, 0.32, 0.62], temp: [-4, 11], moist: [0.62, 1.1], age: 0.75, ageW: 0.45, soil: 'any', slope: 1.0, chem: -0.2, chemW: 1.3, flam: 1.1, soilBuild: 0.9,
-    help: 'Fir and hemlock of wet, cool mid-to-high mountain slopes. Shade-tolerant, so it thickens as the forest ages.' },
+  { id: 'fir', label: 'Fir (abietoid)', color: [0.05, 0.21, 0.15], mapColor: [0.12, 0.32, 0.62], temp: [-4, 13], moist: [0.5, 1.1], age: 0.75, ageW: 0.45, soil: 'any', slope: 1.4, chem: -0.2, chemW: 2.0, flam: 1.1, soilBuild: 0.9,
+    help: 'Fir, Douglas fir and hemlock of wet, cool climates: mild rainy lowlands (like the Pacific Northwest) up to high mountain slopes. Shade-tolerant, so it thickens as the forest ages.' },
   { id: 'spruce', label: 'Spruce', color: [0.08, 0.19, 0.17], mapColor: [0.40, 0.28, 0.65], temp: [-6, 9], moist: [0.5, 1.05], age: 0.6, ageW: 0.6, soil: 'any', slope: 0.9, chem: -0.6, chemW: 1.2, flam: 1.4, soilBuild: 0.7,
     help: 'Cold-climate conifer of the boreal forest on acidic soil.' },
   { id: 'larch', label: 'Larch', autumn: [0.82, 0.62, 0.16], color: [0.40, 0.50, 0.22], mapColor: [0.88, 0.76, 0.22], temp: [-8, 6], moist: [0.35, 0.85], age: 0.1, ageW: 0.7, soil: 'any', slope: 1.1, chem: -0.3, chemW: 1.6, flam: 0.9, soilBuild: 0.9,
@@ -61,6 +61,7 @@ export const OPEN = { label: 'Open ground', color: [0.52, 0.66, 0.30], mapColor:
 const K = SPECIES.length;
 const MIXA = [0, 0, 0];
 const PINE = SPECIES.findIndex((s) => s.id === 'pine');
+const CONIFER = SPECIES.map((s) => ['pine', 'fir', 'spruce', 'larch', 'juniper'].includes(s.id));
 const scratch = new Float32Array(K);
 
 function band(x, lo, hi, soft) {
@@ -115,7 +116,9 @@ export function updateForestComposition(world, stride = 1, phase = 0) {
     world.decidColor = new Float32Array(n * 3);   // their summer colour × share
     world.autumnColor = new Float32Array(n * 3);  // their autumn colour × share
     world.pineShare = new Float32Array(n);        // pine share of the ground (fire behaviour)
+    world.conifer = new Float32Array(n);          // conifer share of the trees (forest type)
   }
+  const CF = world.conifer;
   const PS = world.pineShare;
   const DS = world.decid, DC = world.decidColor, AC = world.autumnColor;
   const C = world.forestColor, F = world.forestFlam, B = world.forestSoilBuild, D = world.domSpecies, CH = world.soilChem;
@@ -124,7 +127,7 @@ export function updateForestComposition(world, stride = 1, phase = 0) {
   for (let i = 0; i < n; i++) {
     if (stride > 1 && ((i / N) | 0) % stride !== phase) { i += N - 1; continue; }
     CH[i] = world.rocksEnabled ? ROCK_CHEM[world.rockAt(H[i], i)] : 0;
-    DS[i] = 0; PS[i] = 0; DC[i * 3] = DC[i * 3 + 1] = DC[i * 3 + 2] = 0; AC[i * 3] = AC[i * 3 + 1] = AC[i * 3 + 2] = 0;
+    DS[i] = 0; PS[i] = 0; CF[i] = 0; DC[i * 3] = DC[i * 3 + 1] = DC[i * 3 + 2] = 0; AC[i * 3] = AC[i * 3 + 1] = AC[i * 3 + 2] = 0;
     if (V[i] < 0.3) { D[i] = -1; F[i] = 1; B[i] = 1; continue; }
     const total = suitability(world, i, scratch);
     const tc = treeCover(V[i]);
@@ -138,6 +141,7 @@ export function updateForestComposition(world, stride = 1, phase = 0) {
         r += s.color[0] * share; g += s.color[1] * share; b += s.color[2] * share;
         flam += s.flam * share; build += s.soilBuild * share;
         if (k === PINE) PS[i] = share;
+        if (CONIFER[k]) CF[i] += share / tc;
         if (s.autumn) {
           let a = s.autumn;
           if (s.autumn2) { // vary tree to tree (smoothly, in patches)

@@ -52,8 +52,9 @@ import { waterParams } from './water.js';
 export const vegetationParams = {
   growth: 0.03,       // how fast cover moves toward the site's potential per step
   disturbance: 0.6,   // cover lost per unit of ground removed or buried
-  forestShare: 0.6,   // forest can take the gentlest this-fraction of the land (relative to the map)
-  forestSlopeMax: 0.85, // …but never on ground steeper than this (rise/run, ≈ 40°)
+  forestShare: 0.75,  // forest can take the gentlest this-fraction of the land (relative to the map)
+  forestSlopeMax: 1.15, // …but never on stands steeper than this (rise/run, ≈ 49°)
+  forestSlopeMin: 0.7,  // …and always allowed up to this (≈ 35°), however gentle the rest of the map is
   riparianReach: 4,   // how far (cells, roughly ×2) the wet zone extends from open water
   riparianBoost: 5,   // extra growth speed right beside water (1 + boost times the normal rate)
   standRadius: 6,     // neighbourhood (cells) used to judge whether a stand of forest fits
@@ -61,7 +62,7 @@ export const vegetationParams = {
   aridSoil: 0.32,     // soil moisture below this counts as arid (desert / mesa country)
   grassBuffer: 10,    // forest keeps roughly 1–2× this many cells away from arid ground (grassland between)
   climate: 1,         // regional wetness multiplier (0 = desert, 1 = normal, 1.5 = rainforest)
-  forestWater: 0.38,  // soil moisture a forest needs (drought-hardy species like pine take the driest)
+  forestWater: 0.3,   // soil moisture a forest needs (drought-hardy species like pine take the driest)
   adapt: 0.003,       // how fast forests catch up with a changed climate per step (grass 4× faster)
   ageRate: 0.0012,    // forest maturity gained per step (≈ 830 steps from young to old growth)
   ageLoss: 0.03,      // maturity lost per step where cover drops below forest
@@ -161,7 +162,7 @@ function neighbourhood(world) {
   if (sample.length < 200) for (let k = 0; k < 4096; k++) sample.push(standSlope[(k * 2654435761) % (N * N) >>> 0]);
   sample.sort((a, b) => a - b);
   const p = vegetationParams;
-  const gentle = Math.min(p.forestSlopeMax, sample[Math.floor(p.forestShare * (sample.length - 1))]);
+  const gentle = Math.max(p.forestSlopeMin, Math.min(p.forestSlopeMax, sample[Math.floor(p.forestShare * (sample.length - 1))]));
   world.gentleSlope = gentle; // renderer: dry ground gentler than this is desert, steeper is mesa
   return {
     slope,
@@ -183,7 +184,8 @@ function potential(world, i, f) {
   // Blend this cell's soil with its neighbourhood's: a stand shares (and shades) its water
   const soil = 0.4 * world.soil[i] + 0.6 * f.standSoil[i];
   const age = world.forestAge[i];
-  const steep = 1 - 0.85 * smoothstep(0.6, 1.8, slope);
+  // Trees cling to slopes up to ~45° and beyond (only cliffs stay bare)
+  const steep = 1 - 0.85 * smoothstep(1.0, 2.4, slope);
   // Above the tree line plants get sparser, down to bare ground at the top of the alpine band
   // Too cold above the tree line: plants thin out to bare ground as it gets colder still
   const T = (world.vegTemp || world.temperature)[i], tl = climateParams.treeLineTemp;
@@ -193,7 +195,11 @@ function potential(world, i, f) {
   // Drought-hardy trees (pine, juniper) still form open woodland on dry-ish ground in temperate
   // climates, so cover there is higher than soil moisture alone would allow
   const dryWood = 0.32 * smoothstep(0.15, 0.32, soil) * (1 - smoothstep(0.45, 0.6, soil)) * smoothstep(-2, 2, T) * (1 - smoothstep(22, 26, T));
-  let v = (0.05 + 1.1 * soil + dryWood) * steep * alpine * drowned;
+  // Cover rises quickly with water and then levels off: once the soil is moderately moist, more
+  // water doesn't make a site much greener (so forests cover a broad range of wetness, and you don't
+  // need to flood the lowlands to get trees onto drier mountain slopes)
+  const wet = smoothstep(0.1, 0.5, soil);
+  let v = (0.08 + 0.95 * wet + 0.4 * dryWood) * steep * alpine * drowned;
   // Seed spread: pulled toward the neighbours' cover, so groves fill in and merge
   v += (f.standCover[i] - v) * p.spread * steep * drowned;
 
@@ -202,7 +208,7 @@ function potential(world, i, f) {
   const forestOk = (1 - smoothstep(f.gentle * 0.85, f.gentle * 1.1, f.standSlope[i]))
     // Old forest's deep roots reach water young trees can't, so it survives on drier ground
     * smoothstep(p.forestWater - 0.15 - 0.12 * age, p.forestWater + 0.05 - 0.12 * age, soil)
-    * smoothstep(tl, tl + 2.5, T)
+    * smoothstep(tl - 0.5, tl + 1, T) // closed forest runs right up to the tree line
     // (drought-hardy pine woodland is the exception: it runs right up to the steppe)
     * (1 - smoothstep(0.005, 0.06, f.nearArid[i]) * (1 - 0.8 * dryWood / 0.32));
   v = Math.min(v, 0.58 + 0.42 * forestOk);

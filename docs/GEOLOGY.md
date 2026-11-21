@@ -445,8 +445,16 @@ Pacific:
   shrub-steppe, then comes juniper and shrubland, and finally the dry basalt plateau of the
   Columbia flood basalts.
 
-On a 512 map: about 60–75% forest in the west, pine leading the east slopes, and desert or
-shrub-steppe over most of the far east.
+The range rises steeply out of the lowland with only small foothills, its peaks climbing well above
+the tree line. On a 512 map, forest covers about 85% of the western lowland and 80% of the western
+mid-slopes, with fir leading at every height (58% of the lowland forest, 66% mid-slope, still
+first just below the tree line). Pine leads the drier east slopes, and desert or shrub-steppe
+covers most of the far east. Forests and biomes count as conifer or temperate rainforest when most
+of their trees are conifers.
+
+Forest doesn't need soaking-wet ground: plant cover levels off once the soil is moderately moist,
+and trees grow on slopes up to about 45°. So the mountains are forested up to the tree line
+without the lowlands having to flood.
 
 ## 8. Biomes
 

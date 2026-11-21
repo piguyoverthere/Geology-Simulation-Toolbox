@@ -15,7 +15,7 @@ export const PRESETS = {
   cascades: {
     label: 'Cascade Range',
     // Prevailing westerlies off the Pacific (wind blowing toward +x, i.e. east), cool temperate
-    climate: { seaTemp: 11, windAngle: 0, summerDry: 0.8 },
+    climate: { seaTemp: 12, windAngle: 0, summerDry: 0.8 },
   },
   flat: { label: 'Flat plain' },
 };
@@ -147,20 +147,21 @@ function cascadeHeight(c, noise, lu, lv, u, v) {
   const axis = c.crest(lv);
   const d = lu - axis; // − west, + east of the crest
   // Cross-section: low wet lowland in the west, the range, then a high dry plateau in the east
-  const range = Math.exp(-(d * d) / (2 * 0.11 * 0.11));
+  // A flat-topped bell: the range rises fairly abruptly out of the lowland (small foothills)
+  const range = Math.exp(-Math.pow(Math.abs(d) / 0.105, 2.6));
   const plateau = smoothstep(0.08, 0.28, d) * 6;
   const lowland = 3 + 3 * smoothstep(-0.45, -0.15, d);
   // Along the range: dense high cluster in the north, the pass, medium heights in the south
   const north = 1 - smoothstep(0.25, 0.42, lv);
   const pass = Math.exp(-((lv - 0.56) ** 2) / (2 * 0.035 * 0.035));
   const clusters = 0.5 + 0.5 * noise(lv * 4 + 11, 0.3); // other knots of higher peaks
-  const amp = (20 + 22 * north + 10 * clusters) * (1 - 0.6 * pass);
-  // Rugged peaks only in the high clusters; elsewhere broader forested ridges
-  const rugged = ridged(noise, u * 2.4, v * 2.4, 6);
-  const sharp = 0.35 + 0.45 * north + 0.2 * clusters;
-  let y = lowland + plateau + range * amp * (0.6 + sharp * (rugged - 0.4));
-  // Foothills and the dissected plateau
-  y += (1.5 + 2.5 * range) * fbm(noise, u * 5, v * 5, 4);
+  const amp = (34 + 18 * north + 12 * clusters) * (1 - 0.6 * pass);
+  // Sharp peaks and deep valleys between them, most rugged in the high clusters
+  const rugged = ridged(noise, u * 2.6, v * 2.6, 6);
+  const sharp = 0.6 + 0.2 * north + 0.2 * clusters;
+  let y = lowland + plateau + range * amp * (0.5 + sharp * (1.3 * Math.pow(rugged, 1.2) - 0.35));
+  // Low, small foothills, and the dissected plateau
+  y += (1 + 2 * range) * fbm(noise, u * 5, v * 5, 4);
   // Stratovolcanoes rise above everything around them
   for (const k of c.cones) {
     const r = Math.hypot(lu * c.N - k.x, lv * c.N - k.z) / k.r;

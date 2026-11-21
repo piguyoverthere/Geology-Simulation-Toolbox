@@ -43,8 +43,12 @@ export function forestTypeAt(world, i) {
   if (near > 0.6 && soil > 0.72 && slope < world.gentleSlope * 0.7) return FOREST.swamp;
   if (T < COLD) return FOREST.conifer;
   if (T > HOT) return soil > 0.85 ? FOREST.jungle : FOREST.tropicalDry;
-  if (soil > 0.93) return FOREST.rainforest;
-  if (soil < 0.68) return FOREST.woodland;
+  // In mild climates the trees themselves decide: mostly conifers (as in the Pacific Northwest)
+  // make a conifer forest, or a temperate rainforest where it's very wet
+  const conifer = world.conifer ? world.conifer[i] : 0;
+  if (soil > 0.93 || (conifer > 0.45 && soil > 0.7)) return FOREST.rainforest;
+  if (soil < 0.45) return FOREST.woodland;
+  if (conifer > 0.45) return FOREST.conifer;
   return FOREST.broadleaf;
 }
 
@@ -58,7 +62,7 @@ export function forestColor(world, i, out) {
   const blend = (c, t) => { out[0] += (c[0] - out[0]) * t; out[1] += (c[1] - out[1]) * t; out[2] += (c[2] - out[2]) * t; };
   const base = C('broadleaf');
   out[0] = base[0]; out[1] = base[1]; out[2] = base[2];
-  blend(C('woodland'), 1 - smooth(0.63, 0.73, soil));
+  blend(C('woodland'), 1 - smooth(0.4, 0.5, soil));
   blend(C('rainforest'), smooth(0.89, 0.96, soil));
   // Warm: tropical dry forest, turning to jungle where it's also very wet
   const hot = smooth(HOT - 1.5, HOT + 1.5, T);
