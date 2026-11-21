@@ -49,10 +49,10 @@ export class Effects {
     this.clouds = this.makeClouds();
     this.fog = this.makeLayer(1200, 0xe6eaee, 10, 0.22);   // valley fog: low, flat, faint
     this.cirrus = this.makeLayer(500, 0xffffff, 40, 0.12); // high, thin wisps above everything
-    this.stormCloud = this.makeLayer(1400, 0x7d858f, 24, 0.3); // dark storm cloud decks
-    this.rain = this.makeLayer(3000, 0xa9c0da, 0.7, 0.55);       // falling rain
-    this.snowfall = this.makeLayer(3000, 0xffffff, 1.1, 0.9);    // falling snow
-    this.thunderCloud = this.makeLayer(700, 0x575d66, 22, 0.32); // towering dark thunderheads
+    this.stormCloud = this.makeLayer(3000, 0x7d858f, 34, 0.3); // dark storm cloud decks
+    this.rain = this.makeLayer(6000, 0xa9c0da, 0.7, 0.55);       // falling rain
+    this.snowfall = this.makeLayer(6000, 0xffffff, 1.1, 0.9);    // falling snow
+    this.thunderCloud = this.makeLayer(1200, 0x575d66, 28, 0.32); // towering dark thunderheads
     this.time = 0;
     // Lightning bolts: jagged line segments, plus a flash of light
     const BOLTS = 12, SEG = 14;
@@ -122,7 +122,7 @@ export class Effects {
     const rp = this.rain.points.geometry.attributes.position;
     const sp = this.snowfall.points.geometry.attributes.position;
     let kc = 0, kr = 0, ks = 0;
-    const per = Math.floor(this.stormCloud.M / 6), drops = Math.floor(this.rain.M / 6);
+    const per = Math.floor(this.stormCloud.M / 4), drops = Math.floor(this.rain.M / 4);
     for (const st of storms) {
       const amount = Math.min(1, st.strength / 0.8);
       const ci = clampCell(st.x, N) + clampCell(st.z, N) * N;

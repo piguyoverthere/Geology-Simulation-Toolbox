@@ -46,7 +46,8 @@ export function weatherStep(world, simDt) {
   holdovers(world, simDt);
   const list = world.storms;
   // New storms arrive from upwind: more often in winter, and hardly at all in a dry summer
-  let rate = 0.03 * p.storms * seasonalRain();
+  // (fewer than before, since each one covers so much more ground)
+  let rate = 0.012 * p.storms * seasonalRain();
   // …and hot weather adds thunderstorms that bubble up over the land
   rate *= 1 + 1.5 * thunderChance(world);
   if (Math.random() < rate * simDt && list.length < 8) list.push(newStorm(world));
@@ -80,10 +81,14 @@ export function weatherStep(world, simDt) {
     const z0 = Math.max(1, Math.floor(st.z - r)), z1 = Math.min(N - 2, Math.ceil(st.z + r));
     let snowCells = 0, cells = 0, total = 0, overWater = 0;
     const nt = st.age * 0.015;
-    for (let z = z0; z <= z1; z++) {
-      for (let x = x0; x <= x1; x++) {
-        const q = intensityAt(st, x, z, nt);
+    // Big storms: sample the rain pattern on a 2×2 grid (it's smooth at that scale), then rain on
+    // every cell
+    const b = st.r > 24 ? 2 : 1;
+    for (let zb = z0; zb <= z1; zb += b) {
+      for (let xb = x0; xb <= x1; xb += b) {
+        const q = intensityAt(st, xb + (b - 1) / 2, zb + (b - 1) / 2, nt);
         if (q <= 0.01) continue;
+        for (let z = zb; z < zb + b && z <= z1; z++) for (let x = xb; x < xb + b && x <= x1; x++) {
         const i = z * N + x;
         // Heaviest on windward slopes, light in rain shadows
         // A dry thunderstorm's rain mostly evaporates on the way down (virga): little reaches the ground
@@ -94,6 +99,7 @@ export function weatherStep(world, simDt) {
         total += amount; cells++;
         if (snow > 0.5) snowCells++;
         if (H[i] < sea || D[i] > 1) overWater++;
+        }
       }
     }
     st.snow = cells ? snowCells / cells : 0;
@@ -118,7 +124,8 @@ export function intensityAt(st, x, z, nt = st.age * 0.015) {
   }
   if (q <= 0) return 0;
   // Bands and holes that drift through the storm
-  const n = noise((x - st.x) / 9 + st.seed, (z - st.z) / 9 + nt);
+  const s = 5 + st.r * 0.25; // band size scales with the storm
+  const n = noise((x - st.x) / s + st.seed, (z - st.z) / s + nt);
   return Math.min(1.2, q) * Math.max(0, 0.45 + 0.75 * n);
 }
 
@@ -196,7 +203,8 @@ function newStorm(world) {
   const a = (p.windAngle * Math.PI) / 180, wx = Math.cos(a), wz = Math.sin(a);
   // Warm weather breeds thunderstorms: compact, violent and short-lived
   const thunder = Math.random() < thunderChance(world);
-  const r = thunder ? 8 + Math.random() * 10 : 12 + Math.random() * 24;
+  // Frontal storms are big, regional systems; thunderstorms are smaller cells (but still sizeable)
+  const r = thunder ? 14 + Math.random() * 16 : 30 + Math.random() * 50;
   // Pick a spot on the map and start upwind of it, just off the edge
   const tx = Math.random() * N, tz = Math.random() * N, m = r * 0.6;
   const back = Math.min(

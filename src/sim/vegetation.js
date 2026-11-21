@@ -53,8 +53,8 @@ export const vegetationParams = {
   growth: 0.03,       // how fast cover moves toward the site's potential per step
   disturbance: 0.6,   // cover lost per unit of ground removed or buried
   forestShare: 0.75,  // forest can take the gentlest this-fraction of the land (relative to the map)
-  forestSlopeMax: 1.15, // …but never on stands steeper than this (rise/run, ≈ 49°)
-  forestSlopeMin: 0.7,  // …and always allowed up to this (≈ 35°), however gentle the rest of the map is
+  forestSlopeMax: 1.2,  // …but never on stands steeper than this (rise/run, ≈ 50°; conifers a bit more)
+  forestSlopeMin: 0.9,  // …and always allowed up to this (≈ 42°), however gentle the rest of the map is
   riparianReach: 4,   // how far (cells, roughly ×2) the wet zone extends from open water
   riparianBoost: 5,   // extra growth speed right beside water (1 + boost times the normal rate)
   standRadius: 6,     // neighbourhood (cells) used to judge whether a stand of forest fits
@@ -100,6 +100,7 @@ export function initVegetation(world, seed = 1) {
     for (let i = 0; i < N * N; i++) world.soil[i] = soilSupply(world, i);
     const f = neighbourhood(world);
     for (let i = 0; i < N * N; i++) world.vegetation[i] = potential(world, i, f);
+    updateForestComposition(world); // which trees would grow here (conifers hold steeper ground)
     // Mature soils: deepest under long-standing forest
     for (let i = 0; i < N * N; i++) world.humus[i] = Math.min(1, 1.1 * world.vegetation[i] ** 1.5);
     // Existing forests start part-way mature; wetter, long-established stands are older
@@ -205,7 +206,9 @@ function potential(world, i, f) {
 
   // Forest (cover above ~0.6) needs all three, judged over the whole stand: gentle ground for deep
   // soil, enough water, and to be below the tree line. Otherwise the site tops out as grassland.
-  const forestOk = (1 - smoothstep(f.gentle * 0.85, f.gentle * 1.1, f.standSlope[i]))
+  // Conifer stands (fir especially) hold steeper ground than broadleaf ones
+  const steepOk = f.gentle * (1 + 0.45 * (world.conifer ? world.conifer[i] : 0));
+  const forestOk = (1 - smoothstep(steepOk * 0.85, steepOk * 1.1, f.standSlope[i]))
     // Old forest's deep roots reach water young trees can't, so it survives on drier ground
     * smoothstep(p.forestWater - 0.15 - 0.12 * age, p.forestWater + 0.05 - 0.12 * age, soil)
     * smoothstep(tl - 0.5, tl + 1, T) // closed forest runs right up to the tree line

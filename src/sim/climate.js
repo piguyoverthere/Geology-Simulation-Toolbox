@@ -88,6 +88,28 @@ export function seasonName(phase = seasonParams.phase) {
   const part = f < 1 / 3 ? 'Early' : f < 2 / 3 ? 'Mid' : 'Late';
   return `${part} ${names[k]}`;
 }
+/**
+ * The ground lags the air. Soil and the land surface store a summer's heat and give it up over
+ * weeks, so in early winter the ground is still warmer than the air: the first snows reaching the
+ * lowlands melt as they land, and only the high country (cold ground) builds a snowpack. By
+ * midwinter the ground has chilled and snow sticks low down too. world.groundSeason is the
+ * seasonal offset of the ground: today's air offset delayed by about five weeks.
+ */
+function updateGroundLag(world) {
+  if (!seasonParams.enabled) { world.groundSeason = 0; world.groundPhase = undefined; return; }
+  const ph = seasonParams.phase;
+  if (world.groundPhase === undefined || world.groundSeason === undefined) {
+    // Start already lagged: the offset from about five weeks ago
+    world.groundSeason = seasonParams.swing * Math.sin(2 * Math.PI * (ph - 0.1 - LAG));
+  } else {
+    let dy = ph - world.groundPhase;
+    if (dy < 0) dy += 1;
+    if (dy > 0.25) dy = 0.25;
+    world.groundSeason += (world.seasonT - world.groundSeason) * (1 - Math.exp(-dy / 0.1));
+  }
+  world.groundPhase = ph;
+}
+
 /** Today's temperature at cell i (annual mean + season). */
 export function nowTemp(world, i) { return world.temperature[i] + (world.seasonT || 0); }
 
@@ -113,6 +135,7 @@ export function updateTemperature(world) {
   const sun = boxBlur(expo, N, 2);
   world.sunExpo = sun;
   world.seasonT = seasonOffset();
+  updateGroundLag(world);
   const T = world.temperature;
   for (let i = 0; i < N * N; i++) T[i] = p.seaTemp - p.lapse * Math.max(0, H[i]) + p.sunEffect * sun[i];
   updateEvaporation(world);
@@ -209,6 +232,7 @@ export function updateSnow(world, steps = 1, runoff = false) {
   if (!world.snow) world.snow = new Float32Array(n);
   if (!world.precip) updatePrecip(world);
   const S = world.snow, T = world.temperature, P = world.precip, st = world.seasonT || 0;
+  const melts = Math.max(st, world.groundSeason ?? st);
   // With storms on, most snow arrives in storms (sim/weather.js); a little falls between them
   const background = (p.storms > 0 ? 0.15 : 1) * seasonalRain();
   const D = world.water, now = world.time, W = world.lastWet;
@@ -224,7 +248,8 @@ export function updateSnow(world, steps = 1, runoff = false) {
         const curv = (H[i - 1] + H[i + 1] + H[i - N] + H[i + N]) * 0.25 - H[i];
         const drift = 1 + Math.max(-0.5, Math.min(0.6, curv * 0.8));
         const before = S[i] + p.snowfall * background * P[i] * asSnow * drift;
-        let d = before - p.melt * Math.max(0, T[i] + st + 0.5);
+        // Snow melts from above (warm air) and from below (ground still warm from summer)
+        let d = before - p.melt * Math.max(0, T[i] + melts + 0.5);
         d = d < 0 ? 0 : d > 6 ? 6 : d;
         // Meltwater runs off into the streams: the spring flood of a snowy catchment
         if (runoff && d < before && before > 0.005) {

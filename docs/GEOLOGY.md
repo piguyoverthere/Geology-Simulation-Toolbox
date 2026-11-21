@@ -325,7 +325,7 @@ each species plus open ground between the trees:
 | Species | Likes |
 | --- | --- |
 | Pine | dry ground (forms open woodland where it's too dry for most trees), thin soil, steep slopes; pioneer; burns readily |
-| Fir (abietoid) | wet, cool mid-to-high mountain slopes; thickens as the forest ages |
+| Fir (abietoid) | wet, cool climates from mild rainy lowlands to high mountain slopes; steep ground and thin rocky soil; thickens as the forest ages |
 | Spruce | cold, acidic soil |
 | Larch | the coldest ground near the tree line; pioneer |
 | Aspen | every young forest (sprouts first after disturbance), then shaded out |
@@ -385,12 +385,20 @@ deciduous (**Overlays → Deciduous trees**). Pine, fir and spruce forests barel
 New spring leaves and grass are a bright pale green for a few weeks. Grass browns to straw in
 winter. Under leafless trees, winter snow shows on the forest floor.
 
-**Storms.** Rain comes in storms rather than evenly everywhere (**Storms** slider). Each storm is a
-ragged cluster of rain cells drifting with the wind, with heavier and lighter bands moving through
+**Storms.** Rain comes in storms rather than evenly everywhere (**Storms** slider). Frontal storms
+are big regional systems (often a third of the map across); thunderstorms are smaller cells. Each
+storm is a ragged cluster of rain cells drifting with the wind, with heavier and lighter bands moving through
 it, and it rains hardest where its air is forced up windward slopes. A storm carries a limited
 store of water vapour. Rain uses it up, fastest over mountains, so storms weaken as they cross a
 range and die out beyond it: the **rain shadow**. Crossing the sea or a lake recharges them. Storm
 rain goes straight into the rivers.
+
+**The ground lags the air.** Soil stores the summer's heat and gives it up over weeks, so in early
+winter the ground is still warmer than the air. The first snows melt as they land in the lowlands
+and build a snowpack only in the high country. By midwinter the ground has chilled and snow sticks
+low down too. On the Cascades map, snow covers the peaks from October and the upper slopes from
+November, but reaches the lowland only from mid-December, peaking at the end of January; the
+upper-slope pack lasts into June.
 
 **Snowpack and the spring flood.** In winter, storm after storm drops snow (decided by the
 temperature at the cloud base), building the pack up on the mountains. In spring it melts, and

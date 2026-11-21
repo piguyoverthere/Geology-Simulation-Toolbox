@@ -6,7 +6,7 @@
 //   forest age     – pioneers (aspen in every young forest, plus pine, birch, larch, acacia)
 //                    colonise young or disturbed ground;
 //                    shade-tolerant species (fir, beech, tropical hardwoods) take over old growth
-//   soil depth     – beech, maple and fir need deep soil; pine and juniper manage on thin, rocky soil
+//   soil depth     – beech and maple need deep soil; pine, juniper and fir manage on thin, rocky soil
 //   slope          – pine and juniper cling to steep, rocky ground
 //   soil chemistry – set by the rock beneath: granite, rhyolite and sandstone weather into acidic,
 //                    nutrient-poor soil (pine, spruce, birch); limestone and marble into alkaline soil
@@ -29,8 +29,8 @@ import { ROCK_CHEM } from '../core/rocks.js';
 export const SPECIES = [
   { id: 'pine', label: 'Pine', color: [0.16, 0.31, 0.20], mapColor: [0.20, 0.58, 0.26], temp: [-2, 22], moist: [0.12, 0.6], age: 0.15, ageW: 0.5, soil: 'thin', slope: 1.25, chem: -0.4, chemW: 2.4, flam: 1.6, soilBuild: 0.6,
     help: 'Drought-hardy pioneer conifer: dominates dry ground, and is first to colonise burnt or bare ground. Copes with thin, acidic soil and steep slopes. Resinous: burns readily.' },
-  { id: 'fir', label: 'Fir (abietoid)', color: [0.05, 0.21, 0.15], mapColor: [0.12, 0.32, 0.62], temp: [-4, 13], moist: [0.5, 1.1], age: 0.75, ageW: 0.45, soil: 'any', slope: 1.4, chem: -0.2, chemW: 2.0, flam: 1.1, soilBuild: 0.9,
-    help: 'Fir, Douglas fir and hemlock of wet, cool climates: mild rainy lowlands (like the Pacific Northwest) up to high mountain slopes. Shade-tolerant, so it thickens as the forest ages.' },
+  { id: 'fir', label: 'Fir (abietoid)', color: [0.05, 0.21, 0.15], mapColor: [0.12, 0.32, 0.62], temp: [-4, 13], moist: [0.5, 1.1], age: 0.75, ageW: 0.45, soil: 'shallow', slope: 1.9, chem: -0.2, chemW: 2.0, flam: 1.1, soilBuild: 0.9,
+    help: 'Fir, Douglas fir and hemlock of wet, cool climates: mild rainy lowlands (like the Pacific Northwest) up to high mountain slopes. Clings to steep slopes and thin, rocky mountain soil. Shade-tolerant, so it thickens as the forest ages.' },
   { id: 'spruce', label: 'Spruce', color: [0.08, 0.19, 0.17], mapColor: [0.40, 0.28, 0.65], temp: [-6, 9], moist: [0.5, 1.05], age: 0.6, ageW: 0.6, soil: 'any', slope: 0.9, chem: -0.6, chemW: 1.2, flam: 1.4, soilBuild: 0.7,
     help: 'Cold-climate conifer of the boreal forest on acidic soil.' },
   { id: 'larch', label: 'Larch', autumn: [0.82, 0.62, 0.16], color: [0.40, 0.50, 0.22], mapColor: [0.88, 0.76, 0.22], temp: [-8, 6], moist: [0.35, 0.85], age: 0.1, ageW: 0.7, soil: 'any', slope: 1.1, chem: -0.3, chemW: 1.6, flam: 0.9, soilBuild: 0.9,
@@ -94,6 +94,7 @@ function suitability(world, i, out) {
     if (s.youngBoost) f *= 1 + s.youngBoost * Math.max(0, 1 - age / 0.4); // thrives in young stands
     if (s.soil === 'deep') f *= 0.2 + 0.8 * smooth(0.15, 0.55, soil);
     else if (s.soil === 'thin') f *= 1 - 0.45 * smooth(0.45, 0.9, soil); // out-competed on rich, deep soil
+    else if (s.soil === 'shallow') f *= 1.3 - 0.3 * smooth(0.15, 0.5, soil); // roots in rock cracks: at home on thin mountain soil, fine on deep
     f *= 1 - 0.85 * smooth(s.slope, s.slope + 0.6, slope);
     f *= Math.max(0.08, 1 - Math.abs(chem - s.chem) / s.chemW);
     if (s.riparian) f *= smooth(0.3, 0.8, near);
