@@ -2,6 +2,7 @@
 // extend: each control is bound to a property on some settings object and carries a `help` string
 // that is shown in the info box when you hover it.
 
+import { DRAW_COLORS } from '../render/drawings.js';
 import { TOOLS, toolKey } from '../tools/brushes.js';
 import { PRESETS } from '../core/generate.js';
 import { OVERLAYS } from '../render/terrainRenderer.js';
@@ -140,6 +141,22 @@ export class Toolbox {
     simBtns.append(button('Clear water', () => app.clearWater(), '', 'Remove all water, suspended sediment and springs.', this));
     sim.append(simBtns);
 
+    // --- Drawings ----------------------------------------------------------------------------
+    const dr = this.section('Drawings', false);
+    dr.append(
+      select('Shape', { path: 'Path (line)', polygon: 'Polygon (area)' }, app.drawSettings, 'shape',
+        'What the Draw tool (✎, key D) makes. A path is an open line; a polygon closes back to its first point and is filled. You can also close a path into a polygon by clicking its first point.', this, () => app.setTool('draw')),
+      select('Colour', DRAW_COLORS, app.drawSettings, 'color', 'Colour for new shapes. Click a shape\'s dot in the list below to cycle its colour.', this),
+      toggle('Show labels', app.drawSettings, 'labels', 'Show each shape\'s name and measurements on the map.', this),
+    );
+    this.drawList = el('div', 'draw-list');
+    dr.append(this.drawList);
+    const drBtns = el('div', 'tb-row');
+    drBtns.append(button('Clear drawings', () => app.drawings.clear(), '', 'Delete every path and polygon.', this));
+    dr.append(drBtns);
+    app.drawings.onChange = () => this.updateDrawList();
+    this.updateDrawList();
+
     // --- Geology -----------------------------------------------------------------------------
     const geo = this.section('Geology', false);
     geo.append(
@@ -192,6 +209,34 @@ export class Toolbox {
     r.append(this.info);
     this.setInfo(this.defaultInfo());
     this.updateLegend();
+  }
+
+  /** The Drawings list: each shape with its measurements, colour dot and delete button. */
+  updateDrawList() {
+    const d = this.app.drawings, L = this.drawList;
+    if (!L) return;
+    L.innerHTML = '';
+    const all = d.current ? [...d.shapes, d.current] : d.shapes;
+    if (!all.length) { L.append(el('div', 'draw-empty', 'No drawings yet. Pick ✎ Draw (D) and click on the map.')); return; }
+    const colors = Object.keys(DRAW_COLORS);
+    for (const s of all) {
+      const row = el('div', 'draw-item');
+      const dot = el('span', 'dot');
+      dot.style.background = s.color;
+      dot.title = 'Change colour';
+      dot.addEventListener('click', () => { d.setColor(s.id, colors[(colors.indexOf(s.color) + 1) % colors.length]); this.updateDrawList(); });
+      const txt = el('div', 'txt');
+      txt.append(el('span', '', s === d.current ? `${s.name} (drawing…)` : s.name), el('small', '', d.describe(s)));
+      txt.title = d.describe(s);
+      row.append(dot, txt);
+      if (s !== d.current) {
+        const del = el('button', '', '✕');
+        del.title = 'Delete';
+        del.addEventListener('click', () => d.remove(s.id));
+        row.append(del);
+      }
+      L.append(row);
+    }
   }
 
   /** Legend for the current overlay: swatches for categories, a ramp for continuous values. */

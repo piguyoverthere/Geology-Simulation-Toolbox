@@ -27,6 +27,8 @@ To put it online, turn on **GitHub Pages** for this repo (Settings → Pages →
 | Scroll | Zoom |
 | Shift + tool | Invert it (Raise ↔ Lower, Rain → soak up, Spring → remove) |
 | `1`–`9`, `0`, `-`, `=` | Pick a tool (numbers shown on the tool bar) |
+| `D` | Draw paths and polygons |
+| Enter / double-click, Backspace, Esc | While drawing: finish, remove last point, cancel |
 | `[` / `]` | Shrink / grow brush |
 | Space | Pause / resume the simulation |
 | Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z | Undo / redo terrain strokes |
@@ -35,7 +37,7 @@ Hover any tool or control to see what it does in the info box at the bottom righ
 
 ### Tool bar (bottom)
 
-Every tool as a small icon, grouped: **View** (Orbit, Inspect), **Sculpt** (Raise, Lower, Smooth,
+Every tool as a small icon, grouped: **View** (Orbit, Inspect, Draw), **Sculpt** (Raise, Lower, Smooth,
 Flatten, Roughen), **Water** (Rain, Spring: a permanent source that carves a river), **Life**
 (Plant; Shift to clear), **Erosion** (Weather: thousands of raindrops in the brush area;
 Crumble: landslides) and **Tectonics**, plus brush **Size** and **Strength**:
@@ -50,6 +52,13 @@ Crumble: landslides) and **Tectonics**, plus brush **Size** and **Strength**:
 - **Fault** ⫽: drag a fault line; it slips in a series of earthquakes (the camera shakes).
   Normal faults drop a block, reverse/thrust faults raise one, strike-slip faults slide the two
   sides past each other, offsetting rivers and rock.
+
+**Draw** ✎ marks up the map the way a globe viewer's path and polygon tools do. Click to add
+points; double-click or Enter finishes a path, and clicking the first point again closes a
+polygon (filled). Lines are draped over the ground and follow it as it erodes. Each shape is
+labelled with its length along the ground, climb and descent, height range and, for polygons,
+area. **Side panel → Drawings** picks path or polygon and the colour, and lists every shape (click
+its dot to recolour, ✕ to delete).
 
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
 sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or
@@ -75,6 +84,7 @@ and how much it has been eroded or built up since the baseline.
 - **Overlays**: colour the map by one data layer (biomes, vegetation, tree species, forest age,
   temperature, precipitation, snow depth, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
+- **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes.
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
 - **Terrain**: presets (hills, mountains, plateau, volcano, flat), seed, undo/redo, PNG
   heightmap export/import.
@@ -109,6 +119,7 @@ src/sim/forests.js      Forest types (jungle, tropical dry, temperate rainforest
 src/sim/fire.js         Wildfire: ignition by lava, spread through vegetation, burn scars
 src/sim/landslides.js   Rain-triggered big landslides, sector collapses and debris avalanches
 src/sim/tectonics.js    Faults: normal, reverse and strike-slip, slipping in earthquakes
+src/render/drawings.js  Draw tool: draped paths and polygons with measurements
 src/render/effects.js   Eruption plumes, vent glow, fault traces and earthquake shake
 src/tools/brushes.js    Tool definitions + undo history
 src/render/terrainRenderer.js  Terrain/water meshes and colouring

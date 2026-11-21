@@ -14,6 +14,7 @@ import { phenologyStep } from './sim/phenology.js';
 import { weatherStep, weatherParams } from './sim/weather.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
+import { Drawings, drawSettings } from './render/drawings.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
 import { fireStep, fireParams } from './sim/fire.js';
 import { landslideCheck, debrisStep, landslideParams } from './sim/landslides.js';
@@ -54,6 +55,8 @@ class App {
     generateTerrain(this.world, this.gen.preset, this.gen.seed);
     this.renderer = new TerrainRenderer(this.world, this.scene);
     this.effects = new Effects(this.scene, this.world, this.renderer);
+    this.drawSettings = drawSettings;
+    this.drawings = new Drawings(this.scene, this.world, this.renderer, document.getElementById('labels'));
     this.effects.climateParams = climateParams;
     this.setupCursor();
     this.setupInput();
@@ -154,7 +157,7 @@ class App {
     this.cursor.visible = show;
     if (!show) return;
     const pos = this.cursor.geometry.attributes.position;
-    const small = { spring: 3, inspect: 1.5, erupt: 3, fault: 1.5 };
+    const small = { spring: 3, inspect: 1.5, erupt: 3, fault: 1.5, draw: 1.2 };
     const r = this.tool === 'intrude' && volcanoSettings.intrusion === 'dike' ? 1.5 : small[this.tool] ?? this.brush.radius;
     for (let k = 0; k <= 64; k++) {
       const a = (k / 64) * Math.PI * 2;
@@ -178,6 +181,7 @@ class App {
     this.raycaster = new THREE.Raycaster();
 
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvas.addEventListener('dblclick', () => { if (TOOLS[this.tool].draw) this.drawings.finish(); });
     const track = (e) => {
       const rect = canvas.getBoundingClientRect();
       this.pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
@@ -192,6 +196,7 @@ class App {
       const hit = this.pick();
       if (!hit) return;
       const t = TOOLS[this.tool];
+      if (t.draw) { this.drawings.click(hit); return; }
       if (t.line) {
         // Drag tools: remember the start; placed on release
         this.lineStart = hit;
@@ -228,6 +233,12 @@ class App {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
       if (e.key === ' ') { e.preventDefault(); this.toggleSim(); return; }
+      if (TOOLS[this.tool].draw && this.drawings.current) {
+        if (e.key === 'Enter') { this.drawings.finish(); return; }
+        if (e.key === 'Escape') { this.drawings.cancel(); return; }
+        if (e.key === 'Backspace') { e.preventDefault(); this.drawings.undoPoint(); return; }
+      }
+      if (e.key === 'd' && !mod) { this.setTool('draw'); return; }
       if (e.key === '[') { this.brush.radius = Math.max(2, this.brush.radius - 2); this.toolbox.refresh(); }
       if (e.key === ']') { this.brush.radius = Math.min(60, this.brush.radius + 2); this.toolbox.refresh(); }
       const k = TOOL_KEYS.indexOf(e.key);
@@ -274,6 +285,7 @@ class App {
   // --- Actions (called by the toolbox) ---------------------------------------------------------
 
   setTool(id) {
+    if (this.tool === 'draw' && id !== 'draw' && this.drawings) this.drawings.finish();
     this.tool = id;
     const M = THREE.MOUSE;
     // Free the left button for painting unless the orbit tool is active
@@ -420,6 +432,7 @@ class App {
 
     this.renderer.update();
     this.effects.update(dt);
+    this.drawings.update(dt, this.camera, hit, this.tool === 'draw');
     this.controls.update();
     this.effects.applyShake(this.camera, dt);
     this.gl.render(this.scene, this.camera);

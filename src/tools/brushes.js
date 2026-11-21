@@ -12,7 +12,7 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-export function toolKey(id) { return TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
+export function toolKey(id) { return id === 'draw' ? 'D' : TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
 
 /** Smooth bell-shaped falloff: 1 at the centre, 0 at the brush edge. */
 function falloff(d, r) {
@@ -168,6 +168,11 @@ export const TOOLS = {
     label: 'Fault', group: 'Tectonics', icon: '⫽', editsTerrain: true, line: true,
     help: 'Drag along a line to break the crust. It slips in a series of earthquakes. Choose normal, reverse or strike-slip in the side panel.',
     place({ world }, a, b) { startFault(world, a, b, faultSettings); },
+  },
+  draw: {
+    label: 'Draw path / polygon', group: 'View', icon: '✎', editsTerrain: false, draw: true,
+    help: 'Click to add points along the ground. Double-click or Enter finishes a path; click the first point again to close a polygon. Backspace removes the last point, Esc cancels. Each shape shows its length along the ground, climb and descent, height range and (polygons) area. Choose path or polygon and the colour under Drawings in the side panel.',
+    apply() {},
   },
 };
 
