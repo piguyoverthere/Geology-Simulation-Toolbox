@@ -28,6 +28,7 @@ export const waterParams = {
   erode: 0.5,          // Ks: dissolving rate
   deposit: 0.2,        // Kd: settling rate
   evaporate: 0.02,     // Ke
+  infiltration: 0.06,  // depth per second shallow water on land soaks into the soil (dry soil, plants: faster)
   minTilt: 0.02,       // keeps a little erosion going on near-flat river beds
   critSpeed: 0.4,      // flow slower than this can't lift grains off the bed (Hjulström/Shields threshold)
   maxConcentration: 0.3, // most sediment a unit of water depth can carry
@@ -210,9 +211,20 @@ export function waterStep(world) {
   world.time += dt;
   const now = world.time, W = world.lastWet;
   if (p.rain > 0) W.fill(now); // rain waters everywhere
+  // Infiltration: shallow water spread over flat land (floodplains, lowland sheets) sinks into the
+  // soil, faster into dry soil and under plants, so floods drain away. On slopes water is moving on
+  // downhill, and deep rivers and lakes barely notice, so the rivers keep their water.
+  const SM = world.soil, V = world.vegetation, infK = p.infiltration * dt;
   for (let i = 0; i < n; i++) {
     if (D[i] > 0.05) W[i] = now;
     D[i] *= 1 - evapK * (ER ? ER[i] : 1);
+    if (D[i] > 0 && B[i] >= sea && SM) {
+      const x = i % N, z = (i / N) | 0;
+      const gx = x > 0 && x < N - 1 ? (B[i + 1] - B[i - 1]) * 0.5 : 0, gz = z > 0 && z < N - 1 ? (B[i + N] - B[i - N]) * 0.5 : 0;
+      const flat = 1 - Math.min(1, Math.sqrt(gx * gx + gz * gz) / 0.25);
+      const sink = infK * flat * flat * (1.2 - SM[i]) * (0.6 + 0.6 * V[i]) * (D[i] < 0.6 ? 1 : 0.6 / D[i]);
+      D[i] = Math.max(0, D[i] - sink);
+    }
     if (D[i] < 1e-4) {
       D[i] = 0;
       if (S[i] > 0) { dBed[i] += S[i]; S[i] = 0; }

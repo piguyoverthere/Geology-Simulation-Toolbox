@@ -407,6 +407,13 @@ season the next one builds quickly when none is. On the Cascades map the high gr
 patchy 55% cover in early October to 86% by late December and complete cover by early January,
 about 3.5 units deep, with the depth far more even than before.
 
+**Rain soaks in.** Not all rain runs off: some soaks into the soil, more on dry ground and under
+forest (leaf litter and roots), less on already-saturated ground. Water spread in thin sheets over
+flat land (a flooded lowland or floodplain) slowly sinks in, while water on slopes keeps moving
+and rivers and lakes barely lose any. So the flat Puget-style lowland of the Cascades map no longer
+floods through the wet season (about 500–1,000 units of water on the map instead of 3,400), while
+its rivers keep running all winter.
+
 **The wet season.** From late October to mid-March the winter storm track sits over the region and
 storms are practically constant: on the Cascades map there was a storm on the map 100% of the time
 from mid-October to the end of March (2–4 travelling storms plus up to a dozen mountain snowstorms),

@@ -76,6 +76,7 @@ export function weatherStep(world, simDt) {
 
   const a = (p.windAngle * Math.PI) / 180, wx = Math.cos(a), wz = Math.sin(a);
   const D = world.water, S = world.snow, P = world.precip, W = world.lastWet, now = world.time, H = world.height;
+  const SM = world.soil, V = world.vegetation;
   const sea = world.seaLevel;
   for (let s = list.length - 1; s >= 0; s--) {
     const st = list[s];
@@ -121,7 +122,14 @@ export function weatherStep(world, simDt) {
         if (st.mountain) amount *= 0.2 + 1.3 * smooth(st.hLow, st.hHigh, H[i]);
         const snow = S ? smooth(1, -1, cloudTempAt(world, i)) : 0;
         if (snow > 0) S[i] = Math.min(6, S[i] + amount * (st.mountain ? 0.12 : 0.05) * snow);
-        if (snow < 1) { D[i] += amount * 0.045 * (1 - snow); W[i] = now; }
+        if (snow < 1) {
+          // Most rain soaks into the ground; only part runs off. Dry soil and forest (litter, roots)
+          // soak up the most, already-saturated ground sheds the most
+          const sm = SM ? SM[i] : 0.5, veg = V[i];
+          const runoff = H[i] < sea ? 1 : Math.min(1, 0.55 + 0.45 * sm) * (1 - 0.2 * veg);
+          D[i] += amount * 0.045 * (1 - snow) * runoff;
+          W[i] = now;
+        }
         total += amount; cells++;
         if (snow > 0.5) snowCells++;
         if (H[i] < sea || D[i] > 1) overWater++;
