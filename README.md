@@ -97,7 +97,8 @@ and how much it has been eroded or built up since the baseline.
   mostly from autumn to spring, and a summer fire season with dry lightning storms), and **Snow slope
   limit** (the steepest slope snow builds up on).
 - **Overlays**: colour the map by one data layer (biomes, vegetation, tree species, forest age,
-  temperature, precipitation, snow depth, glacier ice, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
+  topographic map (elevation bands with contour lines, index contours every fifth), temperature,
+  precipitation, snow depth, glacier ice, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
 - **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes.
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.

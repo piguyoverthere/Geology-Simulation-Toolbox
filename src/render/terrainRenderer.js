@@ -41,6 +41,7 @@ export const OVERLAYS = {
   precip: 'Precipitation',
   snowDepth: 'Snow depth',
   ice: 'Glacier ice',
+  topo: 'Topographic map',
   decid: 'Deciduous trees',
   rock: 'Rock type',
   hardness: 'Rock hardness',
@@ -172,6 +173,15 @@ export class TerrainRenderer {
     // Colouring is the expensive part. On big maps recolour an interleaved share of the rows each
     // frame (the full map every few frames); heights, normals and water still update every frame.
     const stride = Math.min(4, Math.ceil((N * N) / 70000));
+    // Topographic map: elevation range and a round contour interval (~15–30 contours over the relief)
+    let topoLo = 0, topoInt = 1, topoSea = sea;
+    if (mode === 'topo') {
+      let lo = Infinity, hi = -Infinity;
+      for (let i = 0; i < H.length; i += 7) { if (H[i] < lo) lo = H[i]; if (H[i] > hi) hi = H[i]; }
+      const step = niceStep((hi - Math.max(lo, sea)) / 20);
+      topoInt = step; topoLo = Math.max(lo, sea > -999 ? sea : lo);
+      this.topo = { lo: topoLo, hi, interval: step };
+    }
     const allColor = force || stride === 1 || mode !== this.lastMode || this.showVegetation !== this.lastVeg;
     this.lastMode = mode; this.lastVeg = this.showVegetation;
     this.colorPhase = ((this.colorPhase || 0) + 1) % stride;
@@ -246,6 +256,24 @@ export class TerrainRenderer {
           // Share of the ground under deciduous trees (the ones that change colour and drop leaves)
           const d = w.decid ? w.decid[i] : 0;
           col = shade(w.vegetation[i] > 0.3 ? mix(DECID_NONE, DECID_FULL, Math.min(1, d / 0.8), S3) : NO_FOREST, 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'topo') {
+          if (h < topoSea) {
+            // Water: blue, deeper → darker
+            col = mix(TOPO_SHALLOW, TOPO_DEEP, Math.min(1, (topoSea - h) / 15), S3);
+          } else {
+            // Elevation bands: the colour steps from one contour interval to the next
+            const k = Math.floor(h / topoInt);
+            const t = Math.min(1, Math.max(0, (k * topoInt + topoInt * 0.5 - topoLo) / Math.max(1, this.topo.hi - topoLo)));
+            col = topoColor(t, S3);
+            // Contour lines: drawn on the cell just above each contour level; every 5th is bold
+            const kl = Math.floor(hl / topoInt), kr = Math.floor(hr / topoInt), ku = Math.floor(hu / topoInt), kd = Math.floor(hd / topoInt);
+            const below = Math.min(kl, kr, ku, kd);
+            if (below < k) {
+              const major = k % 5 === 0;
+              shade(col, major ? 0.42 : 0.68, col);
+            }
+          }
+          shade(col, 0.82 + 0.18 * ny, col);
         } else if (mode === 'ice') {
           const t = IC ? IC[i] : 0;
           col = shade(t < 0.02 ? NO_SNOW : t < 3 ? mix(ICE_THIN, ICE_MID, t / 3, S3) : mix(ICE_MID, ICE_DEEP, Math.min(1, (t - 3) / 8), S3), 0.75 + 0.25 * ny, S3);
@@ -469,6 +497,25 @@ const CHEM_ACID = [0.55, 0.30, 0.62], CHEM_NEUTRAL = [0.88, 0.86, 0.80], CHEM_AL
 const HARD_SOFT = [0.98, 0.84, 0.36], HARD_MID = [0.86, 0.45, 0.24], HARD_HARD = [0.16, 0.20, 0.44];
 const PRECIP_DRY = [0.86, 0.74, 0.52], PRECIP_WET = [0.12, 0.35, 0.75];
 const NO_SNOW = [0.55, 0.53, 0.48], SNOW_THIN = [0.88, 0.92, 0.98], SNOW_MID = [0.55, 0.72, 0.95], SNOW_DEEP = [0.18, 0.30, 0.75];
+const TOPO_STOPS = [[0.0, [0.42, 0.62, 0.38]], [0.2, [0.62, 0.76, 0.46]], [0.42, [0.90, 0.86, 0.58]],
+  [0.62, [0.80, 0.62, 0.40]], [0.82, [0.62, 0.48, 0.40]], [1.0, [0.97, 0.97, 0.97]]];
+const TOPO_SHALLOW = [0.62, 0.80, 0.92], TOPO_DEEP = [0.25, 0.45, 0.72];
+/** Classic hypsometric tints: green lowlands → tan → brown → white summits. */
+function topoColor(t, out) {
+  for (let k = 1; k < TOPO_STOPS.length; k++) {
+    if (t <= TOPO_STOPS[k][0]) {
+      const [t0, c0] = TOPO_STOPS[k - 1], [t1, c1] = TOPO_STOPS[k];
+      return mix(c0, c1, (t - t0) / (t1 - t0), out);
+    }
+  }
+  return mix(TOPO_STOPS[5][1], TOPO_STOPS[5][1], 0, out);
+}
+/** A round contour interval (1, 2, 2.5, 5 × a power of ten) near x. */
+function niceStep(x) {
+  const p = Math.pow(10, Math.floor(Math.log10(Math.max(x, 0.01))));
+  const m = x / p;
+  return (m < 1.5 ? 1 : m < 2.25 ? 2 : m < 3.5 ? 2.5 : m < 7.5 ? 5 : 10) * p;
+}
 const ICE = [0.80, 0.89, 0.97], ICE_DIRTY = [0.55, 0.55, 0.55];
 const ICE_THIN = [0.82, 0.93, 0.98], ICE_MID = [0.45, 0.72, 0.92], ICE_DEEP = [0.12, 0.28, 0.62];
 const DECID_NONE = [0.10, 0.32, 0.22], DECID_FULL = [0.95, 0.60, 0.12];
