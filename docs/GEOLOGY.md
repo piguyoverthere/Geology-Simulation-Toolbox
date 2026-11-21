@@ -430,6 +430,11 @@ slider is at 0). On the Cascades map the peaks had snow from early October, the 
 November, and by mid-January 56–60% of the high ground was snow-covered while the lowlands were
 still nearly bare.
 
+**Snow lasts.** A snowpack keeps itself cold: it reflects most sunlight, and melting soaks up a lot
+of heat. So snow here only melts where it's above 2 °C, and slowly. On the Cascades map, 65% of the
+high ground was still white at the end of May, 43% at the end of June and nearly a quarter at the
+end of July. The coolest spots keep their snow the longest.
+
 **Snowpack and the spring flood.** In winter, storm after storm drops snow (decided by the
 temperature at the cloud base), building the pack up on the mountains. In spring it melts, and
 the meltwater runs off into the streams, so the rivers run highest in late winter and spring.

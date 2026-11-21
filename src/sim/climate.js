@@ -19,7 +19,8 @@ export const climateParams = {
   humidity: 1,        // moisture of the air arriving at the upwind edge
   cloudLift: 6,       // height of the clouds above the ground (their temperature decides snow vs rain)
   snowfall: 0.06,     // snow added per step at average precipitation
-  melt: 0.012,        // snow melted per step per °C above freezing
+  melt: 0.009,        // snow melted per step per °C above meltTemp
+  meltTemp: 2,        // snow only melts above this temperature (°C): a pack stays cold and reflects sunlight
   deepSnow: 2,        // snowpack depth around a slope at which steep faces start holding snow
   storms: 1,          // how often storms sweep across the map (0 = none; see sim/weather.js)
   meltRunoff: 0.6,    // water depth released into the flow model per unit of snow melted
@@ -250,7 +251,7 @@ export function updateSnow(world, steps = 1, runoff = false) {
         const drift = 1 + Math.max(-0.5, Math.min(0.6, curv * 0.8));
         const before = S[i] + p.snowfall * background * P[i] * asSnow * drift;
         // Snow melts from above (warm air) and from below (ground still warm from summer)
-        let d = before - p.melt * Math.max(0, T[i] + melts + 0.5);
+        let d = before - p.melt * Math.max(0, T[i] + melts - p.meltTemp);
         d = d < 0 ? 0 : d > 6 ? 6 : d;
         // Meltwater runs off into the streams: the spring flood of a snowy catchment
         if (runoff && d < before && before > 0.005) {
