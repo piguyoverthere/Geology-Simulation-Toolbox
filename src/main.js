@@ -267,7 +267,7 @@ class App {
       if (e.key === 'd' && !mod) { this.setTool('draw'); return; }
       if (e.key === 'l' && !mod) { this.setTool('lightning'); return; }
       if (e.key === 'f' && !mod) { this.setTool('wildfire'); return; }
-      const letters = { c: 'storm', w: 'drain', n: 'snow', g: 'glacier', b: 'subside' };
+      const letters = { c: 'storm', w: 'drain', n: 'snow', g: 'glacier', b: 'subside', u: 'uplift' };
       if (letters[e.key] && !mod) { this.setTool(letters[e.key]); return; }
       if (e.key === '[') { this.brush.radius = Math.max(2, this.brush.radius - 2); this.toolbox.refresh(); }
       if (e.key === ']') { this.brush.radius = Math.min(60, this.brush.radius + 2); this.toolbox.refresh(); }

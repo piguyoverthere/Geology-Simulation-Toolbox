@@ -14,7 +14,7 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B' };
+const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U' };
 export function toolKey(id) { return LETTER_KEYS[id] || TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
 
 /** Raise (d > 0) or lower the whole landscape, keeping everything tied to the ground with it. */
@@ -266,6 +266,13 @@ export const TOOLS = {
     apply({ world, strength, dt, invert }) {
       const d = strength * 3 * dt * (invert ? 1 : -1);
       shiftLand(world, d);
+    },
+  },
+  uplift: {
+    label: 'Raise land', group: 'Tectonics', icon: '⤒', editsTerrain: false,
+    help: 'Hold the mouse anywhere on the map to raise the whole area at once (regional uplift, as when mountains are pushed up or land rebounds after an ice sheet melts). Everything moves together: rock layers, lava, intrusions and the erosion baseline stay matched to the ground. Higher land is colder, so the snow and tree lines drop, rivers cut down harder, and with the sea on, the coast pulls back. Hold Shift to lower it instead. Brush strength sets the speed.',
+    apply({ world, strength, dt, invert }) {
+      shiftLand(world, strength * 3 * dt * (invert ? -1 : 1));
     },
   },
 };

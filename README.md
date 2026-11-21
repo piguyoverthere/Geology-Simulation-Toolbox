@@ -28,7 +28,7 @@ To put it online, turn on **GitHub Pages** for this repo (Settings → Pages →
 | Shift + tool | Invert it (Raise ↔ Lower, Rain → soak up, Spring → remove) |
 | `1`–`9`, `0`, `-`, `=` | Pick a tool (numbers shown on the tool bar) |
 | `D`, `L`, `F` | Draw paths and polygons, Lightning, Wildfire |
-| `C`, `N`, `G`, `W`, `B` | Storm, Snow, Glacier, Drain, Sink land |
+| `C`, `N`, `G`, `W`, `B`, `U` | Storm, Snow, Glacier, Drain, Sink land, Raise land |
 | Enter / double-click, Backspace, Esc | While drawing: finish, remove last point, cancel |
 | `[` / `]` | Shrink / grow brush |
 | Space | Pause / resume the simulation |
@@ -55,7 +55,8 @@ Crumble: landslides) and **Tectonics**, plus brush **Size** and **Strength**:
   burnt ground that recovers slowly.
 - **Intrude** ◍: a granite pluton (click) domes the ground with granite hidden beneath until erosion
   exposes it; a basalt dike (drag) is a hard wall that erosion leaves standing.
-- **Sink land** ⤓: hold to lower the whole map at once (regional subsidence); Shift raises it.
+- **Sink land** ⤓ / **Raise land** ⤒: hold to lower or raise the whole map at once (regional
+  subsidence or uplift); Shift reverses either.
   Rock layers, lava and the erosion baseline move with the ground. Lower land is warmer, and with
   the sea on, the coast floods inland.
 - **Fault** ⫽: drag a fault line; it slips in a series of earthquakes (the camera shakes).
