@@ -61,6 +61,10 @@ labelled with its length along the ground, climb and descent, height range and, 
 area. **Side panel → Drawings** picks path or polygon and the colour, and lists every shape (click
 its dot to recolour, ✕ to delete).
 
+**Month bar** (top of the view): the 12 months tinted by season, with a marker at today's date
+and its name (e.g. "Mid August"). Click a month to jump the year there. With Seasons off it offers
+to turn them on.
+
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
 sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or
 lake), surface water depth and speed, sediment load, plant cover, rock hardness, erodibility,
@@ -131,6 +135,7 @@ src/render/terrainRenderer.js  Terrain/water meshes and colouring
 src/render/biomes.js    Biome definitions and classification
 src/ui/toolbox.js       Right-hand settings panel and bottom tool bar
 src/ui/inspector.js     Inspect-tool readout
+src/ui/monthbar.js      Month bar: today's date in the seasonal year
 vendor/three/           three.js r169 (MIT)
 ```
 

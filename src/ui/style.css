@@ -179,3 +179,34 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .draw-item button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 0 2px; }
 .draw-item button:hover { color: var(--erode); }
 .draw-empty { color: var(--muted); font-size: 11.5px; }
+
+/* Month bar across the top of the view */
+.month-bar {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 4;
+  width: min(560px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 4px;
+  background: rgba(21, 24, 28, 0.82); border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px 8px;
+}
+.mb-label { font-size: 12px; color: var(--text); display: flex; gap: 8px; align-items: baseline; }
+.mb-label span { color: var(--muted); font-size: 11px; text-transform: capitalize; }
+.mb-track { position: relative; display: flex; height: 20px; border-radius: 5px; overflow: hidden; }
+.mb-month {
+  border: none; border-right: 1px solid rgba(0, 0, 0, 0.35); padding: 0; min-width: 0; cursor: pointer;
+  font: inherit; font-size: 10px; color: rgba(255, 255, 255, 0.85); overflow: hidden;
+}
+.mb-month:last-of-type { border-right: none; }
+.mb-month:hover { filter: brightness(1.25); }
+.mb-winter { background: #3b5776; }
+.mb-spring { background: #4f7d3f; }
+.mb-summer { background: #8a7a32; }
+.mb-autumn { background: #94512a; }
+.mb-marker {
+  position: absolute; top: -2px; bottom: -2px; width: 3px; margin-left: -1.5px; pointer-events: none;
+  background: #fff; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 6px rgba(255, 255, 255, 0.7);
+}
+.mb-toggle {
+  align-self: center; background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 6px; font: inherit; font-size: 11px; padding: 2px 10px; cursor: pointer;
+}
+.mb-toggle[hidden] { display: none; }
+.month-bar.off .mb-track { opacity: 0.35; }
+.month-bar.off .mb-marker { display: none; }

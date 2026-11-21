@@ -15,6 +15,7 @@ import { updateForestComposition } from './sim/species.js';
 import { weatherStep, weatherParams } from './sim/weather.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
+import { MonthBar } from './ui/monthbar.js';
 import { Drawings, drawSettings } from './render/drawings.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
 import { fireStep, fireParams } from './sim/fire.js';
@@ -68,6 +69,7 @@ class App {
 
     this.toolbox = new Toolbox(document.getElementById('toolbox'), document.getElementById('toolbar'), this);
     this.inspector = new Inspector(document.getElementById('inspector'), this);
+    this.monthBar = new MonthBar(document.getElementById('monthbar'), this);
     this.setTool(this.tool);
 
     this.clock = new THREE.Clock();
@@ -466,6 +468,7 @@ class App {
     this.gl.render(this.scene, this.camera);
     this.effects.removeShake(this.camera);
 
+    if (this.frame % 6 === 0) this.monthBar.update();
     if (this.frame % 15 === 0) {
       const s = this.world.stats();
       this.toolbox.setStats(
@@ -474,7 +477,6 @@ class App {
         `<span>sediment ${fmt(s.sed)}</span><span class="ero">eroded ${fmt(s.eroded)}</span>` +
         `<span class="dep">deposited ${fmt(s.deposited)}</span><span>springs ${this.world.sources.length}</span>` +
         (this.world.events.length ? `<span class="evt">events ${this.world.events.length}</span>` : '') +
-        (seasonParams.enabled ? `<span class="season">${seasonName()}</span>` : '') +
         (this.world.storms?.length ? `<span>storms ${this.world.storms.length}</span>` : ''));
     }
   }
