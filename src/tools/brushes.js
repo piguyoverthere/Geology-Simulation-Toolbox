@@ -14,8 +14,23 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G' };
+const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B' };
 export function toolKey(id) { return LETTER_KEYS[id] || TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
+
+/** Raise (d > 0) or lower the whole landscape, keeping everything tied to the ground with it. */
+export function shiftLand(world, d) {
+  const n = world.N * world.N;
+  for (let i = 0; i < n; i++) {
+    world.height[i] += d;
+    world.baseline[i] += d;
+    world.prevHeight[i] += d;
+    world.strataWarp[i] -= d; // the same rock stays at the surface
+    world.surfaceBase[i] += d;
+    if (world.intrusionTop[i] > -1e30) world.intrusionTop[i] += d;
+  }
+  if (world.geoRange) { world.geoRange.lo += d; world.geoRange.hi += d; }
+  world.dirty = true;
+}
 
 /** Smooth bell-shaped falloff: 1 at the centre, 0 at the brush edge. */
 function falloff(d, r) {
@@ -243,6 +258,14 @@ export const TOOLS = {
         if (world.water[i] < 1e-3) { world.water[i] = 0; world.sediment[i] = 0; }
       });
       world.dirty = true;
+    },
+  },
+  subside: {
+    label: 'Sink land', group: 'Tectonics', icon: '⤓', editsTerrain: false, // (reverse with Shift rather than Undo)
+    help: 'Hold the mouse anywhere on the map to lower the whole area at once (regional subsidence, as when a basin sinks or crust cools and settles). Everything moves together: rock layers, lava, intrusions and the erosion baseline stay matched to the ground. Lower land is warmer, so the snow and tree lines climb, and with the sea on, coasts flood inland. Hold Shift to uplift the whole area instead (that is also how to undo it). Brush strength sets the speed.',
+    apply({ world, strength, dt, invert }) {
+      const d = strength * 3 * dt * (invert ? 1 : -1);
+      shiftLand(world, d);
     },
   },
 };
