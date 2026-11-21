@@ -53,7 +53,9 @@ export class Effects {
     this.rain = this.makeLayer(6000, 0xa9c0da, 0.7, 0.55);       // falling rain
     this.snowfall = this.makeLayer(6000, 0xffffff, 1.1, 0.9);    // falling snow
     this.thunderCloud = this.makeLayer(1200, 0x575d66, 28, 0.32);
-    this.snowCloud = this.makeLayer(4000, 0xdde3ea, 32, 0.38); // pale, soft snowstorm clouds // towering dark thunderheads
+    this.snowCloud = this.makeLayer(4000, 0xdde3ea, 32, 0.38); // pale, soft snowstorm clouds
+    this.deck = this.makeLayer(1400, 0xb9c0c8, 42, 0.0);      // the fall/winter overcast deck
+    this.overcast = 0; // towering dark thunderheads
     this.time = 0;
     // Lightning bolts: jagged line segments, plus a flash of light
     const BOLTS = 12, SEG = 14;
@@ -105,6 +107,38 @@ export class Effects {
     pos.needsUpdate = true;
     this.bolts.visible = k > 0;
     this.flash.intensity = flash * 2500;
+  }
+
+  /** A grey stratus deck over the whole map in the wet season, drifting with the wind. */
+  updateDeck(dt) {
+    const d = this.deck, w = this.world, N = w.N;
+    const target = this.overcast * 0.2;
+    d.points.material.opacity += (target - d.points.material.opacity) * Math.min(1, dt * 0.5);
+    d.points.visible = this.renderer.showClouds && d.points.material.opacity > 0.01;
+    if (!d.points.visible) return;
+    const pos = d.points.geometry.attributes.position;
+    if (!d.ready || d.N !== N) {
+      // Deck height: well above most of the land, the peaks poking up into it
+      let hi = 0;
+      for (let i = 0; i < N * N; i += 97) hi = Math.max(hi, w.height[i]);
+      for (let j = 0; j < d.M; j++) {
+        d.anchor[j * 3] = Math.random() * N * 1.2 - N * 0.1;
+        d.anchor[j * 3 + 1] = hi * 0.85 + 8 + Math.random() * 5;
+        d.anchor[j * 3 + 2] = Math.random() * N * 1.2 - N * 0.1;
+      }
+      d.ready = true; d.N = N; d.drift = 0;
+    }
+    const a = ((this.climateParams ? this.climateParams.windAngle : 20) * Math.PI) / 180;
+    d.drift += dt * 2;
+    const span = N * 1.2;
+    for (let j = 0; j < d.M; j++) {
+      // Wrap around so the deck flows on endlessly
+      const x = ((d.anchor[j * 3] + Math.cos(a) * d.drift + N * 0.1) % span + span) % span - N * 0.1;
+      const z = ((d.anchor[j * 3 + 2] + Math.sin(a) * d.drift + N * 0.1) % span + span) % span - N * 0.1;
+      const p = this.renderer.toWorld(x, z, d.anchor[j * 3 + 1]);
+      pos.setXYZ(j, p.x, p.y, p.z);
+    }
+    pos.needsUpdate = true;
   }
 
   /** Storms (sim/weather.js): a dark cloud deck over each, with rain or snow falling beneath it. */
@@ -383,6 +417,7 @@ export class Effects {
     this.updateFog(dt);
     this.updateCirrus(dt);
     this.updateStorms(dt);
+    this.updateDeck(dt);
     this.updateFaults();
   }
 

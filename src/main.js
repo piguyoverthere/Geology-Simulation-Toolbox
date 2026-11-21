@@ -16,7 +16,7 @@ import { weatherStep, weatherParams } from './sim/weather.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
-import { snapshot, applySnapshot, encodeLevel, decodeLevel, storeLevel, fetchLevel, deleteLevel } from './core/save.js';
+import { captureDefaults, snapshot, applySnapshot, encodeLevel, decodeLevel, storeLevel, fetchLevel, deleteLevel } from './core/save.js';
 import { Drawings, drawSettings } from './render/drawings.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
 import { fireStep, fireParams } from './sim/fire.js';
@@ -58,6 +58,10 @@ class App {
     this.gen = { preset: PRESETS[params.get('preset')] ? params.get('preset') : 'mountains', seed: +params.get('seed') || 7, size: GRID };
 
     this.setupThree();
+    // (the code's own defaults, before any preset's climate, are what levels are compared against)
+    this.drawSettings = this.drawSettings || drawSettings;
+    this.brush = this.brush || { radius: 12, strength: 0.5 };
+    captureDefaults(this);
     if (PRESETS[this.gen.preset].climate) Object.assign(climateParams, PRESETS[this.gen.preset].climate);
     generateTerrain(this.world, this.gen.preset, this.gen.seed);
     this.renderer = new TerrainRenderer(this.world, this.scene);
@@ -116,8 +120,10 @@ class App {
     this.controls.minDistance = 20;
     this.controls.maxDistance = 900 * k;
 
-    scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x4a3b2a, 1.1));
+    this.hemi = new THREE.HemisphereLight(0xcfe6ff, 0x4a3b2a, 1.1);
+    scene.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
+    this.sun = sun;
     sun.position.set(-160 * k, 220 * k, 90 * k);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -412,6 +418,24 @@ class App {
 
   setSaveStatus(text) { this.saveStatus = text; this.toolbox.setSaveStatus?.(text); }
 
+  /**
+   * Overcast fall and winter: from late September to mid-March a grey cloud deck covers the region,
+   * the light is dim and flat and the sky grey. Storms darken it further at any time of year.
+   */
+  updateSky() {
+    const ph = seasonParams.phase;
+    const season = seasonParams.enabled ? smoothstep(0.49, 0.57, ph) * (1 - smoothstep(0.96, 0.995, ph)) : 0;
+    const storms = this.world.storms ? Math.min(1, this.world.storms.length / 6) : 0;
+    const o = Math.min(1, season * 0.85 + storms * 0.35 * (this.renderer.showClouds ? 1 : 0.5));
+    this.overcast = o;
+    this.sun.intensity = 2.6 * (1 - 0.55 * o);
+    this.hemi.intensity = 1.1 * (1 - 0.15 * o);
+    const sky = SKY_CLEAR.clone().lerp(SKY_GREY, o);
+    this.scene.background.copy(sky);
+    this.scene.fog.color.copy(sky);
+    this.effects.overcast = season;
+  }
+
   /** Reload with a different map size, keeping the preset and seed. */
   setMapSize(size) {
     const q = new URLSearchParams({ size, preset: this.gen.preset, seed: this.gen.seed });
@@ -425,6 +449,7 @@ class App {
     generateTerrain(this.world, this.gen.preset, this.gen.seed);
     this.history.push(this.world);
     this.applySea();
+    this.effects.deck.ready = false; // rebuild the cloud deck for the new terrain
     this.autosave(); // a new level replaces the kept one
   }
 
@@ -579,7 +604,7 @@ class App {
     this.gl.render(this.scene, this.camera);
     this.effects.removeShake(this.camera);
 
-    if (this.frame % 6 === 0) this.monthBar.update();
+    if (this.frame % 6 === 0) { this.monthBar.update(); this.updateSky(); }
     if (this.frame % 15 === 0) {
       const s = this.world.stats();
       this.toolbox.setStats(
@@ -593,6 +618,8 @@ class App {
   }
 }
 
+const SKY_CLEAR = new THREE.Color(0x9cc4e4), SKY_GREY = new THREE.Color(0x98a1aa);
+function smoothstep(e0, e1, x) { const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1); return t * t * (3 - 2 * t); }
 function fmt(v) { return v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v.toFixed(0); }
 function clampI(v, n) { return Math.min(n - 1, Math.max(0, Math.round(v))); }
 

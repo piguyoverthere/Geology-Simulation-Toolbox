@@ -19,6 +19,14 @@ const WORLD_JSON = ['sources', 'cones', 'geoRange', 'storms', 'holdovers', 'faul
 const PARAMS = ['waterParams', 'thermalParams', 'vegetationParams', 'climateParams', 'seasonParams', 'weatherParams',
   'volcanoSettings', 'faultSettings', 'fireParams', 'landslideParams', 'sim', 'gen', 'brush', 'drawSettings'];
 
+// Settings as this version of the code starts them. Levels store only the settings you changed from
+// these, so improvements to the simulation's tuning in later versions still reach saved levels.
+let DEFAULTS = null;
+export function captureDefaults(app) {
+  DEFAULTS = {};
+  for (const k of PARAMS) if (app[k]) DEFAULTS[k] = plain(app[k]);
+}
+
 /** Capture the app's current level. Returns { meta, arrays } (arrays are copies). */
 export function snapshot(app) {
   const w = app.world;
@@ -31,10 +39,19 @@ export function snapshot(app) {
   const json = {};
   for (const k of WORLD_JSON) if (w[k] !== undefined && w[k] !== null) json[k] = w[k];
   const params = {};
-  for (const k of PARAMS) if (app[k]) params[k] = plain(app[k]);
+  for (const k of PARAMS) {
+    if (!app[k]) continue;
+    const now = plain(app[k]), def = DEFAULTS && DEFAULTS[k];
+    const diff = {};
+    for (const [key, v] of Object.entries(now)) if (!def || def[key] !== v) diff[key] = v;
+    // The level's identity always travels with it
+    if (k === 'gen') Object.assign(diff, { preset: now.preset, seed: now.seed });
+    if (k === 'seasonParams') Object.assign(diff, { enabled: now.enabled, phase: now.phase });
+    params[k] = diff;
+  }
   const r = app.renderer;
   const meta = {
-    magic: MAGIC, savedAt: new Date().toISOString(), N: w.N,
+    magic: MAGIC, savedAt: new Date().toISOString(), N: w.N, paramDiffs: true,
     scalars, json, params,
     view: { colorMode: r.colorMode, showVegetation: r.showVegetation, showClouds: r.showClouds, showWater: r.showWater },
     camera: { position: app.camera.position.toArray(), target: app.controls.target.toArray() },
@@ -56,7 +73,16 @@ export function applySnapshot(app, snap) {
   }
   for (const [k, v] of Object.entries(meta.scalars || {})) if (k !== 'N' && k !== 'dirty') w[k] = v;
   for (const [k, v] of Object.entries(meta.json || {})) w[k] = v;
-  for (const [k, v] of Object.entries(meta.params || {})) if (app[k]) mergePlain(app[k], v);
+  // Settings: newer levels hold only what was changed from the defaults. Older levels saved every
+  // value, including internal tuning that has since been improved, so from those only the level's
+  // identity is taken (preset, seed, where in the year it was)
+  for (const [k, v] of Object.entries(meta.params || {})) {
+    if (!app[k]) continue;
+    if (meta.paramDiffs) mergePlain(app[k], v);
+    else if (k === 'gen') mergePlain(app[k], { preset: v.preset, seed: v.seed });
+    else if (k === 'seasonParams') mergePlain(app[k], { enabled: v.enabled, phase: v.phase });
+    else if (k === 'sim') mergePlain(app[k], { seaEnabled: v.seaEnabled, seaLevel: v.seaLevel });
+  }
   // The crater of the volcano preset stays a closed basin
   const N = w.N;
   w.keepBasin = app.gen.preset === 'volcano' ? (i) => Math.hypot(i % N - N / 2, ((i / N) | 0) - N / 2) < N * 0.06 : null;

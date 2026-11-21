@@ -407,6 +407,23 @@ season the next one builds quickly when none is. On the Cascades map the high gr
 patchy 55% cover in early October to 86% by late December and complete cover by early January,
 about 3.5 units deep, with the depth far more even than before.
 
+**Waves of snowstorms.** In the snow season the regional snowstorms come in waves: a run of
+fronts rolls in off the ocean one after another, slows and stalls as it piles up against the
+mountains and unloads its snow, then there's a break of a few days before the next wave (about two
+waves a month). Below the snow level the lowlands get rain, except for one or two Arctic outbreaks
+a winter, on random dates: cold air pours out over the whole lowland and a big, slow storm buries
+it in snow (about half the lowland white for a couple of weeks), until the next rains wash it away.
+Rain on snow melts it.
+
+**Spring melt.** Snow only melts above 2 °C, but then fairly quickly, so on the Cascades map the
+lower alpine snow goes in April and early May and the high alpine pack melts out by early June.
+Melted snow is mostly air, so the spring rise in the rivers is real but no flood. Snowfall and melt
+scale with the season speed, so the timing is the same at any speed.
+
+**Overcast fall and winter.** From late September to mid-March a grey cloud deck covers the region,
+the light is dim and flat, and the sky is grey; storms darken it further at any time of year.
+The default seasonal swing is ±13 °C.
+
 **Rain soaks in.** Not all rain runs off: some soaks into the soil, more on dry ground and under
 forest (leaf litter and roots), less on already-saturated ground. Water spread in thin sheets over
 flat land (a flooded lowland or floodplain) slowly sinks in, while water on slopes keeps moving

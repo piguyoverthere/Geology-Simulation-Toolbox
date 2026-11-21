@@ -68,15 +68,19 @@ export function weatherStep(world, simDt) {
   // Moist air forced up over the ranges breeds storms that cling to the peaks, and as soon as it's
   // cold aloft they come down as snow: the first snowstorms of the year build the high snowpack
   // while the lowlands are still dry.
-  // They are huge (each blankets a whole region), so only a few at once, but in the season there's
-  // nearly always one over the mountains: when none is, the next builds quickly
+  // They come in waves: a run of storm fronts rolls in off the ocean one after another, then a break
+  // of a few days before the next wave (about two waves a month in the season)
   const nMountain = list.reduce((c, s) => c + (s.mountain ? 1 : 0), 0);
-  const mRate = 0.05 * p.storms * mountainSeason() * (nMountain === 0 ? 6 : 1);
-  if (mRate > 0 && Math.random() < mRate * simDt && nMountain < 3) list.push(newMountainStorm(world));
+  const wave = snowWave(world);
+  const mRate = 0.1 * p.storms * mountainSeason() * wave * (nMountain === 0 ? 4 : 1);
+  if (mRate > 0 && Math.random() < mRate * simDt && nMountain < 4) list.push(newMountainStorm(world));
 
   const a = (p.windAngle * Math.PI) / 180, wx = Math.cos(a), wz = Math.sin(a);
   const D = world.water, S = world.snow, P = world.precip, W = world.lastWet, now = world.time, H = world.height;
   const SM = world.soil, V = world.vegetation;
+  const lowCut = lowlandCut(world);
+  // Snow per storm-second scales with season speed, so a season gets the same snow at any speed
+  const sf = seasonParams.enabled ? seasonParams.speed : 1;
   const sea = world.seaLevel;
   for (let s = list.length - 1; s >= 0; s--) {
     const st = list[s];
@@ -87,12 +91,18 @@ export function weatherStep(world, simDt) {
     const wob = Math.sin(st.age * 0.05 + st.seed) * 0.6;
     const dx = wx * Math.cos(wob) - wz * Math.sin(wob), dz = wz * Math.cos(wob) + wx * Math.sin(wob);
     st.vx += (dx * st.speed - st.vx) * 0.02 * simDt; st.vz += (dz * st.speed - st.vz) * 0.02 * simDt;
-    st.x += st.vx * simDt; st.z += st.vz * simDt;
+    // Snowstorm fronts slow and stall as they pile up against the mountains, unloading their snow
+    let slow = 1;
+    if (st.mountain) {
+      const ci = Math.min(N - 1, Math.max(0, Math.round(st.z))) * N + Math.min(N - 1, Math.max(0, Math.round(st.x)));
+      slow = 1 - 0.8 * smooth(st.hLow, st.hHigh, H[ci]);
+    }
+    st.x += st.vx * simDt * slow; st.z += st.vz * simDt * slow;
     // Rain cells churn around inside the storm, growing and fading
     for (const l of st.lobes) {
       l.a += l.spin * simDt;
       l.ox = Math.cos(l.a) * l.d; l.oz = Math.sin(l.a) * l.d;
-      l.w = st.mountain ? 0.85 + 0.15 * Math.sin(st.age * l.pulse + l.ph) : 0.55 + 0.45 * Math.sin(st.age * l.pulse + l.ph);
+      l.w = st.mountain || st.arctic ? 0.85 + 0.15 * Math.sin(st.age * l.pulse + l.ph) : 0.55 + 0.45 * Math.sin(st.age * l.pulse + l.ph);
     }
     // Spent (out of fuel), past its life, or blown off the map
     const fuelF = smooth(0.08, 0.3, st.fuel);
@@ -120,8 +130,13 @@ export function weatherStep(world, simDt) {
         let amount = st.strength * q * (0.35 + 1.3 * (P ? P[i] : 0.5)) * simDt * (st.dry ? 0.08 : 1);
         // Mountain storms drop most of their load on the high ground
         if (st.mountain) amount *= 0.2 + 1.3 * smooth(st.hLow, st.hHigh, H[i]);
-        const snow = S ? smooth(1, -1, cloudTempAt(world, i)) : 0;
-        if (snow > 0) S[i] = Math.min(6, S[i] + amount * (st.mountain ? 0.12 : 0.05) * snow);
+        // Snow or rain at the cloud base. Below the snow level (the lowlands) storms bring rain, except
+        // for the one or two Arctic outbreaks a winter that bring snow right down to sea level
+        let snow = S ? smooth(1, -1, cloudTempAt(world, i) - (st.arctic ? 4 : 0)) : 0;
+        if (snow > 0 && !st.arctic && H[i] < lowCut + 2) snow *= smooth(lowCut - 1, lowCut + 2, H[i]);
+        if (snow > 0) S[i] = Math.min(6, S[i] + amount * (st.mountain || st.arctic ? 0.12 : 0.05) * snow * sf);
+        // Rain on snow melts it (how lowland snow usually disappears in a maritime winter)
+        else if (S[i] > 0) S[i] = Math.max(0, S[i] - amount * 0.1 * sf);
         if (snow < 1) {
           // Most rain soaks into the ground; only part runs off. Dry soil and forest (litter, roots)
           // soak up the most, already-saturated ground sheds the most
@@ -161,7 +176,7 @@ export function intensityAt(st, x, z, nt = st.age * 0.015) {
   const s = 5 + st.r * 0.25; // band size scales with the storm
   const n = noise((x - st.x) / s + st.seed, (z - st.z) / s + nt);
   // Regional snowstorms are a broad, even blanket; other storms are ragged with holes
-  return st.mountain ? Math.min(1, q) * (0.8 + 0.25 * n) : Math.min(1.2, q) * Math.max(0, 0.45 + 0.75 * n);
+  return st.mountain || st.arctic ? Math.min(1, q) * (0.8 + 0.25 * n) : Math.min(1.2, q) * Math.max(0, 0.45 + 0.75 * n);
 }
 
 /** Lightning: strikes the ground under a thunderstorm; can ignite forest. */
@@ -252,7 +267,17 @@ export function wetSeason() {
   return smooth(0.57, 0.6, ph) * (1 - smooth(0.975, 0.995, ph));
 }
 
-/** A storm born over the high ground: slow, clinging to the peaks. */
+/**
+ * Waves of snowstorms: 1 while a wave of fronts is rolling in, near 0 in the breaks between waves
+ * (about two waves a month, each lasting around a week).
+ */
+function snowWave(world) {
+  const t = seasonParams.enabled ? seasonParams.phase * 24 : (world.time || 0) / 120;
+  const f = t - Math.floor(t);
+  return 0.08 + 0.92 * smooth(0, 0.08, f) * (1 - smooth(0.45, 0.6, f));
+}
+
+/** A regional snowstorm front rolling in onto the high ground. */
 function newMountainStorm(world) {
   const N = world.N, H = world.height;
   // Rough height percentiles of the map: where "high ground" starts
@@ -269,8 +294,13 @@ function newMountainStorm(world) {
   }
   if (best < 0) best = (Math.random() * N * N) | 0;
   const p = climateParams, a = (p.windAngle * Math.PI) / 180;
-  // A regional system: a third to half of the map across, smooth and slow-moving
-  const r = N * (0.17 + Math.random() * 0.08), speed = 0.15 + Math.random() * 0.2;
+  // A regional system, a third to half of the map across. It forms upwind and rolls in onto the
+  // range with the wind, stalling over the high ground
+  const r = N * (0.17 + Math.random() * 0.08);
+  const sp = seasonParams.enabled ? Math.max(1, seasonParams.speed) : 1;
+  const speed = (0.6 + Math.random() * 0.4) * sp;
+  const dist = r * 0.8 + Math.random() * N * 0.15;
+  const tx = best % N, tz = (best / N) | 0;
   const lobes = [];
   const nl = 3 + Math.floor(Math.random() * 2);
   for (let k = 0; k < nl; k++) {
@@ -282,13 +312,25 @@ function newMountainStorm(world) {
   }
   const fuel = 1 + Math.random() * 0.4;
   return {
-    x: best % N, z: (best / N) | 0, vx: Math.cos(a) * speed, vz: Math.sin(a) * speed, speed, r, lobes,
+    x: tx - Math.cos(a) * dist, z: tz - Math.sin(a) * dist, vx: Math.cos(a) * speed, vz: Math.sin(a) * speed, speed, r, lobes,
     thunder: false, dry: false, mountain: true, hLow, hHigh: Math.max(hHigh, hLow + 1),
     fuel, maxFuel: fuel * 1.2, peak: 1.0 + Math.random() * 0.4,
     // A few days each (seconds of play); shorter at fast season speeds so they stay seasonal
-    age: 0, life: (60 + Math.random() * 50) / Math.max(1, seasonParams.enabled ? seasonParams.speed : 1),
+    age: 0, life: (dist / speed) + (45 + Math.random() * 40) / sp,
     strength: 0, snow: 0, seed: Math.random() * 1000,
   };
+}
+
+/** Height below which ordinary storms rain (the lowlands): the lower ~45% of the map. */
+function lowlandCut(world) {
+  if (world.lowCut === undefined || (world.lowCutAge = (world.lowCutAge || 0) + 1) > 200) {
+    const H = world.height, n = H.length, s = [];
+    for (let k = 0; k < 600; k++) s.push(H[(Math.random() * n) | 0]);
+    s.sort((a, b) => a - b);
+    world.lowCut = s[Math.floor(s.length * 0.45)];
+    world.lowCutAge = 0;
+  }
+  return world.lowCut;
 }
 
 /** Share of new storms that are thunderstorms: they need warm, buoyant air near the ground. */
@@ -301,8 +343,23 @@ function newStorm(world) {
   const a = (p.windAngle * Math.PI) / 180, wx = Math.cos(a), wz = Math.sin(a);
   // Warm weather breeds thunderstorms: compact, violent and short-lived
   const thunder = Math.random() < thunderChance(world);
-  // Frontal storms are big, regional systems; thunderstorms are smaller cells (but still sizeable)
-  const r = thunder ? 14 + Math.random() * 16 : 30 + Math.random() * 50;
+  // One or two Arctic outbreaks a winter: cold air pours in from the interior and a storm meeting it
+  // brings snow all the way down to the lowlands
+  // (each winter gets one or two, on random dates between mid-December and late February)
+  const ph = seasonParams.phase;
+  let a2 = world.arctic;
+  if (!a2 || (seasonParams.enabled && ph > 0.3 && ph < 0.5 && a2.used)) {
+    const n = Math.random() < 0.5 ? 1 : 2, dates = [];
+    for (let k = 0; k < n; k++) dates.push(0.74 + Math.random() * 0.2);
+    a2 = world.arctic = { dates: dates.sort(), count: 0, used: false };
+  }
+  let arctic = false;
+  if (seasonParams.enabled && !thunder && a2.count < a2.dates.length && ph >= a2.dates[a2.count] && ph < 0.97) {
+    arctic = true; a2.count++; a2.used = true;
+  }
+  // Frontal storms are big, regional systems; thunderstorms are smaller cells (but still sizeable);
+  // an Arctic outbreak storm is the biggest of all, blanketing the lowlands
+  const r = arctic ? N * (0.3 + Math.random() * 0.1) : thunder ? 14 + Math.random() * 16 : 30 + Math.random() * 50;
   // Pick a spot on the map and start upwind of it, just off the edge
   const tx = Math.random() * N, tz = Math.random() * N, m = r * 0.6;
   const back = Math.min(
@@ -310,8 +367,18 @@ function newStorm(world) {
     Math.abs(wz) > 1e-3 ? (wz > 0 ? tz + m : N + m - tz) / Math.abs(wz) : Infinity);
   // Thunderstorms often build over the land itself rather than blowing in
   const inland = thunder && Math.random() < 0.6;
-  const cx = inland ? tx : tx - wx * back, cz = inland ? tz : tz - wz * back;
-  const speed = (thunder ? 1.2 : 2.2) + Math.random() * 1.6; // cells per simulated second
+  let cx = inland ? tx : tx - wx * back, cz = inland ? tz : tz - wz * back;
+  if (arctic) {
+    // Cold air pours out over the whole lowland at once: centre the storm on the low ground
+    const cut = lowlandCut(world), H = world.height;
+    let sx = 0, sz = 0, cnt = 0;
+    for (let k = 0; k < 800; k++) {
+      const i = (Math.random() * N * N) | 0;
+      if (H[i] < cut) { sx += i % N; sz += (i / N) | 0; cnt++; }
+    }
+    if (cnt) { cx = sx / cnt; cz = sz / cnt; }
+  }
+  const speed = arctic ? 0.8 + Math.random() * 0.4 : (thunder ? 1.2 : 2.2) + Math.random() * 1.6; // cells per simulated second
   // A ragged cluster of 3–6 rain cells
   const lobes = [];
   const nl = 3 + Math.floor(Math.random() * 4);
@@ -327,9 +394,9 @@ function newStorm(world) {
   // but whose lightning still reaches the ground. The classic wildfire starter of dry summers.
   const dry = thunder && Math.random() < 0.15 + 0.7 * drySeason() + 0.3 * smooth(26, 34, p.seaTemp + (world.seasonT || 0));
   return {
-    x: cx, z: cz, vx: wx * speed, vz: wz * speed, speed, r, lobes, thunder, dry,
+    x: cx, z: cz, vx: wx * speed, vz: wz * speed, speed, r, lobes, thunder, dry, arctic,
     fuel, maxFuel: fuel * 1.2,
-    peak: thunder ? 1.4 + Math.random() * 0.8 : 0.5 + Math.random() * 0.8,
+    peak: thunder ? 1.4 + Math.random() * 0.8 : arctic ? 1.3 : 0.5 + Math.random() * 0.8,
     // (shorter at fast season speeds, so a storm doesn't outlast the season it belongs to)
     age: 0, life: (thunder ? 60 + Math.random() * 80 : (N + 2 * r) / speed * (0.7 + Math.random() * 0.5)) / Math.max(1, seasonParams.enabled ? seasonParams.speed : 1),
     strength: 0, snow: 0, seed: Math.random() * 1000,

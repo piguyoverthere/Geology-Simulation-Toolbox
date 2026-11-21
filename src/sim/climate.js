@@ -19,12 +19,12 @@ export const climateParams = {
   humidity: 1,        // moisture of the air arriving at the upwind edge
   cloudLift: 6,       // height of the clouds above the ground (their temperature decides snow vs rain)
   snowfall: 0.06,     // snow added per step at average precipitation
-  melt: 0.009,        // snow melted per step per °C above meltTemp
+  melt: 0.09,         // snow melted per step per °C above meltTemp (× season speed)
   meltTemp: 2,        // snow only melts above this temperature (°C): a pack stays cold and reflects sunlight
   snowSlope: 47,      // steepest slope (degrees) snow accumulates on; steeper faces shed it unless the pack around is deep
   deepSnow: 2,        // snowpack depth around a slope at which steep faces start holding snow
   storms: 1,          // how often storms sweep across the map (0 = none; see sim/weather.js)
-  meltRunoff: 0.6,    // water depth released into the flow model per unit of snow melted
+  meltRunoff: 0.05,   // runoff per unit of snow melted (snow is mostly air, and much of the melt soaks in)
   summerDry: 0,       // 0 = rain all year; 1 = almost all of it from autumn to spring, dry summers
 };
 
@@ -38,11 +38,11 @@ export const climateParams = {
 export const seasonParams = {
   enabled: false,
   speed: 1,      // years per minute of real time
-  swing: 9,      // °C between the annual mean and midsummer (or midwinter)
+  swing: 13,     // °C between the annual mean and midsummer (or midwinter)
   phase: 0.12,   // where in the year we are
 };
 
-const LAG = 0.08; // the warmest day comes this fraction of a year after the summer solstice
+const LAG = 0.05; // the warmest day comes this fraction of a year after the summer solstice (late July)
 /** Today's temperature offset from the annual mean (°C). */
 export function seasonOffset() {
   return seasonParams.enabled ? seasonParams.swing * Math.sin(2 * Math.PI * (seasonParams.phase - LAG)) : 0;
@@ -235,6 +235,7 @@ export function updateSnow(world, steps = 1, runoff = false) {
   if (!world.precip) updatePrecip(world);
   const S = world.snow, T = world.temperature, P = world.precip, st = world.seasonT || 0;
   const melts = Math.max(st, world.groundSeason ?? st);
+  const meltSpeed = seasonParams.enabled ? seasonParams.speed : 1; // same melt per season at any speed
   const holdTan = Math.tan((Math.min(85, Math.max(5, p.snowSlope)) * Math.PI) / 180);
   // With storms on, all snow comes from storms (sim/weather.js): snowstorms build the pack. Only with
   // the Storms slider at 0 does a steady background snowfall stand in for them.
@@ -253,7 +254,7 @@ export function updateSnow(world, steps = 1, runoff = false) {
         const drift = 1 + Math.max(-0.5, Math.min(0.6, curv * 0.8));
         const before = S[i] + p.snowfall * background * P[i] * asSnow * drift;
         // Snow melts from above (warm air) and from below (ground still warm from summer)
-        let d = before - p.melt * Math.max(0, T[i] + melts - p.meltTemp);
+        let d = before - p.melt * meltSpeed * Math.max(0, T[i] + melts - p.meltTemp);
         d = d < 0 ? 0 : d > 6 ? 6 : d;
         // Meltwater runs off into the streams: the spring flood of a snowy catchment
         if (runoff && d < before && before > 0.005) {
