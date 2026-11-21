@@ -210,7 +210,7 @@ export function strike(world, i, direct = false) {
   world.strikes.push({ x: i % N, z: (i / N) | 0, age: 0, seed: Math.random() * 1000, top: (world.cloudBase ? world.cloudBase[i] : world.height[i] + 8) + 4 });
   world.lightningCount = (world.lightningCount || 0) + 1;
   world.dirty = true;
-  if (V[i] < 0.2 || world.fire[i] > 0 || world.water[i] > 0.15) return false;
+  if (V[i] < 0.2 || world.fire[i] > 0 || world.water[i] > 0.15 || (world.snow && world.snow[i] > 0.02)) return false;
   const soil = world.soil ? world.soil[i] : 0.5;
   const flam = world.forestFlam ? world.forestFlam[i] : 1;
   const pine = world.pineShare ? world.pineShare[i] : 0;
@@ -235,7 +235,7 @@ function holdovers(world, simDt) {
     if (!wet) h.t -= simDt;
     if (h.t <= 0) {
       list.splice(k, 1);
-      if (world.vegetation[h.i] > 0.3 && world.fire[h.i] <= 0) {
+      if (world.vegetation[h.i] > 0.3 && world.fire[h.i] <= 0 && !(world.snow && world.snow[h.i] > 0.02)) {
         world.fire[h.i] = 0.6;
         world.lightningFires = (world.lightningFires || 0) + 1;
       }

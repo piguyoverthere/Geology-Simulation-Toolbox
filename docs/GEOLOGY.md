@@ -480,6 +480,10 @@ slider). Lightning favours high ground and trees. A strike in forest often smoul
 the leaf litter (a *holdover* fire) and breaks out only after the rain has moved on. Dry soil and
 pine make that far more likely.
 
+**Snow puts fires out.** Any lying snow smothers a fire completely: a burning spot that gets snowed
+on goes out, fire can't spread onto snowy ground, and lightning (or the Wildfire brush) can't light
+it. So the winter snowpack is a firebreak, and fire season ends with the first snows.
+
 **Fires are harder to put out where it's dry.** Parched soil and dry litter keep smouldering and
 flare up again, and resinous pine burns hot and long. So rain or standing water quenches a fire in
 a damp broadleaf forest quickly but barely slows one in a dry pine wood.

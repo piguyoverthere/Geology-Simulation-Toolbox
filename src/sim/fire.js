@@ -4,7 +4,8 @@
 // to plant: dense forest carries a fast, intense fire (lots of fuel, crowns touching), grassland a
 // slower one, and bare ground stops it. Fire runs faster uphill (flames lean into the slope and
 // pre-heat the fuel above) and is damped by wet ground, open water and rain (the global rain or a
-// storm passing overhead). Fire in dry country is much harder to put out: parched soil and dry
+// storm passing overhead). Snow puts it out completely: a burning spot that gets snowed on goes
+// out, and fire can't spread onto snowy ground. Fire in dry country is much harder to put out: parched soil and dry
 // litter keep smouldering and flare up again, and resinous pine burns hot and long. So rain and
 // water quench a fire in a damp broadleaf forest quickly, but barely slow one in a dry pine wood. Burnt ground is left
 // barren and ash-covered; plants return more slowly while the ash and charred soil recover.
@@ -33,6 +34,8 @@ function flammability(v) {
   return t * t * (3 - 2 * t) + 0.035 * g * g * (3 - 2 * g);
 }
 
+const SNOWED = 0.02; // any lying snow (depth) puts fire out and stops it spreading
+
 const NEIGHBORS = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
 let ignite = null;
 
@@ -48,6 +51,7 @@ export function fireStep(world, dt) {
   // How hard a fire here is to put out: dry soil and pine make it stubborn (1 ≈ ordinary)
   // A dry summer (with Seasons on and Dry summers set) makes the whole landscape tinder
   const drought = drySeason();
+  const SN = world.snow;
   const wind = (climateParams.windAngle * Math.PI) / 180;
   const resist = (i) => (0.6 + 1.6 * (1 - (SO ? SO[i] : 0.5))) * (1 + 1.5 * (PS ? PS[i] : 0)) * (1 + 3 * drought);
   const rainingAt = (i) => globalRain || now - LW[i] < 0.5;
@@ -62,6 +66,8 @@ export function fireStep(world, dt) {
       if (F[i] <= 0 && !hotLava) continue;
       any = true;
 
+      // Snow smothers fire completely
+      if (F[i] > 0 && SN && SN[i] > SNOWED) { F[i] = 0; continue; }
       if (F[i] > 0) {
         // Standing water puts fire out quickly, rain more slowly; otherwise intensity builds up to
         // what the fuel can sustain (a grass fire never gets as hot as a crown fire)
@@ -85,7 +91,7 @@ export function fireStep(world, dt) {
         const nx = x + NEIGHBORS[k][0], nz = z + NEIGHBORS[k][1];
         if (nx < 0 || nz < 0 || nx >= N || nz >= N) continue;
         const j = nz * N + nx;
-        if (F[j] > 0 || ignite[j] || V[j] < p.minFuel || L[j] > 0.02) continue;
+        if (F[j] > 0 || ignite[j] || V[j] < p.minFuel || L[j] > 0.02 || (SN && SN[j] > SNOWED)) continue;
         // Forest type matters: resinous conifers and dry woodland burn readily, rainforest and swamp barely
         // Old-growth forest (thick bark, damp shaded floor) is harder to ignite than young stands
         const kind = V[j] > 0.62
@@ -111,7 +117,7 @@ export function fireStep(world, dt) {
         const sx = Math.round(x + Math.cos(a) * dist), sz = Math.round(z + Math.sin(a) * dist);
         if (sx >= 0 && sz >= 0 && sx < N && sz < N) {
           const j = sz * N + sx;
-          if (F[j] <= 0 && V[j] >= p.minFuel && D[j] <= 0.05 && L[j] <= 0.02) ignite[j] = 1;
+          if (F[j] <= 0 && V[j] >= p.minFuel && D[j] <= 0.05 && L[j] <= 0.02 && !(SN && SN[j] > SNOWED)) ignite[j] = 1;
         }
       }
     }

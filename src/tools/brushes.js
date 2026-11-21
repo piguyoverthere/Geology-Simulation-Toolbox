@@ -192,7 +192,7 @@ export const TOOLS = {
           const i = zz * N + xx;
           if (invert) { F[i] = 0; continue; }
           // A scattering of spot fires that then spread on their own
-          if (F[i] <= 0 && V[i] > 0.15 && world.water[i] < 0.05 && Math.random() < strength * Math.max(dt, 1 / 60) * 6) F[i] = 0.6;
+          if (F[i] <= 0 && V[i] > 0.15 && world.water[i] < 0.05 && !(world.snow && world.snow[i] > 0.02) && Math.random() < strength * Math.max(dt, 1 / 60) * 6) F[i] = 0.6;
         }
       }
       world.dirty = true;
