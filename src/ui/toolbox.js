@@ -122,6 +122,8 @@ export class Toolbox {
         'Long-term rainfall of the region. Dry it out and forests retreat to grassland, then to bare ground, holding on longest along rivers and lakes.', this),
       slider('Temperature °C', app.climateParams, 'seaTemp', -10, 35, 0.5,
         'Sea-level temperature. It gets about 0.4 °C colder per unit of height, and sunny slopes are warmer than shady ones. Sets the tree line, which forests grow (tropical jungle when hot and wet, conifers when cold) and whether clouds drop snow or rain. Snow and rain respond at once, but plants shift gradually: grassland within a short while, established forests much more slowly.', this, () => app.climateChanged()),
+      slider('Lapse rate °C', app.climateParams, 'lapse', 0.05, 1.2, 0.01,
+        'How much colder it gets per unit of height (and warmer going down). Real air cools about 6.5 °C per km. Raise it for sharp climate zones: snowy, treeless peaks above warm valleys; lower it for mountains that are barely colder than the lowlands. Plants follow the new temperatures gradually.', this, () => app.climateChanged()),
       slider('Wind direction °', app.climateParams, 'windAngle', 0, 360, 5,
         'Direction the moist prevailing wind blows toward. Slopes facing into it get the most rain and snow; the far side of a range sits in a dry rain shadow. See the Precipitation overlay.', this, () => app.climateChanged()),
       slider('Storms', app.climateParams, 'storms', 0, 4, 0.1,

@@ -87,7 +87,7 @@ and how much it has been eroded or built up since the baseline.
 - **Volcanism & tectonics**: eruption type and size, intrusion type, fault type, slip and number
   of earthquakes, and a button to stop all running events.
 - **Water & climate**: sim speed, global rain, evaporation, plant growth, climate wetness, and
-  **Temperature** (sea-level °C), which sets the tree line, forest types and whether clouds drop
+  **Temperature** (sea-level °C), **Lapse rate** (how much colder it gets per unit of height), which sets the tree line, forest types and whether clouds drop
   snow or rain, and **Wind direction**, which decides where clouds form (windward slopes wet, rain
   shadows dry), **Storms** (ragged rain/snow storms drifting downwind that run out of moisture
   beyond mountain ranges; thunderstorms in warm weather), **Lightning** (strikes can start
