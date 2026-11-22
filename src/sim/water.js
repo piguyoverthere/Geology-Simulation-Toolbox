@@ -28,6 +28,7 @@ export const waterParams = {
   erode: 0.5,          // Ks: dissolving rate
   deposit: 0.2,        // Kd: settling rate
   evaporate: 0.02,     // Ke
+  summerEvap: 2,       // evaporation from open water is multiplied by up to this in midsummer
   infiltration: 0.06,  // depth per second shallow water on land soaks into the soil (dry soil, plants: faster)
   minTilt: 0.02,       // keeps a little erosion going on near-flat river beds
   critSpeed: 0.4,      // flow slower than this can't lift grains off the bed (Hjulström/Shields threshold)
@@ -219,7 +220,14 @@ export function waterStep(world) {
   const SM = world.soil, V = world.vegetation, infK = p.infiltration * dt;
   for (let i = 0; i < n; i++) {
     if (D[i] > 0.05) W[i] = now;
-    D[i] *= 1 - evapK * (ER ? ER[i] : 1);
+    // (still water, lakes and ponds, evaporates at the full rate, boosted up high; running water in
+    // streams is fed from upstream and loses less, without the altitude boost)
+    let er = ER ? ER[i] : 1;
+    if (ER && world.evapSoil && D[i] > 0.05) {
+      const vx = world.velX[i], vz = world.velZ[i], flow = Math.min(1, Math.sqrt(vx * vx + vz * vz) / 0.6);
+      er = er + (world.evapSoil[i] - er) * flow;
+    }
+    D[i] *= 1 - evapK * er;
     if (D[i] > 0 && B[i] >= sea && SM) {
       const x = i % N, z = (i / N) | 0;
       const gx = x > 0 && x < N - 1 ? (B[i + 1] - B[i - 1]) * 0.5 : 0, gz = z > 0 && z < N - 1 ? (B[i + N] - B[i - N]) * 0.5 : 0;

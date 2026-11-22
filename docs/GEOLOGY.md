@@ -892,3 +892,17 @@ none and moves toward better feeding over its roaming range, and each links to t
 Paint them in with the Animal tool. They show in the map key, the Wildlife overlay (the most common
 animal in each place), the inspector and as small dots in their colours; dying forest and river runs
 also show in the terrain colours.
+
+## Lakes up high, and snow in the lowlands
+
+Still water evaporates far faster the higher it lies (thin, dry, windy air and strong sun: up to
+about twelve times the lowland rate), so high basins hold only small tarns, not big lakes; running
+water in streams, fed from upstream, doesn't get that boost. With Seasons on, Water → **Summer
+evaporation ×** multiplies how fast lakes and ponds evaporate at the height of summer, easing in
+from spring and out in autumn.
+
+Snow in a maritime lowland rarely lasts: near the sea the air stays mild and moist, so snow there
+melts at a lower temperature and faster; mild lowland ground melts snow from below all winter; and
+rain falling on snow washes it away. Lowland snow is gone within days to a couple of weeks, the
+foothills clear in spring, and only the high mountains keep their snowpack into summer.
+

@@ -148,8 +148,13 @@ export function weatherStep(world, simDt) {
           // Mark it as snowing here: falling snow chills the air, so the ground barely melts it meanwhile
           if (snow > 0.3) SNW[i] = now;
         }
-        // Rain on snow melts it (how lowland snow usually disappears in a maritime winter)
-        else if (S[i] > 0) S[i] = Math.max(0, S[i] - amount * 0.1 * sf);
+        // Rain on snow: warm rain falling on a snowpack melts it fast (the usual end of lowland snow
+        // in a maritime climate), and the meltwater runs off with the rain
+        if (snow < 0.5 && S && S[i] > 0) {
+          const m = Math.min(S[i], amount * (1 - snow) * 1.5);
+          S[i] -= m;
+          D[i] += m * 0.3;
+        }
         if (snow < 1) {
           // Most rain soaks into the ground; only part runs off. Dry soil and forest (litter, roots)
           // soak up the most, already-saturated ground sheds the most

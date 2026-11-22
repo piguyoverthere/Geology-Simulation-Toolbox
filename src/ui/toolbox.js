@@ -146,7 +146,9 @@ export class Toolbox {
       slider('Global rain', app.waterParams, 'rain', 0, 0.1, 0.002,
         'Rainfall over the whole map, fed into the shallow-water flow model. Rivers form where runoff converges.', this),
       slider('Evaporation', app.waterParams, 'evaporate', 0, 0.3, 0.005,
-        'Overall evaporation rate. Each spot evaporates faster in warm air, in sun and on bare ground, and slower in shaded valleys and under forest (see Inspect → Evaporation). Dry lakes leave their sediment behind as flat lake beds.', this),
+        'Overall evaporation rate. Each spot evaporates faster in warm air, in sun and on bare ground, and slower in shaded valleys and under forest (see Inspect → Evaporation). Lakes and ponds high up evaporate much faster (thin, dry, windy air and strong sun), so high basins hold only small tarns. Dry lakes leave their sediment behind as flat lake beds.', this),
+      slider('Summer evaporation ×', app.waterParams, 'summerEvap', 1, 5, 0.1,
+        'With Seasons on: how many times faster lakes and ponds evaporate at the height of summer (long, hot, sunny days), easing in from spring and back out in autumn. Higher values shrink lakes and dry out ponds over the summer.', this, () => app.climateChanged()),
       toggle('Plant growth', app.sim, 'vegetation',
         'Vegetation regrows toward what each spot can support (gentle, moist, not too high) and dies where ground is washed away, buried or flooded. Forest erodes ~4x slower than barren ground.', this),
     );

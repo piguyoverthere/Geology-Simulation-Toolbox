@@ -9,6 +9,7 @@
 // falls as snow, how it builds up, melts, drifts and slides).
 
 import { boxBlur } from '../core/grid.js';
+import { waterParams } from './water.js';
 
 export const climateParams = {
   seaTemp: 22,        // °C at sea level (the Temperature slider)
@@ -229,14 +230,17 @@ export function updateEvaporation(world) {
   const ES = world.evapSoil; // without the altitude boost: alpine soil stays moist from snowmelt
   const E = world.evapRate, sun = world.sunExpo, Vy = world.valley, V = world.vegetation, H = world.height;
   const base = Math.max(0, world.seaLevel) + 6;
+  const summerEvap = 1 + (waterParams.summerEvap - 1) * (seasonParams.enabled ? summerWeight() : 0);
   for (let i = 0; i < n; i++) {
     const heat = 0.4 + 0.04 * Math.max(0, T[i] + seasonalAt(world, i, st));
     const light = 1 + 0.45 * (sun ? sun[i] : 0) - 0.35 * (Vy ? Math.max(0, Vy[i]) : 0);
     const cover = 1.3 - 0.55 * V[i];
     // Up high the air is thin, dry and windy and the sunlight strong, so water evaporates faster
     // the higher it is, even though it's colder (alpine tarns shrink fast in late summer)
-    const altitude = Math.min(4, 1 + 0.09 * Math.max(0, H[i] - base));
-    E[i] = Math.max(0.05, heat * light * cover * altitude);
+    // (strongly: high basins hold only small tarns, not big lakes)
+    const altitude = Math.min(12, 1 + 0.22 * Math.max(0, H[i] - base));
+    // Summer: long, sunny, hot days make lakes and ponds evaporate far faster (× the summer slider)
+    E[i] = Math.max(0.05, heat * light * cover * altitude * summerEvap);
     ES[i] = Math.max(0.05, heat * light * cover);
   }
 }
@@ -333,21 +337,33 @@ export function updateSnow(world, steps = 1, runoff = false) {
   const D = world.water, now = world.time, W = world.lastWet;
   world.meltRate = 0;
   for (let s = 0; s < steps; s++) {
-    for (let z = 1; z < N - 1; z++) {
-      for (let x = 1; x < N - 1; x++) {
+    // (every cell, the map's edges too: snow there has to melt as well)
+    for (let z = 0; z < N; z++) {
+      for (let x = 0; x < N; x++) {
         const i = z * N + x;
         // Snow or rain is decided at the cloud base, which is lower in humid air
         const cloudT = cloudTempAt(world, i);
         const asSnow = smooth(1, -1, cloudT);
         // Drifting: hollows collect snow, crests are scoured
-        const curv = (H[i - 1] + H[i + 1] + H[i - N] + H[i + N]) * 0.25 - H[i];
+        const l = x > 0 ? i - 1 : i, r = x < N - 1 ? i + 1 : i, u = z > 0 ? i - N : i, d0 = z < N - 1 ? i + N : i;
+        const curv = (H[l] + H[r] + H[u] + H[d0]) * 0.25 - H[i];
         const drift = 1 + Math.max(-0.5, Math.min(0.6, curv * 0.8));
         const before = S[i] + p.snowfall * background * P[i] * asSnow * drift;
         // Snow melts from above (warm air) and from below (ground still warm from summer), but hardly
         // at all while a snowstorm is falling on it (the falling snow chills the air to freezing)
         const snowing = SNW && now - SNW[i] < 6 ? 0.08 : 1;
         const mt = seasonalAt(world, i, melts);
-        let d = before - p.melt * meltSpeed * snowing * Math.max(0, T[i] + mt - snap - p.meltTemp);
+        // Near the sea the air stays mild and moist: snow there melts at a lower temperature and
+        // faster (it rarely lasts more than days on a maritime coast)
+        const sea = world.coastal ? world.coastal[i] : 0;
+        let melt = p.melt * meltSpeed * snowing * (1 + 2.5 * sea) * Math.max(0, T[i] + mt - snap - (p.meltTemp - 2 * sea));
+        if (before > 0 && !snap) {
+          // Warm ground: in the mild lowlands (yearly mean well above freezing) the soil holds
+          // its heat and melts snow from below, all winter long
+          melt += 0.03 * meltSpeed * Math.max(0, T[i] - 5) * (snowing < 1 ? 0.5 : 1);
+          // (and rain falling on snow washes it away: see weather.js)
+        }
+        let d = before - melt;
         d = d < 0 ? 0 : d > 6 ? 6 : d;
         // Meltwater runs off into the streams: the spring flood of a snowy catchment
         if (runoff && d < before && before > 0.005) {
