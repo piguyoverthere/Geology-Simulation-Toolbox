@@ -270,6 +270,9 @@ export function coastStep(world) {
         else type = SHORE.shingle;
       }
       SH[i] = type;
+      // A quay (a town's sea wall, sim/civilization.js): a fixed, steep stone face. The waves don't
+      // wear it, no sand gathers on it, and the tide can't reach over it
+      if (world.landUse && world.landUse[i] === 6) { SH[i] = SHORE.cliff; SAND[i] = 0; continue; }
       // --- Waves erode the shore: exposed, soft coasts fastest; a thick beach protects ---
       const inReach = h < sea + half + 1.2;
       if (inReach && erodeK > 0 && type !== SHORE.mudflat) {

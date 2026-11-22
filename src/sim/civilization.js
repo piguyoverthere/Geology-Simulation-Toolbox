@@ -23,6 +23,7 @@
 
 import { boxBlur, MinHeap } from '../core/grid.js';
 import { seasonParams, seasonalAt } from './climate.js';
+import { coastParams } from './coast.js';
 
 export const civParams = {
   enabled: true,
@@ -141,14 +142,70 @@ function buildHarbor(world, t) {
   let best = -1, bs = -1e9;
   for (let z = Math.max(1, t.z - 10); z <= Math.min(N - 2, t.z + 10); z++) for (let x = Math.max(1, t.x - 10); x <= Math.min(N - 2, t.x + 10); x++) {
     const i = z * N + x;
-    if (H[i] < sea || (LU[i] !== 0 && LU[i] !== 1) || isProtected(world, i)) continue;
+    if (H[i] < sea || (LU[i] !== 0 && LU[i] !== 1 && LU[i] !== 6) || isProtected(world, i)) continue;
     let depth = 0;
     for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] < sea) depth = Math.max(depth, sea - H[j]);
     if (!depth) continue;
-    const score = Math.min(4, depth) - Math.hypot(x - t.x, z - t.z) * 0.3;
+    const score = Math.min(4, depth) + (LU[i] === 6 ? 3 : 0) - Math.hypot(x - t.x, z - t.z) * 0.3; // (a quay: deep water at the wall)
     if (score > bs) { bs = score; best = i; }
   }
   if (best >= 0) { pave(world, best, t.num, 5); t.harbor = best; }
+}
+
+/**
+ * Quays: a coastal town armours its shore. The land along the water is raised above high tide and
+ * faced with a wall, and the water in front dredged deep: a steep drop-off where the tide can't reach
+ * in (no tidal flats, no flooding), and where boats can tie up (harbours are easy to build there).
+ * Building it smothers and churns up the sea bed in front (the beds there are destroyed, those
+ * nearby damaged, the water clouded with silt and pollution).
+ */
+function buildQuay(world, t, count) {
+  const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse, OW = world.civOwner;
+  const half = 0.5 * coastParams.tideRange;
+  const cx = t.harbor !== undefined ? t.harbor % N : t.x, cz = t.harbor !== undefined ? (t.harbor / N) | 0 : t.z;
+  const R = Math.min(16, 5 + Math.sqrt(t.pop) / 3);
+  const cands = [];
+  for (let z = Math.max(2, Math.floor(cz - R)); z <= Math.min(N - 3, Math.ceil(cz + R)); z++) {
+    for (let x = Math.max(2, Math.floor(cx - R)); x <= Math.min(N - 3, Math.ceil(cx + R)); x++) {
+      const i = z * N + x;
+      if (LU[i] === 6 || LU[i] === 5 || LU[i] === 3 || LU[i] === 4 || isProtected(world, i)) continue;
+      if (H[i] < sea - half || H[i] > sea + half + 2) continue; // (the shore, in reach of the tide)
+      let seaward = false, quayNext = false;
+      for (const j of [i - 1, i + 1, i - N, i + N]) { if (H[j] < sea) seaward = true; if (LU[j] === 6 || LU[j] === 5) quayNext = true; }
+      if (!seaward) continue;
+      const d = Math.hypot(x - cx, z - cz);
+      if (d > R) continue;
+      cands.push([(quayNext ? 1 : 0) - d / R + Math.random() * 0.05, i]);
+    }
+  }
+  cands.sort((a, b) => b[0] - a[0]);
+  let built = 0;
+  for (let k = 0; k < Math.min(count, cands.length); k++) {
+    const i = cands[k][1], x = i % N, z = (i / N) | 0;
+    // The wall: raised above high tide, paved
+    H[i] = Math.max(H[i], sea + half + 0.8); world.prevHeight[i] = H[i];
+    pave(world, i, t.num, 6);
+    world.water[i] = 0;
+    // The water in front dredged deep: a steep drop-off
+    for (const j of [i - 1, i + 1, i - N, i + N, i - N - 1, i - N + 1, i + N - 1, i + N + 1]) {
+      if (LU[j] || H[j] >= sea + half) continue;
+      H[j] = Math.min(H[j], sea - 2.6); world.prevHeight[j] = H[j];
+      if (world.marineHealth) world.marineHealth[j] = 0; // (the bed there is gone)
+    }
+    // …and the sea bed around churned up and smothered, the water clouded
+    for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) {
+      const j = (z + dz) * N + x + dx;
+      if (j < 0 || j >= N * N || H[j] >= sea) continue;
+      const f = 1 - Math.hypot(dx, dz) / 5.7;
+      if (f <= 0) continue;
+      if (world.marineHealth) world.marineHealth[j] *= 1 - 0.25 * f;
+      if (world.silt) world.silt[j] = Math.min(4, world.silt[j] + 0.3 * f);
+      if (world.pollution) world.pollution[j] = Math.min(4, world.pollution[j] + 0.06 * f);
+    }
+    built++;
+  }
+  t.quay = (t.quay || 0) + built;
+  return built;
 }
 
 /**
@@ -346,7 +403,9 @@ export function civStep(world) {
       anyPaved = true;
       // Light: into water right next to it
       // (industry: on a vastly larger scale, straight into the water beside it and down the drains)
-      const ind = LU[i] === 4 ? 12 : 1;
+      const ind = LU[i] === 4 ? 12 : LU[i] === 6 ? 3 : 1;
+      // (a working quay keeps fouling the water at its foot and wearing the beds there down)
+      if (LU[i] === 6) for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] < sea && world.marineHealth) world.marineHealth[j] = Math.max(0, world.marineHealth[j] - 0.002);
       for (const j of [i - 1, i + 1, i - N, i + N]) {
         if (H[j] < sea) { if (world.pollution) world.pollution[j] = Math.min(4, world.pollution[j] + 0.0015 * ind); }
         else if (world.water[j] > 0.05) RP[j] += 0.004 * ind;
@@ -503,6 +562,8 @@ export function civStep(world) {
     const harvest = food; // (from the fields alone)
     // A coastal town builds a harbour; its fleet grows with the town and fishes the sea
     if (t.harbor !== undefined && LU[t.harbor] !== 5) t.harbor = undefined;
+    // A coastal town of a few hundred armours its shore with quays (growing with the town)
+    if (t.pop > 250 && fields.sea[ci] > 0.02 && (t.quay || 0) < Math.min(60, Math.floor((t.pop - 200) / 60)) && Math.random() < 0.3) buildQuay(world, t, 2);
     if (t.harbor === undefined && t.pop > 120 && fields.sea[ci] > 0.02) buildHarbor(world, t);
     t.boats = t.harbor !== undefined ? Math.min(24, 1 + Math.floor(t.pop / 180)) : 0;
     // (gathering on the shore, and with boats the catch at sea)

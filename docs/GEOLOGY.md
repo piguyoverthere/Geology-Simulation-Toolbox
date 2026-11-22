@@ -968,6 +968,13 @@ sea yields less, so a big fleet can collapse its own fishery. Boats also carry s
 water: a town with a harbour can found villages on islands and other shores (linked by sea, not road),
 and sends boats out to settle islands nobody lives on yet; without boats, towns can't cross the sea.
 
+**Quays.** A coastal town of a few hundred armours its shore, more of it as it grows: the land along
+the water is raised above high tide and walled, and the water in front dredged deep, making a steep
+drop-off where the tide can't reach in (no tidal flats, no flooding at high tide) and where boats can
+tie up, so harbours are easy to build there. Building it destroys the sea bed it dredges, damages
+the beds around and clouds the water with silt and pollution; a working quay keeps fouling the
+water at its foot and wearing the beds there down. Waves don't wear a quay and no sand gathers on it.
+
 **Protected zones.** Any polygon you draw can be made a protected zone (🛡 in the Drawings list): it
 is kept wild. No town is founded or built inside it, no farmland is cleared, no industry is built,
 and roads between towns go around it (unless there is truly no other way). What was there already
