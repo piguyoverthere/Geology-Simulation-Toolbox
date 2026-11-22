@@ -32,7 +32,7 @@ export const oceanParams = {
 
 export function ensureOcean(world) {
   const n = world.N * world.N;
-  for (const k of ['curU', 'curV', 'plankton', 'seaIce', 'surf', 'stormWave']) {
+  for (const k of ['curU', 'curV', 'plankton', 'seaIce', 'surf', 'stormWave', 'pushU', 'pushV', 'waveBoost']) {
     if (!world[k] || world[k].length !== n) world[k] = new Float32Array(n);
   }
   if (!world.salinity || world.salinity.length !== n) world.salinity = new Float32Array(n).fill(1);
@@ -68,7 +68,7 @@ function openSeaDistance(world, sea) {
 }
 
 /** Carry field F along the currents (semi-Lagrangian: each cell takes what was upstream). */
-function advect(F, U, V, mask, N) {
+export function advect(F, U, V, mask, N) {
   const n = N * N, out = new Float32Array(n);
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
@@ -125,11 +125,14 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
       const friction = Math.min(1, Math.max(0.1, (sea - H[i]) / 4));
       const s = amp * flood * Math.min(2.5, squeeze * 0.45) * reach * friction;
       // (plus a slow drift with the prevailing wind at the surface)
-      U[i] = gx * s + 0.12 * wdx * p.currents;
-      V[i] = gz * s + 0.12 * wdz * p.currents;
+      // (plus any current pushed by hand with the Current tool, fading away)
+      U[i] = gx * s + 0.12 * wdx * p.currents + world.pushU[i];
+      V[i] = gz * s + 0.12 * wdz * p.currents + world.pushV[i];
     }
   }
-  if (p.currents > 0) {
+  for (let i = 0; i < n; i++) { world.pushU[i] *= 0.93; world.pushV[i] *= 0.93; }
+  if (p.currents > 0 || world.pushing) {
+    world.pushing = false;
     advect(world.silt, U, V, mask, N);
     advect(world.pollution, U, V, mask, N);
     advect(PL, U, V, mask, N);
@@ -229,7 +232,11 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
     }
     if (cells) surgeT += 1.2 * s * (overSea / cells);
   }
-  world.surge = (world.surge || 0) + (Math.min(2.5, surgeT) - (world.surge || 0)) * 0.08;
+  // (a surge raised by hand with the Storm surge tool ebbs away more slowly than it came)
+  world.surge = (world.surge || 0) + (Math.min(2.5, surgeT) - (world.surge || 0)) * (surgeT > 0.05 ? 0.08 : 0.03);
+  // Waves whipped up by hand (the Waves tool) die down over a while
+  const WB = world.waveBoost;
+  for (let i = 0; i < n; i++) if (WB[i] > 0) { if (WB[i] > SW[i]) SW[i] = WB[i]; WB[i] = WB[i] < 0.01 ? 0 : WB[i] * 0.97; }
 
   // --- Surf: breaking waves along exposed shores -----------------------------------------
   for (let z = 1; z < N - 1; z++) {

@@ -88,6 +88,13 @@ the automatic choice. **Pollute water** ☣ (X) pours pollutants into the sea (S
 **Stir water** ↻ (M) mixes pollutants and silt by hand, evening them out across the brush (nothing
 is removed); drag it to smear a plume along.
 
+**Ocean** tools (with Shoreline, Pollute, Clean and Stir): **Current** ➜ (J) drag across the sea to
+push the water along, carrying what's in it; **Fresh water** ⊚ (Y) makes it brackish like a river
+mouth (Shift: saltier); **Plankton bloom** ✺ (T) seeds a bloom (Shift: clears it); **Oxygen** ○ (E)
+aerates the water (Shift: strips the oxygen out, a dead zone); **Sea ice** ❄ (I) freezes it (Shift:
+melts it); **Storm surge** ⇡ (R) raises the whole sea, flooding low shores (Shift: lowers it); **Waves**
+〰 (Q) whips up big waves that break as surf and pound the coast.
+
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
 sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or
 lake), surface water depth and speed, sediment load, plant cover, rock hardness, erodibility,

@@ -6,6 +6,7 @@ import { addIce } from '../sim/glacier.js';
 import { MinHeap } from '../core/grid.js';
 import { paintShore, coastParams } from '../sim/coast.js';
 import { ensureQuality } from '../sim/waterQuality.js';
+import { ensureOcean, advect } from '../sim/ocean.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -17,8 +18,16 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O', pollute: 'X', clean: 'V', stir: 'M' };
+const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O', pollute: 'X', clean: 'V', stir: 'M', current: 'J', freshen: 'Y', bloom: 'T', oxygen: 'E', seaice: 'I', surge: 'R', waves: 'Q' };
 export function toolKey(id) { return LETTER_KEYS[id] || TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
+
+function seaOn(world) { return world.meanSea !== undefined && world.meanSea > -999; }
+function seaTop(world) { return world.meanSea + 0.5 * coastParams.tideRange; }
+/** Brush cells that are sea (or the tidal fringe). */
+function seaCells(world, x, z, r, fn) {
+  const top = seaTop(world), H = world.height;
+  forEachCell(world, x, z, r, (i, w) => { if (H[i] < top) fn(i, w); });
+}
 
 /**
  * Fill the hollow at (x, z) to its spill level (a priority flood from the hollow's lowest point:
@@ -339,7 +348,7 @@ export const TOOLS = {
     place({ app }, a, b) { app.section.show(a, b); },
   },
   shoreline: {
-    label: 'Shoreline', group: 'Water', icon: '≈', editsTerrain: true,
+    label: 'Shoreline', group: 'Ocean', icon: '≈', editsTerrain: true,
     help: 'Paint along a coast to give it a shore type (choose it under Ocean & coast → Shoreline type): mudflat (flattens it to a tidal flat), sand beach (adds sand), shingle beach (pebbles), rock cliff (steepens it) or basalt boulder beach (black basalt). Auto lets the conditions decide. Only works on the shore itself, around the tide line, with the sea on. Hold Shift to go back to auto.',
     apply({ world, x, z, radius, dt, invert }) {
       const type = invert ? 'auto' : coastParams.shoreType;
@@ -347,7 +356,7 @@ export const TOOLS = {
     },
   },
   pollute: {
-    label: 'Pollute water', group: 'Water', icon: '☣', editsTerrain: false,
+    label: 'Pollute water', group: 'Ocean', icon: '☣', editsTerrain: false,
     help: 'Paint over the sea to pour in pollutants (sewage, farm and street runoff, a spill). They spread with the tides, linger for a long time, turn the water a murky green-brown and poison seagrass, kelp and coral, which die off where it stays too dirty (and then no longer clean the water). Hold Shift to dump mud instead (silt: brown water that blocks the light, but settles out in a few days). The inspector shows the water quality. Only works on the sea.',
     apply({ world, x, z, radius, strength, dt, invert }) {
       const sea = world.meanSea;
@@ -361,7 +370,7 @@ export const TOOLS = {
     },
   },
   stir: {
-    label: 'Stir water', group: 'Water', icon: '↻', editsTerrain: false,
+    label: 'Stir water', group: 'Ocean', icon: '↻', editsTerrain: false,
     help: 'Paint over the sea to stir it by hand: pollutants and silt under the brush are mixed together and evened out (a thick, concentrated patch is spread across the whole brush and thinned; nothing is removed). Drag it outward from a spill to smear the plume along. Brush strength sets how hard you stir.',
     apply({ world, x, z, radius, strength, dt }) {
       const sea = world.meanSea;
@@ -381,8 +390,108 @@ export const TOOLS = {
       world.dirty = true;
     },
   },
+  current: {
+    label: 'Current', group: 'Ocean', icon: '➜', editsTerrain: false,
+    help: 'Drag across the sea to push the water along in that direction: a current that carries silt, pollutants, plankton and river water with it, and then fades (the tides take over again). Drag faster for a stronger current.',
+    apply({ world, x, z, radius, strength, stroke }) {
+      if (!seaOn(world)) return;
+      ensureOcean(world);
+      const last = stroke.lastCur;
+      stroke.lastCur = { x, z };
+      if (!last) return;
+      const dx = x - last.x, dz = z - last.z, len = Math.hypot(dx, dz);
+      if (len < 0.05) return;
+      const N = world.N, n = N * N, U = new Float32Array(n), V = new Float32Array(n);
+      const k = Math.min(3, len) / len * strength;
+      seaCells(world, x, z, radius, (i, w) => {
+        U[i] = dx * k * w; V[i] = dz * k * w;
+        world.pushU[i] = Math.max(-2, Math.min(2, world.pushU[i] + dx * k * w * 0.3));
+        world.pushV[i] = Math.max(-2, Math.min(2, world.pushV[i] + dz * k * w * 0.3));
+      });
+      // Move the water's contents right away (even while paused)
+      const mask = new Uint8Array(n), top = seaTop(world);
+      for (let i = 0; i < n; i++) mask[i] = world.height[i] < top ? 1 : 0;
+      for (const F of [world.silt, world.pollution, world.plankton, world.salinity]) if (F) advect(F, U, V, mask, N);
+      world.pushing = true;
+      world.dirty = true;
+    },
+  },
+  freshen: {
+    label: 'Fresh water', group: 'Ocean', icon: '⊚', editsTerrain: false,
+    help: 'Paint over the sea to pour in fresh water, as a river mouth does: the water turns brackish (an estuary forms where it stays fresh enough). Coral and kelp can\'t live in it. Hold Shift to make it saltier instead (back to full seawater, about 35 ‰). Rivers and the tides keep changing it afterwards.',
+    apply({ world, x, z, radius, strength, dt, invert }) {
+      if (!seaOn(world)) return;
+      ensureOcean(world);
+      const S = world.salinity, k = strength * 1.5 * dt;
+      seaCells(world, x, z, radius, (i, w) => { S[i] = Math.max(0, Math.min(1, S[i] + (invert ? 1 : -1) * k * w)); });
+      world.dirty = true;
+    },
+  },
+  bloom: {
+    label: 'Plankton bloom', group: 'Ocean', icon: '✺', editsTerrain: false,
+    help: 'Paint over the sea to seed a plankton bloom: the water turns green (a red tide in warm seas). Without nutrients (pollutants, river water) and summer sun it fades; with them it keeps growing, and where it rots in deep, poorly flushed water it uses up the oxygen (a dead zone). Hold Shift to clear the plankton away.',
+    apply({ world, x, z, radius, strength, dt, invert }) {
+      if (!seaOn(world)) return;
+      ensureOcean(world);
+      const P = world.plankton, k = strength * 3 * dt;
+      seaCells(world, x, z, radius, (i, w) => { P[i] = invert ? P[i] * (1 - Math.min(1, k * w)) : Math.min(3, P[i] + k * w); });
+      world.dirty = true;
+    },
+  },
+  oxygen: {
+    label: 'Oxygen', group: 'Ocean', icon: '○', editsTerrain: false,
+    help: 'Paint over the sea to aerate it (as storms and open water do): oxygen comes back and sea life can breathe again. Hold Shift to strip the oxygen out instead, making a low-oxygen dead zone that suffocates seagrass, kelp and coral until it mixes back in.',
+    apply({ world, x, z, radius, strength, dt, invert }) {
+      if (!seaOn(world)) return;
+      ensureOcean(world);
+      const O = world.oxygen, k = strength * 2 * dt;
+      seaCells(world, x, z, radius, (i, w) => { O[i] = Math.max(0, Math.min(1, O[i] + (invert ? -1 : 1) * k * w)); });
+      world.dirty = true;
+    },
+  },
+  seaice: {
+    label: 'Sea ice', group: 'Ocean', icon: '❄', editsTerrain: false,
+    help: 'Paint over the sea to freeze it: thin grey new ice, thickening to white pack ice. Warm water melts it back again (and freezing water keeps it), so it lasts only as long as the weather allows. Hold Shift to break it up and melt it.',
+    apply({ world, x, z, radius, strength, dt, invert }) {
+      if (!seaOn(world)) return;
+      ensureOcean(world);
+      const I = world.seaIce, k = strength * 1.5 * dt;
+      forEachCell(world, x, z, radius, (i, w) => {
+        if (world.height[i] < world.meanSea) I[i] = Math.max(0, Math.min(1.5, I[i] + (invert ? -1 : 1) * k * w));
+      });
+      world.dirty = true;
+    },
+  },
+  surge: {
+    label: 'Storm surge', group: 'Ocean', icon: '⇡', editsTerrain: false,
+    help: 'Hold the mouse anywhere to raise the whole sea, as a storm surge does (low pressure and onshore wind pile the water up): low shores flood. It ebbs away again over a while when you let go. Hold Shift to lower it instead (a negative surge, as strong offshore winds blow the water away, baring the flats).',
+    apply({ world, strength, dt, invert }) {
+      if (!seaOn(world)) return;
+      world.surge = Math.max(-2, Math.min(3, (world.surge || 0) + (invert ? -1 : 1) * strength * 1.5 * dt));
+      // Show it at once, even while paused
+      const sea = world.meanSea + (world.tide || 0) + world.surge, prev = world.seaLevel;
+      const H = world.height, D = world.water;
+      for (let i = 0; i < D.length; i++) {
+        if (H[i] < sea) D[i] = sea - H[i];
+        else if (H[i] < prev && Math.abs(H[i] + D[i] - prev) < 0.5) D[i] = 0;
+      }
+      world.seaLevel = sea;
+      world.dirty = true;
+    },
+  },
+  waves: {
+    label: 'Waves', group: 'Ocean', icon: '〰', editsTerrain: false,
+    help: 'Paint over the sea to whip up big waves, as a storm does: surf breaks white along the shore, the waves pound and erode the coast several times faster and stir oxygen into the water. They die down over a while.',
+    apply({ world, x, z, radius, strength, dt }) {
+      if (!seaOn(world)) return;
+      ensureOcean(world);
+      const WB = world.waveBoost, k = strength * 2 * dt;
+      seaCells(world, x, z, radius, (i, w) => { WB[i] = Math.min(1.5, WB[i] + k * w); });
+      world.dirty = true;
+    },
+  },
   clean: {
-    label: 'Clean water', group: 'Water', icon: '✧', editsTerrain: false,
+    label: 'Clean water', group: 'Ocean', icon: '✧', editsTerrain: false,
     help: 'Paint over the sea to clean it up (sewage treatment, stopping the runoff, a spill cleanup): removes silt and pollutants under the brush. Sick or dead sea beds then recover by themselves, slowly, as long as the water stays clean.',
     apply({ world, x, z, radius, strength, dt }) {
       if (!world.silt) return;
