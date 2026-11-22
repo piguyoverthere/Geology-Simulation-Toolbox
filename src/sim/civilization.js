@@ -114,6 +114,79 @@ export function updateProtectedZones(world, shapes) {
 }
 const isProtected = (world, i) => world.protectedZone && world.protectedZone[i] === 1;
 
+/** Which landmass each cell is on (islands and the mainland numbered apart; 0 = sea). */
+function landComponents(world) {
+  const N = world.N, n = N * N, H = world.height, sea = seaOf(world);
+  const comp = new Int32Array(n), q = new Int32Array(n);
+  let label = 0;
+  for (let s0 = 0; s0 < n; s0++) {
+    if (comp[s0] || H[s0] < sea) continue;
+    label++;
+    let head = 0, tail = 0;
+    q[tail++] = s0; comp[s0] = label;
+    while (head < tail) {
+      const c = q[head++], x = c % N, z = (c / N) | 0;
+      if (x > 0 && !comp[c - 1] && H[c - 1] >= sea) { comp[c - 1] = label; q[tail++] = c - 1; }
+      if (x < N - 1 && !comp[c + 1] && H[c + 1] >= sea) { comp[c + 1] = label; q[tail++] = c + 1; }
+      if (z > 0 && !comp[c - N] && H[c - N] >= sea) { comp[c - N] = label; q[tail++] = c - N; }
+      if (z < N - 1 && !comp[c + N] && H[c + N] >= sea) { comp[c + N] = label; q[tail++] = c + N; }
+    }
+  }
+  return comp;
+}
+
+/** A coastal town's harbour: a shore cell beside the sea near the town (deeper water preferred). */
+function buildHarbor(world, t) {
+  const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse;
+  let best = -1, bs = -1e9;
+  for (let z = Math.max(1, t.z - 10); z <= Math.min(N - 2, t.z + 10); z++) for (let x = Math.max(1, t.x - 10); x <= Math.min(N - 2, t.x + 10); x++) {
+    const i = z * N + x;
+    if (H[i] < sea || (LU[i] !== 0 && LU[i] !== 1) || isProtected(world, i)) continue;
+    let depth = 0;
+    for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] < sea) depth = Math.max(depth, sea - H[j]);
+    if (!depth) continue;
+    const score = Math.min(4, depth) - Math.hypot(x - t.x, z - t.z) * 0.3;
+    if (score > bs) { bs = score; best = i; }
+  }
+  if (best >= 0) { pave(world, best, t.num, 5); t.harbor = best; }
+}
+
+/**
+ * The fleet at work: the boats fish the sea around the harbour, catching whatever lives under the
+ * water (your sea animals among it), trawling the sea bed (seagrass, kelp and coral are torn up),
+ * and fouling the water a little. Returns the food landed. An overfished, wrecked sea yields less.
+ */
+function fishing(world, t) {
+  const N = world.N, H = world.height, sea = seaOf(world), boats = t.boats;
+  const hx = t.harbor % N, hz = (t.harbor / N) | 0, FR = 10 + 3 * Math.sqrt(boats);
+  t.fishRange = FR;
+  let prod = 0, cells = 0, caught = 0;
+  const seaAnimals = (world.animals || []).filter((a) => a.habitat === 'sea' || a.habitat === 'coast' || a.habits.runsRivers);
+  for (let z = Math.max(0, Math.floor(hz - FR)); z <= Math.min(N - 1, Math.ceil(hz + FR)); z++) {
+    for (let x = Math.max(0, Math.floor(hx - FR)); x <= Math.min(N - 1, Math.ceil(hx + FR)); x++) {
+      const i = z * N + x;
+      if (H[i] >= sea) continue;
+      const d = Math.hypot(x - hx, z - hz);
+      if (d > FR) continue;
+      const e = boats * 0.0035 * (1 - d / FR) / Math.max(1, FR / 10); // (fishing effort here)
+      const m = world.marine ? world.marine[i] : -1, hl = world.marineHealth ? world.marineHealth[i] : 1;
+      // The catch depends on a living sea: healthy beds, oxygen, clean water
+      prod += (0.35 + 0.65 * (m >= 1 && m <= 3 ? hl : 0.5)) * (world.oxygen ? world.oxygen[i] : 1) * (1 - Math.min(0.6, (world.pollution ? world.pollution[i] : 0) * 0.3));
+      cells++;
+      if (m >= 1 && m <= 3 && world.marineHealth) world.marineHealth[i] = Math.max(0, hl - 0.25 * e); // (trawling)
+      if (world.pollution) world.pollution[i] = Math.min(4, world.pollution[i] + 0.04 * e);       // (fuel, bilge, waste)
+      for (const a of seaAnimals) {
+        const F = world['animal_' + a.id];
+        if (!F || F[i] <= 0) continue;
+        const take = F[i] * Math.min(0.25, 3 * e);
+        F[i] -= take; caught += take;
+      }
+    }
+  }
+  t.catch = caught;
+  return boats * 40 * (cells ? prod / cells : 0) + caught * 1500;
+}
+
 function seaOf(world) { return world.meanSea !== undefined && world.meanSea > -999 ? world.meanSea : -1e9; }
 
 /** How fertile cell i is for farming (0..1): wet-enough soil, flat, a growing season. */
@@ -374,7 +447,8 @@ export function civStep(world) {
   if (!towns.length) { world.civPop = 0; return; }
   // (the site fields change slowly: refresh them every few steps)
   world.civFieldsAge = (world.civFieldsAge || 0) + 1;
-  if (!world._civFields || world._civFields.N !== N || world.civFieldsAge % 6 === 0) { world._civFields = siteFields(world); world._civFields.N = N; }
+  if (!world._civFields || world._civFields.N !== N || world.civFieldsAge % 6 === 0) { world._civFields = siteFields(world); world._civFields.N = N; world._landComp = landComponents(world); }
+  const COMP = world._landComp;
   const fields = world._civFields;
   const NW = nearestWater(world);
   const ph = seasonParams.enabled ? seasonParams.phase : 0.3;
@@ -427,8 +501,13 @@ export function civStep(world) {
       }
     }
     const harvest = food; // (from the fields alone)
-    // Fish from the sea within reach
-    food += 600 * fields.sea[ci] * (world.oxygen ? world.oxygen[ci] ?? 1 : 1);
+    // A coastal town builds a harbour; its fleet grows with the town and fishes the sea
+    if (t.harbor !== undefined && LU[t.harbor] !== 5) t.harbor = undefined;
+    if (t.harbor === undefined && t.pop > 120 && fields.sea[ci] > 0.02) buildHarbor(world, t);
+    t.boats = t.harbor !== undefined ? Math.min(24, 1 + Math.floor(t.pop / 180)) : 0;
+    // (gathering on the shore, and with boats the catch at sea)
+    food += 150 * fields.sea[ci] * (world.oxygen ? world.oxygen[ci] ?? 1 : 1);
+    if (t.boats) food += fishing(world, t);
     // Hunting: a young settlement lives largely off the game around it (your land animals), which
     // it thins out; as it grows and takes to farming, hunting fades away
     const stage = Math.max(0, Math.min(1, (400 - t.pop) / 250));
@@ -502,13 +581,27 @@ export function civStep(world) {
     if (farmCells < wantFarm) expand(world, t, 1, Math.min(8, wantFarm - farmCells), Math.min(45, R * 2), fields, NW);
     // A big town sends people out to found a daughter village (linked by road)
     // (when the town is crowded: near what its land can feed)
+    // (a town with boats can send them across the water, farther afield; without, only overland)
     if (t.pop > 300 && t.pop > 0.85 * K && towns.length < MAX_TOWNS && Math.random() < 0.015 * civParams.growth) {
-      const ang = Math.random() * Math.PI * 2, d = 30 + Math.random() * 30;
+      const ang = Math.random() * Math.PI * 2, d = 30 + Math.random() * (t.boats ? 60 : 30);
       const site = bestSite(world, t.x + Math.cos(ang) * d, t.z + Math.sin(ang) * d, 24, fields);
-      if (site) {
+      const overseas = site && COMP && COMP[site.i] !== COMP[ci];
+      if (site && (!overseas || t.boats)) {
         const v = foundTown(world, site.i, 60);
         t.pop -= 60;
-        linkTowns(world, t, v);
+        if (overseas) { v.byBoat = true; t.links.push(v.id); v.links.push(t.id); } // (a sea route, no road)
+        else linkTowns(world, t, v);
+      }
+    }
+    // Boats also carry settlers out to islands no one lives on yet
+    if (t.boats >= 2 && t.pop > 200 && towns.length < MAX_TOWNS && COMP && Math.random() < 0.006 * civParams.growth) {
+      const settled = new Set(towns.map((u) => COMP[u.z * N + u.x]));
+      const ang = Math.random() * Math.PI * 2, d = 25 + Math.random() * 80;
+      const site = bestSite(world, t.x + Math.cos(ang) * d, t.z + Math.sin(ang) * d, 30, fields);
+      if (site && !settled.has(COMP[site.i])) {
+        const v = foundTown(world, site.i, 50);
+        t.pop -= 50;
+        v.byBoat = true; t.links.push(v.id); v.links.push(t.id);
       }
     }
     // Big neighbours build roads to each other

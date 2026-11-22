@@ -24,6 +24,7 @@ export const STATS = [
   { id: 'people', label: 'Population', group: 'Civilization', unit: 'people', help: 'Everyone living in the towns.' },
   { id: 'towns', label: 'Towns', group: 'Civilization', unit: '', help: 'How many towns and villages there are.' },
   { id: 'paved', label: 'Paved land', group: 'Civilization', unit: '%', help: 'Share of the land paved over by towns and roads.' },
+  { id: 'boats', label: 'Boats', group: 'Civilization', unit: '', help: 'Fishing boats in the towns\' harbours.' },
   { id: 'industry', label: 'Industrial land', group: 'Civilization', unit: '%', help: 'Share of the land given over to industry.' },
   { id: 'farmland', label: 'Farmland', group: 'Civilization', unit: '%', help: 'Share of the land cleared for farming.' },
   { id: 'dirtyRivers', label: 'Polluted rivers', group: 'Civilization', unit: '%', help: 'Share of the rivers and streams carrying pollution from the towns upstream.' },
@@ -83,7 +84,7 @@ export function computeStats(world) {
     temp: tempN ? temp / tempN : 0,
     sea: pct(seaN, seaN + land), clean: pct(clean, seaN), lowOxygen: pct(lowOx, seaN), beds: pct(bedsOK, beds),
     coral: pct(coral, seaN), seaIce: pct(seaIce, seaN),
-    people: (world.towns || []).reduce((t, x) => t + x.pop, 0), towns: (world.towns || []).length,
+    people: (world.towns || []).reduce((t, x) => t + x.pop, 0), towns: (world.towns || []).length, boats: (world.towns || []).reduce((t, x) => t + (x.boats || 0), 0),
     paved: pct(paved, land), farmland: pct(farmland, land), industry: pct(industry, land), dirtyRivers: pct(dirtyStreams, streams),
   };
 }

@@ -960,6 +960,14 @@ rivers. Towns grow out along their roads; big neighbours build roads to each oth
 sends people to found a daughter village nearby, linked by road. A town that dwindles away is
 abandoned: its fields go back to the wild and its pavement slowly breaks up and grows over.
 
+**Boats and harbours.** A coastal town builds a harbour on the shore, and its fishing fleet grows
+with the town (you see the boats working the water around it). The boats catch whatever lives under
+the water within their range (your sea animals among it) and land it as food; they trawl the sea bed
+(seagrass, kelp and coral are torn up) and foul the water a little. A wrecked, polluted or fished-out
+sea yields less, so a big fleet can collapse its own fishery. Boats also carry settlers across the
+water: a town with a harbour can found villages on islands and other shores (linked by sea, not road),
+and sends boats out to settle islands nobody lives on yet; without boats, towns can't cross the sea.
+
 **Protected zones.** Any polygon you draw can be made a protected zone (🛡 in the Drawings list): it
 is kept wild. No town is founded or built inside it, no farmland is cleared, no industry is built,
 and roads between towns go around it (unless there is truly no other way). What was there already

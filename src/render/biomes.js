@@ -19,6 +19,7 @@ export const BIOMES = {
   mangrove:  { label: 'Mangrove forest', color: [0.13, 0.33, 0.18], help: 'Salt-tolerant forest standing in the tide on warm, sheltered mudflats.' },
   dunes:     { label: 'Coastal dunes', color: [0.86, 0.82, 0.62], help: 'Wind-blown sand behind sand beaches: dune grass, with shore pine on the stabilised dunes.' },
   farmland:  { label: 'Farmland',  color: [0.74, 0.68, 0.40], help: 'Fields cleared, levelled or terraced and irrigated by a town: crops, no forest. Their irrigation draws down the nearest river or lake, and their runoff pollutes it.' },
+  harbor:    { label: 'Harbour',   color: [0.50, 0.40, 0.30], help: 'A coastal town\'s docks: home to its fishing boats, which also carry settlers across the water.' },
   industry:  { label: 'Industrial area', color: [0.42, 0.45, 0.50], help: 'A town\'s industry on the water\'s edge: mass-paved, pouring pollution into the water beside it and down the rivers on a very large scale.' },
   town:      { label: 'Town',      color: [0.62, 0.52, 0.48], help: 'Paved streets and buildings: flat, sealed ground where nothing grows.' },
   snow:      { label: 'Snow',      color: [0.95, 0.96, 0.98], help: 'Below freezing with enough moisture, on slopes gentle enough to hold snow.' },
@@ -37,6 +38,7 @@ export function classifyBiome(world, i, slope) {
   const soil = world.soil ? world.soil[i] : 0.5;
   const near = world.nearWater ? world.nearWater[i] : 0;
   const T = (world.vegTemp || world.temperature) ? (world.vegTemp || world.temperature)[i] : 12;
+  if (world.landUse && world.landUse[i] === 5) return 'harbor';
   if (world.landUse && world.landUse[i] === 4 && world.paved[i] > 0.5) return 'industry';
   if (world.landUse && world.landUse[i] === 2 && world.paved[i] > 0.5) return 'town';
   if (world.landUse && world.landUse[i] === 1) return 'farmland';

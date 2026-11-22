@@ -113,7 +113,9 @@ roads to each other, floods, fires, lava and storm surges cost them people, and 
 abandoned and grow over. The Life tab lists the towns with population graphs; the Graphs window has
 population, towns, paved land, farmland and polluted rivers. Sliders: **Population increase** and **Expansion speed**; roads must be kept up
 by nearby towns or they break up, busy roads are widened to two or three lanes, towns past a few
-hundred people build a mass-paved industrial area on the water that pollutes on a very large scale, young towns hunt your land animals, and roads between towns wind
+hundred people build a mass-paved industrial area on the water that pollutes on a very large scale, coastal towns build
+harbours whose fishing boats catch sea life, trawl the sea bed, pollute a little and carry settlers to
+islands, young towns hunt your land animals, and roads between towns wind
 over the land along valleys and contours.
 
 **Wildlife**: design your own animals. Under **Wildlife → + Add animal**, name it, pick its colour and
@@ -241,6 +243,7 @@ src/sim/stats.js        Whole-map statistics over time (the Graphs panel)
 src/sim/probes.js       Probes: per-spot readings over time (Graphs window tabs)
 src/sim/civilization.js Towns: siting, farms, paving, roads, pollution downstream, growth rules
 src/render/townLabels.js Town names on the map
+src/render/boats.js     Fishing boats on the water
 src/core/environments.js  Environment presets (ready-made climates)
 src/sim/phenology.js    Seasonal leaves: autumn colour, leaf fall, spring flush
 src/sim/species.js      Tree species, their preferences, and each cell's forest mix
