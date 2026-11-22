@@ -1029,7 +1029,10 @@ full forest wherever the climate allows. Grown stands are clear-felled a few cel
 leaving bare brown ground with slash and the soil a little thinner, then replanted to grow again.
 A road runs from the town centre out to each plantation. The wood adds to the town's trade (up to
 30%). A town's own farms and streets can take over its plantation land, and an abandoned
-plantation goes back to the wild.
+plantation goes back to the wild. Plantations are monocultures of even-aged
+trees, with no understory, no old or dead trees and no food, so they have very low biodiversity and
+support no wildlife. Your animals die out or move away from them, and the Animal tool can't put
+any there.
 
 **Sewers, livestock, harbours and the Destruction slider.** A town past about 150 people digs a
 **sewer**, to the sea if it can reach it (within about 70 cells), otherwise to a real river or lake

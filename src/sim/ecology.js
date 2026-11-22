@@ -115,6 +115,9 @@ let masks = null;
 /** How well cell i suits an animal of this habitat (0..1). */
 function habitatAt(world, a, i, M, sea) {
   const H = world.height, V = world.vegetation;
+  // (a timber plantation is a monoculture of even-aged trees, felled and replanted: no understory,
+  // no old or dead trees, no food: nothing lives there)
+  if (world.landUse && world.landUse[i] === 10 && a.habitat !== 'sea' && a.habitat !== 'coast') return 0;
   switch (a.habitat) {
     case 'sea': return M.seaM[i];
     case 'coast': return M.seaM[i] && sea - H[i] < 12 ? 1 : 0;
@@ -412,6 +415,7 @@ export function recordPopulations(world) {
 /** Can animal a live at cell i (for painting it in)? */
 export function canLive(world, a, i) {
   const sea = seaLevel(world), wet = world.height[i] < sea;
+  if (world.landUse && world.landUse[i] === 10 && !wet) return false; // (no wildlife in plantations)
   switch (a.habitat) {
     case 'sea': return wet || a.habits.runsRivers && world.water[i] > 0.03;
     case 'coast': return wet && sea - world.height[i] < 12;
