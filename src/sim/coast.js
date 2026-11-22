@@ -86,6 +86,7 @@ export function marineThins(m) { return m >= 0 && THINS[m]; }
 /** The sea bed as it looks now: a living bed that dirty water has killed shows as a die-off. */
 export function marineShown(world, i) {
   const m = world.marine ? world.marine[i] : -1;
+  if (m >= 0 && seaTemp() < -1.5) return MARINE_ID.ice; // winter sea ice over the bed
   if (m >= 0 && SENSITIVE[m] > 0 && world.marineHealth && world.marineHealth[i] < (THINS[m] ? 0.05 : 0.3)) return MARINE_ID.dieoff;
   return m;
 }
@@ -162,7 +163,18 @@ export function coastStep(world) {
     const m = Math.min(1, marine[i] * 3);
     world.seasonScale[i] = 0.5 + 0.75 * (1 - m); // 0.5 at the coast … 1.25 far inland
   }
-  const Tw = seaTemp();
+  // The sea beds follow the sea's long-term climate, not the seasons: kelp doesn't vanish each
+  // summer or coral each winter. world.seaClimate is the annual mean water temperature as the beds
+  // have adapted to it, lagging the real one by a few years, and a bed that no longer suits its
+  // spot is replaced patch by patch over several years (the new one starting sparse and filling in).
+  const ph = seasonParams.phase;
+  let years = seasonParams.enabled ? (ph - (world.seaPhase ?? ph) + 1) % 1 : 1 / 360;
+  if (years > 0.1) years = 0.1; // (a jump in the calendar doesn't count as years passing)
+  world.seaPhase = ph;
+  if (!world.coastInit || world.seaClimate === undefined) world.seaClimate = climateParams.seaTemp;
+  else world.seaClimate += (climateParams.seaTemp - world.seaClimate) * Math.min(1, years / 3);
+  const Tbed = world.seaClimate, turnover = Math.min(1, years / 2.5);
+  const HL = world.marineHealth;
   const erodeK = p.waveErosion * (world.erosionEnabled ? 1 : 0);
   const basalt = ROCK_INDEX.basalt;
   const sandBeach = new Float32Array(n);
@@ -175,13 +187,23 @@ export function coastStep(world) {
         const depth = sea - h;
         let m;
         const rocky = world.hardnessAt(h, i) > 0.6;
-        if (Tw < -1.5) m = MARINE_ID.ice;
-        else if (depth > 14) m = MARINE_ID.deep;
-        else if (depth < 6 && Tw > 20) m = MARINE_ID.coral;
-        else if (depth < 6 && Tw > 4 && Tw < 19 && rocky) m = MARINE_ID.kelp;
+        // (each spot's own limits differ a little: currents, shade, upwelling)
+        const T = Tbed + (((i * 2654435761) >>> 0) / 4294967296 - 0.5) * 3;
+        if (depth > 14) m = MARINE_ID.deep;
+        else if (depth < 6 && T > 20) m = MARINE_ID.coral;
+        else if (depth < 6 && T > 4 && T < 19 && rocky) m = MARINE_ID.kelp;
         else if (depth < 4) m = MARINE_ID.seagrass;
         else m = MARINE_ID.shelf;
-        M[i] = m;
+        const cur = M[i];
+        if (cur < 0) {
+          // Newly flooded ground: open water at once; a bed starts as a sparse colonisation
+          M[i] = m;
+          if (world.coastInit && SENSITIVE[m] > 0) HL[i] = 0.15;
+        } else if (cur !== m) {
+          if (!SENSITIVE[cur] && !SENSITIVE[m]) M[i] = m; // just deeper or shallower open water
+          else if (Math.random() < turnover) { M[i] = m; HL[i] = SENSITIVE[m] > 0 ? 0.15 : 1; }
+        }
+        m = M[i];
         // Coral reefs grow in warm shallows and grind down into white coral sand
         CO[i] += ((m === MARINE_ID.coral ? world.marineHealth[i] : 0) - CO[i]) * 0.02;
         SH[i] = -1;
@@ -254,7 +276,7 @@ export function coastStep(world) {
   // They need warm water all year (they die back where the sea drops much below ~20 °C), spread out
   // across the flats and into the shallows, trap mud among their roots (so the flat slowly builds
   // up) and break the waves.
-  const MG = world.mangrove, warm = smoothstep(19, 23, climateParams.seaTemp);
+  const MG = world.mangrove, warm = smoothstep(19, 23, world.seaClimate);
   for (let i = 0; i < n; i++) {
     const h = H[i];
     let target = 0;

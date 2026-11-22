@@ -653,6 +653,13 @@ sea ice, kelp forests on cool rocky shores, seagrass meadows, coral reefs in war
 make white coral sand), the open shelf and the deep ocean. The water itself shifts from dark
 green-blue in cold seas to tropical turquoise.
 
+The sea beds follow the sea's **long-term** climate, not the seasons: kelp doesn't vanish each summer
+or coral each winter (only the sea ice comes and goes with the seasons). They track the year-average
+water temperature as they have adapted to it, lagging a few years behind, and each spot's limits
+differ a little. When the sea warms or cools, the beds that no longer suit a spot are replaced patch
+by patch over several years, the newcomers starting sparse and filling in, so coral spreads and kelp
+retreats (or the reverse) over many cycles.
+
 **Maritime climate.** The sea stores heat, so near the coast the seasons swing about half as much
 (mild winters, cool summers) and far inland more (continental). On the Puget Sound map the swing was
 0.74× normal along the coast and 1.1× inland. **Ocean fog** (the marine layer) drifts over the sea and
