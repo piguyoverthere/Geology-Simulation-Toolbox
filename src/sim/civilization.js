@@ -248,8 +248,13 @@ function terraform(world, t, cells) {
   let spoil = 0;
   for (let k = 0; k < Math.min(cells, cuts.length); k++) {
     const i = cuts[k][1];
-    // Down toward the terrace bench below (steps of 1.5), and knobs toward the town's level
-    const bench = Math.floor((H[i] - base) / 1.5) * 1.5 + base;
+    // Down toward the terrace bench below (steps of 1.5), and knobs toward the town's level. Only
+    // ground above the town is cut: below it the bench is the step above (toward the town), so a
+    // cutting is never dug deeper and deeper (each pass a step lower) into a pit; and a cell that
+    // already sits on its bench stays put (the small allowance stops rounding errors from cutting
+    // it again)
+    const rel = (H[i] - base) / 1.5;
+    const bench = (rel >= 0 ? Math.floor(rel + 0.02) : Math.ceil(rel - 0.02)) * 1.5 + base;
     const target = Math.max(sea + half + 1.6, Math.min(bench, base + 5)); // (clear of the waves' reach)
     if (H[i] - target <= 0.02) continue;
     // Cut a level platform (about 5 cells across) at the bench height: the high ground is dug
