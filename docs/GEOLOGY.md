@@ -1022,6 +1022,18 @@ at the outfall. As the town spreads, it digs branch sewers, under its streets if
 districts the network doesn't reach yet, nearest the centre first. A sewer always runs with water.
 Streets beyond the network's reach still drain downhill.
 
+**Kept ground and growth limits.** Ground people keep up doesn't erode: farmland, towns, roads,
+industry, harbours, quays, dams, plantations, and anything paved. It barely washes away (about 3%
+of the usual rate), and it doesn't slump, slide or blow away, because its walls, banks and drains
+are maintained. Canals and sewers are dug channels and don't count. Quarries and terracing lower
+the roads, fields and plantations in their way along with the ground around them (a road is
+re-graded, not left standing on a ridge); only bridges, towns and works are left as they are. A
+town's growth tails off smoothly as it gets big (a soft limit): what it can support is scaled by
+1 / (1 + support / (25,000 × Expansion speed)), so even huge farmland can't feed a runaway city.
+The steady clearing of new fields also slows as a town's farmland grows. Plantations run on a short
+rotation: a stand is felled soon after it reaches about 70% cover, and replanted with fast-growing
+stock.
+
 **Timber plantations.** Each town keeps about twice as much land under timber as under fields, in
 blocks of woodland 3 to 5 cells across. It picks the land where forest grows best, out to three
 times its town's reach. Plantations are planted with saplings and tended, and the trees grow to

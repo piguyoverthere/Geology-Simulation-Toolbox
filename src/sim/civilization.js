@@ -234,7 +234,7 @@ function terraform(world, t, cells) {
   for (let z = Math.max(2, Math.floor(t.z - R)); z <= Math.min(N - 3, Math.ceil(t.z + R)); z++) {
     for (let x = Math.max(2, Math.floor(t.x - R)); x <= Math.min(N - 3, Math.ceil(t.x + R)); x++) {
       const i = z * N + x;
-      if (H[i] < sea + half + 0.5 || (LU[i] && LU[i] !== 1) || isProtected(world, i) || world.water[i] > 0.1) continue;
+      if (H[i] < sea + half + 0.5 || (LU[i] && LU[i] !== 1 && LU[i] !== 3 && LU[i] !== 10) || world.bridge[i] || isProtected(world, i) || world.water[i] > 0.1) continue;
       const d = Math.hypot(x - t.x, z - t.z);
       if (d > R) continue;
       const slope = slopeAt(world, i), rise = H[i] - base;
@@ -260,7 +260,7 @@ function terraform(world, t, cells) {
       const xx = x + dx, zz = z + dz;
       if (xx < 1 || zz < 1 || xx > N - 2 || zz > N - 2) continue;
       const j = zz * N + xx;
-      if ((LU[j] && LU[j] !== 1) || isProtected(world, j) || H[j] < sea + half) continue;
+      if ((LU[j] && LU[j] !== 1 && LU[j] !== 3 && LU[j] !== 10) || world.bridge[j] || isProtected(world, j) || H[j] < sea + half) continue;
       if (H[j] > target) { const dh = H[j] - target; H[j] -= dh; spoil += dh; }
       else if (H[j] > target - 3) { const fill = target - H[j]; H[j] = target; spoil -= fill; }
       else continue;
@@ -358,7 +358,9 @@ function buildMole(world, t, spoil) {
 function quarry(world, t) {
   const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse;
   const base = Math.max(H[t.z * N + t.x], sea + 1);
-  const ok = (j) => (!LU[j] || LU[j] === 1) && !isProtected(world, j) && world.water[j] < 0.1;
+  // (fields, plantations and roads are cut down with the ground around them: the road re-graded,
+  // not left standing on a ridge)
+  const ok = (j) => (!LU[j] || LU[j] === 1 || LU[j] === 3 || LU[j] === 10) && !world.bridge[j] && !isProtected(world, j) && world.water[j] < 0.4;
   // The quarry face: stay on the current mountain, moving to its highest point near the workings
   if (t.quarry !== undefined) {
     const qx = t.quarry % N, qz = (t.quarry / N) | 0;
@@ -394,6 +396,8 @@ function quarry(world, t) {
     if (!ok(j) || H[j] <= level) continue;
     spoil += H[j] - level;
     H[j] = level; world.prevHeight[j] = level;
+    world.water[j] = 0;
+    if (LU[j] === 3) continue; // (a road: just lowered and re-laid)
     world.terraform[j] = 1;
     world.vegetation[j] = 0; world.forestAge[j] = 0;
     if (world.soil) world.soil[j] *= 0.3;
@@ -634,12 +638,12 @@ function timberStep(world, t, farmCells, R) {
     for (const i of pl.cells) {
       if (LU[i] !== 10 || OW[i] !== t.num) continue;
       alive++;
-      if (V[i] > 0.78 && (!TD || TD[i] > 0.5) && Math.random() < 0.06) {
+      if (V[i] > 0.7 && (!TD || TD[i] > 0.35) && Math.random() < 0.3) { // (felled young: a short rotation)
         // (clear-felled: the wood hauled out, slash left, the bare ground washing a little silt away)
         V[i] = 0.12; if (TD) TD[i] *= 0.08; world.forestAge[i] = 0;
         if (world.soil) world.soil[i] *= 0.92;
         cut++;
-      } else if (V[i] < 0.6) V[i] = Math.min(0.6, V[i] + 0.006); // (replanted, tended)
+      } else if (V[i] < 0.72) { V[i] = Math.min(0.72, V[i] + 0.02); if (TD) TD[i] = Math.min(1, TD[i] + 0.015); } // (replanted fast-growing stock, tended)
     }
     pl.alive = alive;
     cells += alive;
@@ -1222,6 +1226,10 @@ export function civStep(world) {
     // (and it can only hold so many more than its streets house: it grows as fast as it builds)
     let K = Math.max(20, Math.min(food * waterOK * (1 - 0.4 * dirty), (townCells / 2 + indCells + 4) * PER_TOWN_CELL * 1.3));
     if (t.harbor === undefined && K > 1000) K = 1000; // (no harbour, no trade: it can't grow past a thousand)
+    // A soft limit: the bigger a town, the harder it is to feed, house and run (hauling food from
+    // ever farther fields, crowding, disease, upkeep), so its growth tails off smoothly toward
+    // about 25,000 people (times the Expansion speed) rather than running away
+    { const soft = 25000 * Math.max(0.2, civParams.growth); K = K / (1 + K / soft); }
     // Growth toward what the land feeds (and disasters)
     const r = 0.02 * civParams.popRate;
     // (an overcrowded town shrinks as people drift away, a little at a time, not all at once)
@@ -1259,7 +1267,7 @@ export function civStep(world) {
     if (farmCells < wantFarm) expand(world, t, 1, Math.max(Math.round(14 * Math.max(1, civParams.growth)), Math.ceil((wantFarm - farmCells) / 2)), R * 2, fields, NW);
     // (and the farmers keep clearing a little more each year even when the town isn't growing:
     // new holdings, pasture, land for the next generation)
-    else if (Math.random() < 0.7 * civParams.growth) expand(world, t, 1, Math.round((2 + (Math.random() < 0.5 ? 1 : 0)) * Math.max(1, civParams.growth)), R * 2, fields, NW);
+    else if (Math.random() < (0.7 * civParams.growth) / (1 + farmCells / (3000 * Math.max(0.2, civParams.growth)))) expand(world, t, 1, Math.round((2 + (Math.random() < 0.5 ? 1 : 0)) * Math.max(1, civParams.growth)), R * 2, fields, NW);
     // Timber: plantations on land where forest grows, about twice as much land as its fields; each
     // grows trees, is clear-felled when they're grown, and grows them again
     timberStep(world, t, farmCells, R);

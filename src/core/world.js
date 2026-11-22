@@ -144,7 +144,19 @@ export class World {
     // Old-growth forest (big root mats, deep litter) protects the ground more than young forest
     return (1.15 - this.hardnessAt(h, i)) * (1.4 - 1.25 * this.vegetation[i]) * (1.1 - 0.25 * this.humus[i])
       * (1 - 0.35 * this.forestAge[i])
-      * (this.paved ? 1 - 0.95 * this.paved[i] : 1); // (pavement doesn't erode)
+      * (this.paved ? 1 - 0.95 * this.paved[i] : 1) // (pavement doesn't erode)
+      * (this.builtUp(i) ? 0.03 : 1); // (nor do kept fields, roads, towns and plantations)
+  }
+
+  /**
+   * Ground people keep up (sim/civilization.js): farmland (terraced, banked, drained), towns,
+   * roads, industry, harbours, quays, dams and timber plantations, and anything paved. Kept ground
+   * doesn't wash away, slump, slide or blow away: its walls, drains and banks are maintained.
+   * (Canals and sewers are dug channels, not counted.)
+   */
+  builtUp(i) {
+    const lu = this.landUse ? this.landUse[i] : 0;
+    return (lu > 0 && lu !== 8 && lu !== 9) || (this.paved ? this.paved[i] > 0.3 : false);
   }
 
   /** Forget lava, deposits, intrusions, faults and running events (new terrain). */

@@ -77,7 +77,7 @@ export function windErosion(world) {
   for (let z = 1; z < N - 1; z++) {
     for (let x = 1; x < N - 1; x++) {
       const i = z * N + x, h = H[i];
-      if (h < sea + 0.5) continue;
+      if (h < sea + 0.5 || world.builtUp(i)) continue; // (kept ground doesn't blow away)
       const w = W[i];
       if (w < 0.6) continue;
       const bare = (1 - Math.min(1, V[i] * 1.4)) * (1 - Math.min(1, (world.humus ? world.humus[i] : 0) * 1.2));

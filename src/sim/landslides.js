@@ -29,6 +29,7 @@ export function saturation(world, i) {
 
 /** Steepest stable slope (rise/run) at cell i: rock, roots, forest age and water all count. */
 export function stableSlope(world, i) {
+  if (world.builtUp(i)) return 10; // (kept ground is walled and drained: it doesn't slide)
   const h = world.height[i];
   const base = Math.tan((thermalParams.talusAngle * Math.PI) / 180);
   return base * (0.8 + 0.5 * world.hardnessAt(h, i)) * (1 + 0.3 * world.vegetation[i] + 0.25 * world.forestAge[i])
