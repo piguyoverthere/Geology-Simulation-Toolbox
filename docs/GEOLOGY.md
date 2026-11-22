@@ -1029,6 +1029,11 @@ for a river or lake landing (no fishing fleet there). A town without one can't g
 thousand. The **Destruction** slider (0 careful, 1 normal, 3 ruthless) scales three things:
 slash-and-burn clearing, every pollution load from streets, works, farms and sewers, and how often
 and how much the towns cut hills into terraces.
+The **Harbour** tool (⚓, under Civilization) builds a harbour where you click on the shore of the
+sea, a lake or a big river. It goes to the nearest town (within about 40 cells), and a town that
+already has one moves it there. A sea harbour gets a fishing fleet; a lake or river one is a trade
+landing. Shift-click closes the nearest harbour, though a coastal town will build itself a new one
+in time.
 
 **Protected zones.** Any polygon you draw can be made a protected zone (🛡 in the Drawings list): it
 is kept wild. No town is founded or built inside it, no farmland is cleared, no industry is built,

@@ -9,7 +9,7 @@ import { ensureQuality } from '../sim/waterQuality.js';
 import { ensureOcean, advect } from '../sim/ocean.js';
 import { ensureEcology, animalField, canLive } from '../sim/ecology.js';
 import { addProbe, removeProbesNear } from '../sim/probes.js';
-import { bestSite, foundTown, removeTown, townNear, buildRoad, ensureCiv } from '../sim/civilization.js';
+import { bestSite, foundTown, removeTown, townNear, buildRoad, ensureCiv, placeHarbor, removeHarborNear } from '../sim/civilization.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -580,6 +580,21 @@ TOOLS.road = {
       }
     }
     world.dirty = true;
+  },
+};
+
+TOOLS.harbor = {
+  label: 'Harbour', group: 'Civilization', icon: '⚓', editsTerrain: true, click: true,
+  help: 'Click on the shore (the edge of the sea, a lake or a big river) to build a harbour there for the nearest town (within about 40 cells); a town that already has one moves it there. A sea harbour gets a fishing fleet that grows with the town: its boats catch sea life, trawl the sea bed and pollute a little, and can carry settlers to other islands. A river or lake harbour is a landing for trade, without a fleet. A town past a thousand people needs a harbour of some kind to keep growing. Hold Shift and click to close the harbour nearest the click.',
+  apply({ world, app, x, z, invert }) {
+    if (invert) {
+      const t = removeHarborNear(world, x, z);
+      app.toolbox.setInfo(t ? `<b>Harbour</b> — ${t.name}'s harbour closed.` : '<b>Harbour</b> — no harbour near there.');
+    } else {
+      const r = placeHarbor(world, x, z);
+      app.toolbox.setInfo(typeof r === 'string' ? `<b>Harbour</b> — ${r}.` : `<b>Harbour</b> — built for ${r.name}${r.harborLake ? ' (a river or lake landing: no fishing fleet)' : ''}.`);
+    }
+    app.toolbox.renderTowns();
   },
 };
 

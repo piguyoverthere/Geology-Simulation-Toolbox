@@ -1233,6 +1233,52 @@ function makeFarm(world, i, owner) {
   world.civOwner[i] = owner;
 }
 
+/**
+ * The Harbour tool: build a harbour at the shore nearest (x, z) for the nearest town (within 40
+ * cells); a town that already has one moves it there (the old one becomes town). On the sea it gets
+ * a fishing fleet; on a river or lake, a landing for trade without one. Returns the town, or a
+ * string saying why not.
+ */
+export function placeHarbor(world, x, z) {
+  ensureCiv(world);
+  const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse;
+  const t = townNear(world, x, z, 40);
+  if (!t) return 'no town within about 40 cells to run it: settle one first';
+  let best = -1, bd = 7;
+  for (let zz = Math.max(1, Math.round(z) - 6); zz <= Math.min(N - 2, Math.round(z) + 6); zz++) for (let xx = Math.max(1, Math.round(x) - 6); xx <= Math.min(N - 2, Math.round(x) + 6); xx++) {
+    const i = zz * N + xx;
+    if (H[i] < sea || world.water[i] > 0.2 || (LU[i] !== 0 && LU[i] !== 1 && LU[i] !== 2 && LU[i] !== 6) || world.channel[i]) continue;
+    let shore = false;
+    for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] < sea || (world.water[j] > 0.5 && !world.channel[j])) shore = true;
+    if (!shore) continue;
+    const d = Math.hypot(xx - x, zz - z);
+    if (d < bd) { bd = d; best = i; }
+  }
+  if (best < 0) return 'no shore there: click on the land at the edge of the sea, a lake or a big river';
+  if (t.harbor !== undefined && LU[t.harbor] === 5) LU[t.harbor] = 2; // (the old harbour is built over)
+  pave(world, best, t.num, 5);
+  t.harbor = best;
+  t.harborLake = H[best - 1] >= sea && H[best + 1] >= sea && H[best - N] >= sea && H[best + N] >= sea;
+  world.dirty = true;
+  return t;
+}
+
+/** Shift with the Harbour tool: close the harbour nearest (x, z) (within 8 cells). */
+export function removeHarborNear(world, x, z) {
+  const N = world.N;
+  let best = null, bd = 8;
+  for (const t of world.towns || []) {
+    if (t.harbor === undefined) continue;
+    const d = Math.hypot((t.harbor % N) - x, ((t.harbor / N) | 0) - z);
+    if (d < bd) { bd = d; best = t; }
+  }
+  if (!best) return null;
+  world.landUse[best.harbor] = 2;
+  best.harbor = undefined; best.boats = 0; best.harborLake = false;
+  world.dirty = true;
+  return best;
+}
+
 /** Town at (or nearest to) cell i within r cells, or null. */
 export function townNear(world, x, z, r = 10) {
   let best = null, bd = r;
