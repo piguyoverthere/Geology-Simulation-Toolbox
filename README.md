@@ -113,7 +113,8 @@ roads to each other, floods, fires, lava and storm surges cost them people, and 
 abandoned and grow over. The Life tab lists the towns with population graphs; the Graphs window has
 population, towns, paved land, farmland and polluted rivers. Sliders: **Population increase** and **Expansion speed**; roads must be kept up
 by nearby towns or they break up, busy roads are widened to two or three lanes, towns past a few
-hundred people build a mass-paved industrial area on the water that pollutes on a very large scale, bigger towns cut hills and slopes into level terraces and
+hundred people build a mass-paved industrial area on the water that pollutes on a very large scale, big towns dam river valleys for reservoirs (blocking fish, polluting), roads cross water on bridges
+that drip runoff into it, fires are set to clear forest and escape by accident (worst when dry), bigger towns cut hills and slopes into level terraces and
 dump the spoil into the sea to build new land (polluting it), coastal towns armour their shores with
 quays (walled, raised above the tide, dredged deep in front: harbours are easy there, the sea bed
 suffers) and build harbours whose fishing boats catch sea life, trawl the sea bed, pollute a little and carry settlers to

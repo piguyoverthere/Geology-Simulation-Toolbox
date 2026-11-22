@@ -340,6 +340,7 @@ export class TerrainRenderer {
             const lu = w.landUse[i];
             if (lu === 1) mix(col, ((x >> 1) + (z >> 1)) & 1 ? FIELD_A : FIELD_B, 0.65, col);
             else if (lu === 2) mix(col, ((x * 7 + z * 13) % 5) < 2 ? TOWN_ROOF : TOWN_PAVE, 0.9 * w.paved[i], col);
+            else if (lu === 7) mix(col, DAM, 0.95, col);
             else if (lu === 6) mix(col, (x * 5 + z * 3) % 3 === 0 ? QUAY_DARK : QUAY, 0.92, col);
             else if (lu === 5) mix(col, (x + z) & 1 ? HARBOR_A : HARBOR_B, 0.9, col);
             else if (lu === 4) mix(col, ((x * 3 + z * 5) % 4) === 0 ? INDUSTRY_DARK : INDUSTRY, 0.95 * w.paved[i], col);
@@ -436,6 +437,11 @@ export class TerrainRenderer {
           if (iced) wc = mix(wc, ICE_SEA, Math.min(1, si * 1.6), S4);
           this.wCol[i4] = wc[0] * wc[0]; this.wCol[i4 + 1] = wc[1] * wc[1]; this.wCol[i4 + 2] = wc[2] * wc[2];
           this.wCol[i4 + 3] = iced ? Math.max(Math.min(0.9, 0.45 + (d - 0.1) * 0.5), Math.min(0.97, 0.5 + si)) : Math.min(isSea ? 0.9 : 0.85, (isSea ? 0.45 : 0.25) + (d - 0.1) * 0.5);
+          // A bridge: its deck over the water
+          if (w.bridge && w.bridge[i] && w.paved[i] > 0.3) {
+            const b = BRIDGE;
+            this.wCol[i4] = b[0] * b[0]; this.wCol[i4 + 1] = b[1] * b[1]; this.wCol[i4 + 2] = b[2] * b[2]; this.wCol[i4 + 3] = 0.97;
+          }
           // (polluted river water is murky: opaque even in a thin stream, so it shows)
           if (!isSea && w.riverPollution && w.riverPollution[i] > 0.05) this.wCol[i4 + 3] = Math.max(this.wCol[i4 + 3], Math.min(0.92, 0.55 + Math.sqrt(w.riverPollution[i]) * 0.5));
           // (the mangrove canopy stands above the tide)
@@ -714,7 +720,7 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
-const FIELD_A = [0.78, 0.70, 0.38], FIELD_B = [0.52, 0.62, 0.30], TOWN_PAVE = [0.62, 0.60, 0.57], TOWN_ROOF = [0.66, 0.40, 0.32], ROAD = [0.30, 0.30, 0.32], ROAD_WORN = [0.55, 0.52, 0.46], INDUSTRY = [0.50, 0.53, 0.57], HARBOR_A = [0.46, 0.34, 0.22], QUAY = [0.66, 0.65, 0.61], QUAY_DARK = [0.46, 0.45, 0.43], HARBOR_B = [0.60, 0.58, 0.55], INDUSTRY_DARK = [0.24, 0.25, 0.28], DIRTY_RIVER = [0.58, 0.47, 0.16], POLLUTED_BANK = [0.42, 0.36, 0.20];
+const FIELD_A = [0.78, 0.70, 0.38], FIELD_B = [0.52, 0.62, 0.30], TOWN_PAVE = [0.62, 0.60, 0.57], TOWN_ROOF = [0.66, 0.40, 0.32], ROAD = [0.30, 0.30, 0.32], ROAD_WORN = [0.55, 0.52, 0.46], INDUSTRY = [0.50, 0.53, 0.57], HARBOR_A = [0.46, 0.34, 0.22], QUAY = [0.66, 0.65, 0.61], DAM = [0.78, 0.77, 0.74], BRIDGE = [0.36, 0.34, 0.33], QUAY_DARK = [0.46, 0.45, 0.43], HARBOR_B = [0.60, 0.58, 0.55], INDUSTRY_DARK = [0.24, 0.25, 0.28], DIRTY_RIVER = [0.58, 0.47, 0.16], POLLUTED_BANK = [0.42, 0.36, 0.20];
 const TREES_NONE = [0.86, 0.84, 0.78], TREES_SPARSE = [0.78, 0.84, 0.58], TREES_MID = [0.36, 0.62, 0.30], TREES_DENSE = [0.06, 0.26, 0.12];
 const HEALTH_BAD = [0.80, 0.25, 0.18], HEALTH_MID = [0.92, 0.78, 0.30], HEALTH_GOOD = [0.18, 0.60, 0.28];
 const BEETLE_RED = [0.62, 0.32, 0.18], DEAD_WOOD = [0.52, 0.48, 0.44], SALMON_RUN = [0.80, 0.30, 0.30], WILD_NONE = [0.80, 0.80, 0.78];

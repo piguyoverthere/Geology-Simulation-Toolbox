@@ -990,6 +990,14 @@ The inspector marks cut, terraced and reclaimed ground.
 Polluted rivers show clearly: murky ochre-brown water, opaque even in a thin stream, with stained
 banks.
 
+**Dams, bridges and fires.** A town past about 700 people walls off a narrow river valley near it with
+a concrete dam (its crest about 4 above the river), and a reservoir fills behind it for the town's
+water; the dam stops fish swimming upriver, traps the river's sediment, and its works pollute the
+river. Where roads cross rivers or the sea they're carried on bridges, which need upkeep like the
+road and drip their runoff into the water below. And people start fires: farmers burn forest off to
+clear it for fields (slash and burn), and fires get away from towns by accident, far more often in a
+dry season; either can escape into a wildfire.
+
 **Protected zones.** Any polygon you draw can be made a protected zone (🛡 in the Drawings list): it
 is kept wild. No town is founded or built inside it, no farmland is cleared, no industry is built,
 and roads between towns go around it (unless there is truly no other way). What was there already

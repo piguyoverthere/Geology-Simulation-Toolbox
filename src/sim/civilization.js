@@ -22,7 +22,7 @@
 //   slowly breaks up and grows over.
 
 import { boxBlur, MinHeap } from '../core/grid.js';
-import { seasonParams, seasonalAt } from './climate.js';
+import { seasonParams, seasonalAt, drySeason } from './climate.js';
 import { coastParams, isLivingBed, MARINE_ID } from './coast.js';
 
 export const civParams = {
@@ -62,6 +62,7 @@ export function ensureCiv(world) {
   // Farm soil: 1 when first cleared (fresh, rich); cropping wears it out; left fallow it recovers
   if (!world.farmSoil || world.farmSoil.length !== n) world.farmSoil = new Float32Array(n).fill(1);
   if (!world.terraform || world.terraform.length !== n) world.terraform = new Int8Array(n); // 1 cut / terraced, 2 reclaimed
+  if (!world.bridge || world.bridge.length !== n) world.bridge = new Uint8Array(n);
 }
 
 /**
@@ -308,6 +309,74 @@ function terraform(world, t, cells) {
 }
 
 /**
+ * A dam: a town past ~700 people walls off a river valley near it (a concrete wall across the
+ * valley, its crest about 4 above the river), and a reservoir fills behind it: a water supply for
+ * the town. The dam blocks fish swimming upriver, traps the river's sediment, and its building and
+ * works pollute the river.
+ */
+function buildDam(world, t) {
+  const N = world.N, H = world.height, D = world.water, sea = seaOf(world), LU = world.landUse;
+  let best = -1, bs = -1e9;
+  for (let z = Math.max(8, t.z - 25); z <= Math.min(N - 9, t.z + 25); z++) for (let x = Math.max(8, t.x - 25); x <= Math.min(N - 9, t.x + 25); x++) {
+    const i = z * N + x;
+    if (D[i] < 0.05 || H[i] < sea + 3 || LU[i] || isProtected(world, i)) continue;
+    const vx = world.velX[i], vz = world.velZ[i], sp = Math.hypot(vx, vz);
+    if (sp < 0.05) continue;
+    // A narrow valley: the ground rises steeply on both sides across the flow
+    const px = -vz / sp, pz = vx / sp;
+    let sides = 0;
+    for (const sgn of [-1, 1]) {
+      for (let k = 2; k <= 7; k++) {
+        const j = Math.round(z + pz * k * sgn) * N + Math.round(x + px * k * sgn);
+        if (H[j] - H[i] > 4) { sides++; break; }
+      }
+    }
+    if (sides < 2) continue;
+    const score = sp * 2 - Math.hypot(x - t.x, z - t.z) * 0.05;
+    if (score > bs) { bs = score; best = i; }
+  }
+  if (best < 0) return false;
+  const x = best % N, z = (best / N) | 0, sp = Math.hypot(world.velX[best], world.velZ[best]);
+  const px = -world.velZ[best] / sp, pz = world.velX[best] / sp;
+  const crest = H[best] + 4;
+  for (let k = -8; k <= 8; k++) {
+    const j = Math.round(z + pz * k) * N + Math.round(x + px * k);
+    if (H[j] >= crest) continue; // (the valley side: the wall ends)
+    for (const jj of [j, j + 1, j + N]) {
+      if (H[jj] >= crest) continue;
+      H[jj] = crest; world.prevHeight[jj] = crest; world.water[jj] = 0;
+      LU[jj] = 7; world.paved[jj] = 1; world.civOwner[jj] = t.num; world.vegetation[jj] = 0;
+      if (world.dam) world.dam[jj] = 2; // (fish can't get past)
+    }
+  }
+  // The work muddies and fouls the river below
+  for (let k = 0; k < 40; k++) world.riverPollution[best] += 0.05;
+  t.dam = best;
+  world.dirty = true;
+  return true;
+}
+
+/**
+ * Fires set by people: farmers burn forest to clear it for fields (slash and burn), and fires get
+ * away from towns by accident, far more often in a dry season. Either can escape into a wildfire.
+ */
+function manMadeFires(world, t, newFarms) {
+  const N = world.N, V = world.vegetation;
+  const dry = drySeason();
+  // Clearing by fire: some of the forest turned into fields is burnt off first
+  for (const i of newFarms) if (Math.random() < 0.18 && world.fire[i] <= 0) world.fire[i] = 0.7;
+  // Accidents: a stray spark at the town's edge, more people, more risk, worst when it's dry
+  if (Math.random() < 0.0015 * Math.min(4, t.pop / 300) * (0.25 + 3 * dry)) {
+    const R = 6 + Math.sqrt(t.pop) / 3, a = Math.random() * Math.PI * 2;
+    const x = Math.round(t.x + Math.cos(a) * R), z = Math.round(t.z + Math.sin(a) * R);
+    if (x > 1 && z > 1 && x < N - 2 && z < N - 2) {
+      const i = z * N + x;
+      if (V[i] > 0.4 && world.water[i] < 0.05 && !(world.snow && world.snow[i] > 0.2)) { world.fire[i] = 0.8; t.lastFire = seasonParams.year || 1; }
+    }
+  }
+}
+
+/**
  * The fleet at work: the boats fish the sea around the harbour, catching whatever lives under the
  * water (your sea animals among it), trawling the sea bed (seagrass, kelp and coral are torn up),
  * and fouling the water a little. Returns the food landed. An overfished, wrecked sea yields less.
@@ -470,7 +539,7 @@ export function buildRoad(world, pts) {
   });
   for (let k = 0; k < cells.length; k++) {
     const i = cells[k];
-    if (H[i] < sea || world.water[i] > 0.4) { world.landUse[i] = 3; world.roadCond[i] = 1; world.roadCore[i] = 1; continue; } // (a bridge)
+    if (H[i] < sea || world.water[i] > 0.4) { world.landUse[i] = 3; world.roadCond[i] = 1; world.roadCore[i] = 1; world.bridge[i] = 1; world.paved[i] = 1; continue; } // (a bridge)
     const target = Math.max(smooth[k], sea + 0.6);
     // Terrace: the road bed and its shoulders follow the grade
     for (const j of [i, i - 1, i + 1, i - N, i + N]) {
@@ -504,6 +573,10 @@ export function civStep(world) {
       // Light: into water right next to it
       // (industry: on a vastly larger scale, straight into the water beside it and down the drains)
       const ind = LU[i] === 4 ? 12 : LU[i] === 6 ? 3 : 1;
+      // (a bridge drips its road runoff, oil and grit straight into the water under it)
+      if (world.bridge[i]) { if (H[i] < sea) { if (world.pollution) world.pollution[i] = Math.min(4, world.pollution[i] + 0.004); } else RP[i] += 0.01; }
+      // (and a dam's works leach into the river)
+      if (LU[i] === 7) for (const j of [i - 1, i + 1, i - N, i + N]) if (world.water[j] > 0.05) RP[j] += 0.006;
       // (a working quay keeps fouling the water at its foot and wearing the beds there down)
       if (LU[i] === 6) for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] < sea && world.marineHealth) world.marineHealth[j] = Math.max(0, world.marineHealth[j] - 0.002);
       for (const j of [i - 1, i + 1, i - N, i + N]) {
@@ -601,7 +674,7 @@ export function civStep(world) {
       * (world.fire[i] > 0 ? 3 : 1) * (Math.abs(H[i] - world.prevHeight[i]) > 0.3 ? 10 : 1); // (landslides, floods)
     RC[i] = Math.max(0, Math.min(1, RC[i] - wear + 0.03 * upkeep[i]));
     P[i] = Math.min(1, RC[i] * 1.6); // (a broken road loses its paving: plants creep back)
-    if (RC[i] <= 0.03) { LU[i] = 0; P[i] = 0; RC[i] = 0; world.roadCore[i] = 0; }
+    if (RC[i] <= 0.03) { LU[i] = 0; P[i] = 0; RC[i] = 0; world.roadCore[i] = 0; world.bridge[i] = 0; }
   }
   if (!towns.length) { world.civPop = 0; return; }
   // (the site fields change slowly: refresh them every few steps)
@@ -664,6 +737,11 @@ export function civStep(world) {
     if (t.harbor !== undefined && LU[t.harbor] !== 5) t.harbor = undefined;
     // A bigger town reshapes the land: cutting hills and slopes into terraces, dumping the spoil
     if (t.pop > 350 && Math.random() < 0.35 * civParams.growth) terraform(world, t, Math.min(8, 2 + Math.floor(t.pop / 400)));
+    // A big town dams a river valley near it for a reservoir (one per town)
+    if (t.pop > 700 && t.dam === undefined && Math.random() < 0.02 * civParams.growth) { if (!buildDam(world, t)) t.dam = -1; }
+    // Fires: land cleared by burning, and accidents
+    manMadeFires(world, t, world._newFarms || []);
+    world._newFarms = [];
     // A coastal town of a few hundred armours its shore with quays (growing with the town)
     if (t.pop > 250 && fields.sea[ci] > 0.02 && (t.quay || 0) < Math.min(60, Math.floor((t.pop - 200) / 60)) && Math.random() < 0.3) buildQuay(world, t, 2);
     if (t.harbor === undefined && t.pop > 120 && fields.sea[ci] > 0.02) buildHarbor(world, t);
@@ -881,7 +959,10 @@ function expand(world, t, use, count, R, fields, NWexp = null) {
   for (let k = 0; k < Math.min(count, cands.length); k++) {
     const i = cands[k][1];
     if (use === 2) pave(world, i, t.num, 2);
-    else makeFarm(world, i, t.num);
+    else {
+      if (world.vegetation[i] > 0.6) (world._newFarms || (world._newFarms = [])).push(i); // (forest: may be cleared by fire)
+      makeFarm(world, i, t.num);
+    }
   }
 }
 
