@@ -671,7 +671,7 @@ function timberStep(world, t, farmCells, R) {
       let soil = 0;
       for (const i of pl.cells) if (LU[i] === 10 && OW[i] === t.num) soil += FS[i];
       pl.soil = soil / alive;
-      if (pl.soil < 0.3) {
+      if (pl.soil < 0.3 && (pl.felled || 0) >= 1) { // (after at least one crop)
         for (const i of pl.cells) if (LU[i] === 10 && OW[i] === t.num) { LU[i] = 0; OW[i] = 0; }
         t.platsRetired = (t.platsRetired || 0) + 1;
         alive = 0;
@@ -683,11 +683,14 @@ function timberStep(world, t, farmCells, R) {
   t.plantations = t.plantations.filter((pl) => pl.alive > 0);
   t.timberCells = cells;
   t.timberCut = (t.timberCut || 0) * 0.9 + cut;
-  // New plantations: about twice the land of its fields
-  if (cells >= 2 * farmCells || t.pop < 80 || Math.random() > 0.5 * civParams.growth) return;
-  const reach = R * 3;
-  let best = null, bs = 0.35;
-  for (let k = 0; k < 40; k++) {
+  // New plantations: about twice the land of its fields. Every village must have one: a village
+  // without one looks twice as far afield, and failing that turns some of its own fields over to
+  // timber
+  const need = t.plantations.length === 0 && t.pop >= 20;
+  if (!need && (cells >= 2 * farmCells || t.pop < 80 || Math.random() > 0.5 * civParams.growth)) return;
+  const reach = R * (need ? 6 : 3);
+  let best = null, bs = need ? 0.15 : 0.35;
+  for (let k = 0; k < (need ? 90 : 40); k++) {
     const a = Math.random() * Math.PI * 2, d = 6 + Math.random() * reach;
     const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
     if (x < 5 || z < 5 || x > N - 6 || z > N - 6) continue;
@@ -701,6 +704,7 @@ function timberStep(world, t, farmCells, R) {
     const score = s / 25 - d / (reach * 4) + (V[z * N + x] > 0.6 ? 0.3 : 0); // (an existing forest first)
     if (c > 12 && score > bs) { bs = score; best = { x, z }; }
   }
+  if (!best && need) { convertFieldsToTimber(world, t); return; }
   if (!best) return;
   // The plantation takes in the whole forest there: every connected forest cell, however big the
   // forest (or, on open ground suitable for trees, a block planted around the site)
@@ -734,6 +738,37 @@ function timberStep(world, t, farmCells, R) {
   const path = routeRoad(world, t, best);
   if (path && path.length > 1) buildRoad(world, path);
   world.dirty = true;
+}
+
+/**
+ * A village with nowhere to plant timber turns a block of its own fields over to it: the fields
+ * that would grow trees best, planted with saplings (the village farms elsewhere, or less).
+ */
+function convertFieldsToTimber(world, t) {
+  const N = world.N, LU = world.landUse, OW = world.civOwner, V = world.vegetation;
+  let best = -1, bs = -1;
+  const R = 4 + 2.8 * Math.sqrt(t.pop / PER_FARM_CELL) * Math.max(1, civParams.growth);
+  for (let z = Math.max(3, Math.floor(t.z - R * 2)); z <= Math.min(N - 4, Math.ceil(t.z + R * 2)); z++) for (let x = Math.max(3, Math.floor(t.x - R * 2)); x <= Math.min(N - 4, Math.ceil(t.x + R * 2)); x++) {
+    const i = z * N + x;
+    if (LU[i] !== 1 || OW[i] !== t.num) continue;
+    const sc = forestSuitability(world, i) + 0.002 * Math.hypot(x - t.x, z - t.z); // (the outer fields first)
+    if (sc > bs) { bs = sc; best = i; }
+  }
+  if (best < 0) return false; // (even in dry country: a watered, tended woodlot)
+  const bx = best % N, bz = (best / N) | 0, r = 4, claimed = [];
+  for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+    if (dx * dx + dz * dz > r * r + 1) continue;
+    const j = (bz + dz) * N + bx + dx;
+    const ownField = LU[j] === 1 && OW[j] === t.num;
+    if (!ownField && (LU[j] || isProtected(world, j) || world.water[j] > 0.1 || world.height[j] < seaOf(world) + 0.5)) continue;
+    LU[j] = 10; OW[j] = t.num; world.irrigated[j] = 0;
+    if (V[j] < 0.35) V[j] = 0.35; // (planted with saplings)
+    claimed.push(j);
+  }
+  if (!claimed.length) return false;
+  t.plantations.push({ x: bx, z: bz, cells: claimed, alive: claimed.length, fromFields: true });
+  world.dirty = true;
+  return true;
 }
 
 /**

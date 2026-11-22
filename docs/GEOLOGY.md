@@ -1038,7 +1038,12 @@ runaway city. The steady clearing of new fields also slows as a town's farmland 
 It picks the land where forest grows best, out to three times its town's reach, preferring an
 existing forest. A plantation takes in that entire forest: every connected forest cell, however big
 it is. On open ground that suits trees, it plants a block about 12 cells across instead. A new
-plantation is only started while the town's timber land is less than twice its farmland. Plantations are planted with fast-growing stock and tended. Once most of a plantation's trees
+plantation is only started while the town's timber land is less than twice its farmland. Every
+village (20 people or more) must have a plantation. A village without one looks twice as far afield
+for land to plant. Failing that, it turns a block of its own fields over to timber, the fields that
+would grow trees best, the outer ones first. In dry country these become watered, tended woodlots
+that still grow. A plantation is only abandoned for worn soil after it has given at least one
+crop. Plantations are planted with fast-growing stock and tended. Once most of a plantation's trees
 are grown (60%), the whole plantation is clear-felled at once, leaving bare brown ground with slash
 and the soil a little thinner. All the natural forest that joins onto it is felled with it and
 taken into the plantation. Then the whole plantation is replanted to grow again, on a rotation of
