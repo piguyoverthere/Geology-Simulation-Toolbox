@@ -5,7 +5,7 @@ import { waterParams } from '../sim/water.js';
 import { ROCKS, PROVINCES, ROCK_INDEX } from '../core/rocks.js';
 import { saturation, stableSlope } from '../sim/landslides.js';
 import { snowAt, cloudTempAt, seasonalAt } from '../sim/climate.js';
-import { SHORES, MARINE, seaTemp } from '../sim/coast.js';
+import { SHORES, MARINE, waterTempAt } from '../sim/coast.js';
 import { compositionAt } from '../sim/species.js';
 
 export class Inspector {
@@ -48,12 +48,14 @@ export class Inspector {
     const rows = [
       ['Altitude', `${h.toFixed(1)}${sea ? ` <span class="ins-dim">(${(h - w.seaLevel) >= 0 ? '+' : ''}${(h - w.seaLevel).toFixed(1)} vs sea)</span>` : ''}`],
       ['Slope', `${(Math.atan(slope) * 180 / Math.PI).toFixed(0)}°`],
-      ['Temperature', w.seasonT ? `${(w.temperature[i] + seasonalAt(w, i)).toFixed(1)} °C <span class="ins-dim">· year avg ${w.temperature[i].toFixed(1)}</span>` : `${w.temperature[i].toFixed(1)} °C`],
+      waterTempAt(w, i) !== null
+        ? ['Water temp.', `${waterTempAt(w, i).toFixed(1)} °C <span class="ins-dim">· year avg ${waterTempAt(w, i, false).toFixed(1)}</span>`]
+        : ['Temperature', w.seasonT ? `${(w.temperature[i] + seasonalAt(w, i)).toFixed(1)} °C <span class="ins-dim">· year avg ${w.temperature[i].toFixed(1)}</span>` : `${w.temperature[i].toFixed(1)} °C`],
       ['Evaporation', `${bar(Math.min(1, (w.evapRate ? w.evapRate[i] : 1) / 2), '#e0a24f')} <span class="ins-dim">×${(w.evapRate ? w.evapRate[i] : 1).toFixed(2)}</span>`],
       ['Cloud base', w.cloudBase ? `${(w.cloudBase[i] - h).toFixed(1)} above · ${cloudTempAt(w, i).toFixed(1)} °C` : '—'],
       ['Precipitation', `${bar(w.precip ? w.precip[i] : 0, '#4f8ce0')} <span class="ins-dim">${cloudTempAt(w, i) < 0 ? 'snow' : 'rain'}</span>`],
       ...(w.shore && w.shore[i] >= 0 ? [['Shore', `${SHORES[w.shore[i]].label}${w.shoreSet && w.shoreSet[i] >= 0 ? ' <span class="ins-dim">(painted)</span>' : ''} <span class="ins-dim">· sand ${(w.sand ? w.sand[i] : 0).toFixed(2)}</span>`]] : []),
-      ...(w.marine && w.marine[i] >= 0 ? [['Sea', `${MARINE[w.marine[i]].label} <span class="ins-dim">· water ${seaTemp().toFixed(1)} °C · tide ${(w.tide || 0) >= 0 ? '+' : ''}${(w.tide || 0).toFixed(2)}</span>`]] : []),
+      ...(w.marine && w.marine[i] >= 0 ? [['Sea', `${MARINE[w.marine[i]].label} <span class="ins-dim">· tide ${(w.tide || 0) >= 0 ? '+' : ''}${(w.tide || 0).toFixed(2)}</span>`]] : []),
       ...(w.dune && w.dune[i] > 0.1 ? [['Dunes', bar(w.dune[i], '#d8c99a')]] : []),
       ...(w.mangrove && w.mangrove[i] > 0.05 ? [['Mangroves', bar(w.mangrove[i], '#2e6b3a')]] : []),
       ...(w.ice && w.ice[i] > 0.02 ? [['Glacier ice', `${w.ice[i].toFixed(2)} thick · flowing ${(w.iceFlow ? w.iceFlow[i] * 100 : 0).toFixed(1)}${w.iceDebris && w.iceDebris[i] > 0.01 ? ` <span class="ins-dim">· carrying ${w.iceDebris[i].toFixed(2)} rock</span>` : ''}`]] : []),

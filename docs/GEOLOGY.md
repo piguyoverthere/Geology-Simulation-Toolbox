@@ -619,6 +619,16 @@ stilt roots. A stand creeps out into the shallows beside it, its roots trap mud 
 builds up, and the tangle breaks the waves, so a mangrove shore erodes far less. Cool the sea and
 the mangroves die back to bare mud.
 
+**Salt water kills forests.** Land the sea floods, or that the high tide reaches, is salted. Ordinary
+trees can't take salt in their roots and die within a season or two, even old forest (the "ghost
+forests" left where the coast sinks or the sea rises); the tidal fringe keeps only salt-marsh grass.
+Mangroves are the exception, and swamp forest hangs on in the brackish tidal fringe and where it is
+only shallowly flooded.
+
+**Water temperature.** Under the sea the temperature (map overlay and inspector) is the water's: the
+surface follows the sea temperature with a damped season, and it cools with depth toward the cold
+deep water (about 4 °C).
+
 **Ocean biomes** follow the water temperature (the sea lags the air and swings less) and depth:
 sea ice, kelp forests on cool rocky shores, seagrass meadows, coral reefs in warm shallows (they
 make white coral sand), the open shelf and the deep ocean. The water itself shifts from dark

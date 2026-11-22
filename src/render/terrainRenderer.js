@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { BIOMES, classifyBiome, DRY_SOIL } from './biomes.js';
 import { ROCKS } from '../core/rocks.js';
 import { forestColor } from '../sim/forests.js';
-import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp } from '../sim/coast.js';
+import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp, waterTempAt } from '../sim/coast.js';
 import { SPECIES, OPEN } from '../sim/species.js';
 import { climateParams, snowAt, seasonalAt } from '../sim/climate.js';
 
@@ -291,8 +291,9 @@ export class TerrainRenderer {
           const t = IC ? IC[i] : 0;
           col = shade(t < 0.02 ? NO_SNOW : t < 3 ? mix(ICE_THIN, ICE_MID, t / 3, S3) : mix(ICE_MID, ICE_DEEP, Math.min(1, (t - 3) / 8), S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'temp') {
-          // Today's temperature (annual mean + season)
-          col = shade(tempColor(w.temperature[i] + seasonalAt(w, i), S3), 0.75 + 0.25 * ny, S3);
+          // Today's temperature (annual mean + season); under the sea, the water's
+          const wt = waterTempAt(w, i);
+          col = shade(tempColor(wt !== null ? wt : w.temperature[i] + seasonalAt(w, i), S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'slope') {
           const t = Math.min(1, slope / 0.35);
           col = mix(SLOPE_LO, SLOPE_HI, t, S3);
@@ -355,6 +356,8 @@ export class TerrainRenderer {
           this.wCol[i4 + 3] = iced ? 0.97 : Math.min(isSea ? 0.9 : 0.85, (isSea ? 0.45 : 0.25) + (d - 0.1) * 0.5);
           // (the mangrove canopy stands above the tide)
           if (w.mangrove && w.mangrove[i] > 0.05) this.wCol[i4 + 3] *= 1 - 0.85 * Math.min(1, w.mangrove[i] * 1.2);
+          // (the temperature map colours the sea by its water temperature: let it show through)
+          if (mode === 'temp' && isSea) this.wCol[i4 + 3] *= 0.15;
         } else {
           this.wPos[i3 + 1] = h - 0.3;
           this.wCol[i4 + 3] = 0;

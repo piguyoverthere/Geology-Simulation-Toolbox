@@ -44,10 +44,11 @@
 
 import { createNoise2D, fbm } from '../core/noise.js';
 import { boxBlur } from '../core/grid.js';
-import { FOREST_TYPES, forestTypeAt } from './forests.js';
+import { FOREST, FOREST_TYPES, forestTypeAt } from './forests.js';
 import { climateParams, seasonParams, updateTemperature, updatePrecip, updateSnow, seasonalAt } from './climate.js';
 import { updateForestComposition } from './species.js';
 import { waterParams } from './water.js';
+import { coastParams } from './coast.js';
 
 export const vegetationParams = {
   growth: 0.03,       // how fast cover moves toward the site's potential per step
@@ -250,6 +251,14 @@ export function vegetationStep(world) {
   const W = world.nearWater, F = world.freshRock, SO = world.humus;
   for (let i = 0; i < V.length; i++) S[i] += (soilSupply(world, i) - S[i]) * p.soilMemory;
   const f = neighbourhood(world);
+  // Seawater: land the sea has flooded (below mean sea level) or that the high tide reaches is
+  // salted. Ordinary trees and shrubs can't take salt in their roots and die within a season or
+  // two (the "ghost forests" left where the land sinks or the sea rises); only mangroves, and swamp
+  // forest in the brackish tidal fringe, survive. The tidal fringe still holds salt marsh grasses.
+  const meanSea = world.meanSea, seaOn = meanSea !== undefined && meanSea > -999;
+  const highTide = seaOn ? meanSea + 0.5 * coastParams.tideRange : -Infinity;
+  if (!world.swampy || world.swampy.length !== V.length) world.swampy = new Uint8Array(V.length);
+  const SW = world.swampy;
   for (let i = 0; i < V.length; i++) {
 
     // Burning cells don't regrow; burnt ground recovers slowly while plants creep back
@@ -260,6 +269,18 @@ export function vegetationStep(world) {
     const age = world.forestAge[i];
     let v = V[i] - change * p.disturbance * (1 - 0.6 * age); // old stands shrug off disturbance
     let target = potential(world, i, f);
+    // Salt: 0 dry land, 1 tidal fringe, 2 under the sea
+    const salt = H[i] < highTide ? (H[i] < meanSea ? 2 : 1) : 0;
+    // (a swamp remembers it was one, so it keeps its tolerance once the sea comes in)
+    if (salt === 0) SW[i] = v > 0.5 && forestTypeAt(world, i) === FOREST.swamp ? 1 : 0;
+    const mang = world.mangrove ? world.mangrove[i] : 0;
+    let saltKill = false;
+    if (salt > 0) {
+      const swampOK = SW[i] && (salt === 1 || H[i] > meanSea - 0.4); // brackish fringe, shallow flooding
+      const tolerated = Math.max(0.92 * mang, swampOK ? 0.8 : 0, salt === 1 ? 0.35 : 0);
+      target = salt === 2 ? tolerated : Math.min(target, tolerated);
+      saltKill = v > target;
+    }
     // Regrowth is faster near water and on deep soil; dieback (drought, cold) is slowed by forest
     // age, since mature trees ride out bad years on their reserves
     // (and slower in the cold: a short growing season)
@@ -283,6 +304,7 @@ export function vegetationStep(world) {
         F[i] = Math.max(0, fresh - p.weathering * (0.4 + S[i]) * (1 + 3 * v + 4 * f.standCover[i]));
       }
     }
+    if (saltKill) rate = Math.max(rate, 0.12); // salt kills even old trees, fast
     v += (target - v) * Math.min(1, rate);
     V[i] = v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -300,6 +322,7 @@ export function vegetationStep(world) {
     if (v > 0.66) a += p.ageRate * (1 - a);
     else a -= p.ageLoss;
     a -= change * 2;
+    if (saltKill) a -= 0.05;
     world.forestAge[i] = a < 0 ? 0 : a > 1 ? 1 : a;
   }
   P.set(H);

@@ -84,6 +84,20 @@ export function seaTemp() {
 }
 
 /**
+ * Water temperature (°C) at cell i if it lies under the sea, else null. The surface follows
+ * seaTemp(); below the sunlit top layer it cools toward the cold deep water (about 4 °C), which
+ * barely feels the seasons. now=false gives the year average.
+ */
+export function waterTempAt(world, i, now = true) {
+  const sea = world.meanSea;
+  if (sea === undefined || sea < -999) return null;
+  const depth = sea - world.height[i];
+  if (depth <= 0) return null;
+  const surf = now ? seaTemp() : climateParams.seaTemp;
+  return surf + (Math.min(surf, 4) - surf) * smoothstep(4, 20, depth);
+}
+
+/**
  * Classify the shore and ocean, erode the shore with waves, and move sand. Run with the
  * vegetation/climate step.
  */
