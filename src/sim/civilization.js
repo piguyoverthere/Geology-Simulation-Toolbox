@@ -58,6 +58,8 @@ export function ensureCiv(world) {
   if (!world.irrigated || world.irrigated.length !== n) world.irrigated = new Uint8Array(n);
   if (!world.roadTraffic || world.roadTraffic.length !== n) world.roadTraffic = new Float32Array(n);
   if (!world.roadCore || world.roadCore.length !== n) world.roadCore = new Uint8Array(n);
+  // Farm soil: 1 when first cleared (fresh, rich); cropping wears it out; left fallow it recovers
+  if (!world.farmSoil || world.farmSoil.length !== n) world.farmSoil = new Float32Array(n).fill(1);
 }
 
 /**
@@ -265,7 +267,9 @@ export function civStep(world) {
     }
   }
   // Abandoned pavement breaks up and grows over; farmland with no town goes back to the wild
+  const FS = world.farmSoil;
   for (let i = 0; i < n; i++) {
+    if (LU[i] !== 1 && FS[i] < 1) FS[i] = Math.min(1, FS[i] + 0.0012); // (fallow ground recovers)
     if (LU[i] === 0 || OW[i] || LU[i] === 3) continue;
     if (LU[i] === 1) { LU[i] = 0; continue; }
     P[i] = Math.max(0, P[i] - 0.004);
@@ -350,6 +354,7 @@ export function civStep(world) {
     const ci = t.z * N + t.x;
     // Its land: town cells and farms (owner = t.num)
     let townCells = 0, farmCells = 0, indCells = 0, food = 0, hurt = 0;
+    const exhausted = [];
     // (how far out the town reaches: farmers can only work fields within a day's walk or so)
     const R = Math.min(25, 4 + 2.4 * Math.sqrt(t.pop / PER_FARM_CELL));
     const x0 = Math.max(1, Math.floor(t.x - R - 4)), x1 = Math.min(N - 2, Math.ceil(t.x + R + 4));
@@ -380,7 +385,11 @@ export function civStep(world) {
           if (H[src] < sea) { if (world.pollution) world.pollution[src] = Math.min(4, world.pollution[src] + 0.0004); }
           else RP[src] += 0.003;
         }
-        const f = fertility(world, i, slopeAt(world, i)) * (watered ? 1.2 : 1);
+        // Cropping wears the soil out (faster when irrigated, cropped harder); a worn-out field
+        // yields little
+        FS[i] = Math.max(0, FS[i] - 0.0011 * (watered ? 1.3 : 1));
+        if (FS[i] < 0.15) exhausted.push(i);
+        const f = fertility(world, i, slopeAt(world, i)) * (watered ? 1.2 : 1) * (0.15 + 0.85 * FS[i]);
         // (burnt, flooded or snowbound fields yield little)
         const lost = world.fire[i] > 0 || world.burnt[i] > 0.5 || world.water[i] > 0.4 || (world.snow && world.snow[i] > 0.5 && ph > 0.1 && ph < 0.55) ? 0.2 : 1;
         food += PER_FARM_CELL * f * lost;
@@ -444,6 +453,17 @@ export function civStep(world) {
     const wantFarm = Math.max(Math.ceil((t.pop * 1.8) / perFarm) + 4, FARMS_PER_TOWN_CELL * (Math.max(wantTown, townCells) + indCells + 1));
     const roomForTown = Math.floor(farmCells / FARMS_PER_TOWN_CELL) - townCells - indCells;
     if (townCells < wantTown && roomForTown > 0) expand(world, t, 2, Math.min(3, wantTown - townCells, roomForTown), R, fields);
+    // Worn-out fields: next to the town they are paved and built on (housing, shops, workshops);
+    // farther out they are left fallow to recover. Either way the farmers clear fresh fields
+    // farther out, so the town grows in rings: a core, its fields, new clearings at the edge.
+    let housed = 0;
+    for (const i of exhausted) {
+      let nextToTown = false;
+      for (const j of [i - 1, i + 1, i - N, i + N]) if ((LU[j] === 2 || LU[j] === 4) && OW[j] === t.num) nextToTown = true;
+      if (nextToTown && housed < 3 && slopeAt(world, i) < 0.6 && farmCells - 1 >= FARMS_PER_TOWN_CELL * (townCells + indCells + 1)) { pave(world, i, t.num, 2); housed++; farmCells--; townCells++; }
+      else if (!nextToTown && Math.random() < 0.05) { LU[i] = 0; OW[i] = 0; farmCells--; } // (fallow)
+    }
+    t.exhausted = exhausted.length;
     // Industry: a town past ~400 people builds an industrial area on the water (river, lake or
     // coast: for transport, cooling and, alas, dumping), mass-paved, growing with the town
     const wantInd = Math.min(40, Math.max(0, Math.floor((t.pop - 400) / 110)));
@@ -563,7 +583,9 @@ function expand(world, t, use, count, R, fields, NWexp = null) {
       const canWater = src >= 0 && H[src] >= sea;
       const moist = Math.min(1, (world.soil ? world.soil[i] : 0.5) * 1.8);
       if (!canWater && moist < 0.45) continue;
-      score = warm * (canWater ? 0.9 : moist) - 0.35 * slope + 0.2 * (world.humus ? world.humus[i] : 0) - 0.5 * (d / R);
+      // (fresh or long-fallow ground is preferred: worn-out soil isn't worth clearing again yet)
+      if (world.farmSoil[i] < 0.35) continue;
+      score = warm * (canWater ? 0.9 : moist) * (0.4 + 0.6 * world.farmSoil[i]) - 0.35 * slope + 0.2 * (world.humus ? world.humus[i] : 0) - 0.5 * (d / R);
     }
     cands.push([score + Math.random() * 0.05, i]);
   }

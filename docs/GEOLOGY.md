@@ -939,6 +939,13 @@ Roads carry the traffic of the towns they serve (nearer and bigger towns most). 
 widened to two lanes, a very busy one to three, the new lanes graded and paved beside it (and more
 road to keep up).
 
+**Worn-out fields.** Cropping wears out a field's soil (faster when irrigated, worked harder): a
+freshly cleared field is rich, and over the years its harvest falls. Worn-out fields next to the town
+are paved and built on (housing, shops, workshops), so the town grows into its old fields; worn-out
+fields farther out are left fallow, and slowly recover. Either way the farmers clear fresh ground
+farther out, so a town grows in rings, its core spreading over the fields as the fields move outward,
+and when the good land within reach is used up its numbers rise and fall with the soil.
+
 **Industry.** A town past a few hundred people builds an industrial area on the water's edge (a
 river, lake or the coast: for transport, cooling and dumping), one solid mass-paved block that grows
 with the town. It brings work and trade (the town can support more people), and it pours pollution
