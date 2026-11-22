@@ -215,6 +215,14 @@ Try this: pick **Layered plateau**, turn on **Sea** at level 8, drop two **Sprin
 **Overlays → Erosion / deposition**. Red shows where ground was carved away and blue shows where
 sediment piled up, such as the delta forming where the river meets the sea.
 
+## The world grid
+
+The world goes on past the map's edges: the **World grid** section of the Map tab shows the cells
+around the one you're in. Click a neighbour to travel there (a new cell is generated to continue the
+land). The cell you leave is frozen and catches up on the years it missed when you return. Rivers
+cross the borders, and towns build roads to the towns in neighbouring cells. Your existing level is
+the centre cell. See docs/GEOLOGY.md for details.
+
 ## How it works
 
 The science behind each model is in **[docs/GEOLOGY.md](docs/GEOLOGY.md)**.

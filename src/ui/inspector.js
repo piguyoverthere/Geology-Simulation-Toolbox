@@ -91,11 +91,14 @@ export class Inspector {
 
       // --- Plants and forest ---
       const td = w.treeDensity ? w.treeDensity[i] : 0, fh = w.forestHealth ? w.forestHealth[i] : 0;
-      const mix3 = v > 0.3 ? compositionAt(w, i).slice(0, 3) : [];
+      // (fields, towns and the like aren't forest: no trees, forest health or species to show;
+      // a plantation has its planted trees but no forest health)
+      const luHere = w.landUse ? w.landUse[i] : 0, notForest = luHere && luHere !== 10;
+      const mix3 = v > 0.3 && !luHere ? compositionAt(w, i).slice(0, 3) : [];
       group('Plants', [
-        ['Cover', `${bar(v, '#4caf50')} ${dim(cover)}`],
-        v > 0.45 ? ['Trees', `${bar(td, '#2e6b3a')} ${dim(`${td > 0.75 ? 'closed canopy' : td > 0.45 ? 'dense' : td > 0.2 ? 'open' : 'scattered'} · ${w.forestAge[i] > 0.75 ? 'old growth' : w.forestAge[i] > 0.35 ? 'mature' : 'young'}`)}`] : null,
-        v > 0.3 ? ['Forest health', `${bar(fh, fh > 0.6 ? '#4caf50' : fh > 0.35 ? '#d8b84a' : '#c96a4a')} ${dim(fh > 0.6 ? 'young trees replacing old' : fh > 0.35 ? 'few seedlings' : 'not renewing: thinning')}`] : null,
+        ['Cover', `${bar(v, '#4caf50')} ${dim(luHere === 1 ? 'crops and pasture' : luHere === 10 ? 'planted timber (one species)' : notForest ? 'gardens and verges' : cover)}`],
+        v > 0.45 && !notForest ? ['Trees', `${bar(td, '#2e6b3a')} ${dim(`${td > 0.75 ? 'closed canopy' : td > 0.45 ? 'dense' : td > 0.2 ? 'open' : 'scattered'} · ${w.forestAge[i] > 0.75 ? 'old growth' : w.forestAge[i] > 0.35 ? 'mature' : 'young'}`)}`] : null,
+        v > 0.3 && !luHere ? ['Forest health', `${bar(fh, fh > 0.6 ? '#4caf50' : fh > 0.35 ? '#d8b84a' : '#c96a4a')} ${dim(fh > 0.6 ? 'young trees replacing old' : fh > 0.35 ? 'few seedlings' : 'not renewing: thinning')}`] : null,
         mix3.length ? ['Species', mix3.map((s2) => `<span class="ins-chip"><span class="tb-swatch ins-swatch" style="background:${rgb(s2.color)}"></span>${s2.label} ${Math.round(s2.share * 100)}%</span>`).join(' ')] : null,
         w.leafOn && w.decid && w.decid[i] > 0.02 && w.seasonT !== undefined && w.flush ? ['Leaves', leafLabel(w, i)] : null,
         w.deadWood && w.deadWood[i] > 0.05 ? ['Dead wood', `${bar(w.deadWood[i], '#8a7f75')} ${dim('burns fiercely')}`] : null,

@@ -1359,6 +1359,17 @@ export function civStep(world) {
         break;
       }
     }
+    // …and to the towns in the cells next door (the world grid): a road to the border, continued
+    // on the far side when that cell is next visited
+    if (world.foreignTowns && world.foreignTowns.length && t.pop > 300 && Math.random() < 0.03 * civParams.growth) {
+      let f = null, fd = 160;
+      for (const u of world.foreignTowns) {
+        if (!u.side || u.pop < 100 || t.links.includes(u.id)) continue;
+        const d = Math.hypot(u.gx - t.x, u.gz - t.z);
+        if (d < fd) { fd = d; f = u; }
+      }
+      if (f) crossBorderRoad(world, t, f);
+    }
     t.history.push(Math.round(t.pop));
     if (t.history.length > 300) t.history.splice(0, t.history.length - 300);
     // A town that dwindles away is abandoned
@@ -1456,6 +1467,30 @@ function exploreForest(world, t) {
   }
   t.trails = (t.trails || 0) + 1;
   world.dirty = true;
+  return true;
+}
+
+/**
+ * A road from town t toward a town in the next cell of the world grid (f, in this cell's
+ * coordinates): routed to the border where the straight line between them crosses it, and left
+ * there for the far side to continue (world.portalsOut).
+ */
+function crossBorderRoad(world, t, f) {
+  const N = world.N, clamp = (v) => Math.max(2, Math.min(N - 3, Math.round(v)));
+  let bx, bz;
+  if (f.side === 'e' || f.side === 'w') {
+    bx = f.side === 'e' ? N - 2 : 1; // (as near the edge as roads go)
+    bz = clamp(t.z + ((f.gz - t.z) * (bx - t.x)) / (f.gx - t.x || 1));
+  } else {
+    bz = f.side === 's' ? N - 2 : 1;
+    bx = clamp(t.x + ((f.gx - t.x) * (bz - t.z)) / (f.gz - t.z || 1));
+  }
+  const path = routeRoad(world, t, { x: bx, z: bz });
+  if (!path || path.length < 2) return false;
+  buildRoad(world, path);
+  if (!world.portalsOut) world.portalsOut = [];
+  world.portalsOut.push({ toCell: f.cell, side: f.side, pos: f.side === 'e' || f.side === 'w' ? bz : bx, fromId: t.id, toId: f.id });
+  t.links.push(f.id);
   return true;
 }
 

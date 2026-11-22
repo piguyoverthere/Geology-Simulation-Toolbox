@@ -31,6 +31,7 @@ import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
 import { CrossSection } from './ui/section.js';
 import { captureDefaults, snapshot, applySnapshot, encodeLevel, decodeLevel, storeLevel, fetchLevel, deleteLevel } from './core/save.js';
+import { loadGrid, saveGrid, resetGrid, gridTick, gridStartup, travelTo } from './core/worldGrid.js';
 import { Drawings, drawSettings } from './render/drawings.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
 import { fireStep, fireParams } from './sim/fire.js';
@@ -421,6 +422,7 @@ class App {
     if (!this.keepLevel.on || this.loadingLevel) return;
     try {
       await storeLevel(`autosave-${GRID}`, snapshot(this));
+      await saveGrid(this);
       this.setSaveStatus(`Autosaved ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
     } catch (err) {
       this.setSaveStatus(`Autosave failed: ${err.message}`);
@@ -443,6 +445,8 @@ class App {
       }
       if (snap && snap.meta.N === GRID) {
         applySnapshot(this, snap);
+        // (a level from a file is a world of its own: a new grid around it)
+        if (from === 'Loaded level') { await loadGrid(this); await resetGrid(this); }
         this.setSaveStatus(`${from} (saved ${new Date(snap.meta.savedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })})`);
       }
     } catch (err) {
@@ -450,6 +454,13 @@ class App {
       this.setSaveStatus(`Couldn't restore the last level: ${err.message}`);
     }
     this.loadingLevel = false;
+    // The world grid: which cell this is, and its neighbours
+    try { if (!this.grid) await loadGrid(this); gridStartup(this); this.toolbox?.renderGrid?.(); } catch (err) { console.warn('World grid unavailable', err); }
+  }
+
+  /** Travel to another cell of the world grid. */
+  travel(x, z) {
+    return travelTo(this, x, z, (msg) => this.setSaveStatus(msg));
   }
 
   setSaveStatus(text) { this.saveStatus = text; this.toolbox.setSaveStatus?.(text); }
@@ -509,6 +520,7 @@ class App {
     updateWind(this.world, true);
     this.effects.deck.ready = false; // rebuild the cloud deck for the new terrain
     this.autosave(); // a new level replaces the kept one
+    resetGrid(this).then(() => this.toolbox?.renderGrid?.()); // (and starts a new world grid around it)
   }
 
   applySea() {
@@ -666,7 +678,7 @@ class App {
       if (this.frame % 10 === 5 && this.sim.vegetation) compositionStep(this.world);
       if (this.frame % 10 === 3) seaStep(this.world);
       // Wind (recomputed only when the wind, sea or land changes) and its very slow erosion
-      if (this.frame % 30 === 15) civStep(this.world); // (towns, farms, roads and their pollution)
+      if (this.frame % 30 === 15) { civStep(this.world); gridTick(this); } // (towns, farms, roads and their pollution)
       if (this.frame % 10 === 9) { this.ecoPart = ((this.ecoPart ?? -1) + 1) % 3; ecologyStep(this.world, this.ecoPart); }
       if (this.frame % 10 === 7) { updateWind(this.world); if (this.world.erosionEnabled) windErosion(this.world); }
       // Glacier ice creeps a little every frame (faster at higher sim speed)

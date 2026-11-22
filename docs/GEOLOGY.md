@@ -1109,3 +1109,38 @@ is kept wild. No town is founded or built inside it, no farmland is cleared, no 
 and roads between towns go around it (unless there is truly no other way). What was there already
 stays.
 
+
+## The world grid
+
+The world goes on past the edges of the map. It is divided into cells, each a full map of its own,
+laid out on a grid; you work in one cell at a time and travel between them from **World grid** in
+the Map tab (click a square next to yours, or any you've been to). A level from before the grid
+becomes the centre cell, (0, 0).
+
+**Frozen cells catch up.** The cell you leave is saved, compressed, to the browser with the date it
+was left, and nothing happens there while you're away. When you come back it catches up on the
+years it missed: its towns grow, farm, fell timber and spread, and its plants regrow. This is a fast-
+forward (up to about 80 civilization steps, at most a few seconds) without the full water and
+erosion. The calendar (year and season), every setting, the preset and your animal species are
+shared by the whole grid; the map itself (terrain, water, plants, towns, drawings, probes) belongs
+to each cell.
+
+**New cells continue the land.** A new cell is generated with the same preset and its own layout (a
+seed taken from its position on the grid; the volcano preset carries on as mountains around its
+centre cell). Its terrain is then bent, over about 40 cells in from each edge, to meet the edges of
+the cells already beside it. Each time you enter a cell, its edges are eased back into line with its
+neighbours' over about 10 cells, so the ground stays continuous however each side has eroded.
+
+**Across the borders.**
+- *Rivers:* a river running off the edge of one cell comes into the next as a spring at the border,
+  in the same place, with about the same flow.
+- *Towns and roads:* each cell knows the towns in the cells around it. A town of a few hundred people
+  builds a road toward the nearest town in the cell next door (within about 160 cells). The road
+  runs to the border where the straight line between the towns crosses it. When you next enter the
+  other cell, the road is continued from the same spot on its edge up to the town. The two towns
+  are then linked and trade over the road.
+
+Storage: the grid's list of cells (their edges, rivers, towns, road ends, when each was left and a
+small picture of each) is kept under `grid-<size>`; each frozen cell under
+`cell-<size>-<grid id>-<x>,<z>`; the cell you're in is the ordinary autosave. Generating a new map,
+or loading a level from a file, starts a new grid.

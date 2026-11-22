@@ -254,6 +254,14 @@ export class Toolbox {
     this.saveStatusEl = el('div', 'tb-save-status', app.saveStatus || '');
     lvl.append(this.saveStatusEl);
 
+    // --- World grid --------------------------------------------------------------------------
+    const wg = this.section('World grid', true);
+    this.gridEl = el('div', 'tb-grid');
+    this.gridNote = el('div', 'tb-note', '');
+    wg.append(this.gridEl, this.gridNote);
+    this.helpOn(wg.querySelector ? this.gridEl : wg, '<b>World grid</b> — the world goes on past the edges of the map. Each square is a map of its own; click one next to yours (or any you have been to) to travel there. The one you leave is frozen, and catches up on the years it missed when you come back. A new square continues the land around it. Rivers flow across the borders, and towns build roads to the towns next door.');
+    this.renderGrid();
+
     // --- Ocean & coast -----------------------------------------------------------------------
     const oc = this.section('Ocean & coast', false);
     oc.append(
@@ -487,6 +495,29 @@ export class Toolbox {
   }
 
   /** The list of towns (Civilization section), each with a population graph. */
+  /** The world grid map: the squares around the one you're in. */
+  renderGrid() {
+    if (!this.gridEl) return;
+    const app = this.app, g = app.grid, G = this.gridEl;
+    G.innerHTML = '';
+    if (!g) { this.gridNote.textContent = 'Loading…'; return; }
+    const cx = g.cur.x, cz = g.cur.z, R = 2;
+    for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
+      const x = cx + dx, z = cz + dz, info = g.cells[`${x},${z}`];
+      const here = !dx && !dz, near = Math.abs(dx) + Math.abs(dz) === 1 || (Math.abs(dx) === 1 && Math.abs(dz) === 1);
+      const known = info && (info.frozenAt !== undefined || here);
+      const b = el('button', 'tb-grid-cell' + (here ? ' here' : '') + (known ? ' known' : '') + (near ? ' near' : ''));
+      if (info && info.thumb && !here) b.style.backgroundImage = `url(${info.thumb})`;
+      b.title = here ? `Cell ${x}, ${z} (you are here)` : known ? `Cell ${x}, ${z}: travel here${info.towns && info.towns.length ? ` (${info.towns.length} town${info.towns.length > 1 ? 's' : ''})` : ''}` : near ? `Cell ${x}, ${z}: unexplored, travel here to make it` : '';
+      b.textContent = here ? '●' : known ? '' : near ? '+' : '';
+      b.disabled = here || app.travelling || (!known && !near);
+      b.onclick = () => { app.travel(x, z).then(() => this.renderGrid()); this.renderGrid(); };
+      G.append(b);
+    }
+    const explored = Object.entries(g.cells).filter(([k, c]) => c.frozenAt !== undefined && k !== `${cx},${cz}`).length + 1;
+    this.gridNote.textContent = app.travelling ? 'Travelling…' : `Cell ${cx}, ${cz} · ${explored} explored`;
+  }
+
   renderTowns() {
     if (!this.townList) return;
     const w = this.app.world, L = this.townList;

@@ -71,8 +71,9 @@ export function probeValues(world, p) {
     v.water = world.water[i];
     v.soil = 100 * (world.soil ? world.soil[i] : 0);
     v.cover = 100 * world.vegetation[i];
+    const lu = world.landUse ? world.landUse[i] : 0;
     v.trees = world.treeDensity ? 100 * world.treeDensity[i] : null;
-    v.health = world.forestHealth && world.vegetation[i] > 0.3 ? 100 * world.forestHealth[i] : null;
+    v.health = world.forestHealth && world.vegetation[i] > 0.3 && !lu ? 100 * world.forestHealth[i] : null; // (not on fields, towns or plantations)
   }
   // (at sea, the sea bed: seagrass, kelp, coral, open water…)
   const m = wet && world.marine ? marineShown(world, i) : -1;

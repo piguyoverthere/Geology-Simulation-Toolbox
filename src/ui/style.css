@@ -319,3 +319,15 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .draw-protect { opacity: 0.45; }
 .draw-protect.on { opacity: 1; border-color: #5cbf6a !important; background: rgba(92, 191, 106, 0.18) !important; }
 .draw-item.protected .txt span { color: #9fe0a8; }
+
+/* World grid map: the squares around the one you're in */
+.tb-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin: 4px 0 6px; }
+.tb-grid-cell {
+  aspect-ratio: 1; border: 1px solid var(--line); border-radius: 4px; padding: 0;
+  background: var(--panel-2) center / cover no-repeat; image-rendering: pixelated;
+  color: var(--muted); font-size: 14px; cursor: pointer;
+}
+.tb-grid-cell:disabled { cursor: default; }
+.tb-grid-cell:not(.known):not(.near) { opacity: 0.25; }
+.tb-grid-cell.near:not(:disabled):hover, .tb-grid-cell.known:not(:disabled):hover { border-color: var(--accent-2); }
+.tb-grid-cell.here { border-color: var(--accent-2); color: var(--accent-2); opacity: 1; }

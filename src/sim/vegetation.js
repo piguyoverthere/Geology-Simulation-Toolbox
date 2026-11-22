@@ -353,7 +353,10 @@ export function vegetationStep(world) {
     // (poor health) slowly thins out instead of renewing itself.
     {
       const FH = world.forestHealth;
-      if (v > 0.3 || target > 0.6) {
+      // (fields, towns and other kept ground aren't forest at all, and a plantation is replanted,
+      // not renewed by its own seedlings: neither has a forest health)
+      const kept = world.landUse && world.landUse[i];
+      if (!kept && (v > 0.3 || target > 0.6)) {
         const seed = Math.min(1, f.standCover[i] * 1.3);
         const suit = Math.min(1, target / Math.max(0.3, v));
         const dead = world.deadWood ? world.deadWood[i] : 0;
@@ -392,7 +395,7 @@ export function vegetationStep(world) {
     world.forestAge[i] = a < 0 ? 0 : a > 1 ? 1 : a;
     // Tree density: how closely the trees stand (canopy closure): from the tree cover, thicker in
     // old forest, opened up by dead trees
-    world.treeDensity[i] = smoothstep(0.45, 0.95, V[i]) * (0.6 + 0.4 * world.forestAge[i]) * (1 - 0.7 * (world.deadWood ? world.deadWood[i] : 0));
+    world.treeDensity[i] = (world.landUse && world.landUse[i] && world.landUse[i] !== 10) ? 0 : smoothstep(0.45, 0.95, V[i]) * (0.6 + 0.4 * world.forestAge[i]) * (1 - 0.7 * (world.deadWood ? world.deadWood[i] : 0));
   }
   P.set(H);
   world.dirty = true;
