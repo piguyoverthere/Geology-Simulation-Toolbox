@@ -660,6 +660,13 @@ differ a little. When the sea warms or cools, the beds that no longer suit a spo
 by patch over several years, the newcomers starting sparse and filling in, so coral spreads and kelp
 retreats (or the reverse) over many cycles.
 
+**Coral** is tropical: water colder than about 18 °C (a cold snap or a cooling sea) kills a reef
+outright within weeks, however healthy it was. It grows back only in warm water and only slowly,
+over many years, spreading from living coral nearby; a reef killed off completely is recolonised
+only very slowly. The dead coral's skeletons are left as **rubble**, which piles up in the shallows,
+building the reef flat up until it emerges as a wider beach (or a little coral-sand island, a cay),
+and which the waves break up into white coral sand much faster than a living reef makes it.
+
 **Tidal currents.** As the tide rises (the flood) the sea pours into the bays and channels from the
 open ocean, and as it falls (the ebb) it drains back out. The current runs along each channel,
 fastest in narrow passages and slowed by friction in the shallows, with a slow drift with the wind

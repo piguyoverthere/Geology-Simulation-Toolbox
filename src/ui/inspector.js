@@ -66,6 +66,7 @@ export class Inspector {
       ] : []),
       ...(w.silt && w.meanSea > -999 && h < w.meanSea ? [['Water quality', `${bar(waterQuality(w, i), waterQuality(w, i) > 0.65 ? '#4fb0e0' : waterQuality(w, i) > 0.4 ? '#b09a5a' : '#8a5a2e')} <span class="ins-dim">${qualityLabel(waterQuality(w, i))} · silt ${w.silt[i].toFixed(2)} · pollutants ${w.pollution[i].toFixed(2)}</span>`]] : []),
       ...(w.marine && w.marine[i] >= 0 && ['kelp', 'seagrass', 'coral'].includes(MARINE[w.marine[i]].id) ? [[marineThins(w.marine[i]) ? `${MARINE[w.marine[i]].id === 'kelp' ? 'Kelp' : 'Seagrass'} density` : 'Sea-bed health', bar(w.marineHealth[i], w.marineHealth[i] > 0.5 ? '#5cbf6a' : '#c96a4a')]] : []),
+            ...(w.coral && (w.coral[i] > 0.03 || (w.coralRubble && w.coralRubble[i] > 0.05)) ? [['Coral', `${bar(Math.min(1, w.coral[i]), '#e8a08f')} <span class="ins-dim">living cover${w.coralRubble[i] > 0.05 ? ` · dead rubble ${w.coralRubble[i].toFixed(2)}` : ''}</span>`]] : []),
             ...(w.dune && w.dune[i] > 0.1 ? [['Dunes', bar(w.dune[i], '#d8c99a')]] : []),
       ...(w.mangrove && w.mangrove[i] > 0.05 ? [['Mangroves', bar(w.mangrove[i], '#2e6b3a')]] : []),
       ...(w.ice && w.ice[i] > 0.02 ? [['Glacier ice', `${w.ice[i].toFixed(2)} thick · flowing ${(w.iceFlow ? w.iceFlow[i] * 100 : 0).toFixed(1)}${w.iceDebris && w.iceDebris[i] > 0.01 ? ` <span class="ins-dim">· carrying ${w.iceDebris[i].toFixed(2)} rock</span>` : ''}`]] : []),

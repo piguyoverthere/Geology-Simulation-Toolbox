@@ -64,7 +64,7 @@ const FILTER = MARINE.map((m) => ({ seagrass: 0.06, kelp: 0.05, coral: 0.04 }[m.
 const SENSITIVE = MARINE.map((m) => ({ seagrass: 1.1, kelp: 1, coral: 1.6 }[m.id] || 0));
 // How fast each bed declines under dirty water and regrows once it's clean (seagrass slowest: the
 // meadow thins out gradually, its density falling over many weeks, and fills back in as slowly)
-const PACE = MARINE.map((m) => ({ seagrass: 0.2, kelp: 0.5, coral: 1 }[m.id] || 1));
+const PACE = MARINE.map((m) => ({ seagrass: 0.2, kelp: 0.5, coral: 0.12 }[m.id] || 1)); // (reefs take many years to grow back)
 // How much a dense bed shields itself from dirty water (seagrass meadows most)
 const RESIST = MARINE.map((m) => ({ seagrass: 1, kelp: 0.5 }[m.id] || 0));
 // Beds whose density thins gradually (they show as a sparser meadow, not a sudden die-off)
@@ -104,6 +104,8 @@ export function ensureCoast(world) {
   if (!world.dune || world.dune.length !== n) world.dune = new Float32Array(n);
   if (!world.coral || world.coral.length !== n) world.coral = new Float32Array(n);
   if (!world.mangrove || world.mangrove.length !== n) world.mangrove = new Float32Array(n);
+  if (!world.coralRubble || world.coralRubble.length !== n) world.coralRubble = new Float32Array(n);
+  if (!world.bedGrow || world.bedGrow.length !== n) world.bedGrow = new Float32Array(n).fill(1);
   ensureQuality(world);
   ensureOcean(world);
 }
@@ -178,7 +180,9 @@ export function coastStep(world) {
   if (!world.coastInit || world.seaClimate === undefined) world.seaClimate = climateParams.seaTemp;
   else world.seaClimate += (climateParams.seaTemp - world.seaClimate) * Math.min(1, years / 3);
   const Tbed = world.seaClimate, turnover = Math.min(1, years / 2.5);
-  const HL = world.marineHealth;
+  const HL = world.marineHealth, RB = world.coralRubble, GR = world.bedGrow;
+  // (surface water now, for the coral's cold limit)
+  const surf = seaTemp();
   const erodeK = p.waveErosion * (world.erosionEnabled ? 1 : 0);
   const basalt = ROCK_INDEX.basalt;
   const sandBeach = new Float32Array(n);
@@ -205,18 +209,43 @@ export function coastStep(world) {
         if (cur < 0) {
           // Newly flooded ground: open water at once; a bed starts as a sparse colonisation
           M[i] = m;
-          if (world.coastInit && SENSITIVE[m] > 0) HL[i] = 0.15;
+          if (world.coastInit && SENSITIVE[m] > 0) HL[i] = m === MARINE_ID.coral ? (RB[i] > 0.1 ? 0 : 0.05) : 0.15; // (dead reef rubble stays dead)
         } else if (cur !== m) {
           if (!SENSITIVE[cur] && !SENSITIVE[m]) M[i] = m; // just deeper or shallower open water
-          else if (Math.random() < turnover) { M[i] = m; HL[i] = SENSITIVE[m] > 0 ? 0.15 : 1; }
+          else if (Math.random() < turnover) { M[i] = m; HL[i] = m === MARINE_ID.coral ? 0.05 : SENSITIVE[m] > 0 ? 0.15 : 1; }
         }
         m = M[i];
-        // Coral reefs grow in warm shallows and grind down into white coral sand
-        CO[i] += ((m === MARINE_ID.coral ? world.marineHealth[i] : 0) - CO[i]) * 0.02;
+        GR[i] = 1;
+        if (m === MARINE_ID.coral) {
+          // Coral is tropical: water colder than ~18 °C kills it outright within weeks (a cold snap
+          // or a cooling sea), however healthy it was. It grows back only in warm water, slowly
+          // (reefs take many years), spreading from living coral nearby; a reef killed off
+          // completely is recolonised only very slowly from scattered larvae.
+          const Tnow = surf - (surf - Math.min(surf, 4)) * smoothstep(4, 20, depth);
+          if (Tnow < 18) { HL[i] = Math.max(0, HL[i] - 0.012 * (18 - Tnow)); GR[i] = 0; }
+          else {
+            const live = Math.max(CO[i - 1], CO[i + 1], CO[i - N], CO[i + N], CO[i]);
+            GR[i] = smoothstep(18, 21, Tnow) * (0.08 + 0.92 * live);
+          }
+        }
+        // Living coral cover follows the reef's health: it grows slowly, dies fast. Dead coral
+        // leaves its skeleton behind as rubble, which the waves break up into white coral sand
+        const target = m === MARINE_ID.coral ? HL[i] : 0, before = CO[i];
+        CO[i] += (target - CO[i]) * (target > CO[i] ? 0.004 : 0.05);
+        if (before > CO[i] && m === MARINE_ID.coral) RB[i] = Math.min(3, RB[i] + (before - CO[i]) * 2);
+        // Rubble piles up in the shallows, building the reef flat up toward the surface until it
+        // emerges as beach (widening the shore) or as a little coral-sand island (a cay)
+        if (RB[i] > 0.01) {
+          if (depth < 3.5 && h < sea + half) { H[i] += 0.004 * Math.min(2, RB[i]); SAND[i] = Math.min(3, SAND[i] + 0.015 * RB[i]); }
+          RB[i] *= 0.996;
+        } else RB[i] = 0;
         SH[i] = -1;
         continue;
       }
       M[i] = -1;
+      GR[i] = 1;
+      // (rubble that's been built up to the shore becomes beach sand)
+      if (RB[i] > 0) { SAND[i] = Math.min(3, SAND[i] + 0.05 * RB[i]); RB[i] *= 0.9; if (RB[i] < 0.01) RB[i] = 0; }
       CO[i] *= 0.95;
       // --- Shore: land within reach of the waves (up to a little above high tide) ---
       if (h > sea + half + 2.5 || nearSea[i] <= 0) { SH[i] = -1; continue; }
@@ -230,7 +259,9 @@ export function coastStep(world) {
       if (type < 0) {
         // A cliff needs a steep face and real height behind it; at the foot of one is shingle
         const behind = Math.max(H[i + 1], H[i - 1], H[i + N], H[i - N]) - h;
-        if (slope > 1.4 && behind > 1.8) type = SHORE.cliff;
+        // (deep sand, e.g. piled up from a dead reef, buries the rock foot as a wide beach)
+        if (SAND[i] > 1.5 && (slope < 2.2 || h < sea + half + 0.6)) type = SHORE.sand;
+        else if (slope > 1.4 && behind > 1.8) type = SHORE.cliff;
         else if (ex < 0.22 && slope < 0.18) type = SHORE.mudflat;
         else if (SAND[i] > 0.35 && slope < 0.6) type = SHORE.sand; // sand covers whatever rock is beneath
         else if (world.rockAt(h, i) === basalt && ex > 0.15) type = SHORE.basalt;
@@ -265,7 +296,8 @@ export function coastStep(world) {
       }
       // --- Sand budget: rivers and coral feed it, exposed waves strip it ---
       const river = world.sediment[i] * 0.3;
-      const coralSand = nearCoral(CO, i, N) * 0.01 * p.coral;
+      // (living reefs make coral sand slowly; dead ones, broken up by the waves, much faster)
+      const coralSand = (nearCoral(CO, i, N) * 0.01 + nearCoral(RB, i, N) * 0.03) * p.coral;
       const loss = 0.004 * ex * (type === SHORE.cliff ? 3 : 1);
       SAND[i] = Math.max(0, Math.min(3, SAND[i] + river + coralSand - loss * SAND[i]));
       if (type === SHORE.sand) sandBeach[i] = SAND[i];

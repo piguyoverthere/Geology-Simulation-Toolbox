@@ -546,6 +546,9 @@ export class TerrainRenderer {
       const m = w.marine ? marineShown(w, i) : -1;
       // The sea bed: silt and sand, darker mud in the deep, and its meadows, kelp and reefs
       mix(col, m >= 0 ? marineColor(w, i, true, BED_TMP) : C.soil, 0.75, col);
+      // Dead coral rubble: pale, broken coral on the reef flat
+      const rb = w.coralRubble ? w.coralRubble[i] : 0;
+      if (rb > 0.05) mix(col, CORAL_SAND, Math.min(0.8, rb * 0.6), col);
     }
     const dune = w.dune ? w.dune[i] : 0;
     if (dune > 0.05) mix(col, DUNE, dune * 0.75 * (1 - smooth(0.6, 0.85, v)), col);
