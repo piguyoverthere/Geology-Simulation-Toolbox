@@ -69,6 +69,43 @@ function openSeaDistance(world, sea) {
   return dist;
 }
 
+/**
+ * The constant currents drawn with the Current path tool, as a velocity field (cached until the
+ * paths change): along each path, full strength on its line and fading out over its width.
+ */
+function pathField(world) {
+  const N = world.N, n = N * N, paths = world.currentPaths || [];
+  const key = N + ':' + JSON.stringify(paths);
+  if (world.currentFieldKey === key && world.pathU) return paths.length > 0;
+  world.currentFieldKey = key;
+  if (!world.pathU || world.pathU.length !== n) { world.pathU = new Float32Array(n); world.pathV = new Float32Array(n); }
+  const PU = world.pathU, PV = world.pathV, WT = new Float32Array(n);
+  PU.fill(0); PV.fill(0);
+  for (const c of paths) {
+    const pts = c.pts, m = pts.length, segs = m - 1 + (c.closed ? 1 : 0);
+    const wdt = Math.max(2, c.width || 6), sp = c.strength || 1;
+    for (let sI = 0; sI < segs; sI++) {
+      const a = pts[sI], b = pts[(sI + 1) % m];
+      const dx = b.x - a.x, dz = b.z - a.z, len = Math.hypot(dx, dz);
+      if (len < 1e-3) continue;
+      const ux = dx / len, uz = dz / len, l2 = len * len;
+      const x0 = Math.max(0, Math.floor(Math.min(a.x, b.x) - wdt)), x1 = Math.min(N - 1, Math.ceil(Math.max(a.x, b.x) + wdt));
+      const z0 = Math.max(0, Math.floor(Math.min(a.z, b.z) - wdt)), z1 = Math.min(N - 1, Math.ceil(Math.max(a.z, b.z) + wdt));
+      for (let z = z0; z <= z1; z++) {
+        for (let x = x0; x <= x1; x++) {
+          const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / l2));
+          const d = Math.hypot(x - a.x - t * dx, z - a.z - t * dz);
+          if (d >= wdt) continue;
+          const f = 1 - (d / wdt) ** 2, i = z * N + x;
+          // (where segments overlap at a bend, the strongest pull wins rather than adding up)
+          if (f > WT[i]) { WT[i] = f; PU[i] = ux * sp * f; PV[i] = uz * sp * f; }
+        }
+      }
+    }
+  }
+  return paths.length > 0;
+}
+
 /** Carry field F along the currents (semi-Lagrangian: each cell takes what was upstream). */
 export function advect(F, U, V, mask, N, conserve = false) {
   const n = N * N, out = new Float32Array(n);
@@ -141,6 +178,7 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
   // Narrow passages run fastest (the same water squeezes through less width)
   const open = boxBlur(Float32Array.from(mask), N, 4);
   const wa = ((climateParams.windAngle || 0) * Math.PI) / 180, wdx = Math.cos(wa), wdz = Math.sin(wa);
+  const drawn = pathField(world); // (constant currents drawn with the Current path tool)
   const amp = 0.9 * p.currents * Math.min(2, (2 * half) / 1.5);
   for (let z = 1; z < N - 1; z++) {
     for (let x = 1; x < N - 1; x++) {
@@ -168,12 +206,12 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
         const into = -(cu * ox + cv * oz) / ol; // component heading toward land
         if (into > 0) { cu += (into * ox) / ol; cv += (into * oz) / ol; }
       }
-      U[i] = gx * s + cu + world.pushU[i];
-      V[i] = gz * s + cv + world.pushV[i];
+      U[i] = gx * s + cu + world.pushU[i] + (drawn ? world.pathU[i] : 0);
+      V[i] = gz * s + cv + world.pushV[i] + (drawn ? world.pathV[i] : 0);
     }
   }
   for (let i = 0; i < n; i++) { world.pushU[i] *= 0.93; world.pushV[i] *= 0.93; }
-  if (p.currents > 0 || world.pushing) {
+  if (p.currents > 0 || world.pushing || drawn) {
     world.pushing = false;
     advect(world.silt, U, V, mask, N, true);
     advect(world.pollution, U, V, mask, N, true);

@@ -18,6 +18,7 @@ import { coastParams, coastStep, seaStep, tideLevel } from './sim/coast.js';
 import { qualityParams } from './sim/waterQuality.js';
 import { oceanParams } from './sim/ocean.js';
 import { windParams, updateWind, windErosion } from './sim/wind.js';
+import { CurrentPaths } from './render/currentPaths.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
@@ -80,6 +81,7 @@ class App {
     this.effects = new Effects(this.scene, this.world, this.renderer);
     this.drawSettings = drawSettings;
     this.drawings = new Drawings(this.scene, this.world, this.renderer, document.getElementById('labels'));
+    this.currentPaths = new CurrentPaths(this.scene, this.world, this.renderer);
     this.effects.climateParams = climateParams;
     this.setupCursor();
     this.setupInput();
@@ -218,7 +220,7 @@ class App {
     this.raycaster = new THREE.Raycaster();
 
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-    canvas.addEventListener('dblclick', () => { if (TOOLS[this.tool].draw) this.drawings.finish(); });
+    canvas.addEventListener('dblclick', () => { if (TOOLS[this.tool].draw) this.drawings.finish(); if (TOOLS[this.tool].drawCurrent) this.currentPaths.finish(); });
     const track = (e) => {
       const rect = canvas.getBoundingClientRect();
       this.pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
@@ -234,6 +236,7 @@ class App {
       if (!hit) return;
       const t = TOOLS[this.tool];
       if (t.draw) { this.drawings.click(hit); return; }
+      if (t.drawCurrent) { this.currentPaths.click(hit, e.shiftKey, 0.4 + 1.6 * this.brush.strength, Math.max(3, Math.min(20, this.brush.radius))); return; }
       if (t.line) {
         // Drag tools: remember the start; placed on release
         this.lineStart = hit;
@@ -275,10 +278,15 @@ class App {
         if (e.key === 'Escape') { this.drawings.cancel(); return; }
         if (e.key === 'Backspace') { e.preventDefault(); this.drawings.undoPoint(); return; }
       }
+      if (TOOLS[this.tool].drawCurrent && this.currentPaths.draft) {
+        if (e.key === 'Enter') { this.currentPaths.finish(); return; }
+        if (e.key === 'Escape') { this.currentPaths.cancel(); return; }
+        if (e.key === 'Backspace') { e.preventDefault(); this.currentPaths.undoPoint(); return; }
+      }
       if (e.key === 'd' && !mod) { this.setTool('draw'); return; }
       if (e.key === 'l' && !mod) { this.setTool('lightning'); return; }
       if (e.key === 'f' && !mod) { this.setTool('wildfire'); return; }
-      const letters = { c: 'storm', w: 'drain', n: 'snow', g: 'glacier', b: 'subside', u: 'uplift', a: 'age', k: 'lake', p: 'section', o: 'shoreline', x: 'pollute', v: 'clean', m: 'stir', j: 'current', y: 'freshen', t: 'bloom', e: 'oxygen', i: 'seaice', r: 'surge', q: 'waves', h: 'outfall' };
+      const letters = { c: 'storm', w: 'drain', n: 'snow', g: 'glacier', b: 'subside', u: 'uplift', a: 'age', k: 'lake', p: 'section', o: 'shoreline', x: 'pollute', v: 'clean', m: 'stir', j: 'current', y: 'freshen', t: 'bloom', e: 'oxygen', i: 'seaice', r: 'surge', q: 'waves', h: 'outfall', s: 'currentPath' };
       if (letters[e.key] && !mod) { this.setTool(letters[e.key]); return; }
       if (e.key === '[') { this.brush.radius = Math.max(2, this.brush.radius - 2); this.toolbox.refresh(); }
       if (e.key === ']') { this.brush.radius = Math.min(60, this.brush.radius + 2); this.toolbox.refresh(); }
@@ -665,6 +673,7 @@ class App {
     this.renderer.update();
     this.effects.update(dt);
     this.drawings.update(dt, this.camera, hit, this.tool === 'draw');
+    this.currentPaths.update(dt);
     this.controls.update();
     this.effects.applyShake(this.camera, dt);
     this.gl.render(this.scene, this.camera);

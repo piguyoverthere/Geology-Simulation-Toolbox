@@ -18,7 +18,7 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O', pollute: 'X', clean: 'V', stir: 'M', current: 'J', freshen: 'Y', bloom: 'T', oxygen: 'E', seaice: 'I', surge: 'R', waves: 'Q', outfall: 'H' };
+const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O', pollute: 'X', clean: 'V', stir: 'M', current: 'J', freshen: 'Y', bloom: 'T', oxygen: 'E', seaice: 'I', surge: 'R', waves: 'Q', outfall: 'H', currentPath: 'S' };
 export function toolKey(id) { return LETTER_KEYS[id] || TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
 
 function seaOn(world) { return world.meanSea !== undefined && world.meanSea > -999; }
@@ -354,6 +354,11 @@ export const TOOLS = {
       const type = invert ? 'auto' : coastParams.shoreType;
       forEachCell(world, x, z, radius, (i, w) => paintShore(world, i, w, type, dt));
     },
+  },
+  currentPath: {
+    label: 'Current path', group: 'Ocean', icon: '⇝', editsTerrain: false, drawCurrent: true,
+    help: 'Draw a permanent current: click points across the sea to lay out its path, then press Enter or double-click to finish (click the first point again to close it into a circling eddy; Backspace takes back a point, Escape cancels). The sea then flows along it for ever, on top of the tides and wind, carrying silt, pollutants, plankton and river water with it, and it shows on the water as flowing dashes and arrows. Brush strength sets how fast it flows and brush size how wide it is. Shift-click removes the nearest one.',
+    apply() {},
   },
   outfall: {
     label: 'Pollution source', group: 'Ocean', icon: '⊗', editsTerrain: false, click: true,

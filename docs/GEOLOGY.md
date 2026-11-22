@@ -670,7 +670,9 @@ and which the waves break up into white coral sand much faster than a living ree
 **Tidal currents.** As the tide rises (the flood) the sea pours into the bays and channels from the
 open ocean, and as it falls (the ebb) it drains back out. The current runs along each channel,
 fastest in narrow passages and slowed by friction in the shallows, with a slow drift with the wind
-on top. It carries silt, pollutants, plankton and river water back and forth with every tide.
+on top. It carries silt, pollutants, plankton and river water back and forth with every tide. You can also
+draw permanent currents (the Current path tool): the sea flows along the path for ever, on top of the
+tides and wind, like a coastal current or a circling eddy.
 
 **Wind.** The prevailing wind blows hardest over open water, building up over the stretch of sea it
 crosses (the fetch), and land blocks it: an island or headland casts a wind shadow behind it, longer

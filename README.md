@@ -95,7 +95,11 @@ aerates the water (Shift: strips the oxygen out, a dead zone); **Sea ice** ❄ (
 melts it); **Storm surge** ⇡ (R) raises the whole sea, flooding low shores (Shift: lowers it); **Waves**
 〰 (Q) whips up big waves that break as surf and pound the coast. **Pollution source** ⊗ (H): click to place a
 source that pours pollutants into the nearest seawater without end (a sewage outfall or factory pipe),
-marked by a brown post; Shift-click removes nearby ones.
+marked by a brown post; Shift-click removes nearby ones. **Current path** ⇝ (S): draw a permanent current
+like a Draw path: click points across the sea, Enter or double-click to finish (click the first point
+again for a circling eddy; Backspace undoes a point, Escape cancels). The sea flows along it for ever,
+carrying what's in the water, shown as flowing dashes and arrows; brush strength sets its speed and
+brush size its width. Shift-click removes the nearest one.
 
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
 sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or
