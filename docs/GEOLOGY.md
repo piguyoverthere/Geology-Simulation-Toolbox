@@ -629,6 +629,19 @@ only shallowly flooded.
 surface follows the sea temperature with a damped season, and it cools with depth toward the cold
 deep water (about 4 °C).
 
+**Seawater quality.** Two things foul the sea. **Silt** (mud and fine particles) comes from rivers
+carrying sediment into the sea, from waves eating at the shore (mudflats wash out fastest where
+nothing holds them; mangroves and seagrass hold the mud down) and from landslides that run into the
+water. It turns the water brown and blocks the light, but settles out within days, and where it
+settles in quiet shallows it builds the tidal flats back up. **Pollutants** (sewage, runoff, spills:
+the Pollute tool) linger much longer and poison sea life. Both spread with the tides and are flushed
+out to the open ocean at the edge of the map. Seagrass meadows, kelp forests, coral reefs and
+mangroves clean the water, in proportion to how healthy they are; but where it stays too dirty they
+sicken and die off (coral is the most sensitive), leaving bare seabed that cleans nothing, so a
+badly polluted bay can tip into a dead zone. Once the water is clean they slowly grow back. The
+inspector shows the water quality, silt, pollutants and sea-bed health, and the **Water quality**
+overlay maps it.
+
 **Ocean biomes** follow the water temperature (the sea lags the air and swings less) and depth:
 sea ice, kelp forests on cool rocky shores, seagrass meadows, coral reefs in warm shallows (they
 make white coral sand), the open shelf and the deep ocean. The water itself shifts from dark

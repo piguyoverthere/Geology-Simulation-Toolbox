@@ -9,6 +9,7 @@
 // stripping plants and soil and spreading into a debris fan. Where relief is large, the failure can
 // be a *sector collapse* that takes out an entire mountain flank (Mount St Helens 1980 began this way).
 
+import { addSiltAt } from './waterQuality.js';
 import { waterParams } from './water.js';
 import { thermalParams, thermalStep } from './thermal.js';
 import { breachDepressions } from '../core/grid.js';
@@ -157,6 +158,8 @@ export function debrisStep(world, dt) {
     const load = dead ? drop + p.mass : drop;
     const r = Math.min(18, (dead ? 4 : 2.5) + Math.sqrt(load) * 0.9);
     if (!out) spread(world, p.x, p.z, load, r);
+    // Debris that runs into the sea churns up a cloud of mud
+    if (!out && world.meanSea > -999 && world.sampleHeight(p.x, p.z) < world.meanSea + 0.5) addSiltAt(world, p.x, p.z, load * 0.6, r + 3);
     if (dead) { D.splice(k, 1); if (!out) settled.push({ x: p.x, z: p.z, r: r + 8 }); }
     else if (!out) thermalStep(world, { x: p.x, z: p.z, r: r + 3 }, 1); // slumps as it goes
   }

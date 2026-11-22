@@ -28,6 +28,7 @@
 import { boxBlur } from '../core/grid.js';
 import { climateParams, seasonParams } from './climate.js';
 import { ROCK_INDEX } from '../core/rocks.js';
+import { waterQualityStep, addSilt, ensureQuality } from './waterQuality.js';
 
 export const coastParams = {
   tideRange: 1.5,     // height between low and high tide
@@ -53,8 +54,19 @@ export const MARINE = [
   { id: 'coral', label: 'Coral reef', color: [0.92, 0.62, 0.58], help: 'Reefs built by corals in warm, clear, shallow water; they make white coral sand.' },
   { id: 'shelf', label: 'Open ocean (shelf)', color: [0.20, 0.45, 0.62], help: 'Shallow sea over the continental shelf.' },
   { id: 'deep', label: 'Deep ocean', color: [0.08, 0.20, 0.42], help: 'Deep water far from shore.' },
+  { id: 'dieoff', label: 'Die-off (bare seabed)', color: [0.48, 0.42, 0.34], help: 'Seagrass, kelp or coral killed by dirty water (silt or pollutants): bare mud and rubble, or bleached, dead coral. It recovers slowly once the water is clean again.' },
 ];
 export const MARINE_ID = Object.fromEntries(MARINE.map((m, k) => [m.id, k]));
+// How well each sea bed cleans the water, and how easily dirty water harms it
+const FILTER = MARINE.map((m) => ({ seagrass: 0.06, kelp: 0.05, coral: 0.04 }[m.id] || 0));
+const SENSITIVE = MARINE.map((m) => ({ seagrass: 1.1, kelp: 1, coral: 1.6 }[m.id] || 0));
+
+/** The sea bed as it looks now: a living bed that dirty water has killed shows as a die-off. */
+export function marineShown(world, i) {
+  const m = world.marine ? world.marine[i] : -1;
+  if (m >= 0 && SENSITIVE[m] > 0 && world.marineHealth && world.marineHealth[i] < 0.3) return MARINE_ID.dieoff;
+  return m;
+}
 
 /** Make sure the coast fields exist. */
 export function ensureCoast(world) {
@@ -67,6 +79,7 @@ export function ensureCoast(world) {
   if (!world.dune || world.dune.length !== n) world.dune = new Float32Array(n);
   if (!world.coral || world.coral.length !== n) world.coral = new Float32Array(n);
   if (!world.mangrove || world.mangrove.length !== n) world.mangrove = new Float32Array(n);
+  ensureQuality(world);
 }
 
 /** Sea surface now: mean sea level plus the tide. Called every frame. */
@@ -148,7 +161,7 @@ export function coastStep(world) {
         else m = MARINE_ID.shelf;
         M[i] = m;
         // Coral reefs grow in warm shallows and grind down into white coral sand
-        CO[i] += ((m === MARINE_ID.coral ? 1 : 0) - CO[i]) * 0.02;
+        CO[i] += ((m === MARINE_ID.coral ? world.marineHealth[i] : 0) - CO[i]) * 0.02;
         SH[i] = -1;
         continue;
       }
@@ -180,8 +193,18 @@ export function coastStep(world) {
         // (mangrove roots take the force out of the waves)
         const cut = erodeK * ex * (1.2 - hard) * protect * (1 - 0.85 * world.mangrove[i]) * (type === SHORE.cliff ? 2 : 1);
         H[i] -= cut;
-        // Soft rock breaks down to sand; hard rock to shingle (doesn't add sand)
+        // Soft rock breaks down to sand; hard rock to shingle (doesn't add sand). The fines cloud
+        // the water.
         SAND[i] += cut * (1.3 - hard) * 2;
+        addSilt(world, i, cut * (1.4 - hard) * 3);
+      }
+      // Mudflats wash out where the waves reach them, and the mud they lose clouds the water
+      // (fast where they're bare; mangroves and seagrass hold the mud down)
+      if (inReach && erodeK > 0 && type === SHORE.mudflat) {
+        const grass = [i - 1, i + 1, i - N, i + N].some((j) => M[j] === MARINE_ID.seagrass) ? 0.6 * world.marineHealth[i] : 0;
+        const cut = erodeK * (0.3 + 2 * ex) * (1 - 0.85 * world.mangrove[i]) * (1 - grass);
+        H[i] -= cut;
+        addSilt(world, i, cut * 6);
       }
       // --- Longshore drift: waves running along the shore fill coves and plane off bumps, so
       // beaches straighten into long stretches between points (hard-rock headlands hold out) ---
@@ -224,6 +247,9 @@ export function coastStep(world) {
     // Trapped mud builds the flat up toward the high-tide line
     if (MG[i] > 0.2 && h < sea + half) H[i] += 0.0015 * MG[i];
   }
+  // Seawater quality: silt and pollutants mix, settle, flush out to sea and are filtered by the
+  // living sea beds, which die off where it stays too dirty
+  waterQualityStep(world, sea, half, FILTER, SENSITIVE);
   world.dirty = true;
 }
 

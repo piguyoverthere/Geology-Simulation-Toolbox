@@ -5,6 +5,7 @@ import { strike, spawnStormAt } from '../sim/weather.js';
 import { addIce } from '../sim/glacier.js';
 import { MinHeap } from '../core/grid.js';
 import { paintShore, coastParams } from '../sim/coast.js';
+import { ensureQuality } from '../sim/waterQuality.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -16,7 +17,7 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O' };
+const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O', pollute: 'X', clean: 'V' };
 export function toolKey(id) { return LETTER_KEYS[id] || TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
 
 /**
@@ -343,6 +344,32 @@ export const TOOLS = {
     apply({ world, x, z, radius, dt, invert }) {
       const type = invert ? 'auto' : coastParams.shoreType;
       forEachCell(world, x, z, radius, (i, w) => paintShore(world, i, w, type, dt));
+    },
+  },
+  pollute: {
+    label: 'Pollute water', group: 'Water', icon: '☣', editsTerrain: false,
+    help: 'Paint over the sea to pour in pollutants (sewage, farm and street runoff, a spill). They spread with the tides, linger for a long time, turn the water a murky green-brown and poison seagrass, kelp and coral, which die off where it stays too dirty (and then no longer clean the water). Hold Shift to dump mud instead (silt: brown water that blocks the light, but settles out in a few days). The inspector shows the water quality. Only works on the sea.',
+    apply({ world, x, z, radius, strength, dt, invert }) {
+      const sea = world.meanSea;
+      if (sea === undefined || sea < -999) return;
+      ensureQuality(world);
+      const top = sea + 0.5 * coastParams.tideRange, F = invert ? world.silt : world.pollution;
+      forEachCell(world, x, z, radius, (i, w) => {
+        if (world.height[i] < top) F[i] = Math.min(4, F[i] + strength * 2 * dt * w);
+      });
+      world.dirty = true;
+    },
+  },
+  clean: {
+    label: 'Clean water', group: 'Water', icon: '✧', editsTerrain: false,
+    help: 'Paint over the sea to clean it up (sewage treatment, stopping the runoff, a spill cleanup): removes silt and pollutants under the brush. Sick or dead sea beds then recover by themselves, slowly, as long as the water stays clean.',
+    apply({ world, x, z, radius, strength, dt }) {
+      if (!world.silt) return;
+      forEachCell(world, x, z, radius, (i, w) => {
+        const k = 1 - Math.min(1, strength * 3 * dt * w);
+        world.silt[i] *= k; world.pollution[i] *= k;
+      });
+      world.dirty = true;
     },
   },
 };

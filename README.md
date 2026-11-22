@@ -83,7 +83,8 @@ again). **Lake** ◒ (Water): click a hollow to fill it to its spill level.
 
 **Shoreline** ≈ (Water): paint along a coast to make it a mudflat, sand beach, shingle beach,
 rock cliff or basalt boulder beach (pick the type under **Ocean & coast**); Shift returns it to
-the automatic choice.
+the automatic choice. **Pollute water** ☣ (X) pours pollutants into the sea (Shift: mud);
+**Clean water** ✧ (V) clears silt and pollutants so dead sea beds can recover.
 
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
 sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or
@@ -111,7 +112,7 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   mostly from autumn to spring, and a summer fire season with dry lightning storms), and **Snow slope
   limit** (the steepest slope snow builds up on).
 - **Overlays**: colour the map by one data layer (biomes, vegetation, tree species, forest age,
-  coast & ocean (shore types, dunes, mangroves, ocean biomes), topographic map (elevation bands with contour lines, index contours every fifth), temperature,
+  coast & ocean (shore types, dunes, mangroves, ocean biomes), water quality, topographic map (elevation bands with contour lines, index contours every fifth), temperature,
   precipitation, snow depth, glacier ice, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
 - **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes.
@@ -165,6 +166,7 @@ src/sim/climate.js      Temperature (height, sun, seasons), clouds, precipitatio
 src/sim/weather.js      Storms, thunderstorms and lightning
 src/sim/glacier.js      Glaciers: ice flow, U-shaped valley carving, moraines, melt
 src/sim/coast.js        Tides, shore types, wave erosion, beach sand, dunes, mangroves, ocean biomes
+src/sim/waterQuality.js Seawater silt and pollutants, filtering by sea beds, die-off and recovery
 src/core/environments.js  Environment presets (ready-made climates)
 src/sim/phenology.js    Seasonal leaves: autumn colour, leaf fall, spring flush
 src/sim/species.js      Tree species, their preferences, and each cell's forest mix

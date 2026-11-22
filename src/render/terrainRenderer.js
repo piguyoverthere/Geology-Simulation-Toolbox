@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { BIOMES, classifyBiome, DRY_SOIL } from './biomes.js';
 import { ROCKS } from '../core/rocks.js';
 import { forestColor } from '../sim/forests.js';
-import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp, waterTempAt } from '../sim/coast.js';
+import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp, waterTempAt, marineShown } from '../sim/coast.js';
+import { waterQuality } from '../sim/waterQuality.js';
 import { SPECIES, OPEN } from '../sim/species.js';
 import { climateParams, snowAt, seasonalAt } from '../sim/climate.js';
 
@@ -44,6 +45,7 @@ export const OVERLAYS = {
   ice: 'Glacier ice',
   topo: 'Topographic map',
   coast: 'Coast & ocean',
+  quality: 'Water quality',
   decid: 'Deciduous trees',
   rock: 'Rock type',
   hardness: 'Rock hardness',
@@ -267,7 +269,7 @@ export class TerrainRenderer {
           const d = w.decid ? w.decid[i] : 0;
           col = shade(w.vegetation[i] > 0.3 ? mix(DECID_NONE, DECID_FULL, Math.min(1, d / 0.8), S3) : NO_FOREST, 0.75 + 0.25 * ny, S3);
         } else if (mode === 'coast') {
-          const sh = w.shore ? w.shore[i] : -1, m = w.marine ? w.marine[i] : -1, du = w.dune ? w.dune[i] : 0;
+          const sh = w.shore ? w.shore[i] : -1, m = w.marine ? marineShown(w, i) : -1, du = w.dune ? w.dune[i] : 0;
           col = shade(w.mangrove && w.mangrove[i] > 0.3 ? MANGROVE : sh >= 0 ? SHORES[sh].color : m >= 0 ? MARINE[m].color : du > 0.3 ? DUNE : NO_FOREST, 0.75 + 0.25 * ny, S3);
         } else if (mode === 'topo') {
           if (h < topoSea) {
@@ -349,7 +351,15 @@ export class TerrainRenderer {
             // turquoise tropical shallows
             base = mix(this.seaShallow, this.seaDeep, Math.min(1, d / 10), S4);
           } else base = mix(WATER_SHALLOW, WATER_DEEP, deep, S4);
-          const wc = mix(base, MUD, mud * 0.8, S4);
+          let wc = mix(base, MUD, mud * 0.8, S4);
+          if (isSea && w.silt) {
+            // Dirty seawater: silt turns it brown, pollutants a murky olive (overlay: by quality)
+            if (mode === 'quality') wc = qualityColor(waterQuality(w, i), S4);
+            else {
+              wc = mix(wc, SILT_WATER, Math.min(0.95, w.silt[i] * 1.2), S4);
+              wc = mix(wc, FOUL_WATER, Math.min(0.9, w.pollution[i] * 1.1), S4);
+            }
+          }
           const iced = isSea && this.seaIce;
           if (iced) { wc[0] = 0.9; wc[1] = 0.94; wc[2] = 0.97; }
           this.wCol[i4] = wc[0] * wc[0]; this.wCol[i4 + 1] = wc[1] * wc[1]; this.wCol[i4 + 2] = wc[2] * wc[2];
@@ -358,6 +368,7 @@ export class TerrainRenderer {
           if (w.mangrove && w.mangrove[i] > 0.05) this.wCol[i4 + 3] *= 1 - 0.85 * Math.min(1, w.mangrove[i] * 1.2);
           // (the temperature map colours the sea by its water temperature: let it show through)
           if (mode === 'temp' && isSea) this.wCol[i4 + 3] *= 0.15;
+          if (mode === 'quality' && isSea) this.wCol[i4 + 3] = 0.92;
         } else {
           this.wPos[i3 + 1] = h - 0.3;
           this.wCol[i4 + 3] = 0;
@@ -518,7 +529,7 @@ export class TerrainRenderer {
       mix(col, c, t, col);
       if (sh === SHORE.mudflat && w.water[i] > 0.01) shade(col, 0.82, col);
     } else if (h < sea) {
-      const m = w.marine ? w.marine[i] : -1;
+      const m = w.marine ? marineShown(w, i) : -1;
       mix(col, m >= 0 ? MARINE[m].color : C.soil, 0.7, col);
     }
     const dune = w.dune ? w.dune[i] : 0;
@@ -579,6 +590,10 @@ const DECID_NONE = [0.10, 0.32, 0.22], DECID_FULL = [0.95, 0.60, 0.12];
 const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.64, 0.40];
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
+const SILT_WATER = [0.78, 0.58, 0.34], FOUL_WATER = [0.58, 0.58, 0.30];
+const Q_FOUL = [0.45, 0.25, 0.12], Q_MID = [0.78, 0.68, 0.36], Q_CLEAR = [0.20, 0.55, 0.85];
+/** Water-quality overlay colour: brown (foul) → khaki → clear blue. */
+function qualityColor(q, out) { return q < 0.5 ? mix(Q_FOUL, Q_MID, q * 2, out) : mix(Q_MID, Q_CLEAR, (q - 0.5) * 2, out); }
 
 /** Barren brown (0) → light-green grassland (0.5) → deep-green forest (1). */
 function vegColor(v, out) {

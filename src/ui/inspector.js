@@ -5,7 +5,8 @@ import { waterParams } from '../sim/water.js';
 import { ROCKS, PROVINCES, ROCK_INDEX } from '../core/rocks.js';
 import { saturation, stableSlope } from '../sim/landslides.js';
 import { snowAt, cloudTempAt, seasonalAt } from '../sim/climate.js';
-import { SHORES, MARINE, waterTempAt } from '../sim/coast.js';
+import { SHORES, MARINE, waterTempAt, marineShown } from '../sim/coast.js';
+import { waterQuality, qualityLabel } from '../sim/waterQuality.js';
 import { compositionAt } from '../sim/species.js';
 
 export class Inspector {
@@ -55,8 +56,10 @@ export class Inspector {
       ['Cloud base', w.cloudBase ? `${(w.cloudBase[i] - h).toFixed(1)} above · ${cloudTempAt(w, i).toFixed(1)} °C` : '—'],
       ['Precipitation', `${bar(w.precip ? w.precip[i] : 0, '#4f8ce0')} <span class="ins-dim">${cloudTempAt(w, i) < 0 ? 'snow' : 'rain'}</span>`],
       ...(w.shore && w.shore[i] >= 0 ? [['Shore', `${SHORES[w.shore[i]].label}${w.shoreSet && w.shoreSet[i] >= 0 ? ' <span class="ins-dim">(painted)</span>' : ''} <span class="ins-dim">· sand ${(w.sand ? w.sand[i] : 0).toFixed(2)}</span>`]] : []),
-      ...(w.marine && w.marine[i] >= 0 ? [['Sea', `${MARINE[w.marine[i]].label} <span class="ins-dim">· tide ${(w.tide || 0) >= 0 ? '+' : ''}${(w.tide || 0).toFixed(2)}</span>`]] : []),
-      ...(w.dune && w.dune[i] > 0.1 ? [['Dunes', bar(w.dune[i], '#d8c99a')]] : []),
+      ...(w.marine && w.marine[i] >= 0 ? [['Sea', `${MARINE[marineShown(w, i)].label} <span class="ins-dim">· tide ${(w.tide || 0) >= 0 ? '+' : ''}${(w.tide || 0).toFixed(2)}</span>`]] : []),
+      ...(w.silt && w.meanSea > -999 && h < w.meanSea ? [['Water quality', `${bar(waterQuality(w, i), waterQuality(w, i) > 0.65 ? '#4fb0e0' : waterQuality(w, i) > 0.4 ? '#b09a5a' : '#8a5a2e')} <span class="ins-dim">${qualityLabel(waterQuality(w, i))} · silt ${w.silt[i].toFixed(2)} · pollutants ${w.pollution[i].toFixed(2)}</span>`]] : []),
+      ...(w.marine && w.marine[i] >= 0 && ['kelp', 'seagrass', 'coral'].includes(MARINE[w.marine[i]].id) ? [['Sea-bed health', bar(w.marineHealth[i], w.marineHealth[i] > 0.5 ? '#5cbf6a' : '#c96a4a')]] : []),
+            ...(w.dune && w.dune[i] > 0.1 ? [['Dunes', bar(w.dune[i], '#d8c99a')]] : []),
       ...(w.mangrove && w.mangrove[i] > 0.05 ? [['Mangroves', bar(w.mangrove[i], '#2e6b3a')]] : []),
       ...(w.ice && w.ice[i] > 0.02 ? [['Glacier ice', `${w.ice[i].toFixed(2)} thick · flowing ${(w.iceFlow ? w.iceFlow[i] * 100 : 0).toFixed(1)}${w.iceDebris && w.iceDebris[i] > 0.01 ? ` <span class="ins-dim">· carrying ${w.iceDebris[i].toFixed(2)} rock</span>` : ''}`]] : []),
       ...(w.snow && w.snow[i] > 0.01 ? [['Snow depth', `${w.snow[i].toFixed(2)} <span class="ins-dim">· covers ${Math.round(snowAt(w, i, slope) * 100)}%</span>`]] : []),
