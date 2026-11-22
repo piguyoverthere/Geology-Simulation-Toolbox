@@ -109,7 +109,8 @@ snow, harmed by pollution, killed by hard frost, builds dams, kills the trees it
 ground, swims up rivers in autumn). Paint it onto the map with the **Animal** tool 🐾 (Paint button,
 Shift removes). Each lives where it finds food, starves where it doesn't, is thinned out by whatever
 eats it, and changes the place (grazers stop forest regrowing, dam-builders raise ponds, tree-killers
-leave fire fuel, plankton- and seaweed-eaters crop the sea). They appear in the map key, the
+leave fire fuel, plankton- and seaweed-eaters crop the sea). Each has a small live population graph
+in the Wildlife panel (click it to expand a chart, with what it eats and what eats it for comparison). They appear in the map key, the
 **Wildlife** overlay, the inspector and as dots on the map, and are saved with the level.
 
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
@@ -138,7 +139,7 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   mostly from autumn to spring, and a summer fire season with dry lightning storms), and **Snow slope
   limit** (the steepest slope snow builds up on).
 - **Overlays**: colour the map by one data layer (biomes, vegetation, tree species, forest age,
-  coast & ocean (shore types, dunes, mangroves, ocean biomes), water quality, wind speed, topographic map (elevation bands with contour lines, index contours every fifth), temperature,
+  coast & ocean (shore types, dunes, mangroves, ocean biomes), water quality, wind speed, wildlife, forest density, forest health, topographic map (elevation bands with contour lines, index contours every fifth), temperature,
   precipitation, snow depth, glacier ice, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
 - **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes.

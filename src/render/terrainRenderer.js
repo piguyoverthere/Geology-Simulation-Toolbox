@@ -38,6 +38,8 @@ export const OVERLAYS = {
   soil: 'Soil depth',
   bare: 'Bare rock',
   age: 'Forest age',
+  trees: 'Forest density',
+  health: 'Forest health',
   species: 'Tree species',
   chem: 'Soil chemistry',
   temp: 'Temperature',
@@ -303,6 +305,15 @@ export class TerrainRenderer {
           // Today's temperature (annual mean + season); under the sea, the water's
           const wt = waterTempAt(w, i);
           col = shade(tempColor(wt !== null ? wt : w.temperature[i] + seasonalAt(w, i), S3), 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'trees') {
+          // How closely the trees stand: pale open ground → dark, closed canopy
+          const td = w.treeDensity ? w.treeDensity[i] : 0;
+          col = shade(td < 0.02 ? mix(TREES_NONE, TREES_NONE, 0, S3) : td < 0.5 ? mix(TREES_SPARSE, TREES_MID, td * 2, S3) : mix(TREES_MID, TREES_DENSE, (td - 0.5) * 2, S3), 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'health') {
+          // Forest health (young trees replacing the old): red = failing, yellow = struggling, green = renewing
+          const fh = w.forestHealth ? w.forestHealth[i] : 0;
+          col = w.vegetation[i] < 0.3 ? TREES_NONE.slice() : fh < 0.5 ? mix(HEALTH_BAD, HEALTH_MID, fh * 2, S3) : mix(HEALTH_MID, HEALTH_GOOD, (fh - 0.5) * 2, S3);
+          shade(col, 0.75 + 0.25 * ny, col);
         } else if (mode === 'wildlife') {
           // The most common animal here, its colour stronger where there are more of them
           const da = w.animals && w.animals.length ? dominantAnimal(w, i) : null;
@@ -656,6 +667,8 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
+const TREES_NONE = [0.86, 0.84, 0.78], TREES_SPARSE = [0.78, 0.84, 0.58], TREES_MID = [0.36, 0.62, 0.30], TREES_DENSE = [0.06, 0.26, 0.12];
+const HEALTH_BAD = [0.80, 0.25, 0.18], HEALTH_MID = [0.92, 0.78, 0.30], HEALTH_GOOD = [0.18, 0.60, 0.28];
 const BEETLE_RED = [0.62, 0.32, 0.18], DEAD_WOOD = [0.52, 0.48, 0.44], SALMON_RUN = [0.80, 0.30, 0.30], WILD_NONE = [0.80, 0.80, 0.78];
 const WIND_CALM = [0.86, 0.90, 0.92], WIND_BREEZE = [0.45, 0.72, 0.80], WIND_STRONG = [0.20, 0.38, 0.72], WIND_GALE = [0.52, 0.20, 0.58];
 /** Wind overlay colour: calm (pale) → breezy (teal) → strong (blue) → gale (purple). */

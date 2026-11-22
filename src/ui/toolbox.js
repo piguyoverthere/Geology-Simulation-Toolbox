@@ -346,6 +346,8 @@ export class Toolbox {
   renderAnimals() {
     const app = this.app, w = app.world, L = this.animalList;
     L.innerHTML = '';
+    this.graphs = [];
+    if (!this.openGraphs) this.openGraphs = new Set();
     const list = w.animals || [];
     if (!list.length) L.append(el('div', 'tb-note', 'No animals yet. Add one, then paint it onto the map with the Animal tool.'));
     for (const a of list) {
@@ -356,9 +358,42 @@ export class Toolbox {
       const paint = button('Paint', () => { app.animalChoice = a.id; app.setTool('animal'); this.renderAnimals(); }, 'tb-small', `Paint ${a.name} onto the map (Animal tool; Shift removes).`, this);
       const edit = button('Edit', () => this.editAnimal(a), 'tb-small', `Change ${a.name}.`, this);
       const del = button('✕', () => { removeAnimal(w, a.id); if (app.animalChoice === a.id) app.animalChoice = null; this.renderAnimals(); this.updateLegend(); }, 'tb-small', `Remove ${a.name} (and all of them from the map).`, this);
-      row.append(sw, name, paint, edit, del);
+      // A small live population graph; click it to expand a bigger one
+      const spark = el('canvas', 'tb-spark');
+      spark.width = 64; spark.height = 18;
+      spark.title = 'Population over time (click to expand)';
+      row.append(sw, name, spark, paint, edit, del);
       this.helpOn(row, `<b>${escapeHtml(a.name)}</b> — ${escapeHtml(describeAnimal(w, a))}`);
       L.append(row);
+      const big = el('canvas', 'tb-popchart');
+      big.width = 270; big.height = 120;
+      big.hidden = !this.openGraphs.has(a.id);
+      spark.addEventListener('click', () => {
+        if (this.openGraphs.has(a.id)) this.openGraphs.delete(a.id); else this.openGraphs.add(a.id);
+        big.hidden = !this.openGraphs.has(a.id);
+        this.drawGraphs();
+      });
+      L.append(big);
+      this.graphs.push({ a, spark, big });
+    }
+  }
+
+  /** Redraw the population graphs (sparklines, and the expanded charts that are open). */
+  drawGraphs() {
+    const w = this.app.world, hist = w.popHistory || {};
+    for (const g of this.graphs || []) {
+      const data = hist[g.a.id] || [];
+      drawLine(g.spark, [{ data, color: rgb(g.a.color), width: 1.5 }], false);
+      if (!g.big.hidden) {
+        // The animal itself, with what it eats and what eats it (fainter) for comparison
+        const series = [{ data, color: rgb(g.a.color), width: 2, label: g.a.name }];
+        for (const b of w.animals || []) {
+          if (b.id === g.a.id) continue;
+          const rel = g.a.prey.includes(b.id) ? 'eats' : b.prey.includes(g.a.id) ? 'eaten by' : null;
+          if (rel) series.push({ data: hist[b.id] || [], color: rgb(b.color), width: 1, dashed: true, label: `${rel} ${b.name}` });
+        }
+        drawLine(g.big, series, true);
+      }
     }
   }
 
@@ -477,6 +512,8 @@ export class Toolbox {
     else if (mode === 'precip') ramp('Precipitation', 'dry (rain shadow)', 'wet (windward)', [[0.86, 0.74, 0.52], [0.12, 0.35, 0.75]]);
     else if (mode === 'snowDepth') ramp('Snow depth (grey = none)', 'thin', 'deep', [[0.88, 0.92, 0.98], [0.55, 0.72, 0.95], [0.18, 0.30, 0.75]]);
     else if (mode === 'coast') items('Shores, dunes and ocean biomes', [...SHORES, { label: 'Coastal dunes', color: [0.86, 0.82, 0.62], help: 'Wind-blown sand behind sand beaches.' }, { label: 'Mangrove forest', color: [0.12, 0.30, 0.16], help: 'Forest standing in the tide on warm, sheltered mudflats.' }, ...MARINE]);
+    else if (mode === 'trees') ramp('Forest density (how closely the trees stand)', 'open', 'closed canopy', [[0.78, 0.84, 0.58], [0.36, 0.62, 0.30], [0.06, 0.26, 0.12]]);
+    else if (mode === 'health') ramp('Forest health: young trees replacing the old (pale = no forest)', 'failing', 'renewing', [[0.80, 0.25, 0.18], [0.92, 0.78, 0.30], [0.18, 0.60, 0.28]]);
     else if (mode === 'wildlife') items((this.app.world.animals || []).length ? 'Most common animal (stronger colour = more of them)' : 'No animals yet (add them under Wildlife)', (this.app.world.animals || []).map((an) => ({ label: an.name, color: an.color, help: describeAnimal(this.app.world, an) })));
     else if (mode === 'wind') ramp('Wind speed (land blocks it: calm in its lee)', 'calm', 'gale', [[0.86, 0.90, 0.92], [0.45, 0.72, 0.80], [0.20, 0.38, 0.72], [0.52, 0.20, 0.58]]);
     else if (mode === 'quality') ramp('Seawater quality', 'foul (silt, pollutants)', 'clear', [[0.45, 0.25, 0.12], [0.78, 0.68, 0.36], [0.20, 0.55, 0.85]]);
@@ -658,3 +695,56 @@ function numberInput(label, obj, key, help, tb) {
 function rgb(c) { return `rgb(${c.map((v) => Math.round(v * 255)).join(',')})`; }
 
 function escapeHtml(t) { return String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+/**
+ * Draw line series on a canvas; `axes` adds a scale (for the first series), the time direction and
+ * a legend with each series' latest value. Other series are drawn on their own scale (dashed), so
+ * their rises and falls can be compared even when their numbers are very different.
+ */
+function drawLine(cv, series, axes) {
+  const ctx = cv.getContext('2d');
+  if (axes) cv.height = 104 + 13 * series.length;
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  const pad = axes ? { l: 34, r: 6, t: 8, b: 16 + 13 * series.length } : { l: 1, r: 1, t: 2, b: 2 };
+  const range = (d) => { let lo = Infinity, hi = -Infinity; for (const v of d) { lo = Math.min(lo, v); hi = Math.max(hi, v); } if (!isFinite(lo)) return null; lo = Math.min(lo, 0); if (hi - lo < 1e-6) hi = lo + 1; return [lo, hi]; };
+  const main = range(series[0].data);
+  if (!main) {
+    if (axes) { ctx.fillStyle = '#9aa3ae'; ctx.font = '11px system-ui, sans-serif'; ctx.fillText('No history yet: run the simulation', 10, 50); }
+    return;
+  }
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const X = (k, len) => pad.l + (len <= 1 ? pw : (k / (len - 1)) * pw);
+  const Yf = ([lo, hi]) => (v) => pad.t + ph - ((v - lo) / (hi - lo)) * ph;
+  if (axes) {
+    const Y = Yf(main);
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+    ctx.fillStyle = '#9aa3ae'; ctx.font = '10px system-ui, sans-serif'; ctx.textAlign = 'right';
+    for (const v of [main[0], (main[0] + main[1]) / 2, main[1]]) { const y = Y(v); ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke(); ctx.fillText(fmtPop(v), pad.l - 4, y + 3); }
+    ctx.textAlign = 'left'; ctx.fillText('earlier', pad.l, pad.t + ph + 12); ctx.textAlign = 'right'; ctx.fillText('now', W - pad.r, pad.t + ph + 12);
+  }
+  for (let k = (axes ? series.length : 1) - 1; k >= 0; k--) {
+    const s = series[k], d = s.data, rg = k === 0 ? main : range(d);
+    if (!d.length || !rg) continue;
+    const Y = Yf(rg);
+    ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.setLineDash(s.dashed ? [3, 3] : []);
+    ctx.globalAlpha = s.dashed ? 0.75 : 1;
+    ctx.beginPath();
+    d.forEach((v, j) => { const x = X(j, d.length), y = Y(v); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke();
+  }
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
+  if (axes) {
+    // Legend below the chart: each series and its latest value
+    ctx.textAlign = 'left'; ctx.font = '10px system-ui, sans-serif';
+    let y = pad.t + ph + 26;
+    series.forEach((s, k) => {
+      ctx.fillStyle = s.color;
+      ctx.fillRect(pad.l, y - 6, 10, k ? 1.5 : 2.5);
+      ctx.fillText(`${s.label}: ${s.data.length ? fmtPop(s.data[s.data.length - 1]) : '—'}${k ? ' (own scale)' : ''}`, pad.l + 14, y - 2);
+      y += 13;
+    });
+  }
+}
+
+function fmtPop(v) { return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v >= 10 ? Math.round(v).toString() : v.toFixed(1); }

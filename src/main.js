@@ -680,6 +680,7 @@ class App {
     this.drawings.update(dt, this.camera, hit, this.tool === 'draw');
     this.currentPaths.update(dt);
     this.wildlife.update(dt);
+    if (this.frame % 30 === 0) this.toolbox.drawGraphs(); // (population graphs)
     this.controls.update();
     this.effects.applyShake(this.camera, dt);
     this.gl.render(this.scene, this.camera);

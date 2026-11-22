@@ -251,6 +251,8 @@ export function vegetationStep(world) {
   const W = world.nearWater, F = world.freshRock, SO = world.humus;
   for (let i = 0; i < V.length; i++) S[i] += (soilSupply(world, i) - S[i]) * p.soilMemory;
   const f = neighbourhood(world);
+  if (!world.forestHealth || world.forestHealth.length !== V.length) world.forestHealth = new Float32Array(V.length).fill(0.8);
+  if (!world.treeDensity || world.treeDensity.length !== V.length) world.treeDensity = new Float32Array(V.length);
   // Seawater: land the sea has flooded (below mean sea level) or that the high tide reaches is
   // salted. Ordinary trees and shrubs can't take salt in their roots and die within a season or
   // two (the "ghost forests" left where the land sinks or the sea rises); only mangroves, and swamp
@@ -324,6 +326,24 @@ export function vegetationStep(world) {
         F[i] = Math.max(0, fresh - p.weathering * (0.4 + S[i]) * (1 + 3 * v + 4 * f.standCover[i]));
       }
     }
+    // Forest health: are young trees coming up to replace the old ones as they die? Seedlings need
+    // seed trees nearby, a climate and soil that suit trees, and moisture; browsing animals eat
+    // them, dead wood and fire set them back. A forest whose old trees die without replacement
+    // (poor health) slowly thins out instead of renewing itself.
+    {
+      const FH = world.forestHealth;
+      if (v > 0.3 || target > 0.6) {
+        const seed = Math.min(1, f.standCover[i] * 1.3);
+        const suit = Math.min(1, target / Math.max(0.3, v));
+        const dead = world.deadWood ? world.deadWood[i] : 0;
+        const rec = suit * seed * (1 - 0.85 * browse) * (1 - 0.6 * dead) * (1 - 0.5 * burnt) * (0.5 + 0.5 * Math.min(1, S[i] * 2));
+        FH[i] += (rec - FH[i]) * 0.05;
+        // Without young trees, the old stand thins as trees die (most in old forest)
+        if (FH[i] < 0.35 && v > 0.6) target -= 0.4 * (0.35 - FH[i]) * age;
+        // …and gaps fill in faster where seedlings are plentiful
+        if (target > v && v > 0.3) rate *= 0.3 + 0.9 * FH[i];
+      } else FH[i] += (0 - FH[i]) * 0.05;
+    }
     if (saltKill) rate = Math.max(rate, 0.12); // salt kills even old trees, fast
     v += (target - v) * Math.min(1, rate);
     V[i] = v < 0 ? 0 : v > 1 ? 1 : v;
@@ -344,6 +364,9 @@ export function vegetationStep(world) {
     a -= change * 2;
     if (saltKill) a -= 0.05;
     world.forestAge[i] = a < 0 ? 0 : a > 1 ? 1 : a;
+    // Tree density: how closely the trees stand (canopy closure): from the tree cover, thicker in
+    // old forest, opened up by dead trees
+    world.treeDensity[i] = smoothstep(0.45, 0.95, V[i]) * (0.6 + 0.4 * world.forestAge[i]) * (1 - 0.7 * (world.deadWood ? world.deadWood[i] : 0));
   }
   P.set(H);
   world.dirty = true;

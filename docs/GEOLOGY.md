@@ -815,6 +815,15 @@ A future "geological clock" could make this explicit.
 - Musgrave, Kolb & Mace, *The Synthesis and Rendering of Eroded Fractal Terrains* (SIGGRAPH 1989): the original thermal + hydraulic terrain erosion paper
 - Sebastian Lague, *Coding Adventure: Hydraulic Erosion* (YouTube), a very approachable intro to the droplet model
 
+## Forest density and forest health
+
+**Tree density** is how closely the trees stand (canopy closure): it comes from the tree cover, is
+thicker in old forest and is opened up by dead trees. **Forest health** is whether young trees are
+coming up to replace the old ones as they die. Seedlings need seed trees nearby, a climate and soil
+that suit trees, and moisture; browsing animals eat them, and dead wood and fire set them back. A
+healthy forest renews itself and fills its gaps quickly; one with too few seedlings slowly thins out
+as its old trees die. Both have overlays (Forest density, Forest health) and show in the inspector.
+
 ## Wildlife: an ecosystem of your own animals
 
 You design the animals (Wildlife → Add animal): a name and colour, where it lives, what it eats and

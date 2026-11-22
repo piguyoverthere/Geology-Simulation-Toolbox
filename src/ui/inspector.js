@@ -46,64 +46,83 @@ export class Inspector {
     const swatch = rgb(biome.color);
     const rock = ROCKS[w.rockAt(h, i)];
 
-    const rows = [
-      ['Altitude', `${h.toFixed(1)}${sea ? ` <span class="ins-dim">(${(h - w.seaLevel) >= 0 ? '+' : ''}${(h - w.seaLevel).toFixed(1)} vs sea)</span>` : ''}`],
-      ['Slope', `${(Math.atan(slope) * 180 / Math.PI).toFixed(0)}°`],
-      waterTempAt(w, i) !== null
-        ? ['Water temp.', `${waterTempAt(w, i).toFixed(1)} °C <span class="ins-dim">· year avg ${waterTempAt(w, i, false).toFixed(1)}</span>`]
-        : ['Temperature', w.seasonT ? `${(w.temperature[i] + seasonalAt(w, i)).toFixed(1)} °C <span class="ins-dim">· year avg ${w.temperature[i].toFixed(1)}</span>` : `${w.temperature[i].toFixed(1)} °C`],
-      ...(w.wind ? [['Wind', `${bar(Math.min(1, w.wind[i] / 1.5), '#9ab8d0')} <span class="ins-dim">${w.wind[i] > 1.1 ? 'strong, exposed' : w.wind[i] > 0.6 ? 'breezy' : 'sheltered'} · ${Math.round(w.wind[i] * 40)} km/h</span>`]] : []),
-      ['Evaporation', `${bar(Math.min(1, (w.evapRate ? w.evapRate[i] : 1) / 2), '#e0a24f')} <span class="ins-dim">×${(w.evapRate ? w.evapRate[i] : 1).toFixed(2)}</span>`],
-      ['Cloud base', w.cloudBase ? `${(w.cloudBase[i] - h).toFixed(1)} above · ${cloudTempAt(w, i).toFixed(1)} °C` : '—'],
-      ['Precipitation', `${bar(w.precip ? w.precip[i] : 0, '#4f8ce0')} <span class="ins-dim">${cloudTempAt(w, i) < 0 ? 'snow' : 'rain'}</span>`],
-      ...(w.shore && w.shore[i] >= 0 ? [['Shore', `${SHORES[w.shore[i]].label}${w.shoreSet && w.shoreSet[i] >= 0 ? ' <span class="ins-dim">(painted)</span>' : ''} <span class="ins-dim">· sand ${(w.sand ? w.sand[i] : 0).toFixed(2)}</span>`]] : []),
-      ...(w.marine && w.marine[i] >= 0 ? [['Sea', `${MARINE[marineShown(w, i)].label} <span class="ins-dim">· tide ${(w.tide || 0) >= 0 ? '+' : ''}${(w.tide || 0).toFixed(2)}</span>`]] : []),
-      ...(w.curU && w.meanSea > -999 && h < w.meanSea ? [
-        ['Current', (() => { const sp = Math.hypot(w.curU[i], w.curV[i]); const dir = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(((Math.atan2(w.curV[i], w.curU[i]) * 180 / Math.PI + 360) % 360) / 45) % 8]; return `${sp < 0.03 ? 'slack' : `${(sp * 1.5).toFixed(1)} kn toward ${dir}`} <span class="ins-dim">· ${Math.cos(2 * Math.PI * (w.time || 0) / coastParams.tidePeriod) >= 0 ? 'flood (rising)' : 'ebb (falling)'} tide${w.surge > 0.05 ? ` · storm surge +${w.surge.toFixed(1)}` : ''}</span>`; })()],
-        ['Salinity', `${(35 * w.salinity[i]).toFixed(0)} ‰ <span class="ins-dim">${w.salinity[i] > 0.85 ? 'seawater' : w.salinity[i] > 0.15 ? 'brackish (estuary)' : 'fresh'}</span>`],
-        ['Plankton', `${bar(Math.min(1, w.plankton[i] / 2), '#5aa05a')} <span class="ins-dim">${w.plankton[i] > 1.2 ? 'bloom' : w.plankton[i] > 0.4 ? 'plentiful' : 'sparse'}</span>`],
-        ['Oxygen', `${bar(w.oxygen[i], w.oxygen[i] > 0.6 ? '#4fb0e0' : '#c96a4a')} <span class="ins-dim">${w.oxygen[i] > 0.6 ? 'healthy' : w.oxygen[i] > 0.3 ? 'low (hypoxic)' : 'dead zone'}</span>`],
-        ...(w.seaIce[i] > 0.05 ? [['Sea ice', `${bar(Math.min(1, w.seaIce[i]), '#cfe6f5')} <span class="ins-dim">${w.seaIce[i] > 0.8 ? 'pack ice' : w.seaIce[i] > 0.3 ? 'ice' : 'thin new ice'}</span>`]] : []),
-      ] : []),
-      ...(w.silt && w.meanSea > -999 && h < w.meanSea ? [['Water quality', `${bar(waterQuality(w, i), waterQuality(w, i) > 0.65 ? '#4fb0e0' : waterQuality(w, i) > 0.4 ? '#b09a5a' : '#8a5a2e')} <span class="ins-dim">${qualityLabel(waterQuality(w, i))} · silt ${w.silt[i].toFixed(2)} · pollutants ${w.pollution[i].toFixed(2)}</span>`]] : []),
-      ...(w.marine && w.marine[i] >= 0 && ['kelp', 'seagrass', 'coral'].includes(MARINE[w.marine[i]].id) ? [[marineThins(w.marine[i]) ? `${MARINE[w.marine[i]].id === 'kelp' ? 'Kelp' : 'Seagrass'} density` : 'Sea-bed health', bar(w.marineHealth[i], w.marineHealth[i] > 0.5 ? '#5cbf6a' : '#c96a4a')]] : []),
-            ...(w.coral && (w.coral[i] > 0.03 || (w.coralRubble && w.coralRubble[i] > 0.05)) ? [['Coral', `${bar(Math.min(1, w.coral[i]), '#e8a08f')} <span class="ins-dim">living cover${w.coralRubble[i] > 0.05 ? ` · dead rubble ${w.coralRubble[i].toFixed(2)}` : ''}</span>`]] : []),
-...(w.animals || []).filter((an) => w['animal_' + an.id] && w['animal_' + an.id][i] > 0.03).map((an) => [esc(an.name), `${bar(Math.min(1, w['animal_' + an.id][i]), `rgb(${an.color.map((c) => Math.round(c * 255)).join(',')})`)}${an.habits.runsRivers ? ` <span class="ins-dim">· run ${Math.round((an.stock || 0) * 100)}% of normal</span>` : ''}`]),
-      ...(w.dam && w.dam[i] > 0.05 ? [['Beaver dam', `${w.dam[i].toFixed(2)} high`]] : []),
-      ...(w.deadWood && w.deadWood[i] > 0.05 ? [['Dead wood', `${bar(w.deadWood[i], '#8a7f75')} <span class="ins-dim">beetle-killed: burns fiercely</span>`]] : []),
-      ...(w.dune && w.dune[i] > 0.1 ? [['Dunes', bar(w.dune[i], '#d8c99a')]] : []),
-      ...(w.mangrove && w.mangrove[i] > 0.05 ? [['Mangroves', bar(w.mangrove[i], '#2e6b3a')]] : []),
-      ...(w.ice && w.ice[i] > 0.02 ? [['Glacier ice', `${w.ice[i].toFixed(2)} thick · flowing ${(w.iceFlow ? w.iceFlow[i] * 100 : 0).toFixed(1)}${w.iceDebris && w.iceDebris[i] > 0.01 ? ` <span class="ins-dim">· carrying ${w.iceDebris[i].toFixed(2)} rock</span>` : ''}`]] : []),
-      ...(w.snow && w.snow[i] > 0.01 ? [['Snow depth', `${w.snow[i].toFixed(2)} <span class="ins-dim">· covers ${Math.round(snowAt(w, i, slope) * 100)}%</span>`]] : []),
-      ['Soil wetness', bar(w.soil ? w.soil[i] : 0, '#4f8ce0')],
-      ['Climate', bar(w.moisture ? w.moisture[i] : 0, '#7fa7d6')],
-      ['Last watered', lastWater],
-      ...(w.lava[i] > 0.01 ? [['Lava', `<span style="color:#ff8a4a">${w.lava[i].toFixed(2)} thick · ${Math.round(w.lavaTemp[i] * 100)}% hot</span>`]] : []),
-      ['Surface water', depth > 0.005 ? `${depth.toFixed(2)} deep · ${speed.toFixed(1)} speed` : 'dry'],
-      ['Sediment load', w.sediment[i] > 0.001 ? w.sediment[i].toFixed(3) : '—'],
-      ['Plant cover', `${bar(v, '#4caf50')} <span class="ins-dim">${cover}</span>`],
-      ...(v > 0.6 ? [['Forest age', `${bar(w.forestAge[i], '#2e7d32')} <span class="ins-dim">${w.forestAge[i] > 0.75 ? 'old growth' : w.forestAge[i] > 0.35 ? 'mature' : 'young'}</span>`]] : []),
-      ...(v > 0.3 ? [['Forest mix', compositionAt(w, i).slice(0, 4).map((s) => `<div><span class="tb-swatch ins-swatch" style="background:${rgb(s.color)}"></span>${s.label} ${Math.round(s.share * 100)}%</div>`).join('')]] : []),
-      ...(w.leafOn && w.decid && w.decid[i] > 0.02 && w.seasonT !== undefined && w.flush ? [['Leaves', leafLabel(w, i)]] : []),
-      ['Soil depth', bar(w.humus[i], '#8a6a45')],
-      ['Soil chemistry', chemLabel(w.soilChem ? w.soilChem[i] : 0)],
-      ['Bare rock', bar(w.bareExposure(i, slope), '#b0a090')],
-      ['Saturation', bar(saturation(w, i), '#4f8ce0')],
-      ['Slope stability', stability(slope / stableSlope(w, i))],
-      ...(w.fire[i] > 0 ? [['Fire', `<span style="color:#ff8a4a">burning · ${Math.round(w.fire[i] * 100)}% intensity</span>`]] : []),
-      ...(w.burnt[i] > 0.01 ? [['Burnt', `${bar(w.burnt[i], '#777')} <span class="ins-dim">ash</span>`]] : []),
-      ...(w.freshRock[i] > 0.01 ? [['Fresh rock', `${bar(w.freshRock[i], '#ff8a4a')} <span class="ins-dim">no soil yet</span>`]] : []),
-      ['Bedrock', `<span class="tb-swatch ins-swatch" style="background:${rgb(rock.color)}"></span>${rock.label}`],
-      ['Formation', `<span class="ins-dim">${formation(w, i, h)}</span>`],
-      ['Rock hardness', w.rocksEnabled ? bar(w.hardnessAt(h, i), '#b0a090') : 'uniform'],
-      ['Erodibility', `${w.erodibilityAt(h, i).toFixed(2)}×`],
-      ['Since baseline', `<span style="color:${change < -0.05 ? 'var(--erode)' : change > 0.05 ? 'var(--deposit)' : 'inherit'}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</span> ${change < -0.05 ? 'eroded' : change > 0.05 ? 'deposited' : ''}`],
-    ];
+    const dim = (t) => `<span class="ins-dim">${t}</span>`;
+    const wet = w.meanSea !== undefined && w.meanSea > -999 && h < w.meanSea;
+    const groups = [];
+    const group = (title, rows) => { const r = rows.filter(Boolean); if (r.length) groups.push([title, r]); };
+
+    // --- Weather ---
+    const wt = waterTempAt(w, i);
+    group('Weather', [
+      wt !== null
+        ? ['Water', `${wt.toFixed(1)} °C ${dim(`· year ${waterTempAt(w, i, false).toFixed(1)}`)}`]
+        : ['Temperature', w.seasonT ? `${(w.temperature[i] + seasonalAt(w, i)).toFixed(1)} °C ${dim(`· year ${w.temperature[i].toFixed(1)}`)}` : `${w.temperature[i].toFixed(1)} °C`],
+      ['Rain / snow', `${bar(w.precip ? w.precip[i] : 0, '#4f8ce0')} ${dim(`${cloudTempAt(w, i) < 0 ? 'snow' : 'rain'}${w.cloudBase ? ` · clouds ${(w.cloudBase[i] - h).toFixed(0)} up` : ''}`)}`],
+      w.wind ? ['Wind', `${Math.round(w.wind[i] * 40)} km/h ${dim(`${w.wind[i] > 1.1 ? 'exposed' : w.wind[i] > 0.6 ? 'breezy' : 'sheltered'} · evaporation ×${(w.evapRate ? w.evapRate[i] : 1).toFixed(1)}`)}`] : null,
+      w.snow && w.snow[i] > 0.01 ? ['Snow', `${w.snow[i].toFixed(2)} deep ${dim(`· covers ${Math.round(snowAt(w, i, slope) * 100)}%`)}`] : null,
+    ]);
+
+    // --- Sea ---
+    if (wet || (w.shore && w.shore[i] >= 0)) {
+      const m = w.marine ? w.marine[i] : -1;
+      const q = w.silt ? waterQuality(w, i) : 1;
+      group('Sea', [
+        w.shore && w.shore[i] >= 0 ? ['Shore', `${SHORES[w.shore[i]].label}${w.shoreSet && w.shoreSet[i] >= 0 ? ' (painted)' : ''} ${dim(`· sand ${(w.sand ? w.sand[i] : 0).toFixed(1)}`)}`] : null,
+        m >= 0 ? ['Sea bed', `${MARINE[marineShown(w, i)].label}${['kelp', 'seagrass', 'coral'].includes(MARINE[m].id) ? ` ${dim(`· ${marineThins(m) ? 'density' : 'health'} ${Math.round(w.marineHealth[i] * 100)}%`)}` : ''}`] : null,
+        w.coral && (w.coral[i] > 0.03 || (w.coralRubble && w.coralRubble[i] > 0.05)) ? ['Coral', `${Math.round(Math.min(1, w.coral[i]) * 100)}% living ${w.coralRubble[i] > 0.05 ? dim(`· rubble ${w.coralRubble[i].toFixed(1)}`) : ''}`] : null,
+        wet && w.curU ? ['Current', (() => { const sp = Math.hypot(w.curU[i], w.curV[i]); const dir = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(((Math.atan2(w.curV[i], w.curU[i]) * 180 / Math.PI + 360) % 360) / 45) % 8]; return `${sp < 0.03 ? 'slack' : `${(sp * 1.5).toFixed(1)} kn ${dir}`} ${dim(`· ${Math.cos(2 * Math.PI * (w.time || 0) / coastParams.tidePeriod) >= 0 ? 'rising' : 'falling'} tide ${(w.tide || 0) >= 0 ? '+' : ''}${(w.tide || 0).toFixed(1)}${w.surge > 0.05 ? ` · surge +${w.surge.toFixed(1)}` : ''}`)}`; })()] : null,
+        wet && w.silt ? ['Quality', `${bar(q, q > 0.65 ? '#4fb0e0' : q > 0.4 ? '#b09a5a' : '#8a5a2e')} ${dim(`${qualityLabel(q)} · ${(35 * (w.salinity ? w.salinity[i] : 1)).toFixed(0)} ‰ salt`)}`] : null,
+        wet && w.plankton ? ['Life', `${dim(`plankton ${w.plankton[i] > 1.2 ? 'bloom' : w.plankton[i] > 0.4 ? 'plentiful' : 'sparse'} · oxygen ${Math.round(w.oxygen[i] * 100)}%${w.oxygen[i] < 0.3 ? ' (dead zone)' : w.oxygen[i] < 0.6 ? ' (low)' : ''}`)}`] : null,
+        wet && w.seaIce && w.seaIce[i] > 0.05 ? ['Sea ice', `${w.seaIce[i] > 0.8 ? 'pack ice' : w.seaIce[i] > 0.3 ? 'ice' : 'thin new ice'}`] : null,
+        w.mangrove && w.mangrove[i] > 0.05 ? ['Mangroves', bar(w.mangrove[i], '#2e6b3a')] : null,
+        w.dune && w.dune[i] > 0.1 ? ['Dunes', bar(w.dune[i], '#d8c99a')] : null,
+      ]);
+    }
+
+    // --- Water and soil moisture (land) ---
+    if (!wet) {
+      group('Water', [
+        ['Surface', depth > 0.005 ? `${depth.toFixed(2)} deep ${dim(`· ${speed > 0.4 ? 'flowing' : 'standing'}${w.sediment[i] > 0.001 ? ` · silt ${w.sediment[i].toFixed(2)}` : ''}`)}` : `dry ${dim(`· last wet ${lastWater}`)}`],
+        ['Soil wetness', `${bar(w.soil ? w.soil[i] : 0, '#4f8ce0')} ${dim(`· climate ${Math.round((w.moisture ? w.moisture[i] : 0) * 100)}%`)}`],
+        w.ice && w.ice[i] > 0.02 ? ['Glacier', `${w.ice[i].toFixed(2)} thick ${dim(`· flow ${(w.iceFlow ? w.iceFlow[i] * 100 : 0).toFixed(1)}${w.iceDebris && w.iceDebris[i] > 0.01 ? ` · rock ${w.iceDebris[i].toFixed(2)}` : ''}`)}`] : null,
+        w.lava[i] > 0.01 ? ['Lava', `<span style="color:#ff8a4a">${w.lava[i].toFixed(2)} thick · ${Math.round(w.lavaTemp[i] * 100)}% hot</span>`] : null,
+      ]);
+
+      // --- Plants and forest ---
+      const td = w.treeDensity ? w.treeDensity[i] : 0, fh = w.forestHealth ? w.forestHealth[i] : 0;
+      const mix3 = v > 0.3 ? compositionAt(w, i).slice(0, 3) : [];
+      group('Plants', [
+        ['Cover', `${bar(v, '#4caf50')} ${dim(cover)}`],
+        v > 0.45 ? ['Trees', `${bar(td, '#2e6b3a')} ${dim(`${td > 0.75 ? 'closed canopy' : td > 0.45 ? 'dense' : td > 0.2 ? 'open' : 'scattered'} · ${w.forestAge[i] > 0.75 ? 'old growth' : w.forestAge[i] > 0.35 ? 'mature' : 'young'}`)}`] : null,
+        v > 0.3 ? ['Forest health', `${bar(fh, fh > 0.6 ? '#4caf50' : fh > 0.35 ? '#d8b84a' : '#c96a4a')} ${dim(fh > 0.6 ? 'young trees replacing old' : fh > 0.35 ? 'few seedlings' : 'not renewing: thinning')}`] : null,
+        mix3.length ? ['Species', mix3.map((s2) => `<span class="ins-chip"><span class="tb-swatch ins-swatch" style="background:${rgb(s2.color)}"></span>${s2.label} ${Math.round(s2.share * 100)}%</span>`).join(' ')] : null,
+        w.leafOn && w.decid && w.decid[i] > 0.02 && w.seasonT !== undefined && w.flush ? ['Leaves', leafLabel(w, i)] : null,
+        w.deadWood && w.deadWood[i] > 0.05 ? ['Dead wood', `${bar(w.deadWood[i], '#8a7f75')} ${dim('burns fiercely')}`] : null,
+        w.fire[i] > 0 ? ['Fire', `<span style="color:#ff8a4a">burning · ${Math.round(w.fire[i] * 100)}%</span>`] : null,
+        w.burnt[i] > 0.01 ? ['Burnt', `${bar(w.burnt[i], '#777')} ${dim('ash')}`] : null,
+      ]);
+
+      // --- Ground and rock ---
+      group('Ground', [
+        ['Soil', `${bar(w.humus[i], '#8a6a45')} ${dim(chemText(w.soilChem ? w.soilChem[i] : 0))}`],
+        ['Bedrock', `<span class="tb-swatch ins-swatch" style="background:${rgb(rock.color)}"></span>${rock.label} ${dim(`· ${formation(w, i, h)} · ${w.rocksEnabled ? `hardness ${Math.round(w.hardnessAt(h, i) * 100)}%` : 'uniform'}`)}`],
+        ['Exposure', `${dim(`bare rock ${Math.round(w.bareExposure(i, slope) * 100)}% · erodibility ${w.erodibilityAt(h, i).toFixed(2)}×`)}`],
+        ['Stability', `${stability(slope / stableSlope(w, i))} ${dim(`· soaked ${Math.round(saturation(w, i) * 100)}%`)}`],
+        w.freshRock[i] > 0.01 ? ['Fresh rock', `${bar(w.freshRock[i], '#ff8a4a')} ${dim('no soil yet')}`] : null,
+        w.dam && w.dam[i] > 0.05 ? ['Dam', `${w.dam[i].toFixed(2)} high`] : null,
+        Math.abs(change) > 0.05 ? ['Change', `<span style="color:${change < 0 ? 'var(--erode)' : 'var(--deposit)'}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</span> ${dim(change < 0 ? 'eroded' : 'deposited')}`] : null,
+      ]);
+    }
+
+    // --- Wildlife ---
+    group('Wildlife', (w.animals || []).filter((an) => w['animal_' + an.id] && w['animal_' + an.id][i] > 0.03).map((an) =>
+      [esc(an.name), `${bar(Math.min(1, w['animal_' + an.id][i]), rgb(an.color))}${an.habits.runsRivers ? ` ${dim(`· run ${Math.round((an.stock || 0) * 100)}%`)}` : ''}`]));
 
     this.root.innerHTML =
       `<div class="ins-head"><span class="tb-swatch" style="background:${swatch}"></span><b>${biome.label}</b>` +
       `<span class="ins-dim">cell ${x}, ${z}</span></div>` +
-      `<table>${rows.map(([k, val]) => `<tr><th>${k}</th><td>${val}</td></tr>`).join('')}</table>` +
+      `<div class="ins-sub">Altitude ${h.toFixed(1)}${sea ? ` (${(h - w.seaLevel) >= 0 ? '+' : ''}${(h - w.seaLevel).toFixed(1)} vs sea)` : ''} · slope ${(Math.atan(slope) * 180 / Math.PI).toFixed(0)}°</div>` +
+      groups.map(([t, rows]) => `<div class="ins-group">${t}</div><table>${rows.map(([k, val]) => `<tr><th>${k}</th><td>${val}</td></tr>`).join('')}</table>`).join('') +
       `<div class="ins-foot">Sim time ${fmtTime(w.time)}</div>`;
     this.root.hidden = false;
   }
@@ -115,6 +134,10 @@ function formation(w, i, h) {
   if (s >= 0 && h > w.surfaceBase[i] + 1e-3) return s === ROCK_INDEX.tuff ? 'Ash fall' : 'Lava flow';
   if (w.intrusionRock[i] >= 0 && h <= w.intrusionTop[i]) return w.intrusionTop[i] === Infinity ? 'Dike' : 'Pluton';
   return PROVINCES[w.province[i]];
+}
+
+function chemText(c) {
+  return c < -0.45 ? 'acidic' : c < -0.15 ? 'slightly acidic' : c <= 0.15 ? 'neutral' : c <= 0.5 ? 'base-rich' : 'alkaline (limey)';
 }
 
 function chemLabel(c) {

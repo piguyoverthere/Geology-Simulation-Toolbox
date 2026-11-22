@@ -144,6 +144,7 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   // (your animals carry over to the new map, but with no population yet: paint them in)
   for (const k of ['dam', 'deadWood', 'browse', 'salmonN', 'treeKill', 'runners']) if (world[k]) world[k].fill(0);
   for (const a of world.animals || []) { const f = world['animal_' + a.id]; if (f) f.fill(0); a.stock = 1; }
+  world.popHistory = {};
   initVegetation(world, seed);
   world.dirty = true;
 }

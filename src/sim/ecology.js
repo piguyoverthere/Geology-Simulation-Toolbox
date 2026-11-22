@@ -163,6 +163,11 @@ function ecologyPart(world, part, mult) {
     }
   }
   world.animals.forEach((a, idx) => { if (idx % 3 === part) stepAnimal(world, a, masks, sea, ecoParams.speed * mult); });
+  // Population history (for the graphs): every other round, each animal's total
+  if (part === 0) {
+    world.popRound = (world.popRound || 0) + 1;
+    if (world.popRound % 2 === 0) recordPopulations(world);
+  }
   world.dirty = true;
 }
 
@@ -299,6 +304,24 @@ function riverRun(world, a, P, M) {
   }
   for (let i = 0; i < n; i++) P[i] = Math.min(1.5, tmp[i]);
   a.mouths = Math.max(a.mouths || 0, mouths);
+}
+
+const HISTORY = 300; // samples kept per animal
+
+/** Add each animal's current total to its population history. */
+export function recordPopulations(world) {
+  if (!world.popHistory) world.popHistory = {};
+  const n = world.N * world.N;
+  for (const a of world.animals || []) {
+    const f = world['animal_' + a.id];
+    if (!f) continue;
+    let t = 0;
+    for (let i = 0; i < n; i++) t += f[i];
+    const h = world.popHistory[a.id] || (world.popHistory[a.id] = []);
+    h.push(Math.round(t * 10) / 10);
+    if (h.length > HISTORY) h.splice(0, h.length - HISTORY);
+  }
+  for (const id of Object.keys(world.popHistory)) if (!(world.animals || []).some((a) => a.id === id)) delete world.popHistory[id];
 }
 
 /** Can animal a live at cell i (for painting it in)? */
