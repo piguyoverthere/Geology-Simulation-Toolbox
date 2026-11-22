@@ -21,6 +21,7 @@ import { windParams, updateWind, windErosion } from './sim/wind.js';
 import { CurrentPaths } from './render/currentPaths.js';
 import { ecoParams, ecologyStep } from './sim/ecology.js';
 import { WildlifeMarkers } from './render/wildlife.js';
+import { recordStats } from './sim/stats.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
@@ -680,7 +681,8 @@ class App {
     this.drawings.update(dt, this.camera, hit, this.tool === 'draw');
     this.currentPaths.update(dt);
     this.wildlife.update(dt);
-    if (this.frame % 30 === 0) this.toolbox.drawGraphs(); // (population graphs)
+    if (this.frame % 30 === 0) { this.toolbox.drawGraphs(); this.toolbox.drawStats(); } // (population and map graphs)
+    if (this.sim.running && this.frame % 120 === 60) recordStats(this.world); // (whole-map statistics, every couple of seconds)
     this.controls.update();
     this.effects.applyShake(this.camera, dt);
     this.gl.render(this.scene, this.camera);

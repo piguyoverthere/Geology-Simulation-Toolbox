@@ -145,6 +145,7 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   for (const k of ['dam', 'deadWood', 'browse', 'salmonN', 'treeKill', 'runners']) if (world[k]) world[k].fill(0);
   for (const a of world.animals || []) { for (const k of ['animal_', 'hunger_']) { const f = world[k + a.id]; if (f) f.fill(0); } a.stock = 1; a.starving = 0; }
   world.popHistory = {};
+  world.statHistory = {};
   initVegetation(world, seed);
   world.dirty = true;
 }

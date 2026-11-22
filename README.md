@@ -171,6 +171,11 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   coastal plain, a snowy range with a volcano (glaciers, lava), and a dry, wind-worn sandstone plateau
   in its rain shadow, with real seasons, storms, big tides and a sea right at coral's limit. Presets
   bring their own settings and put back the previous preset's when you switch.
+- **Graphs** (at the bottom): how the whole map changes over time, sampled every couple of seconds
+  while the simulation runs and saved with the level: forest cover, grassland and shrubs, bare
+  ground, old growth, forest health, tree density, snow cover, glacier ice, burnt ground, dead forest,
+  average temperature, and for the sea its area, clean water, low-oxygen water, healthy sea beds,
+  coral reef and sea ice. Each shows its current value and a small graph; click to expand a chart.
 - **View**: clouds, water, **sea** (hide the sea's surface to see the sea bed: its sand and silt,
   seagrass, kelp, reefs and die-offs; the sea keeps running), wireframe. The **Coast & ocean**
   overlay draws the sea nearly clear so its sea-bed biomes show through.
@@ -206,6 +211,7 @@ src/sim/wind.js         Wind field (fetch over the sea, shadows behind land) and
 src/sim/ecology.js      Wildlife: the animals you design, what they eat, their habits and effects
 src/render/wildlife.js  The animals as dots on the map
 src/render/currentPaths.js  Drawn permanent currents
+src/sim/stats.js        Whole-map statistics over time (the Graphs panel)
 src/core/environments.js  Environment presets (ready-made climates)
 src/sim/phenology.js    Seasonal leaves: autumn colour, leaf fall, spring flush
 src/sim/species.js      Tree species, their preferences, and each cell's forest mix

@@ -13,6 +13,7 @@ import { ERUPTION_TYPES, INTRUSION_TYPES } from '../sim/volcanism.js';
 import { FAULT_TYPES } from '../sim/tectonics.js';
 import { SPECIES, OPEN } from '../sim/species.js';
 import { BIOMES } from '../render/biomes.js';
+import { STATS } from '../sim/stats.js';
 import { HABITATS, PLANT_FOODS, HABITS, MIGRATION, newAnimal, removeAnimal, describeAnimal } from '../sim/ecology.js';
 
 export class Toolbox {
@@ -296,9 +297,30 @@ export class Toolbox {
       toggle('Wireframe', app.renderer.terrainMat, 'wireframe', 'Show the terrain grid.', this),
     );
 
+    // --- Graphs ------------------------------------------------------------------------------
+    const graphs = this.section('Graphs', false);
+    graphs.append(el('div', 'tb-note', 'How the whole map changes over time (sampled every few seconds while the simulation runs). Click a graph to expand it.'));
+    this.statRows = [];
+    let lastGroup = null;
+    for (const st of STATS) {
+      if (st.group !== lastGroup) { graphs.append(el('div', 'tb-form-title', st.group)); lastGroup = st.group; }
+      const row = el('div', 'tb-stat');
+      const name = el('span', 'tb-stat-name', st.label);
+      const val = el('span', 'tb-stat-val', '—');
+      const spark = el('canvas', 'tb-spark');
+      spark.width = 64; spark.height = 18;
+      row.append(name, val, spark);
+      this.helpOn(row, `<b>${st.label}</b> — ${st.help}`);
+      const big = el('canvas', 'tb-popchart');
+      big.width = 270; big.height = 120; big.hidden = true;
+      row.addEventListener('click', () => { big.hidden = !big.hidden; this.drawStats(); });
+      graphs.append(row, big);
+      this.statRows.push({ st, val, spark, big });
+    }
+
     // Order the sections: the everyday ones first, specialist ones further down
     const order = ['Level', 'Overlays', 'Terrain', 'Water', 'Climate', 'Seasons', 'Weather', 'Ocean & coast', 'Wildlife',
-      'Erosion', 'Volcanism & tectonics', 'Geology', 'Drawings', 'View'];
+      'Erosion', 'Volcanism & tectonics', 'Geology', 'Drawings', 'View', 'Graphs'];
     const secs = [...r.querySelectorAll(':scope > details.tb-section')];
     const pos = (d) => { const k = order.indexOf(d.querySelector('summary').textContent); return k < 0 ? 99 : k; };
     const anchor = secs[0].previousSibling;
@@ -400,6 +422,18 @@ export class Toolbox {
         }
         drawLine(g.big, series, true);
       }
+    }
+  }
+
+  /** Redraw the whole-map graphs (Graphs panel). */
+  drawStats() {
+    const hist = this.app.world.statHistory || {};
+    for (const r of this.statRows || []) {
+      const data = hist[r.st.id] || [];
+      const fmt = r.st.unit === '%' ? (v) => `${v.toFixed(v < 10 ? 1 : 0)}%` : (v) => `${v.toFixed(1)} ${r.st.unit}`;
+      r.val.textContent = data.length ? fmt(data[data.length - 1]) : '—';
+      drawLine(r.spark, [{ data, color: '#e0a458', width: 1.5 }], false);
+      if (!r.big.hidden) drawLine(r.big, [{ data, color: '#e0a458', width: 2, label: r.st.label }], true, fmt);
     }
   }
 
@@ -711,7 +745,7 @@ function escapeHtml(t) { return String(t).replace(/[&<>"']/g, (c) => ({ '&': '&a
  * a legend with each series' latest value. Other series are drawn on their own scale (dashed), so
  * their rises and falls can be compared even when their numbers are very different.
  */
-function drawLine(cv, series, axes) {
+function drawLine(cv, series, axes, fmt = fmtPop) {
   const ctx = cv.getContext('2d');
   if (axes) cv.height = 104 + 13 * series.length;
   const W = cv.width, H = cv.height;
@@ -730,7 +764,7 @@ function drawLine(cv, series, axes) {
     const Y = Yf(main);
     ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
     ctx.fillStyle = '#9aa3ae'; ctx.font = '10px system-ui, sans-serif'; ctx.textAlign = 'right';
-    for (const v of [main[0], (main[0] + main[1]) / 2, main[1]]) { const y = Y(v); ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke(); ctx.fillText(fmtPop(v), pad.l - 4, y + 3); }
+    for (const v of [main[0], (main[0] + main[1]) / 2, main[1]]) { const y = Y(v); ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke(); ctx.fillText(fmt(v), pad.l - 4, y + 3); }
     ctx.textAlign = 'left'; ctx.fillText('earlier', pad.l, pad.t + ph + 12); ctx.textAlign = 'right'; ctx.fillText('now', W - pad.r, pad.t + ph + 12);
   }
   for (let k = (axes ? series.length : 1) - 1; k >= 0; k--) {
@@ -751,7 +785,7 @@ function drawLine(cv, series, axes) {
     series.forEach((s, k) => {
       ctx.fillStyle = s.color;
       ctx.fillRect(pad.l, y - 6, 10, k ? 1.5 : 2.5);
-      ctx.fillText(`${s.label}: ${s.data.length ? fmtPop(s.data[s.data.length - 1]) : '—'}${k ? ' (own scale)' : ''}`, pad.l + 14, y - 2);
+      ctx.fillText(`${s.label}: ${s.data.length ? fmt(s.data[s.data.length - 1]) : '—'}${k ? ' (own scale)' : ''}`, pad.l + 14, y - 2);
       y += 13;
     });
   }
