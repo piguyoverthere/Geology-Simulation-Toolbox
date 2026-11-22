@@ -338,7 +338,11 @@ export class TerrainRenderer {
             const lu = w.landUse[i];
             if (lu === 1) mix(col, ((x >> 1) + (z >> 1)) & 1 ? FIELD_A : FIELD_B, 0.65, col);
             else if (lu === 2) mix(col, ((x * 7 + z * 13) % 5) < 2 ? TOWN_ROOF : TOWN_PAVE, 0.9 * w.paved[i], col);
-            else if (lu === 3 && w.paved[i] > 0.3) mix(col, ROAD, 0.9, col);
+            else if (lu === 3 && w.paved[i] > 0.1) {
+              // A worn road fades and cracks toward the ground beside it
+              const rc = w.roadCond ? w.roadCond[i] : 1;
+              mix(col, rc > 0.5 ? ROAD : ROAD_WORN, 0.9 * Math.min(1, rc * 1.6), col);
+            }
           }
           // Trees killed by animals (bark beetles and the like): red-brown dying stands, grey snags
           if (this.showVegetation && w.deadWood) {
@@ -702,7 +706,7 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
-const FIELD_A = [0.78, 0.70, 0.38], FIELD_B = [0.52, 0.62, 0.30], TOWN_PAVE = [0.62, 0.60, 0.57], TOWN_ROOF = [0.66, 0.40, 0.32], ROAD = [0.30, 0.30, 0.32], DIRTY_RIVER = [0.42, 0.38, 0.26];
+const FIELD_A = [0.78, 0.70, 0.38], FIELD_B = [0.52, 0.62, 0.30], TOWN_PAVE = [0.62, 0.60, 0.57], TOWN_ROOF = [0.66, 0.40, 0.32], ROAD = [0.30, 0.30, 0.32], ROAD_WORN = [0.55, 0.52, 0.46], DIRTY_RIVER = [0.42, 0.38, 0.26];
 const TREES_NONE = [0.86, 0.84, 0.78], TREES_SPARSE = [0.78, 0.84, 0.58], TREES_MID = [0.36, 0.62, 0.30], TREES_DENSE = [0.06, 0.26, 0.12];
 const HEALTH_BAD = [0.80, 0.25, 0.18], HEALTH_MID = [0.92, 0.78, 0.30], HEALTH_GOOD = [0.18, 0.60, 0.28];
 const BEETLE_RED = [0.62, 0.32, 0.18], DEAD_WOOD = [0.52, 0.48, 0.44], SALMON_RUN = [0.80, 0.30, 0.30], WILD_NONE = [0.80, 0.80, 0.78];

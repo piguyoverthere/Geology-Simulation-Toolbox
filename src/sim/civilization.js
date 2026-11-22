@@ -21,7 +21,7 @@
 //   people out to found a daughter village; a town that dwindles away is abandoned, and its pavement
 //   slowly breaks up and grows over.
 
-import { boxBlur } from '../core/grid.js';
+import { boxBlur, MinHeap } from '../core/grid.js';
 import { seasonParams, seasonalAt } from './climate.js';
 
 export const civParams = {
@@ -51,6 +51,7 @@ export function ensureCiv(world) {
   if (!world.landUse || world.landUse.length !== n) world.landUse = new Int8Array(n);
   if (!world.civOwner || world.civOwner.length !== n) world.civOwner = new Int16Array(n);
   if (!world.riverPollution || world.riverPollution.length !== n) world.riverPollution = new Float32Array(n);
+  if (!world.roadCond || world.roadCond.length !== n) world.roadCond = new Float32Array(n);
 }
 
 function seaOf(world) { return world.meanSea !== undefined && world.meanSea > -999 ? world.meanSea : -1e9; }
@@ -145,6 +146,7 @@ function pave(world, i, owner, use) {
   }
   world.paved[i] = 1;
   world.landUse[i] = use;
+  if (use === 3) world.roadCond[i] = 1;
   if (owner) world.civOwner[i] = owner;
   world.vegetation[i] = 0;
   world.forestAge[i] = 0;
@@ -178,7 +180,7 @@ export function buildRoad(world, pts) {
   });
   for (let k = 0; k < cells.length; k++) {
     const i = cells[k];
-    if (H[i] < sea || world.water[i] > 0.4) { world.landUse[i] = 3; continue; } // (a bridge)
+    if (H[i] < sea || world.water[i] > 0.4) { world.landUse[i] = 3; world.roadCond[i] = 1; continue; } // (a bridge)
     const target = Math.max(smooth[k], sea + 0.6);
     // Terrace: the road bed and its shoulders follow the grade
     for (const j of [i, i - 1, i + 1, i - N, i + N]) {
@@ -238,6 +240,34 @@ export function civStep(world) {
     P[i] = Math.max(0, P[i] - 0.004);
     if (P[i] <= 0) LU[i] = 0;
   }
+  // --- Roads wear out and must be kept up ------------------------------------------------
+  // Weather, frost, floods and steep ground wear the road; the towns near it repair it (a bigger
+  // town keeps up more road, farther out). A neglected road cracks, then breaks up and grows over;
+  // only a road in working order lets towns grow along it and trade over it.
+  const RC = world.roadCond;
+  const upkeep = new Float32Array(n);
+  for (const t of towns) {
+    const reach = 14 + 4 * Math.sqrt(t.pop / 100), budget = t.pop / 25; // (road cells a step's work can fix)
+    const bx0 = Math.max(1, Math.floor(t.x - reach)), bx1 = Math.min(N - 2, Math.ceil(t.x + reach));
+    const bz0 = Math.max(1, Math.floor(t.z - reach)), bz1 = Math.min(N - 2, Math.ceil(t.z + reach));
+    let count = 0;
+    for (let z = bz0; z <= bz1; z++) for (let x = bx0; x <= bx1; x++) { const i = z * N + x; if (LU[i] === 3 && (x - t.x) ** 2 + (z - t.z) ** 2 < reach * reach) count++; }
+    if (!count) continue;
+    const share = Math.min(1, budget / count);
+    for (let z = bz0; z <= bz1; z++) for (let x = bx0; x <= bx1; x++) {
+      const i = z * N + x;
+      if (LU[i] === 3 && (x - t.x) ** 2 + (z - t.z) ** 2 < reach * reach) upkeep[i] = Math.max(upkeep[i], share);
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    if (LU[i] !== 3) continue;
+    const slope = slopeAt(world, i);
+    const wear = 0.0025 * (1 + 4 * slope) * (world.water[i] > 0.3 && H[i] >= sea ? 3 : 1) * (world.snow && world.snow[i] > 0.4 ? 1.6 : 1)
+      * (world.fire[i] > 0 ? 3 : 1) * (Math.abs(H[i] - world.prevHeight[i]) > 0.3 ? 10 : 1); // (landslides, floods)
+    RC[i] = Math.max(0, Math.min(1, RC[i] - wear + 0.03 * upkeep[i]));
+    P[i] = Math.min(1, RC[i] * 1.6); // (a broken road loses its paving: plants creep back)
+    if (RC[i] <= 0.03) { LU[i] = 0; P[i] = 0; RC[i] = 0; }
+  }
   if (!towns.length) { world.civPop = 0; return; }
   // (the site fields change slowly: refresh them every few steps)
   world.civFieldsAge = (world.civFieldsAge || 0) + 1;
@@ -271,8 +301,39 @@ export function civStep(world) {
         if (world.vegetation[i] > 0.45) world.vegetation[i] = 0.45; // (crops, not forest)
       }
     }
+    const harvest = food; // (from the fields alone)
     // Fish from the sea within reach
     food += 600 * fields.sea[ci] * (world.oxygen ? world.oxygen[ci] ?? 1 : 1);
+    // Hunting: a young settlement lives largely off the game around it (your land animals), which
+    // it thins out; as it grows and takes to farming, hunting fades away
+    const stage = Math.max(0, Math.min(1, (400 - t.pop) / 250));
+    t.hunted = 0;
+    if (stage > 0 && world.animals && world.animals.length) {
+      const HR = 12 + 8 * stage;
+      const hx0 = Math.max(0, Math.floor(t.x - HR)), hx1 = Math.min(N - 1, Math.ceil(t.x + HR));
+      const hz0 = Math.max(0, Math.floor(t.z - HR)), hz1 = Math.min(N - 1, Math.ceil(t.z + HR));
+      const hunters = Math.min(1, t.pop / 150) * stage * civParams.growth;
+      for (const a of world.animals) {
+        if (!['land', 'forest', 'meadow', 'mountains'].includes(a.habitat) || a.habits.killsTrees) continue; // (game, not insects)
+        const F = world['animal_' + a.id];
+        if (!F) continue;
+        for (let z = hz0; z <= hz1; z++) for (let x = hx0; x <= hx1; x++) {
+          const d2 = (x - t.x) ** 2 + (z - t.z) ** 2;
+          if (d2 > HR * HR) continue;
+          const i = z * N + x, take = F[i] * 0.02 * hunters * (1 - d2 / (HR * HR));
+          if (take > 0) { F[i] -= take; t.hunted += take; }
+        }
+      }
+      food += t.hunted * 1500;
+    }
+    // Trade: working roads to other towns bring in goods and food
+    let working = 0, roadsNear = 0;
+    for (let z = Math.max(1, t.z - 8); z <= Math.min(N - 2, t.z + 8); z++) for (let x = Math.max(1, t.x - 8); x <= Math.min(N - 2, t.x + 8); x++) {
+      const i = z * N + x;
+      if (LU[i] === 3) { roadsNear++; if (world.roadCond[i] > 0.4) working++; }
+    }
+    t.roadsWorking = roadsNear ? working / roadsNear : 1;
+    food *= 1 + Math.min(0.3, 0.08 * t.links.length) * (roadsNear ? t.roadsWorking : 0);
     food *= yearFactor;
     // Water: a river or lake nearby, or only wells; dirty water slows them
     const freshNear = fields.fresh[ci];
@@ -289,7 +350,7 @@ export function civStep(world) {
     // farmland to feed them
     // (farmers clear more land than they need today, so the town can grow into it: a town's size
     // ends up limited by how much fertile land there is around it, and by its neighbours)
-    const perFarm = farmCells ? Math.max(8, (food - 600 * fields.sea[ci]) / Math.max(0.5, yearFactor) / farmCells) : PER_FARM_CELL * 0.5;
+    const perFarm = farmCells ? Math.max(8, harvest / farmCells) : PER_FARM_CELL * 0.5;
     const wantTown = Math.ceil(t.pop / PER_TOWN_CELL), wantFarm = Math.ceil((t.pop * 1.8) / perFarm) + 4;
     if (townCells < wantTown) expand(world, t, 2, Math.min(3, wantTown - townCells), R, fields);
     if (farmCells < wantFarm) expand(world, t, 1, Math.min(8, wantFarm - farmCells), R * 2, fields);
@@ -322,18 +383,53 @@ export function civStep(world) {
   world.dirty = true;
 }
 
-/** Connect two towns with a road (unless the way is over open sea). */
-function linkTowns(world, a, b) {
-  const N = world.N, sea = seaOf(world);
-  let wet = 0;
-  const len = Math.hypot(b.x - a.x, b.z - a.z);
-  for (let k = 0; k <= len; k++) {
-    const x = Math.round(a.x + ((b.x - a.x) * k) / len), z = Math.round(a.z + ((b.z - a.z) * k) / len);
-    if (world.height[z * N + x] < sea) wet++;
+/**
+ * The way a road would go from a to b: the cheapest route over the land (A*), as road builders lay
+ * them out: along valleys and contours rather than straight over the hills, avoiding steep
+ * slopes, crossing rivers only where it must (and never the open sea), reusing roads already there.
+ * The route wanders a little with the lie of the land. Returns grid points, or null.
+ */
+export function routeRoad(world, a, b) {
+  const N = world.N, n = N * N, H = world.height, D = world.water, sea = seaOf(world), LU = world.landUse;
+  const pad = 30;
+  const x0 = Math.max(1, Math.min(a.x, b.x) - pad), x1 = Math.min(N - 2, Math.max(a.x, b.x) + pad);
+  const z0 = Math.max(1, Math.min(a.z, b.z) - pad), z1 = Math.min(N - 2, Math.max(a.z, b.z) + pad);
+  const s = Math.round(a.z) * N + Math.round(a.x), goal = Math.round(b.z) * N + Math.round(b.x);
+  const g = new Float32Array(n).fill(Infinity), from = new Int32Array(n).fill(-1);
+  const heap = new MinHeap(n * 4);
+  const hcost = (i) => Math.hypot((i % N) - b.x, ((i / N) | 0) - b.z);
+  g[s] = 0; heap.push(s, hcost(s));
+  const DX = [1, -1, 0, 0, 1, 1, -1, -1], DZ = [0, 0, 1, -1, 1, -1, 1, -1];
+  let found = false, guard = 0;
+  while (heap.size && guard++ < 200000) {
+    const c = heap.pop();
+    if (c === goal) { found = true; break; }
+    const cx = c % N, cz = (c / N) | 0;
+    for (let k = 0; k < 8; k++) {
+      const x = cx + DX[k], z = cz + DZ[k];
+      if (x < x0 || x > x1 || z < z0 || z > z1) continue;
+      const j = z * N + x;
+      if (H[j] < sea && LU[j] !== 3) continue; // (no road over open sea)
+      const len = k < 4 ? 1 : 1.414;
+      const grade = Math.abs(H[j] - H[c]) / len;
+      // The lie of the land: gentle undulations in where a road finds it easiest to go
+      const lie = 0.35 * (1 + Math.sin(x * 0.19 + z * 0.07) * Math.cos(z * 0.15 - x * 0.06));
+      const cost = len * (1 + 14 * grade * grade + (D[j] > 0.1 ? 6 : 0) + lie - (LU[j] === 3 ? 0.6 : 0));
+      const ng = g[c] + cost;
+      if (ng < g[j]) { g[j] = ng; from[j] = c; heap.push(j, ng + hcost(j)); }
+    }
   }
+  if (!found) return null;
+  const path = [];
+  for (let c = goal; c !== -1; c = from[c]) path.push({ x: c % N, z: (c / N) | 0 });
+  return path.reverse();
+}
+
+/** Connect two towns with a road, routed over the land (none if the only way is over open sea). */
+function linkTowns(world, a, b) {
   a.links.push(b.id); b.links.push(a.id);
-  if (wet > 3) return; // (no road across the sea)
-  buildRoad(world, [{ x: a.x, z: a.z }, { x: b.x, z: b.z }]);
+  const path = routeRoad(world, a, b);
+  if (path && path.length > 1) buildRoad(world, path);
 }
 
 /**
@@ -356,7 +452,7 @@ function expand(world, t, use, count, R, fields) {
     if (use === 2) {
       // Next to town or road
       let adj = 0, road = 0;
-      for (const j of [i - 1, i + 1, i - N, i + N]) { if (LU[j] === 2 && OW[j] === t.num) adj = 1; if (LU[j] === 3) road = 1; }
+      for (const j of [i - 1, i + 1, i - N, i + N]) { if (LU[j] === 2 && OW[j] === t.num) adj = 1; if (LU[j] === 3 && world.roadCond[j] > 0.4) road = 1; }
       if (!adj && !road) continue;
       if (slope > 0.6) continue;
       score = (1 - d / R) + road * 0.6 + adj * 0.3 - slope;

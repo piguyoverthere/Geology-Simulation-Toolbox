@@ -922,6 +922,15 @@ sends heavy pollution down the drainage: the rivers below towns run murky, and t
 into the sea at their mouths (where it spreads with the currents, feeds blooms and harms the sea
 beds and sea life).
 
+Roads are laid out over the land as road builders would: along valleys and contours rather than
+straight over the hills, avoiding steep slopes, crossing rivers only where they must. They have to be
+kept up: weather, frost, floods, fire, landslides and steep ground wear them, and the towns near them
+repair them (a bigger town keeps up more road, farther out). A neglected road cracks, then breaks up
+and grows over; only a road in working order lets towns grow along it and brings trade.
+
+A young settlement hunts the game around it (your land animals) for much of its food, thinning it
+out; as it grows and takes to farming, hunting fades away.
+
 Roads are built by terracing the hills along the route to an even grade and paving it, bridging the
 rivers. Towns grow out along their roads; big neighbours build roads to each other; a crowded town
 sends people to found a daughter village nearby, linked by road. A town that dwindles away is

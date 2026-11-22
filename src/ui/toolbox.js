@@ -493,7 +493,7 @@ export class Toolbox {
       const big = el('canvas', 'tb-popchart');
       big.width = 270; big.height = 120; big.hidden = !this.openTowns.has(t.id);
       row.addEventListener('click', () => { if (this.openTowns.has(t.id)) this.openTowns.delete(t.id); else this.openTowns.add(t.id); big.hidden = !this.openTowns.has(t.id); this.drawGraphs(); });
-      this.helpOn(row, `<b>${escapeHtml(t.name)}</b> — founded in year ${t.founded}. Population ${Math.round(t.pop)} of the ${Math.round(t.capacity || 0)} its land can feed; ${t.cells || 0} cells of town, ${t.farm || 0} of farmland. Click for its population chart.`);
+      this.helpOn(row, `<b>${escapeHtml(t.name)}</b> — founded in year ${t.founded}. Population ${Math.round(t.pop)} of the ${Math.round(t.capacity || 0)} its land can feed; ${t.cells || 0} cells of town, ${t.farm || 0} of farmland${t.hunted > 0.01 ? '; still hunting much of its food' : ''}${t.links && t.links.length ? `; roads to ${t.links.length} town${t.links.length > 1 ? 's' : ''} (${Math.round((t.roadsWorking ?? 1) * 100)}% in working order)` : ''}. Click for its population chart.`);
       L.append(row, big);
       this.townGraphs.push({ t, val, spark, big });
     }

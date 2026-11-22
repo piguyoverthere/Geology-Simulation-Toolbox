@@ -111,7 +111,7 @@ export class Inspector {
         ['Stability', `${stability(slope / stableSlope(w, i))} ${dim(`· soaked ${Math.round(saturation(w, i) * 100)}%`)}`],
         w.freshRock[i] > 0.01 ? ['Fresh rock', `${bar(w.freshRock[i], '#ff8a4a')} ${dim('no soil yet')}`] : null,
         w.dam && w.dam[i] > 0.05 ? ['Dam', `${w.dam[i].toFixed(2)} high`] : null,
-        w.landUse && w.landUse[i] ? ['Land use', (() => { const t = (w.towns || []).find((u) => u.num === w.civOwner[i]); const lu = w.landUse[i]; return `${lu === 1 ? 'Farmland' : lu === 2 ? 'Town (paved)' : 'Road'}${t ? ` ${dim(`· ${esc(t.name)}, ${Math.round(t.pop)} people`)}` : lu === 2 ? ` ${dim('· abandoned')}` : ''}`; })()] : null,
+        w.landUse && w.landUse[i] ? ['Land use', (() => { const t = (w.towns || []).find((u) => u.num === w.civOwner[i]); const lu = w.landUse[i]; return `${lu === 1 ? 'Farmland' : lu === 2 ? 'Town (paved)' : `Road ${dim(`· condition ${Math.round((w.roadCond ? w.roadCond[i] : 1) * 100)}%${(w.roadCond ? w.roadCond[i] : 1) < 0.4 ? ' (broken)' : ''}`)}`}${t ? ` ${dim(`· ${esc(t.name)}, ${Math.round(t.pop)} people`)}` : lu === 2 ? ` ${dim('· abandoned')}` : ''}`; })()] : null,
         Math.abs(change) > 0.05 ? ['Change', `<span style="color:${change < 0 ? 'var(--erode)' : 'var(--deposit)'}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</span> ${dim(change < 0 ? 'eroded' : 'deposited')}`] : null,
       ]);
     }
