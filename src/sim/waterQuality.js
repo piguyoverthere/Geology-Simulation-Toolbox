@@ -153,7 +153,9 @@ export function waterQualityStep(world, sea, half, filterOf, sensitivity, pace, 
       // A sparse one, already weakened, goes downhill fast.
       const k = m >= 0 ? pace[m] : 1, r = (m >= 0 ? resist[m] : 0) * hl;
       const limit = 0.35 * (1 + 1.6 * r);
-      if (stress > limit) HL[i] = Math.max(0, hl - 0.03 * k * (1 - 0.6 * r) * Math.min(1.5, (stress - limit) * 2));
+      // (the most sensitive beds, cold-water coral, die off fast but grow back very slowly)
+      const kd = sens > 2 ? 1 : k;
+      if (stress > limit) HL[i] = Math.max(0, hl - 0.03 * kd * (1 - 0.6 * r) * Math.min(1.5, (stress - limit) * 2));
       else HL[i] = Math.min(1, hl + 0.004 * k * (1 - stress / limit) * (world.bedGrow ? world.bedGrow[i] : 1)); // (coral: only in warm water, from living coral nearby)
     }
   }

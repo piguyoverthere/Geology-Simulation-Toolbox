@@ -57,17 +57,18 @@ export const MARINE = [
   { id: 'deep', label: 'Deep ocean', color: [0.08, 0.20, 0.42], bed: [0.36, 0.36, 0.36], help: 'Deep water far from shore.' },
   { id: 'estuary', label: 'Estuary (brackish)', color: [0.42, 0.56, 0.52], bed: [0.46, 0.44, 0.36], help: 'Where a river meets the sea: brackish water, part fresh and part salt, muddy and rich in nutrients. Too fresh for coral and kelp.' },
   { id: 'dieoff', label: 'Die-off (bare seabed)', color: [0.40, 0.44, 0.34], bed: [0.42, 0.44, 0.34], help: 'Seagrass, kelp or coral killed by dirty water (silt or pollutants): bare mud and rubble, or bleached, dead coral. It recovers slowly once the water is clean again.' },
+  { id: 'deepcoral', label: 'Cold-water coral', color: [0.92, 0.74, 0.62], bed: [0.84, 0.70, 0.60], help: 'Deep reefs of cold-water corals (like Lophelia): widespread in patches in deep, cool, full-strength seawater, but extremely sensitive. Silt, pollutants, low oxygen, brackish water, trawling, dredging and dumping wreck them, and they take a very long time to grow back.' },
 ];
 export const MARINE_ID = Object.fromEntries(MARINE.map((m, k) => [m.id, k]));
 // How well each sea bed cleans the water, and how easily dirty water harms it
-const FILTER = MARINE.map((m) => ({ seagrass: 0.06, kelp: 0.05, coral: 0.04 }[m.id] || 0));
-const SENSITIVE = MARINE.map((m) => ({ seagrass: 1.1, kelp: 1, coral: 1.6 }[m.id] || 0));
+const FILTER = MARINE.map((m) => ({ seagrass: 0.06, kelp: 0.05, coral: 0.04, deepcoral: 0.02 }[m.id] || 0));
+const SENSITIVE = MARINE.map((m) => ({ seagrass: 1.1, kelp: 1, coral: 1.6, deepcoral: 3.2 }[m.id] || 0)); // (cold-water coral: the most sensitive of all)
 // How fast each bed declines under dirty water and regrows once it's clean (seagrass slowest: the
 // meadow thins out gradually, its density falling over many weeks, and fills back in as slowly)
-const PACE = MARINE.map((m) => ({ seagrass: 0.2, kelp: 0.5, coral: 0.12 }[m.id] || 1)); // (reefs take many years to grow back)
+const PACE = MARINE.map((m) => ({ seagrass: 0.2, kelp: 0.5, coral: 0.12, deepcoral: 0.05 }[m.id] || 1)); // (reefs take many years to grow back)
 // How much a dense bed shields itself from dirty water (seagrass meadows most)
 // The least salty water each bed can stand (most die off in brackish water; eelgrass copes best)
-const SALT_TOL = MARINE.map((m) => ({ seagrass: 0.55, kelp: 0.8, coral: 0.88 }[m.id] || 0));
+const SALT_TOL = MARINE.map((m) => ({ seagrass: 0.55, kelp: 0.8, coral: 0.88, deepcoral: 0.9 }[m.id] || 0));
 const RESIST = MARINE.map((m) => ({ seagrass: 1, kelp: 0.5 }[m.id] || 0));
 // Beds whose density thins gradually (they show as a sparser meadow, not a sudden die-off)
 const THINS = MARINE.map((m) => m.id === 'seagrass' || m.id === 'kelp');
@@ -83,6 +84,9 @@ export function marineColor(world, i, bed, out) {
   out[0] = b[0] + (c[0] - b[0]) * t; out[1] = b[1] + (c[1] - b[1]) * t; out[2] = b[2] + (c[2] - b[2]) * t;
   return out;
 }
+
+/** True for living sea beds (kelp, seagrass, coral, cold-water coral): the ones that can be harmed. */
+export function isLivingBed(m) { return m >= 0 && SENSITIVE[m] > 0; }
 
 /** True for beds that thin gradually (seagrass, kelp): their health is their density. */
 export function marineThins(m) { return m >= 0 && THINS[m]; }
@@ -201,7 +205,10 @@ export function coastStep(world) {
         const T = Tbed + (((i * 2654435761) >>> 0) / 4294967296 - 0.5) * 3;
         // (coral and kelp need full-strength seawater; river mouths are brackish estuaries)
         const salt = world.salinity[i];
-        if (depth > 14) m = MARINE_ID.deep;
+        // Cold-water coral: patches of deep reef in cool, salty water below the sunlit shallows
+        const patch = 0.5 + 0.5 * Math.sin(x * 0.17 + z * 0.11) * Math.cos(z * 0.13 - x * 0.07) + 0.25 * ((((i * 2654435761) >>> 0) / 4294967296) - 0.5);
+        if (depth > 7 && depth < 40 && T > 3 && T < 14 && salt > 0.85 && patch > 0.55) m = MARINE_ID.deepcoral;
+        else if (depth > 14) m = MARINE_ID.deep;
         else if (salt < 0.65 && depth < 8) m = MARINE_ID.estuary; // (too brackish for most sea beds)
         else if (depth < 6 && T > 20 && salt > 0.85) m = MARINE_ID.coral;
         else if (depth < 6 && T > 4 && T < 19 && rocky && salt > 0.8) m = MARINE_ID.kelp;

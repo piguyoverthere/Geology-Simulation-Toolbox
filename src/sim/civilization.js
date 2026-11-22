@@ -23,7 +23,7 @@
 
 import { boxBlur, MinHeap } from '../core/grid.js';
 import { seasonParams, seasonalAt } from './climate.js';
-import { coastParams } from './coast.js';
+import { coastParams, isLivingBed, MARINE_ID } from './coast.js';
 
 export const civParams = {
   enabled: true,
@@ -327,9 +327,10 @@ function fishing(world, t) {
       const e = boats * 0.0035 * (1 - d / FR) / Math.max(1, FR / 10); // (fishing effort here)
       const m = world.marine ? world.marine[i] : -1, hl = world.marineHealth ? world.marineHealth[i] : 1;
       // The catch depends on a living sea: healthy beds, oxygen, clean water
-      prod += (0.35 + 0.65 * (m >= 1 && m <= 3 ? hl : 0.5)) * (world.oxygen ? world.oxygen[i] : 1) * (1 - Math.min(0.6, (world.pollution ? world.pollution[i] : 0) * 0.3));
+      prod += (0.35 + 0.65 * (isLivingBed(m) ? hl : 0.5)) * (world.oxygen ? world.oxygen[i] : 1) * (1 - Math.min(0.6, (world.pollution ? world.pollution[i] : 0) * 0.3));
       cells++;
-      if (m >= 1 && m <= 3 && world.marineHealth) world.marineHealth[i] = Math.max(0, hl - 0.25 * e); // (trawling)
+      // (trawling: deep coral reefs, slow to grow and brittle, are wrecked fastest)
+      if (isLivingBed(m) && world.marineHealth) world.marineHealth[i] = Math.max(0, hl - 0.25 * e * (m === MARINE_ID.deepcoral ? 3 : 1));
       if (world.pollution) world.pollution[i] = Math.min(4, world.pollution[i] + 0.04 * e);       // (fuel, bilge, waste)
       for (const a of seaAnimals) {
         const F = world['animal_' + a.id];

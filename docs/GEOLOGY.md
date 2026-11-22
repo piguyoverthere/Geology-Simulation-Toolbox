@@ -667,6 +667,11 @@ only very slowly. The dead coral's skeletons are left as **rubble**, which piles
 building the reef flat up until it emerges as a wider beach (or a little coral-sand island, a cay),
 and which the waves break up into white coral sand much faster than a living reef makes it.
 
+**Cold-water coral.** Below the sunlit shallows, in cool (about 3–14 °C), full-strength seawater, deep
+reefs of cold-water corals (like Lophelia) grow in patches across wide stretches of the sea floor.
+They are the most sensitive sea bed of all: silt, pollutants, low oxygen and brackish water damage
+them quickly, trawling, dredging and dumping wreck them, and they grow back only very slowly.
+
 **Tidal currents.** As the tide rises (the flood) the sea pours into the bays and channels from the
 open ocean, and as it falls (the ebb) it drains back out. The current runs along each channel,
 fastest in narrow passages and slowed by friction in the shallows, with a slow drift with the wind

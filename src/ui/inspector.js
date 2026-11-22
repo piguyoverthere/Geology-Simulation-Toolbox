@@ -68,7 +68,7 @@ export class Inspector {
       const q = w.silt ? waterQuality(w, i) : 1;
       group('Sea', [
         w.shore && w.shore[i] >= 0 ? ['Shore', `${SHORES[w.shore[i]].label}${w.shoreSet && w.shoreSet[i] >= 0 ? ' (painted)' : ''} ${dim(`· sand ${(w.sand ? w.sand[i] : 0).toFixed(1)}`)}`] : null,
-        m >= 0 ? ['Sea bed', `${MARINE[marineShown(w, i)].label}${['kelp', 'seagrass', 'coral'].includes(MARINE[m].id) ? ` ${dim(`· ${marineThins(m) ? 'density' : 'health'} ${Math.round(w.marineHealth[i] * 100)}%`)}` : ''}`] : null,
+        m >= 0 ? ['Sea bed', `${MARINE[marineShown(w, i)].label}${['kelp', 'seagrass', 'coral', 'deepcoral'].includes(MARINE[m].id) ? ` ${dim(`· ${marineThins(m) ? 'density' : 'health'} ${Math.round(w.marineHealth[i] * 100)}%`)}` : ''}`] : null,
         w.coral && (w.coral[i] > 0.03 || (w.coralRubble && w.coralRubble[i] > 0.05)) ? ['Coral', `${Math.round(Math.min(1, w.coral[i]) * 100)}% living ${w.coralRubble[i] > 0.05 ? dim(`· rubble ${w.coralRubble[i].toFixed(1)}`) : ''}`] : null,
         wet && w.curU ? ['Current', (() => { const sp = Math.hypot(w.curU[i], w.curV[i]); const dir = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(((Math.atan2(w.curV[i], w.curU[i]) * 180 / Math.PI + 360) % 360) / 45) % 8]; return `${sp < 0.03 ? 'slack' : `${(sp * 1.5).toFixed(1)} kn ${dir}`} ${dim(`· ${Math.cos(2 * Math.PI * (w.time || 0) / coastParams.tidePeriod) >= 0 ? 'rising' : 'falling'} tide ${(w.tide || 0) >= 0 ? '+' : ''}${(w.tide || 0).toFixed(1)}${w.surge > 0.05 ? ` · surge +${w.surge.toFixed(1)}` : ''}`)}`; })()] : null,
         wet && w.silt ? ['Quality', `${bar(q, q > 0.65 ? '#4fb0e0' : q > 0.4 ? '#b09a5a' : '#8a5a2e')} ${dim(`${qualityLabel(q)} · ${(35 * (w.salinity ? w.salinity[i] : 1)).toFixed(0)} ‰ salt`)}`] : null,

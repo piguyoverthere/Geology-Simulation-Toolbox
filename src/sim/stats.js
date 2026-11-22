@@ -5,6 +5,7 @@
 
 import { seasonalAt } from './climate.js';
 import { waterQuality } from './waterQuality.js';
+import { isLivingBed } from './coast.js';
 
 const HISTORY = 300;
 
@@ -31,7 +32,7 @@ export const STATS = [
   { id: 'sea', label: 'Sea', group: 'Sea', unit: '%', help: 'Share of the map that is sea.' },
   { id: 'clean', label: 'Clean water', group: 'Sea', unit: '%', help: 'Share of the sea whose water is clear (not muddy or polluted).' },
   { id: 'lowOxygen', label: 'Low-oxygen water', group: 'Sea', unit: '%', help: 'Share of the sea short of oxygen (hypoxic water and dead zones).' },
-  { id: 'beds', label: 'Healthy sea beds', group: 'Sea', unit: '%', help: 'Share of the kelp, seagrass and coral beds that are in good health.' },
+  { id: 'beds', label: 'Healthy sea beds', group: 'Sea', unit: '%', help: 'Share of the kelp, seagrass, coral and cold-water coral beds that are in good health.' },
   { id: 'coral', label: 'Coral reef', group: 'Sea', unit: '%', help: 'Share of the sea with living coral reef.' },
   { id: 'seaIce', label: 'Sea ice', group: 'Sea', unit: '%', help: 'Share of the sea frozen over.' },
 ];
@@ -50,7 +51,7 @@ export function computeStats(world) {
       if (world.silt && waterQuality(world, i) > 0.65) clean++;
       if (world.oxygen && world.oxygen[i] < 0.6) lowOx++;
       const m = world.marine ? world.marine[i] : -1;
-      if (m >= 1 && m <= 3) { beds++; if (world.marineHealth && world.marineHealth[i] > 0.5) bedsOK++; }
+      if (isLivingBed(m)) { beds++; if (world.marineHealth && world.marineHealth[i] > 0.5) bedsOK++; }
       if (world.coral && world.coral[i] > 0.3) coral++;
       if (world.seaIce && world.seaIce[i] > 0.3) seaIce++;
       continue;

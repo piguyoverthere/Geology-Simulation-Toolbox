@@ -314,7 +314,7 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
     // Nutrients: pollutants (sewage, fertiliser), river water, a little upwelling everywhere
     const nutrient = PO[i] + 0.4 * (1 - SAL[i]) + 0.03;
     // Sea beds take up nutrients first (and shade nothing: they compete with the plankton)
-    const bed = M && M[i] >= 0 && HL ? HL[i] * (M[i] >= 1 && M[i] <= 3 ? 1 : 0) : 0;
+    const bed = M && M[i] >= 0 && HL ? HL[i] * (M[i] >= 1 && M[i] <= 3 ? 1 : 0) : 0; // (shallow beds: they take up the nutrients)
     const warmHere = Math.max(0, Math.min(1, (T[i] - 6) / 14));
     const grow = p.blooms * 0.12 * light * (0.3 + warmHere) * nutrient * (1 - 0.6 * bed) * (1 - (ICE[i] > 0.3 ? 0.8 : 0));
     PL[i] += grow * (1 - PL[i] / 3) - 0.04 * PL[i];
