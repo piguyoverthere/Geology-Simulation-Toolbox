@@ -29,6 +29,7 @@ To put it online, turn on **GitHub Pages** for this repo (Settings → Pages →
 | `1`–`9`, `0`, `-`, `=` | Pick a tool (numbers shown on the tool bar) |
 | `D`, `L`, `F` | Draw paths and polygons, Lightning, Wildfire |
 | `C`, `N`, `G`, `W`, `B`, `U` | Storm, Snow, Glacier, Drain, Sink land, Raise land |
+| `A`, `K`, `P` | Age forest, Lake, Cross-section |
 | Enter / double-click, Backspace, Esc | While drawing: finish, remove last point, cancel |
 | `[` / `]` | Shrink / grow brush |
 | Space | Pause / resume the simulation |
@@ -73,6 +74,12 @@ its dot to recolour, ✕ to delete).
 **Month bar** (top of the view): the 12 months tinted by season, with a marker at today's date
 and its name (e.g. "Mid August"). Click a month to jump the year there. With Seasons off it offers
 to turn them on.
+
+**Cross-section** ⊟ (View group): drag a line across the land and a geological slice opens along it,
+showing the rock layers underground in their colours (folded strata, intrusions, lava and ash),
+the soil, and any snow, glacier ice and water on top, with a height scale. It follows the line live
+while you drag. **Age forest** ⌛ (Life): paint to age forest toward old growth (Shift: young
+again). **Lake** ◒ (Water): click a hollow to fill it to its spill level.
 
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
 sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or
@@ -154,6 +161,7 @@ src/render/biomes.js    Biome definitions and classification
 src/ui/toolbox.js       Right-hand settings panel and bottom tool bar
 src/ui/inspector.js     Inspect-tool readout
 src/ui/monthbar.js      Month bar: today's date in the seasonal year
+src/ui/section.js       Cross-section panel: a geological slice along a line
 src/core/save.js        Level save/load (.geolevel files) and browser autosave
 vendor/three/           three.js r169 (MIT)
 ```

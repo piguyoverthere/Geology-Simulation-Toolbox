@@ -17,6 +17,7 @@ import { glacierFlow, glacierBalance, glacierParams } from './sim/glacier.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
+import { CrossSection } from './ui/section.js';
 import { captureDefaults, snapshot, applySnapshot, encodeLevel, decodeLevel, storeLevel, fetchLevel, deleteLevel } from './core/save.js';
 import { Drawings, drawSettings } from './render/drawings.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
@@ -81,6 +82,7 @@ class App {
     this.toolbox = new Toolbox(document.getElementById('toolbox'), document.getElementById('toolbar'), this);
     this.inspector = new Inspector(document.getElementById('inspector'), this);
     this.monthBar = new MonthBar(document.getElementById('monthbar'), this);
+    this.section = new CrossSection(document.getElementById('viewport'), this);
     setInterval(() => this.autosave(), 30000);
     addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this.autosave(); });
     addEventListener('pagehide', () => this.autosave());
@@ -182,7 +184,7 @@ class App {
     this.cursor.visible = show;
     if (!show) return;
     const pos = this.cursor.geometry.attributes.position;
-    const small = { spring: 3, inspect: 1.5, erupt: 3, fault: 1.5, draw: 1.2, lightning: 2 };
+    const small = { spring: 3, inspect: 1.5, erupt: 3, fault: 1.5, draw: 1.2, lightning: 2, section: 1.2, lake: 2 };
     if (this.tool === 'storm') small.storm = Math.max(12, this.brush.radius * 2);
     const r = this.tool === 'intrude' && volcanoSettings.intrusion === 'dike' ? 1.5 : small[this.tool] ?? this.brush.radius;
     for (let k = 0; k <= 64; k++) {
@@ -245,7 +247,7 @@ class App {
         const end = this.pick() || this.lastHit || this.lineStart;
         const t = TOOLS[this.tool];
         if (t.line) {
-          this.history.push(this.world);
+          if (t.editsTerrain) this.history.push(this.world);
           t.place(this.brushCtx(this.lineStart, 0), this.lineStart, end);
         }
         this.lineStart = null;
@@ -267,7 +269,7 @@ class App {
       if (e.key === 'd' && !mod) { this.setTool('draw'); return; }
       if (e.key === 'l' && !mod) { this.setTool('lightning'); return; }
       if (e.key === 'f' && !mod) { this.setTool('wildfire'); return; }
-      const letters = { c: 'storm', w: 'drain', n: 'snow', g: 'glacier', b: 'subside', u: 'uplift' };
+      const letters = { c: 'storm', w: 'drain', n: 'snow', g: 'glacier', b: 'subside', u: 'uplift', a: 'age', k: 'lake', p: 'section' };
       if (letters[e.key] && !mod) { this.setTool(letters[e.key]); return; }
       if (e.key === '[') { this.brush.radius = Math.max(2, this.brush.radius - 2); this.toolbox.refresh(); }
       if (e.key === ']') { this.brush.radius = Math.min(60, this.brush.radius + 2); this.toolbox.refresh(); }
@@ -307,7 +309,7 @@ class App {
 
   brushCtx(hit, dt) {
     return {
-      world: this.world, x: hit.x, z: hit.z, radius: this.brush.radius, strength: this.brush.strength,
+      world: this.world, app: this, x: hit.x, z: hit.z, radius: this.brush.radius, strength: this.brush.strength,
       dt, stroke: this.stroke || {}, invert: this.shift,
     };
   }
@@ -557,7 +559,11 @@ class App {
     const hit = this.pick();
     if (hit) this.lastHit = hit;
     this.updateCursor(hit);
-    if (this.lineStart) this.updateLinePreview(this.lineStart, hit || this.lastHit);
+    if (this.lineStart) {
+      this.updateLinePreview(this.lineStart, hit || this.lastHit);
+      // The cross-section follows the line live while dragging
+      if (this.tool === 'section' && this.frame % 3 === 0) this.section.show(this.lineStart, hit || this.lastHit);
+    }
     if (this.tool === 'inspect' && this.frame % 3 === 0) this.inspector.update(hit);
     else if (this.tool !== 'inspect') this.inspector.update(null);
     if (this.painting && hit) TOOLS[this.tool].apply(this.brushCtx(hit, dt));

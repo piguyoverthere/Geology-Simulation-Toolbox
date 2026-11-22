@@ -3,6 +3,7 @@
 
 import { strike, spawnStormAt } from '../sim/weather.js';
 import { addIce } from '../sim/glacier.js';
+import { MinHeap } from '../core/grid.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -14,8 +15,42 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U' };
+const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P' };
 export function toolKey(id) { return LETTER_KEYS[id] || TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
+
+/**
+ * Fill the hollow at (x, z) to its spill level (a priority flood from the hollow's lowest point:
+ * the water rises until it reaches the lowest point of the rim, beyond which the ground drops away).
+ */
+export function fillLake(world, x, z) {
+  const N = world.N, H = world.height, D = world.water;
+  if (x < 1 || z < 1 || x > N - 2 || z > N - 2) return 0;
+  // Start from the bottom of the hollow
+  let s = z * N + x;
+  for (let k = 0; k < 500; k++) {
+    let low = s;
+    for (const j of [s - 1, s + 1, s - N, s + N]) if (H[j] < H[low]) low = j;
+    if (low === s) break;
+    s = low;
+  }
+  const seen = new Uint8Array(N * N), heap = new MinHeap(N * N), region = [];
+  heap.push(s, H[s]); seen[s] = 1;
+  let level = H[s];
+  const cap = (N * N) / 6;
+  while (heap.size) {
+    const c = heap.pop(), h = H[c];
+    if (h < level - 1e-4) break; // past the rim: the water would spill here
+    level = Math.max(level, h);
+    region.push(c);
+    const cx = c % N, cz = (c / N) | 0;
+    if (cx === 0 || cz === 0 || cx === N - 1 || cz === N - 1 || region.length > cap) break; // drains off the map
+    for (const j of [c - 1, c + 1, c - N, c + N]) if (!seen[j]) { seen[j] = 1; heap.push(j, H[j]); }
+  }
+  let filled = 0;
+  for (const c of region) if (level > H[c]) { D[c] = Math.max(D[c], level - H[c]); filled++; }
+  world.dirty = true;
+  return filled;
+}
 
 /** Raise (d > 0) or lower the whole landscape, keeping everything tied to the ground with it. */
 export function shiftLand(world, d) {
@@ -274,6 +309,32 @@ export const TOOLS = {
     apply({ world, strength, dt, invert }) {
       shiftLand(world, strength * 3 * dt * (invert ? -1 : 1));
     },
+  },
+  age: {
+    label: 'Age forest', group: 'Life', icon: '⌛', editsTerrain: false,
+    help: 'Paint to age the forest toward old growth: a darker, denser canopy, deeper soil, more shade-tolerant trees (fir, beech, tropical hardwoods) instead of pioneers (aspen, birch), and a forest that resists fire, drought and erosion better. Only forest ages (it is lost again where the forest is cleared or burns). Hold Shift to make it young again, as after a disturbance.',
+    apply({ world, x, z, radius, strength, dt, invert }) {
+      const s = strength * 0.8 * dt * (invert ? -1 : 1);
+      forEachCell(world, x, z, radius, (i, w) => {
+        if (world.vegetation[i] < 0.6 && !invert) return;
+        world.forestAge[i] = Math.min(1, Math.max(0, world.forestAge[i] + s * w));
+        // Old forests have built deep soil; making a stand young again doesn't take it away
+        if (!invert) world.humus[i] = Math.min(1, world.humus[i] + s * w * 0.5);
+      });
+      world.dirty = true;
+    },
+  },
+  lake: {
+    label: 'Lake', group: 'Water', icon: '◒', editsTerrain: false, click: true,
+    help: 'Click in a hollow to fill it with water up to the level where it would spill over its lowest rim, as a lake fills. The overflow then runs out and carves an outlet. (Most valleys here already drain, so their hollows are small; sculpt a dam first for a big lake.)',
+    apply({ world, x, z }) {
+      fillLake(world, Math.round(x), Math.round(z));
+    },
+  },
+  section: {
+    label: 'Cross-section', group: 'View', icon: '⊟', editsTerrain: false, line: true,
+    help: 'Drag a line across the land to slice through it: a geological cross-section opens showing the rock layers underground in their colours, the soil, and any snow, glacier ice and water on top, with heights. Great for seeing folded strata, intrusions, U-shaped valleys or what a fault did.',
+    place({ app }, a, b) { app.section.show(a, b); },
   },
 };
 

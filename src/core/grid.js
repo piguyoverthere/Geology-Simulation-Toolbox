@@ -139,7 +139,7 @@ export function carveRivers(H, N, { threshold = 150, depth = 2.5, perDoubling = 
   for (let i = 0; i < n; i++) H[i] -= Math.max(soft[i] * 0.7, cut[i]);
 }
 
-class MinHeap {
+export class MinHeap {
   constructor(cap) { this.idx = new Int32Array(cap); this.key = new Float32Array(cap); this.size = 0; }
   push(i, k) {
     let p = this.size++;
