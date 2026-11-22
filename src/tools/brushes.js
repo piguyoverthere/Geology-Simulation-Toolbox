@@ -7,6 +7,7 @@ import { MinHeap } from '../core/grid.js';
 import { paintShore, coastParams } from '../sim/coast.js';
 import { ensureQuality } from '../sim/waterQuality.js';
 import { ensureOcean, advect } from '../sim/ocean.js';
+import { ensureEcology } from '../sim/ecology.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -518,6 +519,49 @@ export const TOOLS = {
     },
   },
 };
+
+// --- Wildlife tools: paint a population where it can live (Shift removes it) -----------------
+function wildTool(id, label, icon, help, where) {
+  return {
+    label, group: 'Wildlife', icon, editsTerrain: false, help,
+    apply({ world, x, z, radius, strength, dt, invert }) {
+      ensureEcology(world);
+      world.ecoSeeded = true; // (painting on a fresh map: don't let the starting populations overwrite it)
+      const F = world[id], k = strength * 2 * dt;
+      forEachCell(world, x, z, radius, (i, w) => {
+        if (!invert && !where(world, i)) return;
+        F[i] = invert ? F[i] * (1 - Math.min(1, k * w * 2)) : Math.min(1, F[i] + k * w);
+      });
+      world.dirty = true;
+    },
+  };
+}
+const seaOK = (w) => w.meanSea !== undefined && w.meanSea > -999;
+const onLand = (w, i) => !(seaOK(w) && w.height[i] < w.meanSea) && w.water[i] < 0.3;
+const inSea = (w, i) => seaOK(w) && w.height[i] < w.meanSea;
+const onStream = (w, i) => !inSea(w, i) && w.water[i] > 0.03;
+Object.assign(TOOLS, {
+  deer: wildTool('deer', 'Deer', '🦌', 'Paint deer onto the land. They graze meadows and browse young trees: a big herd holds meadows open and keeps cleared or burnt ground from growing back into forest (and eats the streamside willows beavers need). Deep snow drives them downhill and kills some in hard winters; wolves hunt them. Hold Shift to remove deer.', onLand),
+  wolves: wildTool('wolves', 'Wolves', '🐺', 'Paint wolves onto the land. They live on deer: with wolves about there are fewer deer, and the deer keep off the open stream banks, so the willows and aspen there grow back (and the beavers return). Without deer, wolves starve. Hold Shift to remove wolves.', onLand),
+  beaver: wildTool('beaver', 'Beavers', '🦫', 'Paint beavers onto a stream (they need flowing water lined with willow, alder, aspen or birch). A healthy colony fells the trees and dams the stream, slowly raising a pond and soggy wetland behind the dam; abandoned dams wash out. Too many deer eat the willows and starve the beavers out. Hold Shift to remove beavers.', onStream),
+  beetle: wildTool('beetle', 'Bark beetles', '🪲', 'Start a bark beetle outbreak in a conifer forest. The beetles spread fastest through drought-stressed, warm forest and kill whole stands (red, then grey), leaving dead wood that burns fiercely when a fire comes. A hard winter freeze (below about −12 °C) kills them back. Hold Shift to remove them.', (w, i) => w.conifer && w.conifer[i] > 0.15 && w.vegetation[i] > 0.2),
+  salmon: {
+    label: 'Salmon', group: 'Wildlife', icon: '🐟', editsTerrain: false,
+    help: 'Stock the salmon: paint on a river or the sea to add fish (more salmon come back to run up the rivers each autumn, September to November). They swim upstream in cool, clean water (warm water, muddy water and dams hold them back), spawn and die, and their bodies fertilise the stream banks so the forest there grows richer. How many return depends on how many spawned and on the forage fish at sea. Hold Shift to fish them out.',
+    apply({ world, x, z, radius, strength, dt, invert }) {
+      ensureEcology(world);
+      world.salmonStock = Math.max(0.02, Math.min(2, world.salmonStock + (invert ? -1 : 1) * strength * 0.6 * dt));
+      forEachCell(world, x, z, radius, (i, w) => {
+        if (invert) world.salmon[i] *= 1 - Math.min(1, strength * 4 * dt * w);
+        else if (onStream(world, i)) world.salmon[i] = Math.min(1.5, world.salmon[i] + strength * 2 * dt * w);
+      });
+      world.dirty = true;
+    },
+  },
+  fish: wildTool('fish', 'Forage fish', '🐠', 'Release a school of forage fish (herring, anchovy) into the sea. They thrive where plankton is plentiful, grazing it down (which keeps plankton blooms in check), shelter in seagrass and kelp beds, die in low-oxygen water and pollution, and feed the salmon at sea. Hold Shift to remove them.', inSea),
+  urchin: wildTool('urchin', 'Sea urchins', '✳', 'Add sea urchins to the sea floor. They graze kelp: unchecked (no sea otters), they mow kelp forests down into bare urchin barrens. Hold Shift to remove them.', inSea),
+  otter: wildTool('otter', 'Sea otters', '🦦', 'Release sea otters along the coast (shallow water). They eat sea urchins, so kelp forests thrive where they live; without them urchins take over. Pollution kills them. Hold Shift to remove them.', (w, i) => inSea(w, i) && w.meanSea - w.height[i] < 12),
+});
 
 /** Fixed-size undo stack of height snapshots taken at the start of each terrain-editing stroke. */
 export class History {

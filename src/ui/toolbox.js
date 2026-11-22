@@ -13,6 +13,7 @@ import { ERUPTION_TYPES, INTRUSION_TYPES } from '../sim/volcanism.js';
 import { FAULT_TYPES } from '../sim/tectonics.js';
 import { SPECIES, OPEN } from '../sim/species.js';
 import { BIOMES } from '../render/biomes.js';
+import { SPECIES_ECO } from '../sim/ecology.js';
 
 export class Toolbox {
   /**
@@ -273,6 +274,13 @@ export class Toolbox {
     ter.append(terBtns, terBtns2, terBtns3);
 
     // --- View --------------------------------------------------------------------------------
+    // --- Wildlife ------------------------------------------------------------------------------
+    const wild = this.section('Wildlife', false);
+    wild.append(
+      toggle('Wildlife', app.ecoParams, 'enabled', 'Animal populations that depend on the land, the sea and each other: deer and wolves, beavers, bark beetles, salmon, forage fish, sea urchins and sea otters. Paint them in with the Wildlife tools; the Wildlife overlay maps them and the inspector shows them.', this),
+      slider('Population speed', app.ecoParams, 'speed', 0.2, 3, 0.1, 'How fast the animal populations grow, decline and move.', this),
+      toggle('Show animals', app.wildlife, 'visible', 'Show the animals as small coloured dots where they live: deer (tan), wolves (grey), beavers (orange), forage fish (silver), sea otters (brown). Bark beetle outbreaks show as dying red-grey forest and salmon runs as reddened rivers.', this),
+    );
     const view = this.section('View', false);
     view.append(
       toggle('Show clouds', app.renderer, 'showClouds', 'Show the clouds that form where moist air is pushed up over terrain.', this),
@@ -282,7 +290,7 @@ export class Toolbox {
     );
 
     // Order the sections: the everyday ones first, specialist ones further down
-    const order = ['Level', 'Overlays', 'Terrain', 'Water', 'Climate', 'Seasons', 'Weather', 'Ocean & coast',
+    const order = ['Level', 'Overlays', 'Terrain', 'Water', 'Climate', 'Seasons', 'Weather', 'Ocean & coast', 'Wildlife',
       'Erosion', 'Volcanism & tectonics', 'Geology', 'Drawings', 'View'];
     const secs = [...r.querySelectorAll(':scope > details.tb-section')];
     const pos = (d) => { const k = order.indexOf(d.querySelector('summary').textContent); return k < 0 ? 99 : k; };
@@ -358,6 +366,7 @@ export class Toolbox {
     else if (mode === 'precip') ramp('Precipitation', 'dry (rain shadow)', 'wet (windward)', [[0.86, 0.74, 0.52], [0.12, 0.35, 0.75]]);
     else if (mode === 'snowDepth') ramp('Snow depth (grey = none)', 'thin', 'deep', [[0.88, 0.92, 0.98], [0.55, 0.72, 0.95], [0.18, 0.30, 0.75]]);
     else if (mode === 'coast') items('Shores, dunes and ocean biomes', [...SHORES, { label: 'Coastal dunes', color: [0.86, 0.82, 0.62], help: 'Wind-blown sand behind sand beaches.' }, { label: 'Mangrove forest', color: [0.12, 0.30, 0.16], help: 'Forest standing in the tide on warm, sheltered mudflats.' }, ...MARINE]);
+    else if (mode === 'wildlife') items('Most common animal (stronger colour = more of them)', SPECIES_ECO);
     else if (mode === 'wind') ramp('Wind speed (land blocks it: calm in its lee)', 'calm', 'gale', [[0.86, 0.90, 0.92], [0.45, 0.72, 0.80], [0.20, 0.38, 0.72], [0.52, 0.20, 0.58]]);
     else if (mode === 'quality') ramp('Seawater quality', 'foul (silt, pollutants)', 'clear', [[0.45, 0.25, 0.12], [0.78, 0.68, 0.36], [0.20, 0.55, 0.85]]);
     else if (mode === 'topo') {

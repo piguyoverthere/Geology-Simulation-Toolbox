@@ -99,7 +99,8 @@ export function fireStep(world, dt) {
           : 1;
         // Grass and shrubs only burn well when they've dried out (cured grass in a dry summer)
         const grassy = V[j] <= 0.62 ? 0.3 + 0.8 * (1 - (SO ? SO[j] : 0.5)) + 4 * drought : 1;
-        const fuel = flammability(V[j]) * kind * grassy;
+        // (standing dead wood from a bark beetle outbreak burns fiercely)
+        const fuel = flammability(V[j]) * kind * grassy * (1 + 2.5 * (world.deadWood ? world.deadWood[j] : 0));
         const rj = resist(j);
         const damp = (1 - 0.7 * (W ? W[j] : 0)) * (D[j] > 0.05 ? Math.min(1, 0.1 * rj) : 1)
           * (rainingAt(j) ? Math.min(1, 0.3 * rj) : 1) * (0.7 + 0.6 * (1 - (SO ? SO[j] : 0.5)));

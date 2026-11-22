@@ -101,6 +101,14 @@ again for a circling eddy; Backspace undoes a point, Escape cancels). The sea fl
 carrying what's in the water, shown as flowing dashes and arrows; brush strength sets its speed and
 brush size its width. Shift-click removes the nearest one.
 
+**Wildlife** tools (paint them in; Shift removes): **Deer**, **Wolves**, **Beavers** (on streams; they
+dam them into ponds), **Bark beetles** (start an outbreak in conifers), **Salmon** (stock the runs),
+**Forage fish**, **Sea urchins** and **Sea otters**. They depend on each other and on the land and sea:
+deer browse forest regrowth, wolves keep deer down and off the stream banks, beavers need streamside
+willows, beetles kill drought-stressed conifers and leave fire fuel, forage fish graze plankton and feed
+the salmon, salmon fertilise the rivers' banks, urchins graze kelp and otters eat urchins. A **Wildlife**
+panel section turns it on or off, sets the population speed and shows or hides the animals.
+
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
 sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or
 lake), surface water depth and speed, sediment load, plant cover, rock hardness, erodibility,
@@ -190,6 +198,9 @@ src/sim/coast.js        Tides, shore types, wave erosion, beach sand, dunes, man
 src/sim/waterQuality.js Seawater silt and pollutants, filtering by sea beds, die-off and recovery
 src/sim/ocean.js        Water temperature by place, tidal and wind currents, salinity and estuaries, plankton blooms and oxygen, sea ice, storm surge, surf
 src/sim/wind.js         Wind field (fetch over the sea, shadows behind land) and slow wind erosion of sedimentary rock
+src/sim/ecology.js      Wildlife: deer, wolves, beavers, bark beetles, salmon, forage fish, urchins, otters
+src/render/wildlife.js  The animals as dots on the map
+src/render/currentPaths.js  Drawn permanent currents
 src/core/environments.js  Environment presets (ready-made climates)
 src/sim/phenology.js    Seasonal leaves: autumn colour, leaf fall, spring flush
 src/sim/species.js      Tree species, their preferences, and each cell's forest mix

@@ -4,6 +4,7 @@ import { ROCKS } from '../core/rocks.js';
 import { forestColor } from '../sim/forests.js';
 import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp, waterTempAt, marineShown, marineColor } from '../sim/coast.js';
 import { waterQuality } from '../sim/waterQuality.js';
+import { SPECIES_ECO, dominantAnimal } from '../sim/ecology.js';
 import { SPECIES, OPEN } from '../sim/species.js';
 import { climateParams, snowAt, seasonalAt } from '../sim/climate.js';
 
@@ -47,6 +48,7 @@ export const OVERLAYS = {
   coast: 'Coast & ocean',
   quality: 'Water quality',
   wind: 'Wind speed',
+  wildlife: 'Wildlife',
   decid: 'Deciduous trees',
   rock: 'Rock type',
   hardness: 'Rock hardness',
@@ -301,6 +303,11 @@ export class TerrainRenderer {
           // Today's temperature (annual mean + season); under the sea, the water's
           const wt = waterTempAt(w, i);
           col = shade(tempColor(wt !== null ? wt : w.temperature[i] + seasonalAt(w, i), S3), 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'wildlife') {
+          // The most common animal here, its colour stronger where there are more of them
+          const da = w.deer ? dominantAnimal(w, i) : null;
+          col = da ? mix(WILD_NONE, SPECIES_ECO[da[0]].color, Math.min(1, 0.35 + da[1] * 0.8), S3) : WILD_NONE.slice();
+          shade(col, 0.75 + 0.25 * ny, col);
         } else if (mode === 'wind') {
           col = shade(windColor(w.wind ? w.wind[i] : 0, S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'slope') {
@@ -308,6 +315,12 @@ export class TerrainRenderer {
           col = mix(SLOPE_LO, SLOPE_HI, t, S3);
         } else {
           col = this.naturalColor(h, slope, tan, h - BASE[i], D[i], i);
+          // Bark-beetle country: red-brown dying stands, grey dead snags
+          if (this.showVegetation && w.deadWood) {
+            const dw = w.deadWood[i], bt = w.beetle[i];
+            if (bt > 0.25) mix(col, BEETLE_RED, Math.min(0.55, (bt - 0.25) * 0.9), col);
+            if (dw > 0.04) mix(col, DEAD_WOOD, Math.min(0.7, dw * 1.3), col);
+          }
         }
         // Palette is authored in sRGB; vertex colours are linear, so square to approximate the conversion
         // Glacier ice: blue-white, greyer where it carries rock debris
@@ -357,7 +370,11 @@ export class TerrainRenderer {
             // Sea water colour follows its temperature: dark green-blue cold seas, deep blue temperate,
             // turquoise tropical shallows
             base = mix(this.seaShallow, this.seaDeep, Math.min(1, d / 10), S4);
-          } else base = mix(WATER_SHALLOW, WATER_DEEP, deep, S4);
+          } else {
+            base = mix(WATER_SHALLOW, WATER_DEEP, deep, S4);
+            // A salmon run: the river turns red with spawning fish
+            if (w.salmon && w.salmon[i] > 0.1) base = mix(base, SALMON_RUN, Math.min(0.6, w.salmon[i] * 0.5), S4);
+          }
           let wc = mix(base, MUD, mud * 0.8, S4);
           if (isSea && w.silt) {
             // Dirty seawater: silt turns it brown, pollutants a murky olive (overlay: by quality)
@@ -400,7 +417,7 @@ export class TerrainRenderer {
             this.wCol[i4 + 3] = 0.9;
           }
           // (the coast overlay is for looking at the sea bed: make the sea nearly clear)
-          if (mode === 'coast' && isSea) this.wCol[i4 + 3] *= 0.25;
+          if ((mode === 'coast' || mode === 'wildlife') && isSea) this.wCol[i4 + 3] *= 0.25;
         } else {
           this.wPos[i3 + 1] = h - 0.3;
           this.wCol[i4 + 3] = 0;
@@ -639,6 +656,7 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
+const BEETLE_RED = [0.62, 0.32, 0.18], DEAD_WOOD = [0.52, 0.48, 0.44], SALMON_RUN = [0.80, 0.30, 0.30], WILD_NONE = [0.80, 0.80, 0.78];
 const WIND_CALM = [0.86, 0.90, 0.92], WIND_BREEZE = [0.45, 0.72, 0.80], WIND_STRONG = [0.20, 0.38, 0.72], WIND_GALE = [0.52, 0.20, 0.58];
 /** Wind overlay colour: calm (pale) → breezy (teal) → strong (blue) → gale (purple). */
 function windColor(v, out) {

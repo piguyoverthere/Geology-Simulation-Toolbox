@@ -141,6 +141,7 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   world.sources.length = 0;
   world.pollSources = [];
   world.currentPaths = [];
+  world.ecoSeeded = false; world.salmonStock = 1; // (wildlife starts afresh on a new map)
   initVegetation(world, seed);
   world.dirty = true;
 }

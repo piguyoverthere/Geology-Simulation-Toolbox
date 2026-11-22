@@ -19,6 +19,8 @@ import { qualityParams } from './sim/waterQuality.js';
 import { oceanParams } from './sim/ocean.js';
 import { windParams, updateWind, windErosion } from './sim/wind.js';
 import { CurrentPaths } from './render/currentPaths.js';
+import { ecoParams, ecologyStep } from './sim/ecology.js';
+import { WildlifeMarkers } from './render/wildlife.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
@@ -55,6 +57,7 @@ class App {
     this.qualityParams = qualityParams;
     this.oceanParams = oceanParams;
     this.windParams = windParams;
+    this.ecoParams = ecoParams;
 
     this.tool = 'raise';
     this.brush = { radius: 12, strength: 0.5 };
@@ -82,6 +85,7 @@ class App {
     this.drawSettings = drawSettings;
     this.drawings = new Drawings(this.scene, this.world, this.renderer, document.getElementById('labels'));
     this.currentPaths = new CurrentPaths(this.scene, this.world, this.renderer);
+    this.wildlife = new WildlifeMarkers(this.scene, this.world, this.renderer);
     this.effects.climateParams = climateParams;
     this.setupCursor();
     this.setupInput();
@@ -654,6 +658,7 @@ class App {
       if (this.frame % 10 === 5 && this.sim.vegetation) compositionStep(this.world);
       if (this.frame % 10 === 3) seaStep(this.world);
       // Wind (recomputed only when the wind, sea or land changes) and its very slow erosion
+      if (this.frame % 10 === 9) { this.ecoPart = ((this.ecoPart ?? -1) + 1) % 3; ecologyStep(this.world, this.ecoPart); }
       if (this.frame % 10 === 7) { updateWind(this.world); if (this.world.erosionEnabled) windErosion(this.world); }
       // Glacier ice creeps a little every frame (faster at higher sim speed)
       if (this.world.ice) glacierFlow(this.world, this.sim.substeps / 6);
@@ -674,6 +679,7 @@ class App {
     this.effects.update(dt);
     this.drawings.update(dt, this.camera, hit, this.tool === 'draw');
     this.currentPaths.update(dt);
+    this.wildlife.update(dt);
     this.controls.update();
     this.effects.applyShake(this.camera, dt);
     this.gl.render(this.scene, this.camera);

@@ -814,3 +814,34 @@ A future "geological clock" could make this explicit.
 - *Geomorphology: The Mechanics and Chemistry of Landscapes*, Anderson & Anderson (2010)
 - Musgrave, Kolb & Mace, *The Synthesis and Rendering of Eroded Fractal Terrains* (SIGGRAPH 1989): the original thermal + hydraulic terrain erosion paper
 - Sebastian Lague, *Coding Adventure: Hydraulic Erosion* (YouTube), a very approachable intro to the droplet model
+
+## Wildlife: an ecosystem
+
+Animal populations live on the land and in the sea, each a density that grows, declines and moves,
+and each depending on the others and on the plants, rivers, sea and fire:
+
+- **Deer** graze meadows and browse young trees and shrubs. A big herd holds meadows open and stops
+  cleared or burnt ground (and the willows along streams) from growing back into forest. Deep snow
+  buries their food and drives them downhill; hard winters kill some.
+- **Wolves** live on deer. With wolves about, deer are fewer and wary: they keep away from the open
+  stream banks, so the willows and aspen there grow back (a *trophic cascade*), which brings back the
+  beavers. Without deer, wolves starve.
+- **Beavers** need streams lined with willow, alder, aspen or birch. They fell those trees and dam the
+  stream, slowly raising a pond and soggy wetland behind the dam; abandoned dams wash out. Too many deer
+  eat the willows and starve them out.
+- **Bark beetles** bore into drought-stressed, warm conifer forest. Outbreaks spread from stand to stand,
+  turning the forest red and then grey, and leave dead wood that burns fiercely when fire comes. A hard
+  winter freeze (below about −12 °C) kills them back.
+- **Forage fish** (herring, anchovy) swarm where plankton is plentiful and graze it down, keeping
+  blooms in check; they shelter in seagrass and kelp and die in low-oxygen or polluted water.
+- **Salmon** feed at sea on the forage fish, then each autumn (September to November) run up the
+  rivers in cool, clean water (warm water, mud and dams hold them back). They spawn and die, and their
+  bodies fertilise the stream banks, so the forest along salmon rivers grows faster. Next year's run
+  depends on how many spawned and on the forage fish at sea.
+- **Sea urchins** graze kelp; unchecked, they mow it into bare urchin barrens. **Sea otters** eat the
+  urchins, so kelp forests thrive where otters live; pollution kills otters.
+
+The Wildlife tools paint each one in (Shift removes it); the **Wildlife** overlay maps the most common
+animal in each place, the inspector lists them, and in the natural view the animals show as small
+dots, beetle outbreaks as red-grey dying forest and salmon runs as reddened rivers.
+

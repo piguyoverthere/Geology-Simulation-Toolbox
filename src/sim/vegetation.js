@@ -298,8 +298,14 @@ export function vegetationStep(world) {
     // Regrowth is faster near water and on deep soil; dieback (drought, cold) is slowed by forest
     // age, since mature trees ride out bad years on their reserves
     // (and slower in the cold: a short growing season)
+    // Grazing and browsing (sim/ecology.js): deer nip off seedlings and young trees, holding
+    // meadows open and keeping cleared ground from growing back into forest
+    const browse = world.browse ? Math.min(1, world.browse[i]) : 0;
+    if (browse > 0.02 && salt === 0) target = Math.max(Math.min(target, 0.5), target - 0.45 * browse * (1 - age));
+    // (salmon carcasses fertilise the banks of salmon rivers: plants there grow faster)
+    const salmonFed = world.salmonN ? world.salmonN[i] : 0;
     let rate = target > v
-      ? p.growth * (1 + p.riparianBoost * W[i]) * (0.5 + SO[i]) * (0.25 + 0.75 * smoothstep(-2, 12, VT[i]))
+      ? p.growth * (1 + p.riparianBoost * W[i] + 1.5 * salmonFed) * (0.5 + SO[i]) * (0.25 + 0.75 * smoothstep(-2, 12, VT[i]))
         * (seasonal ? 0.3 + 1.1 * smoothstep(0, 10, world.temperature[i] + seasonalAt(world, i, st)) : 1)
       : p.growth * (1 - 0.75 * age);
     if (burnt > 0) {
