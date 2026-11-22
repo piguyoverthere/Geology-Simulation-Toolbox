@@ -354,7 +354,9 @@ export function vegetationStep(world) {
         const seed = Math.min(1, f.standCover[i] * 1.3);
         const suit = Math.min(1, target / Math.max(0.3, v));
         const dead = world.deadWood ? world.deadWood[i] : 0;
-        const rec = suit * seed * (1 - 0.85 * browse) * (1 - 0.6 * dead) * (1 - 0.5 * burnt) * (0.5 + 0.5 * Math.min(1, S[i] * 2));
+        // (livestock from nearby farms graze the understory: seedlings eaten, trampled)
+        const graze = world.grazing ? world.grazing[i] : 0;
+        const rec = suit * seed * (1 - 0.85 * browse) * (1 - 0.75 * graze) * (1 - 0.6 * dead) * (1 - 0.5 * burnt) * (0.5 + 0.5 * Math.min(1, S[i] * 2));
         FH[i] += (rec - FH[i]) * 0.05;
         // Without young trees, the old stand thins as trees die (most in old forest)
         if (FH[i] < 0.35 && v > 0.6) target -= 0.4 * (0.35 - FH[i]) * age;

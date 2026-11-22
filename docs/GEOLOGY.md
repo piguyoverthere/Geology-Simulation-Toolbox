@@ -1014,6 +1014,22 @@ thins the forest either side, and lets the town spread out along it. Towns pollu
 from their shores, outfalls and drains. A town can only grow about a third beyond what its streets
 house, so it grows as fast as it builds and doesn't boom and crash.
 
+**Sewers, livestock, harbours and the Destruction slider.** A town past about 150 people digs a
+**sewer**, to the sea if it can reach it (within about 70 cells), otherwise to a real river or lake
+downhill. A big town whose sewer empties into a river later digs a new one to the sea. Everything its
+streets and works shed goes down the sewer and out at that one outfall, spreading into the sea there,
+or down the river as a single foul stream. Unsewered towns and roads still drain downhill, but they
+only stain real streams, not every damp patch. Towns grow in pairs of cells: each cell of housing
+needs another of infrastructure (streets, markets, workshops, wells). Once a town has a few hundred
+people it can terrace moderately steep ground (up to about 35°) into level fields; terraced fields
+count as level on their benches. Farm **livestock** graze the understory of the woods around the
+fields (within about 5 cells), eating and trampling seedlings, so forest health falls there. A town
+past a thousand people **needs a harbour** for its trade: it looks farther along the coast, then
+for a river or lake landing (no fishing fleet there). A town without one can't grow past about a
+thousand. The **Destruction** slider (0 careful, 1 normal, 3 ruthless) scales three things:
+slash-and-burn clearing, every pollution load from streets, works, farms and sewers, and how often
+and how much the towns cut hills into terraces.
+
 **Protected zones.** Any polygon you draw can be made a protected zone (🛡 in the Drawings list): it
 is kept wild. No town is founded or built inside it, no farmland is cleared, no industry is built,
 and roads between towns go around it (unless there is truly no other way). What was there already
