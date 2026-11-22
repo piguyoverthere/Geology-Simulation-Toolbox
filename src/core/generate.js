@@ -1,4 +1,4 @@
-import { createNoise2D, fbm, ridged } from './noise.js';
+import { createNoise2D, fbm, ridged, mulberry32 } from './noise.js';
 import { initVegetation } from '../sim/vegetation.js';
 import { generateGeology } from './rocks.js';
 import { boxBlur, breachDepressions, carveRivers } from './grid.js';
@@ -41,7 +41,7 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   if (cascades) {
     world.cones = cascades.cones; world.moistureBias = new Float32Array(N * N); world.gapCold = new Float32Array(N * N);
   }
-  const puget = preset === 'pugetsound' ? pugetLayout(N, noise) : null;
+  const puget = preset === 'pugetsound' ? pugetLayout(N, noise, seed) : null;
   if (puget) world.moistureBias = new Float32Array(N * N);
 
   for (let z = 0; z < N; z++) {
@@ -218,8 +218,21 @@ function cascadeGap(c, lu, lv) {
  * between; and the Cascade foothills rising to the east. The Strait of Juan de Fuca runs along the
  * north, joining the Sound to the ocean.
  */
-function pugetLayout(N, noise) {
-  return { N };
+function pugetLayout(N, noise, seed) {
+  // Islands, placed in clusters (3 groups of 3–5) plus a couple of lone ones out in open water.
+  // Each is a lobe stretched north–south, as the ice sheet streamlined them.
+  const rnd = mulberry32(seed * 977 + 13);
+  const islands = [];
+  const add = (x, z, size) => islands.push({
+    x, z, rx: (0.012 + rnd() * 0.016) * size, rz: (0.03 + rnd() * 0.05) * size, tilt: (rnd() - 0.5) * 0.5,
+  });
+  for (let c = 0; c < 3; c++) {
+    const cx = 0.44 + rnd() * 0.2, cz = 0.18 + c * 0.28 + (rnd() - 0.5) * 0.1;
+    const n = 3 + Math.floor(rnd() * 3);
+    for (let k = 0; k < n; k++) add(cx + (rnd() - 0.5) * 0.2, cz + (rnd() - 0.5) * 0.24, k === 0 ? 2.1 : 0.7 + rnd() * 0.7);
+  }
+  for (let k = 0; k < 2; k++) add(0.42 + rnd() * 0.26, 0.1 + rnd() * 0.8, 0.5 + rnd() * 0.5);
+  return { N, islands };
 }
 
 function pugetHeight(c, noise, lu, lv, u, v) {
@@ -238,13 +251,30 @@ function pugetHeight(c, noise, lu, lv, u, v) {
   // The Sound: the ice sheet gouged a branching network of north–south troughs, now flooded by the
   // sea. Between them the upland is left as long, irregular islands and peninsulas (Vashon,
   // Bainbridge, the Kitsap Peninsula) with steep bluffs dropping to the water.
-  const band = smoothstep(0.3, 0.36, lu) * (1 - smoothstep(0.7, 0.78, lu));
-  const wu = u + 0.05 * noise(u * 4 + 1.7, v * 4), wv = v + 0.05 * noise(u * 4, v * 4 + 3.3);
-  const main = Math.abs(noise(wu * 3.2 + 7.1, wv * 0.9 + 2.2));   // the main channels
-  const side = Math.abs(noise(wu * 5.6 - 3.3, wv * 1.6 + 9.1));   // side passages and inlets
-  const cove = Math.abs(noise(wu * 9.5 + 13, wv * 2.8 - 4));      // small bays and narrows
-  const ch = Math.max(1 - smoothstep(0.1, 0.3, main), 1 - smoothstep(0.07, 0.22, side), 0.45 * (1 - smoothstep(0.03, 0.1, cove)));
-  y -= band * 17 * Math.min(1, ch * 1.15);
+  // Land vs water comes from a broad, smooth pattern stretched north–south (so the islands are
+  // a few big, lobed blocks, not ribbons), with a little fine roughness on the shore that the
+  // waves then straighten. Tied to the map, not the cell count, so bigger maps add detail, not
+  // more islands.
+  const band = smoothstep(0.3, 0.37, lu) * (1 - smoothstep(0.7, 0.78, lu));
+  const wu = lu + 0.04 * noise(lu * 3 + 1.7, lv * 3), wv = lv + 0.04 * noise(lu * 3, lv * 3 + 3.3);
+  // The Sound is open water between its shores, broken by islands that come in clusters (Vashon and
+  // Maury, Bainbridge, the South Sound group) with open basins between, plus peninsulas reaching out
+  // from the shores
+  let isl = -1;
+  for (const k of c.islands) {
+    const dx = wu - k.x, dz = wv - k.z;
+    const ax = dx * Math.cos(k.tilt) - dz * Math.sin(k.tilt), az = dx * Math.sin(k.tilt) + dz * Math.cos(k.tilt);
+    isl = Math.max(isl, 1 - Math.sqrt((ax / k.rx) ** 2 + (az / k.rz) ** 2));
+  }
+  // Island edges: lobed and irregular
+  isl += 0.25 * fbm(noise, lu * 14 + 3.1, lv * 7 - 1.2, 3);
+  // Shores: land near the band's edges, with peninsulas poking out
+  const edge = Math.min(lu - 0.37, 0.72 - lu);
+  const shore = 1 - smoothstep(0, 0.045, edge) + 0.5 * fbm(noise, wu * 5 + 7.1, wv * 2 + 2.2, 3) - 0.3;
+  const landness = Math.max(isl * 0.25, shore * 0.25) + 0.02 * fbm(noise, lu * 22, lv * 14, 2);
+  // Water where the pattern dips below zero; the edge is a steep bluff, the channel floor broad
+  const water = smoothstep(0.02, -0.1, landness);
+  y -= band * 17 * water;
   const canal = Math.exp(-((lu - 0.33) ** 2) / (2 * 0.012 * 0.012)) * smoothstep(0.25, 0.4, lv) * (1 - smoothstep(0.75, 0.85, lv));
   y -= canal * 13;
   // A low coastal plain behind the Pacific shore: room for sand beaches and dunes

@@ -134,9 +134,9 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   northern cluster, a low pass like the I-90 corridor, big stratovolcanoes in the south, a wet
   forested west and a dry plateau in the rain shadow, with westerly wind and dry summers. The
   **Puget Sound** preset adds the sea: the Pacific coast with a sandy coastal plain and dunes, the
-  Olympic Mountains, the Sound (a branching network of glacier-carved troughs, about half water,
-  with irregular north–south islands like Vashon and Bainbridge and straight beaches below steep
-  bluffs) and Hood Canal, the
+  Olympic Mountains, the Sound (open water broken by clusters of lobed, north–south islands like
+  Vashon and Maury, with open basins between and peninsulas reaching out from the shores; straight
+  beaches below steep bluffs) and Hood Canal, the
   Strait of Juan de Fuca and the Cascade foothills, with big tides and frequent ocean fog. Presets
   bring their own settings and put back the previous preset's when you switch.
 - **View**: clouds, water, wireframe.
