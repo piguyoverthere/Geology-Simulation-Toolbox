@@ -139,6 +139,10 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   bare ground; slower in shaded valleys and under forest) and **Dry summers** (with Seasons: rain
   mostly from autumn to spring, and a summer fire season with dry lightning storms), and **Snow slope
   limit** (the steepest slope snow builds up on).
+The settings are on five tabs at the top of the panel: **Map** (level, overlays and key, terrain,
+drawings, view), **Land** (water, erosion, geology, volcanism and tectonics), **Climate** (climate,
+seasons, weather), **Sea** (ocean and coast) and **Life** (wildlife).
+
 - **Overlays**: colour the map by one data layer (biomes, vegetation, tree species, forest age,
   coast & ocean (shore types, dunes, mangroves, ocean biomes), water quality, wind speed, wildlife, forest density, forest health, topographic map (elevation bands with contour lines, index contours every fifth), temperature,
   precipitation, snow depth, glacier ice, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
@@ -171,11 +175,12 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   coastal plain, a snowy range with a volcano (glaciers, lava), and a dry, wind-worn sandstone plateau
   in its rain shadow, with real seasons, storms, big tides and a sea right at coral's limit. Presets
   bring their own settings and put back the previous preset's when you switch.
-- **Graphs** (at the bottom): how the whole map changes over time, sampled every couple of seconds
-  while the simulation runs and saved with the level: forest cover, grassland and shrubs, bare
-  ground, old growth, forest health, tree density, snow cover, glacier ice, burnt ground, dead forest,
-  average temperature, and for the sea its area, clean water, low-oxygen water, healthy sea beds,
-  coral reef and sea ice. Each shows its current value and a small graph; click to expand a chart.
+- **Graphs** window (bottom left of the map, click to open): how the whole map changes over time,
+  sampled every couple of seconds while the simulation runs and saved with the level: forest cover,
+  grassland and shrubs, bare ground, old growth, forest health, tree density, snow cover, glacier ice,
+  burnt ground, dead forest, average temperature, and for the sea its area, clean water, low-oxygen
+  water, healthy sea beds, coral reef and sea ice. Each row shows its value and a small graph; click
+  it for the full chart.
 - **View**: clouds, water, **sea** (hide the sea's surface to see the sea bed: its sand and silt,
   seagrass, kelp, reefs and die-offs; the sea keeps running), wireframe. The **Coast & ocean**
   overlay draws the sea nearly clear so its sea-bed biomes show through.

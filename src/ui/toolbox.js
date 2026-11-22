@@ -17,6 +17,15 @@ import { STATS } from '../sim/stats.js';
 import { YEAR_KINDS } from '../sim/climate.js';
 import { HABITATS, PLANT_FOODS, HABITS, MIGRATION, newAnimal, removeAnimal, describeAnimal } from '../sim/ecology.js';
 
+/** The sidebar's topic tabs and the settings sections on each. */
+const TABS = {
+  map: { label: 'Map', icon: '🗺', sections: ['Level', 'Overlays', 'Terrain', 'Drawings', 'View'], help: 'Your level (save, load), map overlays and their key, terrain presets and size, drawings, and what is shown.' },
+  land: { label: 'Land', icon: '⛰', sections: ['Water', 'Erosion', 'Geology', 'Volcanism & tectonics'], help: 'Water on the land, erosion, rocks, volcanoes and faults.' },
+  climate: { label: 'Climate', icon: '☀', sections: ['Climate', 'Seasons', 'Weather'], help: 'Environments, temperature and wind, the seasons (and good and bad years), storms and weather.' },
+  sea: { label: 'Sea', icon: '🌊', sections: ['Ocean & coast'], help: 'The sea, tides, currents, coasts and water quality.' },
+  life: { label: 'Life', icon: '🐾', sections: ['Wildlife'], help: 'Your animals: design them, paint them in, follow their populations.' },
+};
+
 export class Toolbox {
   /**
    * @param {HTMLElement} root     the right-hand panel
@@ -44,6 +53,18 @@ export class Toolbox {
 
     this.statsEl = el('div', 'tb-stats');
     r.append(this.statsEl);
+    // Topic tabs: one topic's settings at a time
+    this.tabBar = el('div', 'tb-tabs');
+    this.tabButtons = {};
+    for (const [id, t] of Object.entries(TABS)) {
+      const b = el('button', 'tb-tab');
+      b.append(el('span', 'tb-tab-icon', t.icon), el('span', '', t.label));
+      b.addEventListener('click', () => this.showTab(id));
+      this.helpOn(b, `<b>${t.label}</b> — ${t.help}`);
+      this.tabBar.append(b);
+      this.tabButtons[id] = b;
+    }
+    r.append(this.tabBar);
 
     // --- Overlays ----------------------------------------------------------------------------
     const ov = this.section('Overlays', true);
@@ -302,36 +323,52 @@ export class Toolbox {
       toggle('Wireframe', app.renderer.terrainMat, 'wireframe', 'Show the terrain grid.', this),
     );
 
-    // --- Graphs ------------------------------------------------------------------------------
-    const graphs = this.section('Graphs', false);
-    graphs.append(el('div', 'tb-note', 'How the whole map changes over time (sampled every few seconds while the simulation runs). Click a graph to expand it.'));
+    // --- Graphs: a window at the bottom left of the map, expanded on demand ------------------
+    const win = el('div', 'graph-win');
+    const graphBody = el('div', 'graph-body');
+    let open = false;
+    try { open = localStorage.getItem('geo.graphs') === '1'; } catch { /* storage blocked */ }
+    const head = el('button', 'graph-head');
+    const setOpen = (o) => {
+      open = o; graphBody.hidden = !o; win.classList.toggle('open', o);
+      head.textContent = o ? '📈 Graphs ▾' : '📈 Graphs ▸';
+      try { localStorage.setItem('geo.graphs', o ? '1' : '0'); } catch { /* storage blocked */ }
+      if (o) this.drawStats();
+    };
+    head.addEventListener('click', () => setOpen(!open));
+    graphBody.append(el('div', 'tb-note', 'How the whole map changes over time (sampled every couple of seconds while the simulation runs). Click a row to expand its chart.'));
     this.statRows = [];
     let lastGroup = null;
     for (const st of STATS) {
-      if (st.group !== lastGroup) { graphs.append(el('div', 'tb-form-title', st.group)); lastGroup = st.group; }
+      if (st.group !== lastGroup) { graphBody.append(el('div', 'tb-form-title', st.group)); lastGroup = st.group; }
       const row = el('div', 'tb-stat');
       const name = el('span', 'tb-stat-name', st.label);
       const val = el('span', 'tb-stat-val', '—');
       const spark = el('canvas', 'tb-spark');
       spark.width = 64; spark.height = 18;
       row.append(name, val, spark);
-      this.helpOn(row, `<b>${st.label}</b> — ${st.help}`);
+      row.title = st.help;
       const big = el('canvas', 'tb-popchart');
       big.width = 270; big.height = 120; big.hidden = true;
       row.addEventListener('click', () => { big.hidden = !big.hidden; this.drawStats(); });
-      graphs.append(row, big);
+      graphBody.append(row, big);
       this.statRows.push({ st, val, spark, big });
     }
+    win.append(head, graphBody);
+    document.getElementById('viewport').append(win);
+    this.graphWin = win;
+    setOpen(open);
 
-    // Order the sections: the everyday ones first, specialist ones further down
-    const order = ['Level', 'Overlays', 'Terrain', 'Water', 'Climate', 'Seasons', 'Weather', 'Ocean & coast', 'Wildlife',
-      'Erosion', 'Volcanism & tectonics', 'Geology', 'Drawings', 'View', 'Graphs'];
-    const secs = [...r.querySelectorAll(':scope > details.tb-section')];
-    const pos = (d) => { const k = order.indexOf(d.querySelector('summary').textContent); return k < 0 ? 99 : k; };
-    const anchor = secs[0].previousSibling;
+    // Put each tab's sections in order, and open the last-used tab
+    const order = Object.values(TABS).flatMap((t) => t.sections);
+    const secs = [...r.querySelectorAll(':scope > .tb-section')];
+    const pos = (d) => { const k = order.indexOf(d.dataset.title); return k < 0 ? 99 : k; };
     secs.sort((a, b) => pos(a) - pos(b));
-    let after = anchor;
-    for (const d of secs) { after ? after.after(d) : r.prepend(d); after = d; }
+    let after = this.tabBar;
+    for (const d of secs) { after.after(d); after = d; }
+    let saved = 'map';
+    try { saved = localStorage.getItem('geo.tab') || 'map'; } catch { /* storage blocked */ }
+    this.showTab(saved);
 
     // --- Info --------------------------------------------------------------------------------
     this.info = el('div', 'tb-info');
@@ -432,6 +469,7 @@ export class Toolbox {
 
   /** Redraw the whole-map graphs (Graphs panel). */
   drawStats() {
+    if (this.graphWin && !this.graphWin.classList.contains('open')) return;
     const hist = this.app.world.statHistory || {};
     for (const r of this.statRows || []) {
       const data = hist[r.st.id] || [];
@@ -629,18 +667,25 @@ export class Toolbox {
   }
 
   /** A collapsible section; whether it's open is remembered between visits. */
-  section(title, open) {
-    const d = document.createElement('details');
-    d.className = 'tb-section';
-    let saved = null;
-    try { saved = localStorage.getItem('geo.section.' + title); } catch { /* storage blocked */ }
-    d.open = saved === null ? open : saved === '1';
-    d.addEventListener('toggle', () => { try { localStorage.setItem('geo.section.' + title, d.open ? '1' : '0'); } catch { /* storage blocked */ } });
-    d.append(el('summary', '', title));
+  /** A settings group under a heading, shown on its topic's tab (see TABS). */
+  section(title) {
+    const d = el('div', 'tb-section');
+    d.dataset.tab = Object.keys(TABS).find((k) => TABS[k].sections.includes(title)) || 'map';
+    d.dataset.title = title;
+    d.append(el('div', 'tb-sec-title', title));
     const body = el('div', 'tb-body');
     d.append(body);
     this.root.append(d);
     return body;
+  }
+
+  /** Show one topic's settings. */
+  showTab(id) {
+    this.tab = TABS[id] ? id : 'map';
+    try { localStorage.setItem('geo.tab', this.tab); } catch { /* storage blocked */ }
+    for (const [k, b] of Object.entries(this.tabButtons)) b.classList.toggle('active', k === this.tab);
+    for (const d of this.root.querySelectorAll(':scope > .tb-section')) d.hidden = d.dataset.tab !== this.tab;
+    this.root.scrollTop = 0;
   }
 
   helpOn(node, html) {
