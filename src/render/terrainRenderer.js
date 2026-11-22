@@ -139,6 +139,13 @@ export class TerrainRenderer {
     this.outfallGroup = new THREE.Group();
     scene.add(this.outfallGroup);
     this.outfallMat = new THREE.MeshStandardMaterial({ color: 0x8a6a2a, emissive: 0x3a2400 });
+    this.probeGroup = new THREE.Group();
+    scene.add(this.probeGroup);
+    this.probeGeo = new THREE.CylinderGeometry(0.35, 0.35, 5, 8);
+    this.probeGeo.translate(0, 2.5, 0);
+    this.probeTopGeo = new THREE.SphereGeometry(1.1, 12, 8);
+    this.probeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x2a3a4a });
+    this.probeTopMat = new THREE.MeshStandardMaterial({ color: 0xff5a5a, emissive: 0x501010 });
 
     // Heights change every frame, so use fixed generous bounds instead of recomputing them
     const bounds = new THREE.Sphere(new THREE.Vector3(), N * 1.5);
@@ -462,6 +469,7 @@ export class TerrainRenderer {
 
     this.syncSprings();
     this.syncOutfalls();
+    this.syncProbes();
   }
 
   /** The forest's colour from its species mix (falls back to the forest-type blend). Writes S4. */
@@ -602,6 +610,24 @@ export class TerrainRenderer {
     // Mangrove canopy over the mudflats and shallows
     const mg = w.mangrove ? w.mangrove[i] : 0;
     if (mg > 0.03) mix(col, MANGROVE, Math.min(1, mg * 1.1), col);
+  }
+
+  /** Markers for the probes: a white post with a red ball, like a survey pin. */
+  syncProbes() {
+    const g = this.probeGroup, list = this.world.probes || [];
+    while (g.children.length > list.length) g.remove(g.children[g.children.length - 1]);
+    while (g.children.length < list.length) {
+      const pin = new THREE.Group();
+      pin.add(new THREE.Mesh(this.probeGeo, this.probeMat));
+      const top = new THREE.Mesh(this.probeTopGeo, this.probeTopMat);
+      top.position.y = 5.4;
+      pin.add(top);
+      g.add(pin);
+    }
+    list.forEach((p, k) => {
+      const ground = this.world.sampleHeight(p.x, p.z), sea = this.world.seaLevel > -999 ? this.world.seaLevel : -1e9;
+      g.children[k].position.copy(this.toWorld(p.x, p.z, Math.max(ground, sea)));
+    });
   }
 
   /** Markers for the pollution sources: brown-orange posts. */

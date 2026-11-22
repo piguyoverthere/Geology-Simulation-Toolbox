@@ -22,6 +22,7 @@ import { CurrentPaths } from './render/currentPaths.js';
 import { ecoParams, ecologyStep } from './sim/ecology.js';
 import { WildlifeMarkers } from './render/wildlife.js';
 import { recordStats } from './sim/stats.js';
+import { recordProbes } from './sim/probes.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
@@ -291,7 +292,7 @@ class App {
       if (e.key === 'd' && !mod) { this.setTool('draw'); return; }
       if (e.key === 'l' && !mod) { this.setTool('lightning'); return; }
       if (e.key === 'f' && !mod) { this.setTool('wildfire'); return; }
-      const letters = { c: 'storm', w: 'drain', n: 'snow', g: 'glacier', b: 'subside', u: 'uplift', a: 'age', k: 'lake', p: 'section', o: 'shoreline', x: 'pollute', v: 'clean', m: 'stir', j: 'current', y: 'freshen', t: 'bloom', e: 'oxygen', i: 'seaice', r: 'surge', q: 'waves', h: 'outfall', s: 'currentPath' };
+      const letters = { c: 'storm', w: 'drain', n: 'snow', g: 'glacier', b: 'subside', u: 'uplift', a: 'age', k: 'lake', p: 'section', o: 'shoreline', x: 'pollute', v: 'clean', m: 'stir', j: 'current', y: 'freshen', t: 'bloom', e: 'oxygen', i: 'seaice', r: 'surge', q: 'waves', h: 'outfall', s: 'currentPath', z: 'probe' };
       if (letters[e.key] && !mod) { this.setTool(letters[e.key]); return; }
       if (e.key === '[') { this.brush.radius = Math.max(2, this.brush.radius - 2); this.toolbox.refresh(); }
       if (e.key === ']') { this.brush.radius = Math.min(60, this.brush.radius + 2); this.toolbox.refresh(); }
@@ -682,7 +683,7 @@ class App {
     this.currentPaths.update(dt);
     this.wildlife.update(dt);
     if (this.frame % 30 === 0) { this.toolbox.drawGraphs(); this.toolbox.drawStats(); } // (population and map graphs)
-    if (this.sim.running && this.frame % 120 === 60) recordStats(this.world); // (whole-map statistics, every couple of seconds)
+    if (this.sim.running && this.frame % 120 === 60) { recordStats(this.world); recordProbes(this.world); } // (whole-map statistics and probes, every couple of seconds)
     this.controls.update();
     this.effects.applyShake(this.camera, dt);
     this.gl.render(this.scene, this.camera);

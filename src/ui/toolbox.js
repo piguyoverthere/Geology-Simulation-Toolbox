@@ -14,6 +14,7 @@ import { FAULT_TYPES } from '../sim/tectonics.js';
 import { SPECIES, OPEN } from '../sim/species.js';
 import { BIOMES } from '../render/biomes.js';
 import { STATS } from '../sim/stats.js';
+import { PROBE_STATS } from '../sim/probes.js';
 import { YEAR_KINDS } from '../sim/climate.js';
 import { HABITATS, PLANT_FOODS, HABITS, MIGRATION, newAnimal, removeAnimal, describeAnimal } from '../sim/ecology.js';
 
@@ -358,9 +359,18 @@ export class Toolbox {
       graphBody.append(row, big);
       this.statRows.push({ st, val, spark, big });
     }
+    // Tabs: the whole map, and one per probe
+    this.mapPane = el('div', 'graph-pane');
+    while (graphBody.firstChild) this.mapPane.append(graphBody.firstChild);
+    this.graphTabsEl = el('div', 'graph-tabs');
+    this.probePane = el('div', 'graph-pane');
+    graphBody.append(this.graphTabsEl, this.mapPane, this.probePane);
     win.append(head, graphBody);
     document.getElementById('viewport').append(win);
     this.graphWin = win;
+    this.graphOpen = setOpen;
+    this.graphTab = 'map';
+    this.renderGraphTabs();
     setOpen(open);
 
     // Put each tab's sections in order, and open the last-used tab
@@ -472,8 +482,60 @@ export class Toolbox {
   }
 
   /** Redraw the whole-map graphs (Graphs panel). */
+  /** The Graphs window's tabs (Map + one per probe); `select` opens that probe's tab. */
+  renderGraphTabs(select) {
+    if (!this.graphTabsEl) return;
+    const w = this.app.world, probes = w.probes || [];
+    this.probeKey = probes.map((p) => p.id).join(',');
+    if (select) { this.graphTab = select; this.graphOpen(true); }
+    if (this.graphTab !== 'map' && !probes.some((p) => p.id === this.graphTab)) this.graphTab = 'map';
+    const T = this.graphTabsEl;
+    T.innerHTML = '';
+    T.hidden = !probes.length;
+    const tab = (id, label) => {
+      const b = el('button', 'graph-tab' + (this.graphTab === id ? ' active' : ''), label);
+      b.addEventListener('click', () => { this.graphTab = id; this.renderGraphTabs(); });
+      T.append(b);
+    };
+    tab('map', 'Whole map');
+    for (const p of probes) tab(p.id, `📍 ${p.num}`);
+    this.mapPane.hidden = this.graphTab !== 'map';
+    this.probePane.hidden = this.graphTab === 'map';
+    this.probeRows = [];
+    const P = this.probePane;
+    P.innerHTML = '';
+    const p = probes.find((q) => q.id === this.graphTab);
+    if (p) {
+      const head = el('div', 'probe-head');
+      head.append(el('b', '', p.name), el('span', 'tb-note', `cell ${p.x}, ${p.z}`));
+      const del = button('Remove', () => { w.probes = w.probes.filter((q) => q.id !== p.id); w.dirty = true; this.graphTab = 'map'; this.renderGraphTabs(); }, 'tb-small');
+      head.append(del);
+      P.append(head);
+      // The biome over time: a strip of its colours, the current one named
+      this.biomeStrip = el('canvas', 'probe-biomes');
+      this.biomeStrip.width = 270; this.biomeStrip.height = 14;
+      this.biomeLabel = el('div', 'tb-note', '');
+      P.append(el('div', 'tb-form-title', 'Biome'), this.biomeStrip, this.biomeLabel);
+      for (const st of PROBE_STATS) {
+        const row = el('div', 'tb-stat');
+        const val = el('span', 'tb-stat-val', '—');
+        const spark = el('canvas', 'tb-spark');
+        spark.width = 64; spark.height = 18;
+        row.append(el('span', 'tb-stat-name', st.label), val, spark);
+        row.title = st.help;
+        const big = el('canvas', 'tb-popchart');
+        big.width = 270; big.height = 120; big.hidden = true;
+        row.addEventListener('click', () => { big.hidden = !big.hidden; this.drawStats(); });
+        P.append(row, big);
+        this.probeRows.push({ st, row, val, spark, big, probe: p });
+      }
+    }
+    this.drawStats();
+  }
+
   drawStats() {
     if (this.graphWin && !this.graphWin.classList.contains('open')) return;
+    if (this.graphTab && this.graphTab !== 'map') { this.drawProbe(); return; }
     const hist = this.app.world.statHistory || {};
     for (const r of this.statRows || []) {
       const data = hist[r.st.id] || [];
@@ -482,6 +544,37 @@ export class Toolbox {
       drawLine(r.spark, [{ data, color: '#e0a458', width: 1.5 }], false);
       if (!r.big.hidden) drawLine(r.big, [{ data, color: '#e0a458', width: 2, label: r.st.label }], true, fmt);
     }
+  }
+
+  /** Redraw the open probe's charts and biome strip. */
+  drawProbe() {
+    const rows = this.probeRows || [];
+    if (!rows.length) return;
+    const p = rows[0].probe;
+    for (const r of rows) {
+      const data = p.history[r.st.id] || [];
+      const has = data.some((v) => v !== null);
+      r.row.hidden = !has; // (only what applies here: land readings on land, sea readings at sea)
+      if (!has) { r.big.hidden = true; continue; }
+      const u = r.st.unit, fmt = u === '%' ? (v) => `${v.toFixed(0)}%` : u ? (v) => `${v.toFixed(1)} ${u}` : (v) => v.toFixed(2);
+      const last = [...data].reverse().find((v) => v !== null);
+      r.val.textContent = last !== undefined ? fmt(last) : '—';
+      drawLine(r.spark, [{ data, color: '#ff8a7a', width: 1.5 }], false);
+      if (!r.big.hidden) drawLine(r.big, [{ data, color: '#ff8a7a', width: 2, label: r.st.label }], true, fmt);
+    }
+    // Biome strip
+    const cv = this.biomeStrip, ctx = cv.getContext('2d'), b = p.biomes || [];
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    const info = (id) => (typeof id === 'string' && id.startsWith('sea_') ? MARINE[+id.slice(4)] : BIOMES[id]);
+    b.forEach((id, k) => {
+      const c = info(id) ? info(id).color : [0.5, 0.5, 0.5];
+      ctx.fillStyle = rgb(c);
+      const x0 = Math.floor((k / b.length) * cv.width), x1 = Math.ceil(((k + 1) / b.length) * cv.width);
+      ctx.fillRect(x0, 0, Math.max(1, x1 - x0), cv.height);
+    });
+    const now = b.length ? info(b[b.length - 1]) : null;
+    const changes = b.filter((id, k) => k && id !== b[k - 1]).length;
+    this.biomeLabel.textContent = now ? `Now: ${now.label}${changes ? ` · changed ${changes}×` : ''}` : '';
   }
 
   /** The add / edit form for an animal (a = null: a new one). */
@@ -713,6 +806,9 @@ export class Toolbox {
     this.playBtn.classList.toggle('running', this.app.sim.running);
     document.querySelectorAll('[data-sync]').forEach((n) => n.sync());
     if (this.animalList) this.renderAnimals();
+    // (after loading a level: rebuild the probe tabs if the probes are different)
+    const pk = (this.app.world.probes || []).map((p) => p.id).join(',');
+    if (pk !== this.probeKey) { this.probeKey = pk; this.renderGraphTabs(); }
     this.erosionControls.classList.toggle('tb-disabled', !this.app.world.erosionEnabled);
     this.erosionTools.classList.toggle('tb-disabled', !this.app.world.erosionEnabled);
     this.setInfo(this.defaultInfo());
@@ -815,7 +911,7 @@ function drawLine(cv, series, axes, fmt = fmtPop) {
   const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
   const pad = axes ? { l: 34, r: 6, t: 8, b: 16 + 13 * series.length } : { l: 1, r: 1, t: 2, b: 2 };
-  const range = (d) => { let lo = Infinity, hi = -Infinity; for (const v of d) { lo = Math.min(lo, v); hi = Math.max(hi, v); } if (!isFinite(lo)) return null; lo = Math.min(lo, 0); if (hi - lo < 1e-6) hi = lo + 1; return [lo, hi]; };
+  const range = (d) => { let lo = Infinity, hi = -Infinity; for (const v of d) { if (v === null) continue; lo = Math.min(lo, v); hi = Math.max(hi, v); } if (!isFinite(lo)) return null; lo = Math.min(lo, 0); if (hi - lo < 1e-6) hi = lo + 1; return [lo, hi]; };
   const main = range(series[0].data);
   if (!main) {
     if (axes) { ctx.fillStyle = '#9aa3ae'; ctx.font = '11px system-ui, sans-serif'; ctx.fillText('No history yet: run the simulation', 10, 50); }
@@ -838,7 +934,8 @@ function drawLine(cv, series, axes, fmt = fmtPop) {
     ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.setLineDash(s.dashed ? [3, 3] : []);
     ctx.globalAlpha = s.dashed ? 0.75 : 1;
     ctx.beginPath();
-    d.forEach((v, j) => { const x = X(j, d.length), y = Y(v); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    let pen = false; // (gaps where there was no reading)
+    d.forEach((v, j) => { if (v === null) { pen = false; return; } const x = X(j, d.length), y = Y(v); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; });
     ctx.stroke();
   }
   ctx.setLineDash([]); ctx.globalAlpha = 1;
@@ -849,7 +946,8 @@ function drawLine(cv, series, axes, fmt = fmtPop) {
     series.forEach((s, k) => {
       ctx.fillStyle = s.color;
       ctx.fillRect(pad.l, y - 6, 10, k ? 1.5 : 2.5);
-      ctx.fillText(`${s.label}: ${s.data.length ? fmt(s.data[s.data.length - 1]) : '—'}${k ? ' (own scale)' : ''}`, pad.l + 14, y - 2);
+      const lastV = [...s.data].reverse().find((v) => v !== null);
+      ctx.fillText(`${s.label}: ${lastV !== undefined ? fmt(lastV) : '—'}${k ? ' (own scale)' : ''}`, pad.l + 14, y - 2);
       y += 13;
     });
   }

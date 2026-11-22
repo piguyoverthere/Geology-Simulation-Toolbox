@@ -181,6 +181,11 @@ seasons, weather), **Sea** (ocean and coast) and **Life** (wildlife).
   burnt ground, dead forest, average temperature, and for the sea its area, clean water, low-oxygen
   water, healthy sea beds, coral reef and sea ice. Each row shows its value and a small graph; click
   it for the full chart.
+  **Probes** 📍 (toolbar, key Z): click to drop a measuring station; each gets its own tab in the
+  Graphs window recording that spot over time: temperature, rain or snow, snow depth, surface water,
+  soil wetness, plant cover, tree density, forest health, wind, at sea the water quality, oxygen and
+  salinity, the animals there, and a coloured strip of the biome (or sea bed) through time. Shift-click
+  removes probes; a probe's tab also has a Remove button.
 - **View**: clouds, water, **sea** (hide the sea's surface to see the sea bed: its sand and silt,
   seagrass, kelp, reefs and die-offs; the sea keeps running), wireframe. The **Coast & ocean**
   overlay draws the sea nearly clear so its sea-bed biomes show through.
@@ -217,6 +222,7 @@ src/sim/ecology.js      Wildlife: the animals you design, what they eat, their h
 src/render/wildlife.js  The animals as dots on the map
 src/render/currentPaths.js  Drawn permanent currents
 src/sim/stats.js        Whole-map statistics over time (the Graphs panel)
+src/sim/probes.js       Probes: per-spot readings over time (Graphs window tabs)
 src/core/environments.js  Environment presets (ready-made climates)
 src/sim/phenology.js    Seasonal leaves: autumn colour, leaf fall, spring flush
 src/sim/species.js      Tree species, their preferences, and each cell's forest mix

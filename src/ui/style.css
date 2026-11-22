@@ -297,3 +297,14 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .graph-body[hidden] { display: none; }
 
 #viewport .graph-win canvas[hidden] { display: none; }
+
+/* Graphs window: tabs (whole map, probes) */
+.graph-tabs { display: flex; flex-wrap: wrap; gap: 3px; margin: 2px 0 6px; }
+.graph-tabs[hidden] { display: none; }
+.graph-tab { background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); border-radius: 6px; padding: 2px 8px; font: inherit; font-size: 11px; cursor: pointer; }
+.graph-tab.active { color: var(--text); border-color: var(--accent); }
+.graph-pane { display: flex; flex-direction: column; gap: 2px; }
+.graph-pane[hidden], .tb-stat[hidden] { display: none; }
+.probe-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.probe-head .tb-btn { margin-left: auto; }
+.probe-biomes { width: 100%; height: 14px; border-radius: 3px; }

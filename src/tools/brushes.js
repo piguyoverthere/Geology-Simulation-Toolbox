@@ -8,6 +8,7 @@ import { paintShore, coastParams } from '../sim/coast.js';
 import { ensureQuality } from '../sim/waterQuality.js';
 import { ensureOcean, advect } from '../sim/ocean.js';
 import { ensureEcology, animalField, canLive } from '../sim/ecology.js';
+import { addProbe, removeProbesNear } from '../sim/probes.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -19,7 +20,7 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O', pollute: 'X', clean: 'V', stir: 'M', current: 'J', freshen: 'Y', bloom: 'T', oxygen: 'E', seaice: 'I', surge: 'R', waves: 'Q', outfall: 'H', currentPath: 'S' };
+const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O', pollute: 'X', clean: 'V', stir: 'M', current: 'J', freshen: 'Y', bloom: 'T', oxygen: 'E', seaice: 'I', surge: 'R', waves: 'Q', outfall: 'H', currentPath: 'S', probe: 'Z' };
 export function toolKey(id) { return LETTER_KEYS[id] || TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
 
 function seaOn(world) { return world.meanSea !== undefined && world.meanSea > -999; }
@@ -341,6 +342,16 @@ export const TOOLS = {
     help: 'Click in a hollow to fill it with water up to the level where it would spill over its lowest rim, as a lake fills. The overflow then runs out and carves an outlet. (Most valleys here already drain, so their hollows are small; sculpt a dam first for a big lake.)',
     apply({ world, x, z }) {
       fillLake(world, Math.round(x), Math.round(z));
+    },
+  },
+  probe: {
+    label: 'Probe', group: 'View', icon: '📍', editsTerrain: false, click: true,
+    help: 'Click to drop a probe: a measuring station that records the conditions at that spot over time (temperature, rain or snow, snow depth, surface water, soil wetness, plant cover, tree density, forest health, wind, the water at sea, the animals there and the biome). Each probe gets its own tab in the Graphs window (bottom left). Shift-click removes probes nearby.',
+    apply({ world, app, x, z, invert }) {
+      if (invert) removeProbesNear(world, x, z);
+      else addProbe(world, x, z);
+      world.dirty = true;
+      app.toolbox.renderGraphTabs(invert ? null : world.probes[world.probes.length - 1].id);
     },
   },
   section: {
