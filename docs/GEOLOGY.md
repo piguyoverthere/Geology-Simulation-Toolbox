@@ -998,41 +998,25 @@ road and drip their runoff into the water below. And people start fires: farmers
 clear it for fields (slash and burn), and fires get away from towns by accident, far more often in a
 dry season; either can escape into a wildfire.
 
-**Flat fields, canals, sewers and forest roads.** Only ground gentler than the **Max farm slope**
+**Flat fields, canals and forest roads.** Only ground gentler than the **Max farm slope**
 slider (15° by default) is cleared for fields; steeper hillsides must first be cut into level
 terraces by the town's earthworks. A field's own surface is what counts, so a level terrace step
 passes even though the riser beside it is steep. A field that later turns too steep (a landslide, a
 river cutting into it) is given up. A town of a few hundred whose fields are largely dry digs up to
 three **irrigation canals**: stone-lined channels from the nearest river or lake out to the middle
 of its dry fields. Sluices keep a working canal running, so the fields along it are irrigated, and
-it draws down the river it taps. A town past about 400 people digs a **sewer** from its centre down
-to the nearest river or bay. The sewer runs foul, and the town's heavy runoff then pours out at that
-one outfall instead of seeping out everywhere. Roads bridge canals and sewers rather than paving
+it draws down the river it taps. Roads bridge canals rather than paving
 over them, and an abandoned channel silts up. Towns also push **exploratory roads** out into the
 deepest forest nearby (one at first, up to four as they grow). Each road fells a strip of trees,
 thins the forest either side, and lets the town spread out along it. Towns pollute the sea heavily
 from their shores, outfalls and drains. A town can only grow about a third beyond what its streets
 house, so it grows as fast as it builds and doesn't boom and crash.
 
-**The sewer network.** A town's sewers are real channels the sewage flows along. Every street,
-works and harbour cell within 10 cells of a sewer drains into the nearest one. The sewer carries it
-cell by cell, fouler the farther down it goes, to the outfall. A branch sewer joins the
-trunk and passes on everything it has collected, and the trunk empties into the sea (or a river)
-at the outfall. As the town spreads, it digs branch sewers, under its streets if need be, to the
-districts the network doesn't reach yet, nearest the centre first.
-Streets beyond the network's reach still drain downhill.
-
-**Kept ground and growth limits.** Ground people keep up doesn't erode: farmland, towns, roads,
-industry, harbours, quays, dams, plantations, and anything paved. It barely washes away (about 3%
-of the usual rate), and it doesn't slump, slide or blow away, because its walls, banks and drains
-are maintained. Canals and sewers count too: they're lined, so their flow doesn't scour them deeper. Sewers aren't kept topped up with water; the sewage shows as fouled ground along them, so they don't spill into pools. Each step, any kept cell left standing as a spike above the ground around it is levelled, and any hole left in kept ground is filled. Harbours, quays, dams, channels and the water's edge are left as built. Quarries and terracing lower
-the roads, fields and plantations in their way along with the ground around them (a road is
-re-graded, not left standing on a ridge); only bridges, towns and works are left as they are. A
-town's growth tails off smoothly as it gets big (a soft limit): what it can support is scaled by
-1 / (1 + support / (25,000 × Expansion speed)), so even huge farmland can't feed a runaway city.
-The steady clearing of new fields also slows as a town's farmland grows. Plantations run on a short
-rotation: a stand is felled soon after it reaches about 70% cover, and replanted with fast-growing
-stock.
+**Sewage.** A town of more than about 150 people pipes everything its streets, works and harbours
+shed straight out to the nearest open sea, wherever that is on the map. It all pours out at one spot,
+the outfall, and spreads through the sea from there. No channels are dug for it; sewer channels
+from older levels are filled in. Roads, and towns on a map with no sea, still drain downhill into
+their streams.
 
 **Timber plantations.** Each town keeps about twice as much land under timber as under fields.
 It picks the land where forest grows best, out to three times its town's reach, preferring an
@@ -1048,12 +1032,7 @@ trees, with no understory, no old or dead trees and no food, so they have very l
 support no wildlife. Your animals die out or move away from them, and the Animal tool can't put
 any there.
 
-**Sewers, livestock, harbours and the Destruction slider.** A town past about 150 people digs a
-**sewer**, to the sea if it can reach it (within about 70 cells), otherwise to a real river or lake
-downhill. A big town whose sewer empties into a river later digs a new one to the sea. Everything its
-streets and works shed goes down the sewer and out at that one outfall, spreading into the sea there,
-or down the river as a single foul stream. Unsewered towns and roads still drain downhill, but they
-only stain real streams, not every damp patch. Towns grow in pairs of cells: each cell of housing
+**Livestock, harbours and the Destruction slider.** Towns grow in pairs of cells: each cell of housing
 needs another of infrastructure (streets, markets, workshops, wells). Once a town has a few hundred
 people it can terrace moderately steep ground (up to about 35°) into level fields; terraced fields
 count as level on their benches. Farm **livestock** graze the understory of the woods around the
@@ -1061,7 +1040,7 @@ fields (within about 5 cells), eating and trampling seedlings, so forest health 
 past a thousand people **needs a harbour** for its trade: it looks farther along the coast, then
 for a river or lake landing (no fishing fleet there). A town without one can't grow past about a
 thousand. The **Destruction** slider (0 careful, 1 normal, 3 ruthless) scales three things:
-slash-and-burn clearing, every pollution load from streets, works, farms and sewers, and how often
+slash-and-burn clearing, every pollution load from streets, works, farms and sewage, and how often
 and how much the towns cut hills into terraces.
 The **Harbour** tool (⚓, under Civilization) builds a harbour where you click on the shore of the
 sea, a lake or a big river. It goes to the nearest town (within about 40 cells), and a town that
