@@ -358,7 +358,7 @@ export class TerrainRenderer {
             if (mode === 'quality') wc = qualityColor(waterQuality(w, i), S4);
             else {
               wc = mix(wc, SILT_WATER, Math.min(0.95, w.silt[i] * 1.2), S4);
-              wc = mix(wc, FOUL_WATER, Math.min(0.9, Math.sqrt(w.pollution[i]) * 0.75), S4); // (a thin plume still shows)
+              wc = mix(wc, FOUL_WATER, Math.min(0.5, Math.sqrt(w.pollution[i]) * 0.4), S4); // (a thin plume still shows)
             }
           }
           const iced = isSea && this.seaIce;

@@ -54,7 +54,7 @@ export const MARINE = [
   { id: 'coral', label: 'Coral reef', color: [0.92, 0.62, 0.58], bed: [0.86, 0.66, 0.56], help: 'Reefs built by corals in warm, clear, shallow water; they make white coral sand.' },
   { id: 'shelf', label: 'Open ocean (shelf)', color: [0.20, 0.45, 0.62], bed: [0.58, 0.55, 0.47], help: 'Shallow sea over the continental shelf.' },
   { id: 'deep', label: 'Deep ocean', color: [0.08, 0.20, 0.42], bed: [0.36, 0.36, 0.36], help: 'Deep water far from shore.' },
-  { id: 'dieoff', label: 'Die-off (bare seabed)', color: [0.48, 0.42, 0.34], bed: [0.50, 0.45, 0.38], help: 'Seagrass, kelp or coral killed by dirty water (silt or pollutants): bare mud and rubble, or bleached, dead coral. It recovers slowly once the water is clean again.' },
+  { id: 'dieoff', label: 'Die-off (bare seabed)', color: [0.40, 0.44, 0.34], bed: [0.42, 0.44, 0.34], help: 'Seagrass, kelp or coral killed by dirty water (silt or pollutants): bare mud and rubble, or bleached, dead coral. It recovers slowly once the water is clean again.' },
 ];
 export const MARINE_ID = Object.fromEntries(MARINE.map((m, k) => [m.id, k]));
 // How well each sea bed cleans the water, and how easily dirty water harms it
@@ -75,7 +75,7 @@ export function marineColor(world, i, bed, out) {
   if (!THINS[m]) return c;
   // A thinning meadow: patches of bare seabed showing between the plants
   const d = world.marineHealth ? world.marineHealth[i] : 1;
-  const b = bed ? MARINE[MARINE_ID.dieoff].bed : MARINE[MARINE_ID.dieoff].color, t = Math.min(1, d * 1.4);
+  const b = bed ? MARINE[MARINE_ID.dieoff].bed : MARINE[MARINE_ID.dieoff].color, t = 0.4 + 0.6 * Math.min(1, d * 1.4); // (bare patches stay subtle)
   out[0] = b[0] + (c[0] - b[0]) * t; out[1] = b[1] + (c[1] - b[1]) * t; out[2] = b[2] + (c[2] - b[2]) * t;
   return out;
 }

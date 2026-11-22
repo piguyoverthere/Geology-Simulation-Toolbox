@@ -22,7 +22,7 @@ export const qualityParams = {
   settle: 0.03,   // share of the silt that settles out each step
   decay: 0.002,   // share of the pollutants broken down each step
   filter: 1,      // how strongly living sea beds clean the water
-  spread: 0.2,    // how fast pollutants spread out over the water (0 = they stay put)
+  spread: 0.4,    // how fast pollutants spread out over the water (0 = they stay put)
 };
 
 export function ensureQuality(world) {
@@ -97,7 +97,7 @@ export function waterQualityStep(world, sea, half, filterOf, sensitivity, pace, 
     }
   };
   mix(SI, 2, 0.3);
-  if (p.spread > 0) mix(PO, 2, Math.min(1, p.spread));
+  if (p.spread > 0) mix(PO, 3, Math.min(1, p.spread));
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
       const i = z * N + x;
