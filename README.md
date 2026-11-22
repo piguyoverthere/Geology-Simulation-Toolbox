@@ -104,13 +104,16 @@ brush size its width. Shift-click removes the nearest one.
 **Civilization** (toolbar): **Settle** 🏘 founds a town at the most suitable spot near your click (a
 comfortable climate, a river, lake or coast nearby, fertile flat land, timber and fish, safe from
 floods; Shift-click abandons a town); **Road** 🛣 builds a road along a drag, terracing the hills to an
-even grade, paving it and bridging rivers (Shift-drag tears it up). Towns clear patchwork farmland,
+even grade, paving it and bridging rivers (Shift-drag tears it up). Towns clear patchwork farmland (three cells of it for every cell of town: any land, cleared,
+levelled or terraced and irrigated from the nearest river or lake, which it draws down and pollutes),
 grow toward what it feeds (drought years cut harvests), pave their streets (flat, sealed, nothing
 grows), and pollute: lightly into water beside them and always heavily down the rivers below them to
 the sea. They grow along their roads, crowded towns found daughter villages, big neighbours build
 roads to each other, floods, fires, lava and storm surges cost them people, and dwindling towns are
 abandoned and grow over. The Life tab lists the towns with population graphs; the Graphs window has
-population, towns, paved land, farmland and polluted rivers.
+population, towns, paved land, farmland and polluted rivers. Sliders: **Population increase** and **Expansion speed**; roads must be kept up
+by nearby towns or they break up, young towns hunt your land animals, and roads between towns wind
+over the land along valleys and contours.
 
 **Wildlife**: design your own animals. Under **Wildlife → + Add animal**, name it, pick its colour and
 the temperatures it likes (it thrives inside that range and fades out beyond it), where it lives (anywhere on land, forest, meadows, mountains, streams and ponds, the sea, coastal

@@ -18,6 +18,8 @@ export const BIOMES = {
   tundra:    { label: 'Tundra',    color: [0.56, 0.58, 0.48], help: 'Too cold for trees: low alpine grasses and lichen thinning to rock.' },
   mangrove:  { label: 'Mangrove forest', color: [0.13, 0.33, 0.18], help: 'Salt-tolerant forest standing in the tide on warm, sheltered mudflats.' },
   dunes:     { label: 'Coastal dunes', color: [0.86, 0.82, 0.62], help: 'Wind-blown sand behind sand beaches: dune grass, with shore pine on the stabilised dunes.' },
+  farmland:  { label: 'Farmland',  color: [0.74, 0.68, 0.40], help: 'Fields cleared, levelled or terraced and irrigated by a town: crops, no forest. Their irrigation draws down the nearest river or lake, and their runoff pollutes it.' },
+  town:      { label: 'Town',      color: [0.62, 0.52, 0.48], help: 'Paved streets and buildings: flat, sealed ground where nothing grows.' },
   snow:      { label: 'Snow',      color: [0.95, 0.96, 0.98], help: 'Below freezing with enough moisture, on slopes gentle enough to hold snow.' },
 };
 
@@ -34,6 +36,8 @@ export function classifyBiome(world, i, slope) {
   const soil = world.soil ? world.soil[i] : 0.5;
   const near = world.nearWater ? world.nearWater[i] : 0;
   const T = (world.vegTemp || world.temperature) ? (world.vegTemp || world.temperature)[i] : 12;
+  if (world.landUse && world.landUse[i] === 2 && world.paved[i] > 0.5) return 'town';
+  if (world.landUse && world.landUse[i] === 1) return 'farmland';
   if (snowAt(world, i, slope) > 0.5) return 'snow';
   if (T < climateParams.treeLineTemp - 0.5 && v > 0.12 && v <= 0.66) return 'tundra'; // (high fir forest stays forest)
   if (world.mangrove && world.mangrove[i] > 0.3) return 'mangrove';

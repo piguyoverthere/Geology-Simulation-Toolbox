@@ -916,6 +916,13 @@ feed; farmers clear more land than they need, so a town grows until the fertile 
 out. Drought years cut the harvest and mild summers improve it; a town with no river or lake nearby
 stays small; dirty drinking water slows it; floods, wildfires, lava and storm surges cost it people.
 
+**Farmland.** Every cell of town needs at least three cells of farmland, so a town builds out only
+once its fields allow. Any land can be made into farmland if it can be watered and has a growing
+season: it is cleared (forest and all), levelled, or on a slope cut into terraces (level steps), and
+irrigated from the nearest river or lake, which it draws down (a dry year or too many fields can run
+a stream dry, and then the fields get only the rain). Fertiliser and soil wash off the fields into
+the nearest water, polluting it. Farmland is its own biome (as are towns).
+
 As it grows it paves its streets: pavement is flattened, sealed (rain runs straight off), doesn't
 erode and grows nothing. It lightly pollutes any water beside it, and every patch of pavement always
 sends heavy pollution down the drainage: the rivers below towns run murky, and the pollution pours

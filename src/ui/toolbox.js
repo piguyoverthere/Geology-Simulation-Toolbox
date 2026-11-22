@@ -326,7 +326,8 @@ export class Toolbox {
     this.townList = el('div', 'tb-animals');
     civ.append(
       toggle('Civilization', app.civParams, 'enabled', 'Towns that grow on the land. Found them with the Settle tool (or the button below): each clears farmland, grows toward what its land can feed, paves its streets (flat, sealed, nothing grows) and pollutes, lightly into water beside it and heavily down every river below it. Roads (Road tool, or built between big neighbouring towns) are terraced through the hills and let towns spread along them. Drought years cut harvests; floods, fires, lava and storm surges cost people; big towns found daughter villages; dwindling towns are abandoned.', this),
-      slider('Growth speed', app.civParams, 'growth', 0.2, 4, 0.1, 'How fast towns grow (and found new villages).', this),
+      slider('Population increase', app.civParams, 'popRate', 0.2, 4, 0.1, 'How fast the towns\' populations increase toward what their food supports.', this),
+      slider('Expansion speed', app.civParams, 'growth', 0.2, 4, 0.1, 'How fast civilization spreads: crowded towns founding new villages, and young towns hunting.', this),
       button('🏘 Found a town at the best spot', () => {
         ensureCiv(app.world);
         const site = bestSite(app.world, app.world.N / 2, app.world.N / 2, app.world.N);

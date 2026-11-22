@@ -26,8 +26,11 @@ import { seasonParams, seasonalAt } from './climate.js';
 
 export const civParams = {
   enabled: true,
-  growth: 1,      // how fast towns grow
+  growth: 1,      // how fast towns spread: new villages, hunting
+  popRate: 1,     // how fast their populations increase
 };
+
+const FARMS_PER_TOWN_CELL = 3; // every cell of town needs at least this many cells of farmland
 
 const PER_TOWN_CELL = 120;   // people per paved town cell
 const PER_FARM_CELL = 70;    // people one cell of good farmland feeds
@@ -52,6 +55,29 @@ export function ensureCiv(world) {
   if (!world.civOwner || world.civOwner.length !== n) world.civOwner = new Int16Array(n);
   if (!world.riverPollution || world.riverPollution.length !== n) world.riverPollution = new Float32Array(n);
   if (!world.roadCond || world.roadCond.length !== n) world.roadCond = new Float32Array(n);
+  if (!world.irrigated || world.irrigated.length !== n) world.irrigated = new Uint8Array(n);
+}
+
+/**
+ * For every spot within reach (~12 cells) of water: the nearest water cell (a river, stream, lake
+ * or the sea): where its fields draw irrigation water from and where their runoff ends up.
+ * Returns { near: Int32Array (-1 = none), fresh: whether that water is fresh }.
+ */
+function nearestWater(world) {
+  const N = world.N, n = N * N, H = world.height, D = world.water, sea = seaOf(world);
+  const near = new Int32Array(n).fill(-1), dist = new Uint8Array(n).fill(255), q = new Int32Array(n);
+  let head = 0, tail = 0;
+  for (let i = 0; i < n; i++) if (H[i] < sea || D[i] > 0.05) { near[i] = i; dist[i] = 0; q[tail++] = i; }
+  while (head < tail) {
+    const c = q[head++], d = dist[c] + 1;
+    if (d > 12) continue;
+    const x = c % N, z = (c / N) | 0;
+    for (const j of [x > 0 ? c - 1 : -1, x < N - 1 ? c + 1 : -1, z > 0 ? c - N : -1, z < N - 1 ? c + N : -1]) {
+      if (j < 0 || dist[j] <= d) continue;
+      dist[j] = d; near[j] = near[c]; q[tail++] = j;
+    }
+  }
+  return near;
 }
 
 function seaOf(world) { return world.meanSea !== undefined && world.meanSea > -999 ? world.meanSea : -1e9; }
@@ -273,6 +299,7 @@ export function civStep(world) {
   world.civFieldsAge = (world.civFieldsAge || 0) + 1;
   if (!world._civFields || world._civFields.N !== N || world.civFieldsAge % 6 === 0) { world._civFields = siteFields(world); world._civFields.N = N; }
   const fields = world._civFields;
+  const NW = nearestWater(world);
   const ph = seasonParams.enabled ? seasonParams.phase : 0.3;
   const yearFactor = seasonParams.enabled ? (seasonParams.yearKind === 'hot' ? 0.6 : seasonParams.yearKind === 'mild' ? 1.1 : 1) : 1;
   let total = 0;
@@ -294,7 +321,21 @@ export function civStep(world) {
         if (world.lava && world.lava[i] > 0.05) { hurt += 0.1; LU[i] = 0; P[i] = 0; OW[i] = 0; }
       } else if (LU[i] === 1) {
         farmCells++;
-        const f = fertility(world, i, slopeAt(world, i));
+        // Irrigation: water drawn from the nearest river or lake (depleting it); if that has run
+        // dry, the field gets only the rain. Fertiliser and soil wash off into the nearest water.
+        const src = NW[i];
+        let watered = false;
+        if (src >= 0 && H[src] >= sea && world.water[src] > 0.03) {
+          world.water[src] = Math.max(0, world.water[src] - 0.0015);
+          watered = true;
+          if (world.soil[i] < 0.6) world.soil[i] = 0.6;
+        }
+        world.irrigated[i] = watered ? 1 : 0;
+        if (src >= 0) {
+          if (H[src] < sea) { if (world.pollution) world.pollution[src] = Math.min(4, world.pollution[src] + 0.0004); }
+          else RP[src] += 0.003;
+        }
+        const f = fertility(world, i, slopeAt(world, i)) * (watered ? 1.2 : 1);
         // (burnt, flooded or snowbound fields yield little)
         const lost = world.fire[i] > 0 || world.burnt[i] > 0.5 || world.water[i] > 0.4 || (world.snow && world.snow[i] > 0.5 && ph > 0.1 && ph < 0.55) ? 0.2 : 1;
         food += PER_FARM_CELL * f * lost;
@@ -341,7 +382,7 @@ export function civStep(world) {
     const dirty = Math.min(1, (RP[ci] || 0) * 0.5 + (fields.fresh[ci] > 0 ? 0 : 0));
     const K = Math.max(20, food * waterOK * (1 - 0.4 * dirty));
     // Growth toward what the land feeds (and disasters)
-    const r = 0.02 * civParams.growth;
+    const r = 0.02 * civParams.popRate;
     // (an overcrowded town shrinks as people drift away, a few percent a step, not all at once)
     const change = Math.max(-0.08 * t.pop, r * t.pop * (1 - t.pop / K));
     t.pop = Math.max(0, t.pop + change - hurt * t.pop);
@@ -351,9 +392,12 @@ export function civStep(world) {
     // (farmers clear more land than they need today, so the town can grow into it: a town's size
     // ends up limited by how much fertile land there is around it, and by its neighbours)
     const perFarm = farmCells ? Math.max(8, harvest / farmCells) : PER_FARM_CELL * 0.5;
-    const wantTown = Math.ceil(t.pop / PER_TOWN_CELL), wantFarm = Math.ceil((t.pop * 1.8) / perFarm) + 4;
-    if (townCells < wantTown) expand(world, t, 2, Math.min(3, wantTown - townCells), R, fields);
-    if (farmCells < wantFarm) expand(world, t, 1, Math.min(8, wantFarm - farmCells), R * 2, fields);
+    const wantTown = Math.ceil(t.pop / PER_TOWN_CELL);
+    // (every cell of town needs 3 of farmland: the town builds out only once its fields allow)
+    const wantFarm = Math.max(Math.ceil((t.pop * 1.8) / perFarm) + 4, FARMS_PER_TOWN_CELL * (Math.max(wantTown, townCells) + 1));
+    const roomForTown = Math.floor(farmCells / FARMS_PER_TOWN_CELL) - townCells;
+    if (townCells < wantTown && roomForTown > 0) expand(world, t, 2, Math.min(3, wantTown - townCells, roomForTown), R, fields);
+    if (farmCells < wantFarm) expand(world, t, 1, Math.min(8, wantFarm - farmCells), R * 2, fields, NW);
     // A big town sends people out to found a daughter village (linked by road)
     // (when the town is crowded: near what its land can feed)
     if (t.pop > 300 && t.pop > 0.85 * K && towns.length < MAX_TOWNS && Math.random() < 0.015 * civParams.growth) {
@@ -436,7 +480,7 @@ function linkTowns(world, a, b) {
  * Grow town t's land: `use` 2 (town) or 1 (farms), `count` cells, within radius R of its centre.
  * New town cells go next to its existing town or along roads; farms on the most fertile land.
  */
-function expand(world, t, use, count, R, fields) {
+function expand(world, t, use, count, R, fields, NWexp = null) {
   const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse, OW = world.civOwner;
   const cands = [];
   const x0 = Math.max(2, Math.floor(t.x - R)), x1 = Math.min(N - 3, Math.ceil(t.x + R));
@@ -457,9 +501,17 @@ function expand(world, t, use, count, R, fields) {
       if (slope > 0.6) continue;
       score = (1 - d / R) + road * 0.6 + adj * 0.3 - slope;
     } else {
-      const f = fertility(world, i, slope);
-      if (f < 0.15) continue;
-      score = f - 0.5 * (d / R);
+      // Any land can be farmed if it can be watered and has a growing season: cleared (forest
+      // too), flattened or terraced (up to fairly steep), and irrigated from water nearby
+      if (slope > 1.1) continue;
+      const T = world.temperature[i];
+      const warm = Math.max(0, Math.min(1, (T - 2) / 8)) * Math.max(0, Math.min(1, (30 - T) / 6));
+      if (warm < 0.2) continue;
+      const src = NWexp ? NWexp[i] : -1;
+      const canWater = src >= 0 && H[src] >= sea;
+      const moist = Math.min(1, (world.soil ? world.soil[i] : 0.5) * 1.8);
+      if (!canWater && moist < 0.45) continue;
+      score = warm * (canWater ? 0.9 : moist) - 0.35 * slope + 0.2 * (world.humus ? world.humus[i] : 0) - 0.5 * (d / R);
     }
     cands.push([score + Math.random() * 0.05, i]);
   }
@@ -467,8 +519,26 @@ function expand(world, t, use, count, R, fields) {
   for (let k = 0; k < Math.min(count, cands.length); k++) {
     const i = cands[k][1];
     if (use === 2) pave(world, i, t.num, 2);
-    else { LU[i] = 1; OW[i] = t.num; world.forestAge[i] = 0; if (world.vegetation[i] > 0.45) world.vegetation[i] = 0.45; }
+    else makeFarm(world, i, t.num);
   }
+}
+
+/**
+ * Turn cell i into farmland: clear it (trees and all), flatten it, or on a slope cut it into
+ * terraces (level steps), and make it a field (the Farmland biome).
+ */
+function makeFarm(world, i, owner) {
+  const N = world.N, H = world.height, x = i % N, z = (i / N) | 0;
+  world.vegetation[i] = Math.min(world.vegetation[i], 0.3);
+  world.forestAge[i] = 0;
+  if (x > 0 && z > 0 && x < N - 1 && z < N - 1) {
+    const slope = slopeAt(world, i);
+    if (slope < 0.25) H[i] += ((H[i - 1] + H[i + 1] + H[i - N] + H[i + N]) * 0.25 - H[i]) * 0.6; // (levelled)
+    else H[i] += (Math.round(H[i] / 0.6) * 0.6 - H[i]) * 0.85; // (terraced: a level step)
+    world.prevHeight[i] = H[i];
+  }
+  world.landUse[i] = 1;
+  world.civOwner[i] = owner;
 }
 
 /** Town at (or nearest to) cell i within r cells, or null. */
