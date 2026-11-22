@@ -37,7 +37,7 @@
 // world.storms: [{ x, z, vx, vz, r, lobes, fuel, peak, age, life, thunder, … }] (grid cells,
 // simulated seconds). world.strikes: recent lightning strikes for the renderer.
 
-import { climateParams, seasonParams, cloudTempAt, seasonalRain, drySeason } from './climate.js';
+import { climateParams, seasonParams, cloudTempAt, seasonalRain, drySeason, coldSnapActive } from './climate.js';
 import { createNoise2D } from '../core/noise.js';
 
 export const weatherParams = {
@@ -83,6 +83,8 @@ export function weatherStep(world, simDt) {
   if (!world.snowingAt || world.snowingAt.length !== N * N) world.snowingAt = new Float32Array(N * N).fill(-1e9);
   const SNW = world.snowingAt;
   const lowCut = lowlandCut(world);
+  // In a cold snap every storm snows down to the lowlands (and doesn't rain the snow away)
+  const snapNow = coldSnapActive(world);
   // Snow per storm-second scales with season speed, so a season gets the same snow at any speed
   const sf = seasonParams.enabled ? seasonParams.speed : 1;
   const sea = world.seaLevel;
@@ -136,13 +138,13 @@ export function weatherStep(world, simDt) {
         if (st.mountain) amount *= 0.2 + 1.3 * smooth(st.hLow, st.hHigh, H[i]);
         // Snow or rain at the cloud base. Below the snow level (the lowlands) storms bring rain, except
         // for the one or two Arctic outbreaks a winter that bring snow right down to sea level
-        let snow = S ? smooth(1, -1, cloudTempAt(world, i) - (st.arctic ? 4 : 0)) : 0;
-        if (snow > 0 && !st.arctic && H[i] < lowCut + 2) snow *= smooth(lowCut - 1, lowCut + 2, H[i]);
+        let snow = S ? smooth(1, -1, cloudTempAt(world, i) - (st.arctic || snapNow ? 4 : 0)) : 0;
+        if (snow > 0 && !st.arctic && !st.lowlandSnow && !snapNow && H[i] < lowCut + 2) snow *= smooth(lowCut - 1, lowCut + 2, H[i]);
         if (snow > 0) {
           // Snow is spread more evenly than rain (it drifts on the wind instead of being wrung out
           // on the windward slopes), so rain shadows get less but not much less
           const shadow = (0.6 + 0.8 * (P ? P[i] : 0.5)) / (0.35 + 1.3 * (P ? P[i] : 0.5));
-          S[i] = Math.min(6, S[i] + amount * shadow * (st.mountain || st.arctic ? 0.18 : 0.15) * snow * sf);
+          S[i] = Math.min(6, S[i] + amount * shadow * (st.arctic || st.lowlandSnow ? 0.26 : st.mountain ? 0.18 : 0.15) * snow * sf);
           // Mark it as snowing here: falling snow chills the air, so the ground barely melts it meanwhile
           if (snow > 0.3) SNW[i] = now;
         }
@@ -293,7 +295,11 @@ export function spawnStormAt(world, x, z, r, thunder = false) {
   st.lobes = makeLobes(r, cold && !thunder);
   st.speed = 0.3; st.vx = Math.cos(a) * 0.3; st.vz = Math.sin(a) * 0.3;
   st.thunder = thunder; st.dry = false; st.arctic = false;
-  if (cold && !thunder) { st.mountain = true; st.hLow = -1e9; st.hHigh = -1e9 + 1; } // an even snow blanket over the area
+  if (cold && !thunder) {
+    st.mountain = true; st.hLow = -1e9; st.hHigh = -1e9 + 1; // an even snow blanket over the area
+    st.lowlandSnow = true; // snows right down to the lowest ground
+    startColdSnap(world, 0.5);
+  }
   st.fuel = st.maxFuel = 1.3; st.peak = thunder ? 1.8 : 1.2;
   st.age = 0; st.life = 60 + Math.random() * 30;
   world.storms.push(st);
@@ -367,6 +373,16 @@ function newMountainStorm(world) {
   };
 }
 
+/**
+ * A cold snap: Arctic air sits over the region for a week or two (length 1 ≈ 12 days), so snow that
+ * falls on the lowlands stays instead of melting the next day.
+ */
+export function startColdSnap(world, length = 1) {
+  if (seasonParams.enabled) world.coldSnapUntil = (seasonParams.phase + 0.033 * length) % 1;
+  else world.coldSnapUntil = (world.time || 0) + 400 * length;
+  world.coldSnapSeasons = seasonParams.enabled;
+}
+
 /** Height below which ordinary storms rain (the lowlands): the lower ~45% of the map. */
 function lowlandCut(world) {
   if (world.lowCut === undefined || (world.lowCutAge = (world.lowCutAge || 0) + 1) > 200) {
@@ -402,10 +418,11 @@ function newStorm(world, force = null) {
   let arctic = false;
   if (!force && seasonParams.enabled && !thunder && a2.count < a2.dates.length && ph >= a2.dates[a2.count] && ph < 0.97) {
     arctic = true; a2.count++; a2.used = true;
+    startColdSnap(world, 1);
   }
   // Frontal storms are big, regional systems; thunderstorms are smaller cells (but still sizeable);
   // an Arctic outbreak storm is the biggest of all, blanketing the lowlands
-  const r = arctic ? N * (0.3 + Math.random() * 0.1) : thunder ? 14 + Math.random() * 16 : 30 + Math.random() * 50;
+  const r = arctic ? N * (0.55 + Math.random() * 0.1) : thunder ? 14 + Math.random() * 16 : 30 + Math.random() * 50;
   // Pick a spot on the map and start upwind of it, just off the edge
   const tx = Math.random() * N, tz = Math.random() * N, m = r * 0.6;
   const back = Math.min(
@@ -423,6 +440,8 @@ function newStorm(world, force = null) {
       if (H[i] < cut) { sx += i % N; sz += (i / N) | 0; cnt++; }
     }
     if (cnt) { cx = sx / cnt; cz = sz / cnt; }
+    // (pulled toward the middle of the map so it blankets all the low ground, both sides of a range)
+    cx = cx * 0.5 + N * 0.25; cz = cz * 0.5 + N * 0.25;
   }
   const speed = arctic ? 0.8 + Math.random() * 0.4 : (thunder ? 1.2 : 2.2) + Math.random() * 1.6; // cells per simulated second
   // A ragged cluster of 3–6 rain cells

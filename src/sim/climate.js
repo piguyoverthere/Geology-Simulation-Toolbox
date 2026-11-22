@@ -113,6 +113,15 @@ function updateGroundLag(world) {
   world.groundPhase = ph;
 }
 
+/** True while an Arctic cold snap is sitting over the region (see weather.startColdSnap). */
+export function coldSnapActive(world) {
+  if (world.coldSnapUntil === undefined) return false;
+  const t = world.coldSnapSeasons ? seasonParams.phase : world.time;
+  let left = world.coldSnapUntil - t;
+  if (world.coldSnapSeasons) { if (left < -0.5) left += 1; if (left > 0.5) left -= 1; } // around the new year
+  return left > 0;
+}
+
 /** Today's temperature at cell i (annual mean + season). */
 export function nowTemp(world, i) { return world.temperature[i] + (world.seasonT || 0); }
 
@@ -245,6 +254,8 @@ export function updateSnow(world, steps = 1, runoff = false) {
   const S = world.snow, T = world.temperature, P = world.precip, st = world.seasonT || 0;
   const melts = Math.max(st, world.groundSeason ?? st);
   const SNW = world.snowingAt;
+  // During a cold snap (an Arctic outbreak) the air is far below normal, so lying snow doesn't melt
+  const snap = coldSnapActive(world) ? 8 : 0;
   const meltSpeed = seasonParams.enabled ? seasonParams.speed : 1; // same melt per season at any speed
   const holdTan = Math.tan((Math.min(85, Math.max(5, p.snowSlope)) * Math.PI) / 180);
   // With storms on, all snow comes from storms (sim/weather.js): snowstorms build the pack. Only with
@@ -266,7 +277,7 @@ export function updateSnow(world, steps = 1, runoff = false) {
         // Snow melts from above (warm air) and from below (ground still warm from summer), but hardly
         // at all while a snowstorm is falling on it (the falling snow chills the air to freezing)
         const snowing = SNW && now - SNW[i] < 6 ? 0.08 : 1;
-        let d = before - p.melt * meltSpeed * snowing * Math.max(0, T[i] + melts - p.meltTemp);
+        let d = before - p.melt * meltSpeed * snowing * Math.max(0, T[i] + melts - snap - p.meltTemp);
         d = d < 0 ? 0 : d > 6 ? 6 : d;
         // Meltwater runs off into the streams: the spring flood of a snowy catchment
         if (runoff && d < before && before > 0.005) {

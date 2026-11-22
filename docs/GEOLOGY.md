@@ -411,8 +411,11 @@ about 3.5 units deep, with the depth far more even than before.
 fronts rolls in off the ocean one after another, slows and stalls as it piles up against the
 mountains and unloads its snow, then there's a break of a few days before the next wave (about two
 waves a month). Below the snow level the lowlands get rain, except for one or two Arctic outbreaks
-a winter, on random dates: cold air pours out over the whole lowland and a big, slow storm buries
-it in snow (about half the lowland white for a couple of weeks), until the next rains wash it away.
+a winter, on random dates: cold air pours out over the whole region and a huge, slow storm buries
+the lowlands in snow (on the Cascades map, 97% of the low ground white, about 4 units deep). The
+Arctic air then sits there for a week or two (a cold snap): snow doesn't melt and every storm snows
+right down to the lowest ground. Afterwards the thaw and the next rains clear it. A snowstorm called
+in with the Storm tool also snows all the way down and brings a shorter cold snap.
 Rain on snow melts it.
 
 **Snowstorms pile it up.** Every storm that's snowing drops heavy snow (the travelling storms
