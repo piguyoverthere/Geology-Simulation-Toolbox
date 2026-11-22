@@ -222,7 +222,10 @@ export class Toolbox {
     oc.append(
       toggle('Sea', app.sim, 'seaEnabled',
         'Fill everything below sea level with ocean. Rivers slow down and drop sediment where they meet it, forming deltas. The sea has tides, its own biomes and shores.', this, () => app.applySea()),
-      slider('Sea level', app.sim, 'seaLevel', 0, 50, 0.5, 'Mean height of the ocean surface.', this, () => app.applySea()),
+      slider('Sea level', app.sim, 'seaLevel', 0, 50, 0.5, 'Mean height of the ocean surface. Moving it switches the sea on.', this, () => {
+        if (!app.sim.seaEnabled) { app.sim.seaEnabled = true; this.refresh(); }
+        app.applySea();
+      }),
       slider('Tide range', app.coastParams, 'tideRange', 0, 6, 0.1,
         'Height between low and high tide. The strip between them floods and drains every cycle: mudflats in bays, wet beaches. (Puget Sound tides are 3–4 m; the open Pacific coast about 2–3 m.)', this),
       slider('Tide period', app.coastParams, 'tidePeriod', 5, 120, 1, 'Simulated seconds from one high tide to the next.', this),

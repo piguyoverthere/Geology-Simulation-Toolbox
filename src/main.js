@@ -485,6 +485,17 @@ class App {
     this.world.seaLevel = this.sim.seaEnabled ? this.sim.seaLevel : -1000;
     this.world.meanSea = this.world.seaLevel;
     this.world.tide = 0;
+    if (this.sim.seaEnabled) {
+      // Fill (or lower) the sea straight away, even while paused. Lowering it drains the strip it
+      // used to cover, rather than leaving the old seawater standing there.
+      const H = this.world.height, D = this.world.water, sea = this.world.seaLevel;
+      const prev = this.lastSea ?? sea;
+      for (let i = 0; i < D.length; i++) {
+        if (H[i] < sea) D[i] = sea - H[i];
+        else if (H[i] < prev && Math.abs(H[i] + D[i] - prev) < 0.5) D[i] = 0;
+      }
+    }
+    this.lastSea = this.sim.seaEnabled ? this.world.seaLevel : undefined;
     coastStep(this.world);
     if (!this.sim.seaEnabled) {
       // Drain the old ocean
