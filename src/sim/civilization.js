@@ -37,7 +37,7 @@ const FARMS_PER_TOWN_CELL = 3; // every cell of town needs at least this many ce
 
 const PER_TOWN_CELL = 120;   // people per paved town cell
 const PER_FARM_CELL = 70;    // people one cell of good farmland feeds
-const MAX_TOWNS = 14;
+const MAX_TOWNS = 30;
 
 const SYL1 = ['Ash', 'Bel', 'Cal', 'Dun', 'El', 'Fair', 'Glen', 'Hal', 'Ive', 'Kel', 'Lin', 'Mar', 'Nor', 'Oak', 'Pem', 'Red', 'Stan', 'Tor', 'Wes', 'Wick'];
 const SYL2 = ['ford', 'by', 'ton', 'wick', 'mouth', 'bridge', 'ham', 'field', 'haven', 'stead', 'dale', 'bury', 'port', 'well', 'mere'];
@@ -383,8 +383,8 @@ function quarry(world, t) {
   }
   // Cut the top off: everything within the face's reach above the next level down
   const c = t.quarry, cx = c % N, cz = (c / N) | 0;
-  const level = Math.max(base + 0.5, H[c] - 1.5 * Math.max(0.3, civParams.destruction));
-  const r = 4;
+  const level = Math.max(base + 0.5, H[c] - 2.2 * Math.max(0.3, civParams.destruction));
+  const r = 5;
   let spoil = 0;
   for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
     if (dx * dx + dz * dz > r * r) continue;
@@ -589,7 +589,7 @@ function manMadeFires(world, t, newFarms) {
   const N = world.N, V = world.vegetation;
   const dry = drySeason();
   // Clearing by fire: some of the forest turned into fields is burnt off first
-  for (const i of newFarms) if (Math.random() < 0.18 * civParams.destruction && world.fire[i] <= 0) world.fire[i] = 0.7;
+  for (const i of newFarms) if (Math.random() < 0.3 * civParams.destruction && world.fire[i] <= 0) world.fire[i] = 0.7;
   // Accidents: a stray spark at the town's edge, more people, more risk, worst when it's dry
   if (Math.random() < 0.0015 * Math.min(4, t.pop / 300) * (0.25 + 3 * dry)) {
     const R = 6 + Math.sqrt(t.pop) / 3, a = Math.random() * Math.PI * 2;
@@ -817,13 +817,13 @@ export function civStep(world) {
       // (a working quay keeps fouling the water at its foot and wearing the beds there down)
       if (LU[i] === 6) for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] < sea && world.marineHealth) world.marineHealth[j] = Math.max(0, world.marineHealth[j] - 0.002);
       for (const j of [i - 1, i + 1, i - N, i + N]) {
-        if (H[j] < sea) { if (world.pollution) world.pollution[j] = Math.min(4, world.pollution[j] + 0.004 * ind); }
-        else if (world.water[j] > 0.05) RP[j] += 0.004 * ind;
+        if (H[j] < sea) { if (world.pollution) world.pollution[j] = Math.min(4, world.pollution[j] + 0.006 * ind); }
+        else if (world.water[j] > 0.05) RP[j] += 0.006 * ind;
       }
       // Heavy: down the drainage to the rivers and on to the sea (or, where the town has dug a
       // sewer, all of it out through the sewer's outfall)
       // (roads are not drained into sewers, but shed much less than streets and works)
-      const load = 0.012 * (LU[i] === 4 ? 6 : 1) * (LU[i] === 3 ? 0.3 : 1) * civParams.destruction;
+      const load = 0.018 * (LU[i] === 4 ? 6 : 1) * (LU[i] === 3 ? 0.3 : 1) * civParams.destruction;
       const owner = OW[i] ? sewerOf[OW[i]] : undefined;
       if (owner !== undefined) { sewerLoad[OW[i]] = (sewerLoad[OW[i]] || 0) + load; continue; }
       let c = i;
@@ -867,7 +867,7 @@ export function civStep(world) {
     for (let i = 0; i < n; i++) if (LU[i] === 1) mask[i] = 1;
     const g = boxBlur(mask, N, 5);
     if (!world.grazing || world.grazing.length !== n) world.grazing = new Float32Array(n);
-    for (let i = 0; i < n; i++) world.grazing[i] = LU[i] ? 0 : Math.min(1, g[i] * 2.5);
+    for (let i = 0; i < n; i++) world.grazing[i] = LU[i] ? 0 : Math.min(1, g[i] * 3.5);
   }
   // Abandoned pavement breaks up and grows over; farmland with no town goes back to the wild
   const FS = world.farmSoil;
@@ -960,7 +960,7 @@ export function civStep(world) {
     let townCells = 0, farmCells = 0, indCells = 0, food = 0, hurt = 0;
     const exhausted = [];
     // (how far out the town reaches: farmers can only work fields within a day's walk or so)
-    const R = Math.min(25, 4 + 2.4 * Math.sqrt(t.pop / PER_FARM_CELL));
+    const R = Math.min(30 + 4 * Math.max(0, civParams.growth - 1), 4 + 2.8 * Math.sqrt(t.pop / PER_FARM_CELL));
     const x0 = Math.max(1, Math.floor(t.x - R - 4)), x1 = Math.min(N - 2, Math.ceil(t.x + R + 4));
     const z0 = Math.max(1, Math.floor(t.z - R - 4)), z1 = Math.min(N - 2, Math.ceil(t.z + R + 4));
     for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
@@ -1008,9 +1008,9 @@ export function civStep(world) {
     // A coastal town builds a harbour; its fleet grows with the town and fishes the sea
     if (t.harbor !== undefined && LU[t.harbor] !== 5) t.harbor = undefined;
     // A bigger town reshapes the land: cutting hills and slopes into terraces, dumping the spoil
-    if (t.pop > 250 && Math.random() < 0.5 * civParams.growth * Math.min(1.5, civParams.destruction)) terraform(world, t, Math.max(1, Math.round(Math.min(20, 3 + Math.floor(t.pop / 250)) * civParams.destruction)));
+    if (t.pop > 200 && Math.random() < 0.7 * civParams.growth * civParams.destruction) terraform(world, t, Math.max(1, Math.round(Math.min(28, 4 + Math.floor(t.pop / 200)) * civParams.destruction)));
     // A big town quarries whole hills and mountains away (harder the bigger it is)
-    if (t.pop > 500 && civParams.destruction > 0) for (let q = Math.min(4, Math.floor(t.pop / 1500) + 1); q > 0; q--) if (Math.random() < 0.4 * civParams.growth * Math.min(1.5, civParams.destruction)) quarry(world, t);
+    if (t.pop > 500 && civParams.destruction > 0) for (let q = Math.round(Math.min(4, Math.floor(t.pop / 1500) + 1) * Math.max(1, civParams.destruction / 1.5)); q > 0; q--) if (Math.random() < 0.6 * civParams.growth * civParams.destruction) quarry(world, t);
     // Channels: irrigation canals out to dry fields; a sewer down to the water
     if (t.pop > 200 && farmCells > 10 && (t.canals || 0) < 3 && Math.random() < 0.03 * civParams.growth) {
       let dry = 0;
@@ -1018,7 +1018,7 @@ export function civStep(world) {
       if (dry > farmCells * 0.4) digCanal(world, t, NW);
     }
     // Exploratory roads out into the deep forest (more as the town grows)
-    if (t.pop > 150 && (t.trails || 0) < Math.min(4, 1 + Math.floor(t.pop / 800)) && Math.random() < 0.02 * civParams.growth) exploreForest(world, t);
+    if (t.pop > 150 && (t.trails || 0) < Math.min(6, 1 + Math.floor(t.pop / 500)) && Math.random() < 0.04 * civParams.growth) exploreForest(world, t);
     if (t.pop > 1500 && t.sewerOutfall !== undefined && !t.sewerToSea && !t.seaSewerTried && Math.random() < 0.05 * civParams.growth) { t.seaSewerTried = true; const old = t.sewerOutfall; t.sewerOutfall = undefined; if (!digSewer(world, t) || !t.sewerToSea) t.sewerOutfall = old; }
     if (t.pop > 150 && t.sewerOutfall === undefined && (t.sewerTries || 0) < 6 && Math.random() < 0.05 * civParams.growth) { if (!digSewer(world, t)) t.sewerTries = (t.sewerTries || 0) + 1; }
     // A big town dams a river valley near it for a reservoir (one per town)
@@ -1093,7 +1093,7 @@ export function civStep(world) {
     // (every cell of town needs 3 of farmland: the town builds out only once its fields allow)
     const wantFarm = Math.max(Math.ceil((t.pop * 1.8) / perFarm) + 4, FARMS_PER_TOWN_CELL * (Math.max(wantTown, townCells) + indCells + 1));
     const roomForTown = Math.floor(farmCells / FARMS_PER_TOWN_CELL) - townCells - indCells;
-    if (townCells < wantTown && roomForTown > 0) expand(world, t, 2, Math.min(3, wantTown - townCells, roomForTown), R, fields);
+    if (townCells < wantTown && roomForTown > 0) expand(world, t, 2, Math.min(Math.round(6 * Math.max(1, civParams.growth)), wantTown - townCells, roomForTown), R, fields);
     // Worn-out fields: next to the town they are paved and built on (housing, shops, workshops);
     // farther out they are left fallow to recover. Either way the farmers clear fresh fields
     // farther out, so the town grows in rings: a core, its fields, new clearings at the edge.
@@ -1101,7 +1101,7 @@ export function civStep(world) {
     for (const i of exhausted) {
       let nextToTown = false;
       for (const j of [i - 1, i + 1, i - N, i + N]) if ((LU[j] === 2 || LU[j] === 4) && OW[j] === t.num) nextToTown = true;
-      if (nextToTown && housed < 3 && !isProtected(world, i) && slopeAt(world, i) < 0.6 && farmCells - 1 >= FARMS_PER_TOWN_CELL * (townCells + indCells + 1)) { pave(world, i, t.num, 2); housed++; farmCells--; townCells++; }
+      if (nextToTown && housed < Math.round(5 * Math.max(1, civParams.growth)) && !isProtected(world, i) && slopeAt(world, i) < 0.6 && farmCells - 1 >= FARMS_PER_TOWN_CELL * (townCells + indCells + 1)) { pave(world, i, t.num, 2); housed++; farmCells--; townCells++; }
       else if (!nextToTown && Math.random() < 0.05) { LU[i] = 0; OW[i] = 0; farmCells--; } // (fallow)
     }
     t.exhausted = exhausted.length;
@@ -1110,14 +1110,14 @@ export function civStep(world) {
     const wantInd = Math.min(40, Math.max(0, Math.floor((t.pop - 400) / 110)));
     t.industry = indCells;
     if (indCells < wantInd && roomForTown > 0) buildIndustry(world, t, Math.min(3, wantInd - indCells, roomForTown), NW);
-    if (farmCells < wantFarm) expand(world, t, 1, Math.min(8, wantFarm - farmCells), Math.min(45, R * 2), fields, NW);
+    if (farmCells < wantFarm) expand(world, t, 1, Math.min(Math.round(14 * Math.max(1, civParams.growth)), wantFarm - farmCells), Math.min(55 + 6 * Math.max(0, civParams.growth - 1), R * 2), fields, NW);
     // (and the farmers keep clearing a little more each year even when the town isn't growing:
     // new holdings, pasture, land for the next generation)
-    else if (Math.random() < 0.4 * civParams.growth) expand(world, t, 1, 1 + (Math.random() < 0.5 ? 1 : 0), Math.min(45, R * 2), fields, NW);
+    else if (Math.random() < 0.7 * civParams.growth) expand(world, t, 1, Math.round((2 + (Math.random() < 0.5 ? 1 : 0)) * Math.max(1, civParams.growth)), Math.min(55 + 6 * Math.max(0, civParams.growth - 1), R * 2), fields, NW);
     // A big town sends people out to found a daughter village (linked by road)
     // (when the town is crowded: near what its land can feed)
     // (a town with boats can send them across the water, farther afield; without, only overland)
-    if (t.pop > 300 && t.pop > 0.85 * K && towns.length < MAX_TOWNS && Math.random() < 0.015 * civParams.growth) {
+    if (t.pop > 300 && t.pop > 0.85 * K && towns.length < MAX_TOWNS && Math.random() < 0.03 * civParams.growth) {
       const ang = Math.random() * Math.PI * 2, d = 30 + Math.random() * (t.boats ? 60 : 30);
       const site = bestSite(world, t.x + Math.cos(ang) * d, t.z + Math.sin(ang) * d, 24, fields);
       const overseas = site && COMP && COMP[site.i] !== COMP[ci];

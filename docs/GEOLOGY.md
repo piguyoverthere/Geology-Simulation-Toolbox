@@ -1046,6 +1046,15 @@ Every tipping smothers the sea bed and clouds and fouls the water; quarrying fou
 it. The Destruction slider scales how fast all of this goes. Farmers also keep clearing a little
 more land each year even while the town isn't growing.
 
+Towns spread fast and hard. Each step a town can build up to 6 cells of town and clear 14 of fields;
+it reaches out up to 30 cells for town and 55 for fields. Up to 30 towns can exist, and daughter
+villages are founded twice as often as before. About 30% of new fields are burnt off first.
+Pollution loads are 1.5× what they were, quarries cut 2.2 deep with a wider face, and livestock
+graze farther into the woods. The **Expansion speed** slider goes up to 10 and the **Destruction**
+slider up to 10. Above 1 they raise both the chances and the limits: how many cells a town builds
+or clears in a step, how far out it reaches, how many terraces it cuts, and how many quarries it
+works at once.
+
 **Protected zones.** Any polygon you draw can be made a protected zone (🛡 in the Drawings list): it
 is kept wild. No town is founded or built inside it, no farmland is cleared, no industry is built,
 and roads between towns go around it (unless there is truly no other way). What was there already
