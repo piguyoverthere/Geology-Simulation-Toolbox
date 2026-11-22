@@ -9,7 +9,7 @@ import { ensureQuality } from '../sim/waterQuality.js';
 import { ensureOcean, advect } from '../sim/ocean.js';
 import { ensureEcology, animalField, canLive } from '../sim/ecology.js';
 import { addProbe, removeProbesNear } from '../sim/probes.js';
-import { bestSite, foundTown, removeTown, townNear, buildRoad, ensureCiv, placeHarbor, removeHarborNear } from '../sim/civilization.js';
+import { bestSite, foundTown, removeTown, townNear, buildRoad, ensureCiv, placeHarbor, removeHarborNear, paintPlantation } from '../sim/civilization.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -581,6 +581,14 @@ TOOLS.clearFields = {
       world.forestAge[i] = 0;
     });
     world.dirty = true;
+  },
+};
+TOOLS.plantation = {
+  label: 'Plantation', group: 'Civilization', icon: '🌲', editsTerrain: false,
+  help: 'Paint timber plantation onto the land for the nearest town (within about 80 cells): open land and that town\'s own fields are planted with saplings. The town tends it, clear-fells it when grown (with any wild forest joining it), replants it, and gives it up when its soil wears out, like its own plantations. Plantations hold no wildlife. Hold Shift to clear plantation back to the wild.',
+  apply({ world, app, x, z, radius, invert }) {
+    const r = paintPlantation(world, x, z, radius, invert);
+    if (typeof r === 'string') app.toolbox.setInfo(`<b>Plantation</b> — ${r}.`);
   },
 };
 TOOLS.road = {

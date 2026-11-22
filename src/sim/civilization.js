@@ -1687,6 +1687,46 @@ export function placeHarbor(world, x, z) {
   return t;
 }
 
+/**
+ * The Plantation brush: cells around (x, z) become timber plantation for the nearest town (within
+ * 80 cells), planted with saplings: open land, and that town's own fields. Painted cells join a
+ * plantation of that town nearby (or start a new one), and are felled and regrown with it. With
+ * `remove`, plantation under the brush goes back to the wild. Returns the town, null, or a reason.
+ */
+export function paintPlantation(world, x, z, radius, remove) {
+  ensureCiv(world);
+  const N = world.N, LU = world.landUse, OW = world.civOwner, H = world.height, sea = seaOf(world);
+  const cells = [];
+  const r = Math.max(1, radius);
+  for (let dz = -Math.ceil(r); dz <= Math.ceil(r); dz++) for (let dx = -Math.ceil(r); dx <= Math.ceil(r); dx++) {
+    if (dx * dx + dz * dz > r * r) continue;
+    const xx = Math.round(x) + dx, zz = Math.round(z) + dz;
+    if (xx < 2 || zz < 2 || xx > N - 3 || zz > N - 3) continue;
+    cells.push(zz * N + xx);
+  }
+  if (remove) {
+    for (const i of cells) if (LU[i] === 10) { LU[i] = 0; OW[i] = 0; }
+    world.dirty = true;
+    return null;
+  }
+  const t = townNear(world, x, z, 80);
+  if (!t) return 'no town within about 80 cells to plant and fell it: settle one first';
+  if (!t.plantations) t.plantations = [];
+  let pl = t.plantations.find((p) => p.painted && Math.hypot(p.x - x, p.z - z) < 20);
+  if (!pl) { pl = { x: Math.round(x), z: Math.round(z), cells: [], alive: 0, painted: true }; t.plantations.push(pl); }
+  const have = new Set(pl.cells);
+  for (const i of cells) {
+    const ownField = LU[i] === 1 && OW[i] === t.num;
+    if (!(LU[i] === 0 || ownField || (LU[i] === 10 && OW[i] !== t.num)) || H[i] < sea + 0.3 || world.water[i] > 0.2 || isProtected(world, i)) continue;
+    LU[i] = 10; OW[i] = t.num; world.irrigated[i] = 0;
+    if (world.vegetation[i] < 0.35) world.vegetation[i] = 0.35; // (saplings)
+    if (!have.has(i)) { pl.cells.push(i); have.add(i); }
+  }
+  pl.alive = pl.cells.length;
+  world.dirty = true;
+  return t;
+}
+
 /** Shift with the Harbour tool: close the harbour nearest (x, z) (within 8 cells). */
 export function removeHarborNear(world, x, z) {
   const N = world.N;
