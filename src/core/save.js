@@ -14,7 +14,7 @@ const MAGIC = 'GEOLEVEL1';
 // Transient or derived state that isn't worth saving (rebuilt on the fly)
 const SKIP_ARRAYS = new Set(['flux', 'strataWarp0']);
 // Plain-data lists and objects on the world that are saved as JSON
-const WORLD_JSON = ['sources', 'cones', 'geoRange', 'storms', 'holdovers', 'faults', 'landslides'];
+const WORLD_JSON = ['sources', 'pollSources', 'cones', 'geoRange', 'storms', 'holdovers', 'faults', 'landslides'];
 // Settings objects on the app (all plain values)
 const PARAMS = ['waterParams', 'thermalParams', 'vegetationParams', 'climateParams', 'seasonParams', 'weatherParams',
   'volcanoSettings', 'faultSettings', 'fireParams', 'landslideParams', 'coastParams', 'qualityParams', 'oceanParams', 'windParams', 'glacierParams', 'sim', 'gen', 'brush', 'drawSettings'];

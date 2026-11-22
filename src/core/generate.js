@@ -139,6 +139,7 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   world.setBaseline();
   world.clearWater();
   world.sources.length = 0;
+  world.pollSources = [];
   initVegetation(world, seed);
   world.dirty = true;
 }

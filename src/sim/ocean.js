@@ -70,8 +70,10 @@ function openSeaDistance(world, sea) {
 }
 
 /** Carry field F along the currents (semi-Lagrangian: each cell takes what was upstream). */
-export function advect(F, U, V, mask, N) {
+export function advect(F, U, V, mask, N, conserve = false) {
   const n = N * N, out = new Float32Array(n);
+  let before = 0;
+  if (conserve) for (let i = 0; i < n; i++) if (mask[i]) before += F[i];
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
       const i = z * N + x;
@@ -85,6 +87,12 @@ export function advect(F, U, V, mask, N) {
       const c = mask[j + N] ? F[j + N] : F[i], d = mask[j + N + 1] ? F[j + N + 1] : F[i];
       out[i] = (a * (1 - fx) + b * fx) * (1 - fz) + (c * (1 - fx) + d * fx) * fz;
     }
+  }
+  // (sampling isn't mass-conserving near coasts: rescale so a substance is moved, never made or lost)
+  if (conserve && before > 0) {
+    let after = 0;
+    for (let i = 0; i < n; i++) if (mask[i]) after += out[i];
+    if (after > 0) { const k = before / after; for (let i = 0; i < n; i++) if (mask[i]) out[i] *= k; }
   }
   F.set(out);
 }
@@ -167,9 +175,9 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
   for (let i = 0; i < n; i++) { world.pushU[i] *= 0.93; world.pushV[i] *= 0.93; }
   if (p.currents > 0 || world.pushing) {
     world.pushing = false;
-    advect(world.silt, U, V, mask, N);
-    advect(world.pollution, U, V, mask, N);
-    advect(PL, U, V, mask, N);
+    advect(world.silt, U, V, mask, N, true);
+    advect(world.pollution, U, V, mask, N, true);
+    advect(PL, U, V, mask, N, true);
     advect(SAL, U, V, mask, N);
   }
 

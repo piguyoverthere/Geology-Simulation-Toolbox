@@ -18,7 +18,7 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O', pollute: 'X', clean: 'V', stir: 'M', current: 'J', freshen: 'Y', bloom: 'T', oxygen: 'E', seaice: 'I', surge: 'R', waves: 'Q' };
+const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O', pollute: 'X', clean: 'V', stir: 'M', current: 'J', freshen: 'Y', bloom: 'T', oxygen: 'E', seaice: 'I', surge: 'R', waves: 'Q', outfall: 'H' };
 export function toolKey(id) { return LETTER_KEYS[id] || TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
 
 function seaOn(world) { return world.meanSea !== undefined && world.meanSea > -999; }
@@ -355,6 +355,16 @@ export const TOOLS = {
       forEachCell(world, x, z, radius, (i, w) => paintShore(world, i, w, type, dt));
     },
   },
+  outfall: {
+    label: 'Pollution source', group: 'Ocean', icon: '⊗', editsTerrain: false, click: true,
+    help: 'Click to place a source that pours pollutants into the sea without end (a sewage outfall, a polluted river mouth, a factory pipe): put it in the water or on the shore and it discharges into the nearest seawater. The plume spreads with the tides and currents, feeds plankton blooms and slowly kills the sea beds around it. Brush strength sets how much it pours out. Shift-click removes nearby sources.',
+    apply({ world, x, z, strength, invert }) {
+      if (!world.pollSources) world.pollSources = [];
+      if (invert) world.pollSources = world.pollSources.filter((s) => Math.hypot(s.x - x, s.z - z) > 8);
+      else world.pollSources.push({ x, z, rate: 0.3 + strength * 1.7 });
+      world.dirty = true;
+    },
+  },
   pollute: {
     label: 'Pollute water', group: 'Ocean', icon: '☣', editsTerrain: false,
     help: 'Paint over the sea to pour in pollutants (sewage, farm and street runoff, a spill). They spread with the tides, linger for a long time, turn the water a murky green-brown and poison seagrass, kelp and coral, which die off where it stays too dirty (and then no longer clean the water). Hold Shift to dump mud instead (silt: brown water that blocks the light, but settles out in a few days). The inspector shows the water quality. Only works on the sea.',
@@ -411,7 +421,7 @@ export const TOOLS = {
       // Move the water's contents right away (even while paused)
       const mask = new Uint8Array(n), top = seaTop(world);
       for (let i = 0; i < n; i++) mask[i] = world.height[i] < top ? 1 : 0;
-      for (const F of [world.silt, world.pollution, world.plankton, world.salinity]) if (F) advect(F, U, V, mask, N);
+      for (const F of [world.silt, world.pollution, world.plankton, world.salinity]) if (F) advect(F, U, V, mask, N, F !== world.salinity);
       world.pushing = true;
       world.dirty = true;
     },

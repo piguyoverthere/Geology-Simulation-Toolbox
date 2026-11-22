@@ -132,6 +132,9 @@ export class TerrainRenderer {
     scene.add(this.springGroup);
     this.springGeo = new THREE.CylinderGeometry(0.8, 1.4, 3, 10);
     this.springMat = new THREE.MeshStandardMaterial({ color: 0x3fa9ff, emissive: 0x0a3a66 });
+    this.outfallGroup = new THREE.Group();
+    scene.add(this.outfallGroup);
+    this.outfallMat = new THREE.MeshStandardMaterial({ color: 0x8a6a2a, emissive: 0x3a2400 });
 
     // Heights change every frame, so use fixed generous bounds instead of recomputing them
     const bounds = new THREE.Sphere(new THREE.Vector3(), N * 1.5);
@@ -430,6 +433,7 @@ export class TerrainRenderer {
     this.skirt.geometry.computeVertexNormals();
 
     this.syncSprings();
+    this.syncOutfalls();
   }
 
   /** The forest's colour from its species mix (falls back to the forest-type blend). Writes S4. */
@@ -570,6 +574,17 @@ export class TerrainRenderer {
     // Mangrove canopy over the mudflats and shallows
     const mg = w.mangrove ? w.mangrove[i] : 0;
     if (mg > 0.03) mix(col, MANGROVE, Math.min(1, mg * 1.1), col);
+  }
+
+  /** Markers for the pollution sources: brown-orange posts. */
+  syncOutfalls() {
+    const g = this.outfallGroup, src = this.world.pollSources || [];
+    while (g.children.length > src.length) g.remove(g.children[g.children.length - 1]);
+    while (g.children.length < src.length) g.add(new THREE.Mesh(this.springGeo, this.outfallMat));
+    src.forEach((s, k) => {
+      const ground = this.world.sampleHeight(s.x, s.z), sea = this.world.seaLevel > -999 ? this.world.seaLevel : -1e9;
+      g.children[k].position.copy(this.toWorld(s.x, s.z, Math.max(ground, sea) + 1.5));
+    });
   }
 
   syncSprings() {

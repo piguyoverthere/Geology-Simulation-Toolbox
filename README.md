@@ -93,7 +93,9 @@ push the water along, carrying what's in it; **Fresh water** ⊚ (Y) makes it br
 mouth (Shift: saltier); **Plankton bloom** ✺ (T) seeds a bloom (Shift: clears it); **Oxygen** ○ (E)
 aerates the water (Shift: strips the oxygen out, a dead zone); **Sea ice** ❄ (I) freezes it (Shift:
 melts it); **Storm surge** ⇡ (R) raises the whole sea, flooding low shores (Shift: lowers it); **Waves**
-〰 (Q) whips up big waves that break as surf and pound the coast.
+〰 (Q) whips up big waves that break as surf and pound the coast. **Pollution source** ⊗ (H): click to place a
+source that pours pollutants into the nearest seawater without end (a sewage outfall or factory pipe),
+marked by a brown post; Shift-click removes nearby ones.
 
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
 sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or

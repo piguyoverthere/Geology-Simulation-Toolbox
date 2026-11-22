@@ -82,6 +82,27 @@ export function waterQualityStep(world, sea, half, filterOf, sensitivity, pace, 
   // The water body: the sea and the tidal fringe
   const mask = new Float32Array(n);
   for (let i = 0; i < n; i++) mask[i] = H[i] < sea + half ? 1 : 0;
+  // Pollution sources (the Pollution source tool): each pours pollutants into the nearest
+  // seawater, a little every step, for as long as it's there
+  for (const src of world.pollSources || []) {
+    const cx = Math.round(src.x), cz = Math.round(src.z);
+    let cells = [];
+    for (let r = 2; r <= 14 && !cells.length; r += 3) {
+      for (let z = Math.max(0, cz - r); z <= Math.min(N - 1, cz + r); z++) {
+        for (let x = Math.max(0, cx - r); x <= Math.min(N - 1, cx + r); x++) {
+          const i = z * N + x;
+          if (H[i] < sea && (x - cx) ** 2 + (z - cz) ** 2 <= r * r) cells.push(i);
+        }
+      }
+    }
+    if (!cells.length) continue;
+    if (cells.length > 13) { // (the outfall's mouth: the nearest water, not the whole bay)
+      const d = (i) => (i % N - cx) ** 2 + (((i / N) | 0) - cz) ** 2;
+      cells = cells.sort((a, b) => d(a) - d(b)).slice(0, 13);
+    }
+    const each = (src.rate * 0.6) / cells.length;
+    for (const i of cells) PO[i] = Math.min(4, PO[i] + each);
+  }
   // Rivers deliver their muddy load to the sea
   for (let i = 0; i < n; i++) if (mask[i] && H[i] < sea) SI[i] = Math.min(4, SI[i] + 0.4 * SED[i]);
   // Tides and currents mix it about (an average over the water only, so it doesn't leak onto land).
