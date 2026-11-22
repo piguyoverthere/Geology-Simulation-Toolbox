@@ -102,7 +102,7 @@ carrying what's in the water, shown as flowing dashes and arrows; brush strength
 brush size its width. Shift-click removes the nearest one.
 
 **Wildlife**: design your own animals. Under **Wildlife → + Add animal**, name it, pick its colour and
-where it lives (anywhere on land, forest, meadows, mountains, streams and ponds, the sea, coastal
+the temperatures it likes (it thrives inside that range and fades out beyond it), where it lives (anywhere on land, forest, meadows, mountains, streams and ponds, the sea, coastal
 shallows), what it eats (grass, shrubs and young trees, deciduous trees, conifers, plankton, seaweed,
 and any of your other animals), how fast it breeds, how far it roams and whether it migrates (to the far side of the map with the
 seasons, north–south or east–west, or wandering the whole map after food), and its habits (avoids deep

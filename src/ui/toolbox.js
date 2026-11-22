@@ -478,6 +478,12 @@ export class Toolbox {
     const migr = el('select');
     for (const [v, t] of Object.entries(MIGRATION)) { const o = el('option', '', t); o.value = v; migr.append(o); }
     migr.value = draft.migrates || 'none';
+    // Temperature range it's comfortable in
+    const tRow = el('div', 'tb-temp-range');
+    const tMin = el('input'); tMin.type = 'number'; tMin.step = 1; tMin.value = draft.tempMin ?? -10;
+    const tMax = el('input'); tMax.type = 'number'; tMax.step = 1; tMax.value = draft.tempMax ?? 30;
+    tRow.append(tMin, el('span', 'tb-label', 'to'), tMax, el('span', 'tb-label', '°C'));
+    this.helpOn(tRow, '<b>Likes temperatures</b> — The range it is comfortable in (the air on land, the water at sea). Inside it the animal thrives and spreads fastest; beyond it the place supports fewer of them, they breed slower and suffer heat or cold stress, fading out about 5 °C past the limit. Animals with different ranges spread at different rates and shift with the seasons.');
     const save = button(a ? 'Save' : 'Add animal', () => {
       draft.name = name.value.trim() || 'Animal';
       const hex = color.value;
@@ -489,6 +495,10 @@ export class Toolbox {
       draft.breed = parseFloat(breed.value);
       draft.roam = parseFloat(roam.value);
       draft.migrates = migr.value;
+      let lo = parseFloat(tMin.value), hi = parseFloat(tMax.value);
+      if (!isFinite(lo)) lo = -10; if (!isFinite(hi)) hi = 30;
+      if (lo > hi) [lo, hi] = [hi, lo];
+      draft.tempMin = lo; draft.tempMax = hi;
       if (!w.animals) w.animals = [];
       const at = w.animals.findIndex((b) => b.id === draft.id);
       if (at >= 0) w.animals[at] = draft; else w.animals.push(draft);
@@ -504,7 +514,7 @@ export class Toolbox {
     F.append(el('div', 'tb-form-head', a ? `Edit ${a.name}` : 'New animal'),
       field('Name', name), field('Colour', color), field('Lives in', hab),
       plants.box, prey.box,
-      field('Breeds', breed), field('Roams', roam), field('Migrates', migr),
+      field('Likes', tRow), field('Breeds', breed), field('Roams', roam), field('Migrates', migr),
       habits.box, btns);
     name.focus();
     name.select();

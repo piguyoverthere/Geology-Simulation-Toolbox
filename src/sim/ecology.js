@@ -72,6 +72,8 @@ export function newAnimal(opts = {}) {
     roam: opts.roam ?? 3,
     habits: { ...(opts.habits || {}) },
     migrates: opts.migrates || 'none',
+    tempMin: opts.tempMin ?? -10,   // °C: the range it's comfortable in (air on land, water at sea)
+    tempMax: opts.tempMax ?? 30,
     stock: 1, // (runs up rivers: this year's run strength)
   };
 }
@@ -215,13 +217,21 @@ function stepAnimal(world, a, M, sea, k) {
   const PO = world.pollution, OX = world.oxygen, SNW = world.snow;
   const grazer = a.eats.grass || a.eats.young || a.eats.decid || a.eats.conifer;
   const r = 0.03 * a.breed * k;
+  // Temperature: comfortable inside its range (fading out over ~5 °C beyond it)
+  const tLo = a.tempMin ?? -10, tHi = a.tempMax ?? 30;
+  const tempFit = (i) => {
+    const t = M.seaM[i] && world.seaT && !Number.isNaN(world.seaT[i]) ? world.seaT[i] : world.temperature[i] + seasonalAt(world, i, st);
+    return t < tLo ? Math.max(0, 1 - (tLo - t) / 5) : t > tHi ? Math.max(0, 1 - (t - tHi) / 5) : 1;
+  };
   for (let i = 0; i < n; i++) {
     let h = habitatAt(world, a, i, M, sea);
     if (runSeason && M.stream[i]) h = Math.max(h, 0.8); // (up the rivers in the autumn run)
     allow[i] = h > 0 ? 1 : 0;
     if (h <= 0) { P[i] = 0; continue; }
     const food = Math.min(1.2, plantFood(world, a, i, M) + (prey ? prey[i] * 1.5 : 0));
-    K[i] = food * h;
+    // Too hot or too cold: the place supports fewer of them, and they breed slower there
+    const fit = tempFit(i);
+    K[i] = food * h * (0.1 + 0.9 * fit);
     let p = P[i];
     if (p <= 0) { HU[i] = 0; continue; }
     // Hunger: builds where there's less food than the animals here need, eases where there's
@@ -230,7 +240,8 @@ function stepAnimal(world, a, M, sea, k) {
     HU[i] += (Math.max(0, Math.min(1, 1 - ratio)) - HU[i]) * Math.min(1, 0.15 * k);
     const hu = HU[i];
     let dp = r * p * (1 - p / Math.max(0.02, K[i]));
-    if (dp > 0) dp *= 1 - hu;
+    if (dp > 0) dp *= (1 - hu) * fit;
+    if (fit < 0.5) dp -= 0.05 * k * (0.5 - fit) * p; // (exposure: heat or cold stress)
     dp -= 0.12 * k * hu * hu * p; // (starving)
     if (hunted) dp -= 0.25 * k * hunted[i] * p;
     if (hb.avoidsSnow && SNW && SNW[i] > 1.2) dp -= 0.02 * k * p;
@@ -425,5 +436,6 @@ export function describeAnimal(world, a) {
   for (const pid of a.prey) { const b = (world.animals || []).find((x) => x.id === pid); if (b) foods.push(b.name); }
   const habits = Object.keys(HABITS).filter((k) => a.habits[k]).map((k) => HABITS[k][0].toLowerCase());
   if (a.migrates && a.migrates !== 'none') habits.push(MIGRATION[a.migrates].toLowerCase());
+  habits.push(`likes ${a.tempMin ?? -10} to ${a.tempMax ?? 30} °C`);
   return `Lives in: ${HABITATS[a.habitat].toLowerCase()}. Eats: ${foods.length ? foods.join(', ') : 'nothing yet (it will die out)'}.${habits.length ? ' ' + habits.join('; ') + '.' : ''}`;
 }

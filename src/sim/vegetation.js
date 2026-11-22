@@ -173,7 +173,19 @@ function neighbourhood(world) {
     nearArid,
     standSoil: boxBlur(world.soil, N, r),
     standCover: boxBlur(world.vegetation, N, 2),
+    forestSeed: forestSeedRain(world, N),
   };
+}
+
+/**
+ * Seed rain from nearby forest: how many tree seeds reach each spot, from forest within a few cells
+ * (healthy forest, full of seedlings and seed trees, sends far more). Open ground next to healthy
+ * forest fills in with trees quickly; plains far from any forest only slowly.
+ */
+function forestSeedRain(world, N) {
+  const n = N * N, V = world.vegetation, FH = world.forestHealth, src = new Float32Array(n);
+  for (let i = 0; i < n; i++) src[i] = smoothstep(0.62, 0.85, V[i]) * (0.25 + 0.75 * (FH ? FH[i] : 0.7));
+  return boxBlur(src, N, 4);
 }
 
 /** The cover a cell can support (0..1), given the neighbourhood fields `f`. */
@@ -344,6 +356,9 @@ export function vegetationStep(world) {
         if (target > v && v > 0.3) rate *= 0.3 + 0.9 * FH[i];
       } else FH[i] += (0 - FH[i]) * 0.05;
     }
+    // Open ground that could grow forest: next to (healthy) forest the seeds rain in and it fills
+    // with trees fast; on plains far from any forest only a few stray seeds arrive, so it's slow
+    if (target > v && target > 0.62 && v < 0.66 && salt === 0) rate *= 0.15 + 4 * Math.min(1, f.forestSeed[i] * 1.6);
     if (saltKill) rate = Math.max(rate, 0.12); // salt kills even old trees, fast
     v += (target - v) * Math.min(1, rate);
     V[i] = v < 0 ? 0 : v > 1 ? 1 : v;

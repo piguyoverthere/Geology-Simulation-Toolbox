@@ -265,3 +265,6 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .tb-stat:hover { background: var(--panel-2); }
 .tb-stat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tb-stat-val { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11.5px; }
+
+.tb-temp-range { display: flex; align-items: center; gap: 6px; }
+.tb-temp-range input { width: 56px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 3px 5px; font: inherit; }

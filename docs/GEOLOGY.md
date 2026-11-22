@@ -824,6 +824,12 @@ that suit trees, and moisture; browsing animals eat them, and dead wood and fire
 healthy forest renews itself and fills its gaps quickly; one with too few seedlings slowly thins out
 as its old trees die. Both have overlays (Forest density, Forest health) and show in the inspector.
 
+**Forest spreads from its edges.** Trees spread by seed, and seeds fall near the trees that made
+them. Open ground next to forest, above all healthy forest full of seed trees and saplings, fills
+in with trees quickly; plains far from any forest get only a few stray seeds and turn to woodland
+only slowly. So a clearing in a healthy forest closes over within a few years, while a big burn or
+an open plain is re-forested from its edges inward.
+
 ## Wildlife: an ecosystem of your own animals
 
 You design the animals (Wildlife → Add animal): a name and colour, where it lives, what it eats and
@@ -845,6 +851,11 @@ none and moves toward better feeding over its roaming range, and each links to t
   the sea up cool, clean rivers, held back by warm water, mud and dams; the spawners die and
   fertilise the stream banks, and next year's run depends on how many made it).
 - Every sea animal suffocates in low-oxygen water.
+- **Temperature.** Each animal has a range it's comfortable in (the air on land, the water at
+  sea). Inside it the animal thrives and spreads fastest; beyond it the place supports fewer of
+  them, they breed slower and suffer heat or cold stress, fading out about 5 °C past the limit. So
+  animals with different ranges spread at different rates, sort themselves by climate (cold-lovers
+  up the mountains, warm-lovers in the lowlands) and shift with the seasons.
 - **Migration.** An animal can stay put, migrate with the seasons to the opposite side of the map
   (north in summer and south in winter, or east in summer and west in winter: in the Showcase map
   that's up into the mountains for the summer and down to the coast for the winter), or wander the
