@@ -1016,16 +1016,16 @@ house, so it grows as fast as it builds and doesn't boom and crash.
 
 **The sewer network.** A town's sewers are real channels the sewage flows along. Every street,
 works and harbour cell within 10 cells of a sewer drains into the nearest one. The sewer carries it
-cell by cell, fouler and fuller the farther down it goes, to the outfall. A branch sewer joins the
+cell by cell, fouler the farther down it goes, to the outfall. A branch sewer joins the
 trunk and passes on everything it has collected, and the trunk empties into the sea (or a river)
 at the outfall. As the town spreads, it digs branch sewers, under its streets if need be, to the
-districts the network doesn't reach yet, nearest the centre first. A sewer always runs with water.
+districts the network doesn't reach yet, nearest the centre first.
 Streets beyond the network's reach still drain downhill.
 
 **Kept ground and growth limits.** Ground people keep up doesn't erode: farmland, towns, roads,
 industry, harbours, quays, dams, plantations, and anything paved. It barely washes away (about 3%
 of the usual rate), and it doesn't slump, slide or blow away, because its walls, banks and drains
-are maintained. Canals and sewers are dug channels and don't count. Quarries and terracing lower
+are maintained. Canals and sewers count too: they're lined, so their flow doesn't scour them deeper. Sewers aren't kept topped up with water; the sewage shows as fouled ground along them, so they don't spill into pools. Each step, any kept cell left standing as a spike above the ground around it is levelled, and any hole left in kept ground is filled. Harbours, quays, dams, channels and the water's edge are left as built. Quarries and terracing lower
 the roads, fields and plantations in their way along with the ground around them (a road is
 re-graded, not left standing on a ridge); only bridges, towns and works are left as they are. A
 town's growth tails off smoothly as it gets big (a soft limit): what it can support is scaled by

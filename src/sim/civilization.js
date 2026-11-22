@@ -963,7 +963,7 @@ export function civStep(world) {
   world._sewerDist = dist;
   const sewerAcc = new Float32Array(n);
   // (a working canal is kept running from the river it taps: sluices let water in as it soaks away)
-  for (let i = 0; i < n; i++) if (world.channel[i] === 1 && OW[i] && world.water[i] < 0.12) world.water[i] = 0.12;
+  for (let i = 0; i < n; i++) if (world.channel[i] === 1 && OW[i] && world.water[i] < 0.05) world.water[i] = 0.05;
   for (let z = 1; z < N - 1; z++) {
     for (let x = 1; x < N - 1; x++) {
       const i = z * N + x;
@@ -1014,7 +1014,6 @@ export function civStep(world) {
         if (world.channel[c] !== 2) continue;
         carry += sewerAcc[c];
         RP[c] = Math.max(RP[c], Math.min(3, 0.3 + carry * 0.6));
-        if (world.water[c] < 0.1) world.water[c] = 0.1; // (a sewer always runs)
       }
       if (sw.into >= 0) { sewerAcc[sw.into] += carry; continue; }
       // The trunk's outfall: into the sea, spreading there, or into a river that carries it on
@@ -1033,6 +1032,17 @@ export function civStep(world) {
         c = low;
       }
     }
+  }
+  // Upkeep of the ground: a kept cell left standing as a spike (its surroundings worn or dug away)
+  // is levelled down to the ground around it, and a hole in the middle of kept ground is filled
+  for (let z = 1; z < N - 1; z++) for (let x = 1; x < N - 1; x++) {
+    const i = z * N + x;
+    if (!world.builtUp(i) || world.bridge[i] || (LU[i] >= 5 && LU[i] <= 9)) continue; // (not harbours, quays, dams or channels: built to stand or sink)
+    const a = H[i - 1], b = H[i + 1], c = H[i - N], d = H[i + N];
+    if (Math.min(a, b, c, d) < sea) continue; // (nor at the water's edge)
+    const lo = Math.min(a, b, c, d), hi = Math.max(a, b, c, d), avg = (a + b + c + d) * 0.25;
+    if (H[i] - hi > 1.2 || H[i] - lo > 3) { H[i] = Math.max(sea + 0.3, avg + 0.2); world.prevHeight[i] = H[i]; }
+    else if (lo - H[i] > 1.2) { H[i] = avg; world.prevHeight[i] = H[i]; }
   }
   // Livestock: the farms' cattle, sheep, goats and pigs roam out into the woods around them and
   // graze the understory (forest health falls there: few seedlings survive)
