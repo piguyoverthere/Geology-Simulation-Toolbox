@@ -815,6 +815,18 @@ A future "geological clock" could make this explicit.
 - Musgrave, Kolb & Mace, *The Synthesis and Rendering of Eroded Fractal Terrains* (SIGGRAPH 1989): the original thermal + hydraulic terrain erosion paper
 - Sebastian Lague, *Coding Adventure: Hydraulic Erosion* (YouTube), a very approachable intro to the droplet model
 
+## Good years and bad years
+
+With Seasons on, no two years are quite alike. Most are ordinary, but now and then a summer of
+**drought and heat waves** comes (a ridge of high pressure parks over the region for weeks): up to
+5 °C hotter, the summer rain all but gone, dry thunderstorms throwing lightning with no rain, and
+the fuels dried out early, so the fire season starts sooner, burns fiercer and runs further, with
+embers spotting far ahead of the fires. Other summers are **mild**: cool and showery, green, with
+little fire. A new kind of year is drawn each spring; Seasons → **Year-to-year variation** sets how
+often the extremes come (at 1, about one year in six is a drought year and one in five a mild one)
+and **This year** shows (or sets) the current one. The month bar names the year and flags drought or
+mild summers.
+
 ## Forest density and forest health
 
 **Tree density** is how closely the trees stand (canopy closure): it comes from the tree cover, is

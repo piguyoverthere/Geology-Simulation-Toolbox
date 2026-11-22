@@ -268,3 +268,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 
 .tb-temp-range { display: flex; align-items: center; gap: 6px; }
 .tb-temp-range input { width: 56px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 3px 5px; font: inherit; }
+
+.mb-year { margin-left: 6px; padding: 0 6px; border-radius: 8px; font-size: 11px; }
+.mb-hot { background: rgba(226, 88, 75, 0.25); color: #ffb39a; }
+.mb-mild { background: rgba(79, 163, 217, 0.22); color: #a9d6f2; }

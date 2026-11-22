@@ -2,7 +2,7 @@
 // The simulation's year phase starts at the spring equinox (phase 0 ≈ 20 March), so the calendar
 // is offset to match. Clicking a month jumps the year to the middle of it.
 
-import { seasonParams } from '../sim/climate.js';
+import { YEAR_KINDS, seasonParams } from '../sim/climate.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -72,8 +72,9 @@ export class MonthBar {
     const { month, day, year } = dateOf(seasonParams.phase);
     this.marker.style.left = `${year * 100}%`;
     const part = day <= 10 ? 'Early' : day <= 20 ? 'Mid' : 'Late';
+    const yk = YEAR_KINDS[seasonParams.yearKind] || YEAR_KINDS.normal;
     this.label.innerHTML = on
-      ? `<b>${part} ${FULL[month]}</b> <span>${SEASON[month]}</span>`
+      ? `<b>${part} ${FULL[month]}</b> <span>${SEASON[month]} · year ${seasonParams.year || 1}</span>${yk.short ? ` <span class="mb-year mb-${seasonParams.yearKind}">${yk.short}</span>` : ''}`
       : '<b>Seasons off</b>';
   }
 }

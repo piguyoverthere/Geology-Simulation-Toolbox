@@ -42,12 +42,49 @@ export const seasonParams = {
   speed: 1,      // years per minute of real time
   swing: 13,     // °C between the annual mean and midsummer (or midwinter)
   phase: 0.12,   // where in the year we are
+  variability: 1, // how often years are extreme (0 = every year alike)
+  yearKind: 'normal', // this year: 'normal', 'hot' (drought and heatwave) or 'mild' (cool, showery)
+  yearStrength: 1,    // how extreme this year is (0.6 … 1.2)
+  year: 1,
 };
+
+/**
+ * Not every year is the same. Most are ordinary, but now and then a summer of drought and heat
+ * waves comes (a blocking ridge of high pressure parks over the region for weeks): hotter, almost
+ * rainless, with dry lightning, and fuels drying out early, so wildfires run far and wide. Other
+ * summers are mild and showery, cool and green, with little fire. A new kind of year is drawn at
+ * each new year; `variability` sets how often the extremes come.
+ */
+export const YEAR_KINDS = {
+  normal: { label: 'Normal year', short: '' },
+  hot: { label: 'Drought & heat wave year', short: '🔥 Drought year' },
+  mild: { label: 'Mild, cool summer', short: '🌦 Mild summer' },
+};
+/** Draw the kind of year at a new year. */
+export function rollYear() {
+  const v = seasonParams.variability, r = Math.random();
+  seasonParams.yearKind = r < 0.16 * v ? 'hot' : r < 0.34 * v ? 'mild' : 'normal';
+  seasonParams.yearStrength = 0.6 + Math.random() * 0.6;
+  seasonParams.year = (seasonParams.year || 1) + 1;
+}
+/** 0 … 1 through the summer (April to September, strongest in July and August). */
+function summerWeight(ph = seasonParams.phase) {
+  const d = ph - 0.36;
+  return Math.abs(d) < 0.26 ? Math.cos((d / 0.26) * Math.PI * 0.5) ** 2 : 0;
+}
+/** This year's summer anomaly: +1 drought and heat, −1 mild, scaled by how far into summer. */
+export function yearAnomaly() {
+  if (!seasonParams.enabled || seasonParams.yearKind === 'normal') return 0;
+  return (seasonParams.yearKind === 'hot' ? 1 : -1) * seasonParams.yearStrength * summerWeight();
+}
 
 const LAG = 0.05; // the warmest day comes this fraction of a year after the summer solstice (late July)
 /** Today's temperature offset from the annual mean (°C). */
 export function seasonOffset() {
-  return seasonParams.enabled ? seasonParams.swing * Math.sin(2 * Math.PI * (seasonParams.phase - LAG)) : 0;
+  if (!seasonParams.enabled) return 0;
+  // (plus this year's summer: up to +5 °C in a heat-wave year, −3 °C in a mild one)
+  const a = yearAnomaly();
+  return seasonParams.swing * Math.sin(2 * Math.PI * (seasonParams.phase - LAG)) + (a > 0 ? 5 * a : 3 * a);
 }
 /**
  * How stormy today is relative to the yearly average (1 = average), with Seasons on. A
@@ -59,7 +96,10 @@ export function seasonOffset() {
 export function seasonalRain() {
   if (!seasonParams.enabled) return 1;
   const s = Math.max(0.3, climateParams.summerDry);
-  return Math.max(0.05, 1 + s * Math.cos(2 * Math.PI * (seasonParams.phase - 0.83)));
+  const base = Math.max(0.05, 1 + s * Math.cos(2 * Math.PI * (seasonParams.phase - 0.83)));
+  // Drought years: the rain all but stops; mild summers: showers keep coming
+  const a = yearAnomaly();
+  return a > 0 ? base * (1 - 0.85 * Math.min(1, a)) : base * (1 - 2 * a);
 }
 
 /**
@@ -73,7 +113,10 @@ export function drySeason() {
   if (!seasonParams.enabled) return 0;
   const d = seasonParams.phase - 0.43; // late summer
   const bump = Math.abs(d) < 0.16 ? Math.cos((d / 0.16) * Math.PI * 0.5) ** 2 : 0;
-  return bump * (0.4 + 0.6 * climateParams.summerDry);
+  const normal = bump * (0.4 + 0.6 * climateParams.summerDry);
+  // A drought year dries the fuels out early and the whole summer burns; a mild one barely does
+  const a = yearAnomaly();
+  return a > 0 ? Math.min(1.2, normal + 0.9 * a) : normal * (1 + 0.85 * a);
 }
 
 /** +1 while the year is warming (late winter → midsummer), −1 while it cools. */
@@ -83,7 +126,10 @@ export function seasonTrend() {
 /** Advance the year by `seconds` of real time. */
 export function advanceSeason(seconds) {
   if (!seasonParams.enabled) return;
+  const before = seasonParams.phase;
   seasonParams.phase = (seasonParams.phase + (seconds * seasonParams.speed) / 60) % 1;
+  // A new year begins at the end of winter (phase wraps round): what kind of year will it be?
+  if (seasonParams.phase < before - 0.5) rollYear();
 }
 /** 'Early spring' … 'Late winter'. */
 export function seasonName(phase = seasonParams.phase) {

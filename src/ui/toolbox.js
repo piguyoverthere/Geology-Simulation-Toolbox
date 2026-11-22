@@ -14,6 +14,7 @@ import { FAULT_TYPES } from '../sim/tectonics.js';
 import { SPECIES, OPEN } from '../sim/species.js';
 import { BIOMES } from '../render/biomes.js';
 import { STATS } from '../sim/stats.js';
+import { YEAR_KINDS } from '../sim/climate.js';
 import { HABITATS, PLANT_FOODS, HABITS, MIGRATION, newAnimal, removeAnimal, describeAnimal } from '../sim/ecology.js';
 
 export class Toolbox {
@@ -164,6 +165,10 @@ export class Toolbox {
         'Years per minute of real time (while the simulation runs).', this),
       slider('Season swing °C', app.seasonParams, 'swing', 0, 20, 0.5,
         'How much warmer midsummer is (and colder midwinter) than the yearly average.', this, () => app.climateChanged()),
+      slider('Year-to-year variation', app.seasonParams, 'variability', 0, 2.5, 0.1,
+        'How often a year turns out extreme. Some summers bring drought and heat waves (a high-pressure ridge parks over the region: hotter, nearly rainless, dry lightning, fuels drying out early, so wildfires spread far and wide); others are mild, cool and showery with little fire. At 1 about one year in six is a drought year and one in five a mild one; 0 makes every year alike. A new kind of year is drawn each spring.', this),
+      select('This year', Object.fromEntries(Object.entries(YEAR_KINDS).map(([k, y]) => [k, y.label])), app.seasonParams, 'yearKind',
+        'What kind of year it is (drawn at random each spring; pick one to make it so now). A drought & heat wave year is up to 5 °C hotter in summer, with the summer rain almost gone and a long, fierce fire season; a mild summer is cooler and showery with few fires.', this, () => { app.seasonParams.yearStrength = 1; app.climateChanged(); }),
     );
 
     // --- Weather -------------------------------------------------------------------------------
