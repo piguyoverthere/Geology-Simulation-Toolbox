@@ -46,6 +46,7 @@ export const OVERLAYS = {
   topo: 'Topographic map',
   coast: 'Coast & ocean',
   quality: 'Water quality',
+  wind: 'Wind speed',
   decid: 'Deciduous trees',
   rock: 'Rock type',
   hardness: 'Rock hardness',
@@ -297,6 +298,8 @@ export class TerrainRenderer {
           // Today's temperature (annual mean + season); under the sea, the water's
           const wt = waterTempAt(w, i);
           col = shade(tempColor(wt !== null ? wt : w.temperature[i] + seasonalAt(w, i), S3), 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'wind') {
+          col = shade(windColor(w.wind ? w.wind[i] : 0, S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'slope') {
           const t = Math.min(1, slope / 0.35);
           col = mix(SLOPE_LO, SLOPE_HI, t, S3);
@@ -379,8 +382,20 @@ export class TerrainRenderer {
           // (the mangrove canopy stands above the tide)
           if (w.mangrove && w.mangrove[i] > 0.05) this.wCol[i4 + 3] *= 1 - 0.85 * Math.min(1, w.mangrove[i] * 1.2);
           // (the temperature map colours the sea by its water temperature: let it show through)
-          if (mode === 'temp' && isSea) this.wCol[i4 + 3] *= 0.15;
+          if (mode === 'temp' && isSea) {
+            // The temperature map shows the sea's own surface temperature, spot by spot
+            const tw = w.seaT && !Number.isNaN(w.seaT[i]) ? w.seaT[i] : seaTemp();
+            const tc = tempColor(tw, S4);
+            const sv = 0.85 + 0.15 * Math.min(1, d / 10); // (a touch darker over deep water)
+            this.wCol[i4] = (tc[0] * sv) ** 2; this.wCol[i4 + 1] = (tc[1] * sv) ** 2; this.wCol[i4 + 2] = (tc[2] * sv) ** 2;
+            this.wCol[i4 + 3] = 0.88;
+          }
           if (mode === 'quality' && isSea) this.wCol[i4 + 3] = 0.92;
+          if (mode === 'wind' && isSea) {
+            const wc2 = windColor(w.wind ? w.wind[i] : 0, S4);
+            this.wCol[i4] = wc2[0] * wc2[0]; this.wCol[i4 + 1] = wc2[1] * wc2[1]; this.wCol[i4 + 2] = wc2[2] * wc2[2];
+            this.wCol[i4 + 3] = 0.9;
+          }
           // (the coast overlay is for looking at the sea bed: make the sea nearly clear)
           if (mode === 'coast' && isSea) this.wCol[i4 + 3] *= 0.25;
         } else {
@@ -609,6 +624,11 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
+const WIND_CALM = [0.86, 0.90, 0.92], WIND_BREEZE = [0.45, 0.72, 0.80], WIND_STRONG = [0.20, 0.38, 0.72], WIND_GALE = [0.52, 0.20, 0.58];
+/** Wind overlay colour: calm (pale) → breezy (teal) → strong (blue) → gale (purple). */
+function windColor(v, out) {
+  return v < 0.6 ? mix(WIND_CALM, WIND_BREEZE, v / 0.6, out) : v < 1.1 ? mix(WIND_BREEZE, WIND_STRONG, (v - 0.6) / 0.5, out) : mix(WIND_STRONG, WIND_GALE, Math.min(1, (v - 1.1) / 0.6), out);
+}
 const BLOOM = [0.32, 0.58, 0.30], RED_TIDE = [0.62, 0.36, 0.24], FOAM = [0.95, 0.97, 0.98], ICE_SEA = [0.90, 0.94, 0.97];
 const SILT_WATER = [0.78, 0.58, 0.34], FOUL_WATER = [0.58, 0.58, 0.30];
 const Q_FOUL = [0.45, 0.25, 0.12], Q_MID = [0.78, 0.68, 0.36], Q_CLEAR = [0.20, 0.55, 0.85];

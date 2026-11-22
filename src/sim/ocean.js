@@ -23,6 +23,7 @@
 
 import { boxBlur } from '../core/grid.js';
 import { climateParams, seasonParams } from './climate.js';
+import { updateWind } from './wind.js';
 
 export const oceanParams = {
   currents: 1,   // strength of the tidal currents (0 = still water)
@@ -37,6 +38,7 @@ export function ensureOcean(world) {
   }
   if (!world.salinity || world.salinity.length !== n) world.salinity = new Float32Array(n).fill(1);
   if (!world.oxygen || world.oxygen.length !== n) world.oxygen = new Float32Array(n).fill(1);
+  if (!world.seaT || world.seaT.length !== n) { world.seaT = new Float32Array(n).fill(NaN); }
 }
 
 let distCache = null; // distance to the open sea along the water: { key, dist }
@@ -99,6 +101,30 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
   const mask = new Uint8Array(n);
   for (let i = 0; i < n; i++) mask[i] = H[i] < sea + half ? 1 : 0;
 
+  const WIND = updateWind(world);
+
+  // --- Water temperature, spot by spot ---------------------------------------------------
+  // The whole sea follows the seasons (Tw), but not evenly: shallow, open water heats up fast in
+  // the summer sun and is chilled fast by the wind in winter (and a strong wind stirs up cooler
+  // water from below all year), so it swings widely; deep or sheltered water, with more mass and
+  // less wind, stays steadier and lags behind.
+  const T = world.seaT, mean = climateParams.seaTemp, swingNow = Tw - mean;
+  const phS = seasonParams.enabled ? seasonParams.phase : 0.2;
+  const sun = seasonParams.enabled ? Math.max(0, Math.sin(2 * Math.PI * (phS + 0.05))) : 0.6; // summer sunshine
+  for (let i = 0; i < n; i++) {
+    if (!mask[i]) { T[i] = NaN; continue; }
+    const depth = Math.max(0, sea - H[i]);
+    const shallow = 1 - Math.min(1, depth / 12);
+    const wind = WIND[i];
+    const exposed = Math.min(1, 0.5 * Math.min(1, exposure[i] * 2) + 0.5 * Math.min(1, wind / 1.2));
+    const amp = 0.55 + 0.6 * exposed + 0.5 * shallow;       // how far it swings with the seasons
+    const target = mean + swingNow * amp
+      + 2.2 * sun * shallow * (0.5 + 0.5 * exposure[i])         // sun-warmed shallows
+      - 1.2 * Math.max(0, wind - 0.6);                          // wind chill and mixing
+    const rate = 0.03 + 0.12 * exposed * (0.4 + 0.6 * shallow); // fast where exposed and shallow
+    T[i] = Number.isNaN(T[i]) ? target : T[i] + (target - T[i]) * rate;
+  }
+
   // --- Tidal currents ---------------------------------------------------------------------
   // Flood (+) or ebb (−): how fast the tide is rising or falling now
   const t = world.time || 0;
@@ -126,8 +152,16 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
       const s = amp * flood * Math.min(2.5, squeeze * 0.45) * reach * friction;
       // (plus a slow drift with the prevailing wind at the surface)
       // (plus any current pushed by hand with the Current tool, fading away)
-      U[i] = gx * s + 0.12 * wdx * p.currents + world.pushU[i];
-      V[i] = gz * s + 0.12 * wdz * p.currents + world.pushV[i];
+      // Wind-driven surface current: the wind drags the water along, strongest in open water;
+      // where it would run into land it turns aside and runs along the coast instead
+      let cu = 0.35 * WIND[i] * wdx * p.currents, cv = 0.35 * WIND[i] * wdz * p.currents;
+      const ox = (open[i + 1] - open[i - 1]) * 0.5, oz = (open[i + N] - open[i - N]) * 0.5, ol = Math.hypot(ox, oz);
+      if (ol > 1e-4) {
+        const into = -(cu * ox + cv * oz) / ol; // component heading toward land
+        if (into > 0) { cu += (into * ox) / ol; cv += (into * oz) / ol; }
+      }
+      U[i] = gx * s + cu + world.pushU[i];
+      V[i] = gz * s + cv + world.pushV[i];
     }
   }
   for (let i = 0; i < n; i++) { world.pushU[i] *= 0.93; world.pushV[i] *= 0.93; }
@@ -174,7 +208,6 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
   // Light: spring and summer (phase 0 is the spring equinox)
   const ph = seasonParams.enabled ? seasonParams.phase : 0.2;
   const light = seasonParams.enabled ? 0.25 + 0.75 * Math.max(0, Math.sin(2 * Math.PI * (ph + 0.05))) : 0.8;
-  const warm = Math.max(0, Math.min(1, (Tw - 6) / 14));
   const PO = world.pollution, HL = world.marineHealth, M = world.marine;
   for (let i = 0; i < n; i++) {
     if (!mask[i]) { PL[i] = 0; OX[i] = 1; continue; }
@@ -182,7 +215,8 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
     const nutrient = PO[i] + 0.4 * (1 - SAL[i]) + 0.03;
     // Sea beds take up nutrients first (and shade nothing: they compete with the plankton)
     const bed = M && M[i] >= 0 && HL ? HL[i] * (M[i] >= 1 && M[i] <= 3 ? 1 : 0) : 0;
-    const grow = p.blooms * 0.12 * light * (0.3 + warm) * nutrient * (1 - 0.6 * bed) * (1 - (ICE[i] > 0.3 ? 0.8 : 0));
+    const warmHere = Math.max(0, Math.min(1, (T[i] - 6) / 14));
+    const grow = p.blooms * 0.12 * light * (0.3 + warmHere) * nutrient * (1 - 0.6 * bed) * (1 - (ICE[i] > 0.3 ? 0.8 : 0));
     PL[i] += grow * (1 - PL[i] / 3) - 0.04 * PL[i];
     if (PL[i] < 1e-4) PL[i] = 0;
     // Oxygen: a dying bloom rots and uses it up, worst in deep, sheltered, warm water where it
@@ -191,8 +225,8 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
     // (far up a long inlet, like Hood Canal, the deep water is rarely flushed out to sea)
     const remote = dist[i] < 1e9 ? Math.min(1, Math.max(0, (dist[i] - N * 0.08) / (N * 0.3))) : 1;
     const still = Math.max(remote, 1 - Math.min(1, exposure[i] * 2.5)) * Math.min(1, Math.max(0, depth - 3) / 8);
-    const use = 0.05 * Math.max(0, PL[i] - 0.5) * still * (0.5 + warm);
-    const mixIn = 0.03 + 0.15 * (1 - still) + 0.1 * SW[i];
+    const use = 0.05 * Math.max(0, PL[i] - 0.5) * still * (0.5 + warmHere);
+    const mixIn = 0.03 + 0.15 * (1 - still) + 0.1 * SW[i] + 0.05 * Math.max(0, WIND[i] - 0.6);
     OX[i] += -use + (1 - OX[i]) * mixIn;
     OX[i] = OX[i] < 0 ? 0 : OX[i] > 1 ? 1 : OX[i];
   }
@@ -207,7 +241,7 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
     const depth = sea - H[i];
     const freeze = -1.9 * SAL[i];
     const shelter = 1 - Math.min(1, exposure[i] * 1.6);
-    const cold = freeze + 0.8 * shelter + 0.5 * (1 - Math.min(1, depth / 10)) - Tw; // > 0: freezing
+    const cold = freeze + 0.8 * shelter + 0.5 * (1 - Math.min(1, depth / 10)) - (Number.isNaN(T[i]) ? Tw : T[i]); // > 0: freezing
     if (cold > 0) ICE[i] = Math.min(1.5, ICE[i] + 0.01 * Math.min(2, cold) * (0.4 + shelter) * (1 - 0.7 * SW[i]));
     else ICE[i] = Math.max(0, ICE[i] + 0.02 * Math.max(-3, cold));
   }
@@ -249,7 +283,8 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
       const m2 = (x > 1 && !mask[i - 2]) + (x < N - 2 && !mask[i + 2]) + (z > 1 && !mask[i - 2 * N]) + (z < N - 2 && !mask[i + 2 * N]);
       const shore = m1 + m2;
       if (!shore) continue;
-      SURF[i] = Math.min(1, (exposure[i] * 2.2 + SW[i] * 1.5) * Math.min(1, shore / 2));
+      // (waves come from the wind: sheltered lee shores are calm)
+      SURF[i] = Math.min(1, (exposure[i] * 1.6 * Math.min(1.4, WIND[i]) + SW[i] * 1.5) * Math.min(1, shore / 2));
     }
   }
 }

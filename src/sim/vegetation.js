@@ -280,6 +280,18 @@ export function vegetationStep(world) {
       const tolerated = Math.max(0.92 * mang, swampOK ? 0.8 : 0, salt === 1 ? 0.35 : 0);
       target = salt === 2 ? tolerated : Math.min(target, tolerated);
       saltKill = v > target;
+    } else if (seaOn) {
+      // Just above high tide, storm surges and storm waves wash over the ground every so often:
+      // grass and low scrub only, no forest down to the waterline
+      const surgeTop = highTide + 1.2 + Math.max(0, world.surge || 0);
+      if (H[i] < surgeTop && mang < 0.2) {
+        target = Math.min(target, 0.35 + 0.3 * smoothstep(highTide, surgeTop, H[i]));
+        if (v > target + 0.05) saltKill = true; // (salt-water floods kill even old trees)
+      }
+      // Salt spray and sea wind thin and stunt the forest behind exposed shores, and loose, dry
+      // sand holds little: sparser cover there (the coastal specialists are what grows)
+      const sp = world.spray ? world.spray[i] : 0, sd = world.sandy ? world.sandy[i] : 0;
+      target *= (1 - 0.45 * sp) * (1 - 0.35 * sd);
     }
     // Regrowth is faster near water and on deep soil; dieback (drought, cold) is slowed by forest
     // age, since mature trees ride out bad years on their reserves

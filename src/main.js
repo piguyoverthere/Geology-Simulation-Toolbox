@@ -17,6 +17,7 @@ import { glacierFlow, glacierBalance, glacierParams } from './sim/glacier.js';
 import { coastParams, coastStep, seaStep, tideLevel } from './sim/coast.js';
 import { qualityParams } from './sim/waterQuality.js';
 import { oceanParams } from './sim/ocean.js';
+import { windParams, updateWind, windErosion } from './sim/wind.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
@@ -52,6 +53,7 @@ class App {
     this.coastParams = coastParams;
     this.qualityParams = qualityParams;
     this.oceanParams = oceanParams;
+    this.windParams = windParams;
 
     this.tool = 'raise';
     this.brush = { radius: 12, strength: 0.5 };
@@ -472,6 +474,9 @@ class App {
     const pr = PRESETS[preset] || {};
     set(climateParams, pr.climate);
     set(coastParams, pr.coast);
+    set(this.seasonParams, pr.seasons);
+    set(this.weatherParams, pr.weather);
+    set(oceanParams, pr.ocean);
     if (pr.sea) set(this.sim, { seaEnabled: pr.sea.enabled, seaLevel: pr.sea.level });
   }
 
@@ -481,6 +486,7 @@ class App {
     generateTerrain(this.world, this.gen.preset, this.gen.seed);
     this.history.push(this.world);
     this.applySea();
+    updateWind(this.world, true);
     this.effects.deck.ready = false; // rebuild the cloud deck for the new terrain
     this.autosave(); // a new level replaces the kept one
   }
@@ -525,6 +531,7 @@ class App {
   redo() { this.history.redo(this.world); }
   /** Recompute temperatures after the climate changes, and redraw. */
   climateChanged() {
+    updateWind(this.world, true);
     updateTemperature(this.world);
     updatePrecip(this.world);
     updateSnow(this.world, 30); // let the snowpack respond quickly to the new climate
@@ -638,6 +645,8 @@ class App {
       // Look for slopes about to fail a few times a second (scaled with sim speed)
       if (this.frame % 10 === 5 && this.sim.vegetation) compositionStep(this.world);
       if (this.frame % 10 === 3) seaStep(this.world);
+      // Wind (recomputed only when the wind, sea or land changes) and its very slow erosion
+      if (this.frame % 10 === 7) { updateWind(this.world); if (this.world.erosionEnabled) windErosion(this.world); }
       // Glacier ice creeps a little every frame (faster at higher sim speed)
       if (this.world.ice) glacierFlow(this.world, this.sim.substeps / 6);
       if (this.frame % 5 === 0) landslideCheck(this.world, 0.25 * this.sim.substeps / 6);

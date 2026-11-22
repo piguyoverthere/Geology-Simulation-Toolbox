@@ -78,6 +78,9 @@ export class Toolbox {
     );
     const eroBtns = el('div', 'tb-row');
     eroBtns.append(button('Erode ×50k drops', () => app.bulkErode(50000), '', 'Instantly run 50,000 raindrops of erosion over the whole map.', this));
+    this.erosionControls.append(
+      slider('Wind erosion', app.windParams, 'erosion', 0, 5, 0.1, 'How fast the wind wears down bare sedimentary rock (sandstone, shale, limestone, conglomerate) where it blows strongly and nothing grows: grain by grain, extremely slowly. The grains are dropped downwind, into the sea as silt. 0 turns it off.', this),
+    );
     this.erosionControls.append(eroBtns);
     ero.append(master, this.erosionControls);
 
@@ -144,6 +147,8 @@ export class Toolbox {
         'Long-term rainfall of the region. Dry it out and forests retreat to grassland, then to bare ground, holding on longest along rivers and lakes.', this),
       slider('Wind direction °', app.climateParams, 'windAngle', 0, 360, 5,
         'Direction the moist prevailing wind blows toward. Slopes facing into it get the most rain and snow; the far side of a range sits in a dry rain shadow. See the Precipitation overlay.', this, () => app.climateChanged()),
+      slider('Wind strength', app.windParams, 'strength', 0, 3, 0.1,
+        'How hard the prevailing wind blows. It is strongest over open sea (building up over the water it crosses) and on exposed ridges and coasts; land blocks it, leaving calm water and ground in its lee. Drives the sea\'s surface currents and waves, chills exposed water and wears down bare soft rock very slowly.', this),
       slider('Dry summers', app.climateParams, 'summerDry', 0, 1, 0.05,
         'With Seasons on: how much of the year\'s rain comes from autumn to spring instead of summer. High values give a Mediterranean-type climate like the Pacific Northwest: wet, stormy winters that build the snowpack, and dry summers with fewer storms and a wildfire season. The Cascade Range preset sets this.', this),
     );
@@ -353,6 +358,7 @@ export class Toolbox {
     else if (mode === 'precip') ramp('Precipitation', 'dry (rain shadow)', 'wet (windward)', [[0.86, 0.74, 0.52], [0.12, 0.35, 0.75]]);
     else if (mode === 'snowDepth') ramp('Snow depth (grey = none)', 'thin', 'deep', [[0.88, 0.92, 0.98], [0.55, 0.72, 0.95], [0.18, 0.30, 0.75]]);
     else if (mode === 'coast') items('Shores, dunes and ocean biomes', [...SHORES, { label: 'Coastal dunes', color: [0.86, 0.82, 0.62], help: 'Wind-blown sand behind sand beaches.' }, { label: 'Mangrove forest', color: [0.12, 0.30, 0.16], help: 'Forest standing in the tide on warm, sheltered mudflats.' }, ...MARINE]);
+    else if (mode === 'wind') ramp('Wind speed (land blocks it: calm in its lee)', 'calm', 'gale', [[0.86, 0.90, 0.92], [0.45, 0.72, 0.80], [0.20, 0.38, 0.72], [0.52, 0.20, 0.58]]);
     else if (mode === 'quality') ramp('Seawater quality', 'foul (silt, pollutants)', 'clear', [[0.45, 0.25, 0.12], [0.78, 0.68, 0.36], [0.20, 0.55, 0.85]]);
     else if (mode === 'topo') {
       const t = this.app.renderer.topo || { lo: 0, hi: 50, interval: 2.5 };
@@ -360,7 +366,7 @@ export class Toolbox {
     }
     else if (mode === 'ice') ramp('Glacier ice (grey = none)', 'thin', 'thick', [[0.82, 0.93, 0.98], [0.45, 0.72, 0.92], [0.12, 0.28, 0.62]]);
     else if (mode === 'decid') ramp('Deciduous share (pale = no forest)', 'evergreen', 'all deciduous', [[0.10, 0.32, 0.22], [0.95, 0.60, 0.12]]);
-    else if (mode === 'temp') ramp('Temperature (today)', '−15 °C', '35 °C', [[0.15, 0.25, 0.65], [0.92, 0.94, 0.98], [0.35, 0.65, 0.35], [0.95, 0.80, 0.30], [0.80, 0.20, 0.12]]);
+    else if (mode === 'temp') ramp('Temperature today (land: air · sea: surface water)', '−15 °C', '35 °C', [[0.15, 0.25, 0.65], [0.92, 0.94, 0.98], [0.35, 0.65, 0.35], [0.95, 0.80, 0.30], [0.80, 0.20, 0.12]]);
     else if (mode === 'species') items('Dominant tree species', [...SPECIES, OPEN].map((s) => ({ ...s, color: s.mapColor })));
     else if (mode === 'chem') ramp('Soil chemistry (from the rock below)', 'acidic (granite, sandstone)', 'alkaline (limestone, marble)', [[0.55, 0.30, 0.62], [0.88, 0.86, 0.80], [0.20, 0.62, 0.56]]);
     else if (mode === 'age') ramp('Forest age (pale = no forest)', 'young', 'old growth', [[0.72, 0.86, 0.42], [0.05, 0.24, 0.10]]);

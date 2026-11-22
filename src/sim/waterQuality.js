@@ -75,7 +75,7 @@ export function addSiltAt(world, x, z, amount, r) {
  * declines and regrows (seagrass thins out slowly, shoot by shoot, over a season or more);
  * `resist[m]` how much a dense bed shields itself (thick meadows hold up far better than sparse ones).
  */
-export function waterQualityStep(world, sea, half, filterOf, sensitivity, pace, resist) {
+export function waterQualityStep(world, sea, half, filterOf, sensitivity, pace, resist, saltTol) {
   ensureQuality(world);
   const N = world.N, n = N * N, H = world.height, SI = world.silt, PO = world.pollution, HL = world.marineHealth;
   const M = world.marine, MG = world.mangrove, SED = world.sediment, p = qualityParams;
@@ -121,7 +121,10 @@ export function waterQualityStep(world, sea, half, filterOf, sensitivity, pace, 
       const sens = m >= 0 ? sensitivity[m] : 0;
       // (a dense bloom shades the beds; water with no oxygen suffocates them)
       const bloom = world.plankton ? Math.max(0, world.plankton[i] - 1) : 0, anoxic = world.oxygen ? 1 - world.oxygen[i] : 0;
-      const stress = (0.5 * SI[i] + PO[i] + 0.3 * bloom + 1.2 * anoxic) * sens;
+      // (and brackish water, fresher than the bed can stand, kills most of them: only eelgrass
+      // copes with much fresh water)
+      const brackish = world.salinity && m >= 0 ? Math.max(0, saltTol[m] - world.salinity[i]) * 4 : 0;
+      const stress = (0.5 * SI[i] + PO[i] + 0.3 * bloom + 1.2 * anoxic + brackish) * sens;
       // (for seagrass and kelp this is the bed's density: it thins gradually rather than dying at once)
       // A dense meadow resists: it shelters its own water (slowing it, so dirt settles out
       // before reaching the shoots), its roots hold the bed, and it has the reserves to ride out

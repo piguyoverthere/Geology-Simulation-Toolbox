@@ -121,7 +121,7 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   mostly from autumn to spring, and a summer fire season with dry lightning storms), and **Snow slope
   limit** (the steepest slope snow builds up on).
 - **Overlays**: colour the map by one data layer (biomes, vegetation, tree species, forest age,
-  coast & ocean (shore types, dunes, mangroves, ocean biomes), water quality, topographic map (elevation bands with contour lines, index contours every fifth), temperature,
+  coast & ocean (shore types, dunes, mangroves, ocean biomes), water quality, wind speed, topographic map (elevation bands with contour lines, index contours every fifth), temperature,
   precipitation, snow depth, glacier ice, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
 - **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes.
@@ -147,7 +147,10 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   forested west and a dry plateau in the rain shadow, with westerly wind and dry summers. The
   **Puget Sound** preset makes the whole map the Sound: open water broken by clusters of lobed,
   north–south islands like Vashon and Maury, crowded in places and sparse in others, with open
-  basins between and straight beaches below steep bluffs. Presets
+  basins between and straight beaches below steep bluffs. The **Showcase (demo)** preset packs in a
+  bit of everything, west to east: open ocean with island clusters, a sheltered tidal bay, a forested
+  coastal plain, a snowy range with a volcano (glaciers, lava), and a dry, wind-worn sandstone plateau
+  in its rain shadow, with real seasons, storms, big tides and a sea right at coral's limit. Presets
   bring their own settings and put back the previous preset's when you switch.
 - **View**: clouds, water, **sea** (hide the sea's surface to see the sea bed: its sand and silt,
   seagrass, kelp, reefs and die-offs; the sea keeps running), wireframe. The **Coast & ocean**
@@ -179,7 +182,8 @@ src/sim/weather.js      Storms, thunderstorms and lightning
 src/sim/glacier.js      Glaciers: ice flow, U-shaped valley carving, moraines, melt
 src/sim/coast.js        Tides, shore types, wave erosion, beach sand, dunes, mangroves, ocean biomes
 src/sim/waterQuality.js Seawater silt and pollutants, filtering by sea beds, die-off and recovery
-src/sim/ocean.js        Tidal currents, salinity and estuaries, plankton blooms and oxygen, sea ice, storm surge, surf
+src/sim/ocean.js        Water temperature by place, tidal and wind currents, salinity and estuaries, plankton blooms and oxygen, sea ice, storm surge, surf
+src/sim/wind.js         Wind field (fetch over the sea, shadows behind land) and slow wind erosion of sedimentary rock
 src/core/environments.js  Environment presets (ready-made climates)
 src/sim/phenology.js    Seasonal leaves: autumn colour, leaf fall, spring flush
 src/sim/species.js      Tree species, their preferences, and each cell's forest mix

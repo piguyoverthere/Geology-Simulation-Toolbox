@@ -66,6 +66,8 @@ const SENSITIVE = MARINE.map((m) => ({ seagrass: 1.1, kelp: 1, coral: 1.6 }[m.id
 // meadow thins out gradually, its density falling over many weeks, and fills back in as slowly)
 const PACE = MARINE.map((m) => ({ seagrass: 0.2, kelp: 0.5, coral: 0.12 }[m.id] || 1)); // (reefs take many years to grow back)
 // How much a dense bed shields itself from dirty water (seagrass meadows most)
+// The least salty water each bed can stand (most die off in brackish water; eelgrass copes best)
+const SALT_TOL = MARINE.map((m) => ({ seagrass: 0.55, kelp: 0.8, coral: 0.88 }[m.id] || 0));
 const RESIST = MARINE.map((m) => ({ seagrass: 1, kelp: 0.5 }[m.id] || 0));
 // Beds whose density thins gradually (they show as a sparser meadow, not a sudden die-off)
 const THINS = MARINE.map((m) => m.id === 'seagrass' || m.id === 'kelp');
@@ -135,7 +137,9 @@ export function waterTempAt(world, i, now = true) {
   if (sea === undefined || sea < -999) return null;
   const depth = sea - world.height[i];
   if (depth <= 0) return null;
-  const surf = now ? seaTemp() : climateParams.seaTemp;
+  // (the surface: this spot's own water temperature, see sim/ocean.js)
+  const local = now && world.seaT && !Number.isNaN(world.seaT[i]) ? world.seaT[i] : null;
+  const surf = local !== null ? local : now ? seaTemp() : climateParams.seaTemp;
   return surf + (Math.min(surf, 4) - surf) * smoothstep(4, 20, depth);
 }
 
@@ -181,8 +185,6 @@ export function coastStep(world) {
   else world.seaClimate += (climateParams.seaTemp - world.seaClimate) * Math.min(1, years / 3);
   const Tbed = world.seaClimate, turnover = Math.min(1, years / 2.5);
   const HL = world.marineHealth, RB = world.coralRubble, GR = world.bedGrow;
-  // (surface water now, for the coral's cold limit)
-  const surf = seaTemp();
   const erodeK = p.waveErosion * (world.erosionEnabled ? 1 : 0);
   const basalt = ROCK_INDEX.basalt;
   const sandBeach = new Float32Array(n);
@@ -200,7 +202,7 @@ export function coastStep(world) {
         // (coral and kelp need full-strength seawater; river mouths are brackish estuaries)
         const salt = world.salinity[i];
         if (depth > 14) m = MARINE_ID.deep;
-        else if (salt < 0.55 && depth < 8) m = MARINE_ID.estuary;
+        else if (salt < 0.65 && depth < 8) m = MARINE_ID.estuary; // (too brackish for most sea beds)
         else if (depth < 6 && T > 20 && salt > 0.85) m = MARINE_ID.coral;
         else if (depth < 6 && T > 4 && T < 19 && rocky && salt > 0.8) m = MARINE_ID.kelp;
         else if (depth < 4) m = MARINE_ID.seagrass;
@@ -221,7 +223,7 @@ export function coastStep(world) {
           // or a cooling sea), however healthy it was. It grows back only in warm water, slowly
           // (reefs take many years), spreading from living coral nearby; a reef killed off
           // completely is recolonised only very slowly from scattered larvae.
-          const Tnow = surf - (surf - Math.min(surf, 4)) * smoothstep(4, 20, depth);
+          const Tnow = waterTempAt(world, i);
           if (Tnow < 18) { HL[i] = Math.max(0, HL[i] - 0.012 * (18 - Tnow)); GR[i] = 0; }
           else {
             const live = Math.max(CO[i - 1], CO[i + 1], CO[i - N], CO[i + N], CO[i]);
@@ -273,7 +275,7 @@ export function coastStep(world) {
       if (inReach && erodeK > 0 && type !== SHORE.mudflat) {
         const protect = 1 - Math.min(0.85, SAND[i] * 0.6);
         // (mangrove roots take the force out of the waves)
-        const cut = erodeK * ex * (1.2 - hard) * protect * (1 - 0.85 * world.mangrove[i]) * (type === SHORE.cliff ? 2 : 1) * (1 + 4 * world.stormWave[i]); // (storm waves pound it)
+        const cut = erodeK * ex * (world.wind ? 0.4 + 0.6 * Math.min(1.5, world.wind[i]) : 1) * (1.2 - hard) * protect * (1 - 0.85 * world.mangrove[i]) * (type === SHORE.cliff ? 2 : 1) * (1 + 4 * world.stormWave[i]); // (storm waves pound it)
         H[i] -= cut;
         // Soft rock breaks down to sand; hard rock to shingle (doesn't add sand). The fines cloud
         // the water.
@@ -311,6 +313,17 @@ export function coastStep(world) {
     const low = h > sea + half && h < sea + half + 8 ? 1 : 0;
     world.dune[i] = low * Math.min(1, blown[i] * 12);
   }
+  // Salt spray: the sea wind drives spray a few cells inland, so the first stretch of land behind
+  // an exposed shore is wind- and salt-blasted (trees there are stunted, only the coastal ones
+  // thrive); and sandy ground: beach sand blown a little way inland, poor and dry to grow in
+  if (!world.spray || world.spray.length !== n) { world.spray = new Float32Array(n); world.sandy = new Float32Array(n); }
+  const sandNear = boxBlur(sandBeach, N, 2);
+  for (let i = 0; i < n; i++) {
+    if (H[i] < sea) { world.spray[i] = 0; world.sandy[i] = 0; continue; }
+    const wind = world.wind ? Math.min(1.3, world.wind[i] + 0.2) / 1.3 : 0.7;
+    world.spray[i] = Math.min(1, nearSea[i] * 2.5) * (0.35 + 0.65 * wind);
+    world.sandy[i] = Math.min(1, Math.max(world.dune[i], SH[i] === SHORE.sand ? Math.min(1, SAND[i] * 0.7) : 0, sandNear[i] * 0.8));
+  }
   // Mangroves: forests of salt-tolerant trees standing in the tide on warm, sheltered mudflats.
   // They need warm water all year (they die back where the sea drops much below ~20 °C), spread out
   // across the flats and into the shallows, trap mud among their roots (so the flat slowly builds
@@ -347,7 +360,7 @@ export function seaStep(world) {
   ensureCoast(world);
   const half = 0.5 * coastParams.tideRange;
   oceanStep(world, sea, half, world.exposure, seaTemp(), coastParams.tidePeriod);
-  waterQualityStep(world, sea, half, FILTER, SENSITIVE, PACE, RESIST);
+  waterQualityStep(world, sea, half, FILTER, SENSITIVE, PACE, RESIST, SALT_TOL);
   world.dirty = true;
 }
 

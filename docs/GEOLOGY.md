@@ -672,6 +672,30 @@ open ocean, and as it falls (the ebb) it drains back out. The current runs along
 fastest in narrow passages and slowed by friction in the shallows, with a slow drift with the wind
 on top. It carries silt, pollutants, plankton and river water back and forth with every tide.
 
+**Wind.** The prevailing wind blows hardest over open water, building up over the stretch of sea it
+crosses (the fetch), and land blocks it: an island or headland casts a wind shadow behind it, longer
+the higher it stands, so its lee is calm. Over land it is strongest on exposed ridges and coasts. The
+wind drags the sea's surface along as a **wind-driven current** (turning aside to run along a coast
+rather than into it, on top of the tidal currents), raises the waves (surf and wave erosion are
+fiercest on windward shores, calm in the lee), stirs oxygen in and chills exposed water. It also wears
+down bare **sedimentary rock** (sandstone, shale, limestone, conglomerate) where nothing grows, grain by
+grain and extremely slowly, dropping the grains downwind (into the sea as silt). The **Wind speed**
+overlay maps it; Climate → **Wind strength** and Erosion → **Wind erosion** set it.
+
+**Water temperature varies from place to place.** The whole sea follows the seasons, but shallow,
+exposed water heats up fast in the summer sun and is chilled fast by the wind, so it swings widely,
+while deep or sheltered water stays steadier and lags behind; a strong wind also stirs cooler water up
+from below. The Temperature overlay shows the sea's own surface temperature, spot by spot.
+
+**Brackish water.** Most sea beds can't stand fresher water: kelp and coral need full-strength
+seawater, and even seagrass (eelgrass copes best) dies back where rivers keep the water brackish.
+
+**The shore's edge.** Forest doesn't run down to the high-tide line: just above it, storm surges and
+storm waves wash over the ground every so often, leaving only grass and low scrub. Behind exposed
+shores, salt spray and the sea wind thin and stunt the trees, and loose, dry beach and dune sand holds
+little; there the coastal specialists take over (shore pine on the sand, Sitka spruce in the spray and
+fog), while ordinary trees struggle.
+
 **Estuaries.** Rivers pour fresh water into the sea, and it floats out over the seawater as a plume.
 Near a river mouth the water is brackish (part fresh, part salt) and forms an **estuary**, mixing back
 to full seawater (about 35 ‰) further out. Coral and kelp need full-strength seawater; eelgrass and

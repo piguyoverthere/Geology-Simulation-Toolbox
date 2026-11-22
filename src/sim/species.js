@@ -92,6 +92,7 @@ function suitability(world, i, out) {
   const near = world.nearWater ? world.nearWater[i] : 0;
   const coastal = world.coastal ? world.coastal[i] : 0, dune = world.dune ? world.dune[i] : 0;
   const mang = world.mangrove ? world.mangrove[i] : 0;
+  const spray = world.spray ? world.spray[i] : 0, sandy = world.sandy ? world.sandy[i] : 0;
   // A patchy ±1.5 °C offset so the broadleaf limit wanders up and down the slopes
   const px = i % world.N, pz = (i / world.N) | 0;
   const patch = 1.5 * Math.sin(px * 0.21 + pz * 0.13) * Math.cos(pz * 0.17 - px * 0.08);
@@ -114,6 +115,10 @@ function suitability(world, i, out) {
     else f *= 1 - 0.95 * smooth(0.1, 0.4, mang);
     if (s.coastal) f *= 0.03 + smooth(0.15, 0.6, Math.max(coastal, dune));
     else f *= 1 - 0.8 * smooth(0.45, 0.95, coastal);
+    // Sandy ground and salt spray: hard on ordinary trees, home ground for the coastal ones
+    // (Sitka spruce and shore pine thrive on spray-soaked, sandy coastal soil)
+    if (s.coastal) f *= (1 + 2.5 * sandy) * (1 + 1.5 * spray);
+    else f *= (1 - 0.85 * sandy) * (1 - 0.7 * spray);
     if (s.dune) f *= 0.25 + 6 * dune + 0.6 * (1 - Math.min(1, soil * 1.5)); // dunes and poor, thin coastal soil
     else f *= 1 - 0.7 * dune; // loose, salty dune sand
     if (s.riparian) f *= smooth(0.3, 0.8, near);

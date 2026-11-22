@@ -24,6 +24,18 @@ export const PRESETS = {
     sea: { enabled: true, level: 3 },
     coast: { tideRange: 3.5, waveErosion: 0.005 },
   },
+  showcase: {
+    label: 'Showcase (demo)',
+    // A bit of everything, west to east: open ocean with islands and a reef-fringed lagoon, a
+    // sheltered tidal bay, a forested coastal plain, a snowy range with a volcano and glaciers, and
+    // a dry, wind-worn sandstone plateau in its rain shadow. A sea at coral's limit, real seasons.
+    climate: { seaTemp: 19, lapse: 0.45, windAngle: 0, summerDry: 0.6, storms: 1.3, snowstorms: 1.2, oceanFog: 0.6 },
+    seasons: { enabled: true, swing: 10 },
+    weather: { lightning: 1 },
+    sea: { enabled: true, level: 3 },
+    coast: { tideRange: 3, waveErosion: 0.005, coral: 1.5 },
+    ocean: { currents: 1, surge: 1.2, blooms: 1.2 },
+  },
   flat: { label: 'Flat plain' },
 };
 
@@ -42,6 +54,8 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
     world.cones = cascades.cones; world.moistureBias = new Float32Array(N * N); world.gapCold = new Float32Array(N * N);
   }
   const puget = preset === 'pugetsound' ? pugetLayout(N, noise, seed) : null;
+  const show = preset === 'showcase' ? showcaseLayout(seed) : null;
+  if (show) { world.moistureBias = new Float32Array(N * N); world.cones = [{ x: show.vx * N, z: show.vz * N, r: 0.11 * N }]; }
   if (puget) world.moistureBias = new Float32Array(N * N);
 
   for (let z = 0; z < N; z++) {
@@ -84,6 +98,10 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
           y = pugetHeight(puget, noise, x * layout, z * layout, u, v);
           world.moistureBias[z * N + x] = 0.3; // the wet, mild lowland under the marine air
           break;
+        case 'showcase':
+          y = showcaseHeight(show, noise, x * layout, z * layout, u, v);
+          world.moistureBias[z * N + x] = 0.35 - 0.8 * smoothstep(0.58, 0.8, x * layout); // wet coast, dry lee
+          break;
         case 'flat':
         default:
           y = 10 + 0.6 * fbm(noise, u * 6, v * 6, 3);
@@ -97,6 +115,7 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
     h.set(boxBlur(h, N, 1));
   }
   if (preset === 'pugetsound') straightenShore(h, N, PRESETS.pugetsound.sea.level, 14);
+  if (preset === 'showcase') straightenShore(h, N, PRESETS.showcase.sea.level, 8);
   if (preset !== 'flat') smoothLowlands(world, noise);
   // Real landscapes drain: almost every spot has a downhill route to the sea. Raw noise leaves
   // hundreds of closed basins where each river would die in its own little lake. Carve an outlet
@@ -104,6 +123,7 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   // but not the little hollows on its flanks (left closed, they fill into stepped ponds).
   const crater = preset === 'volcano' ? (i) => Math.hypot(i % N - N / 2, ((i / N) | 0) - N / 2) < N * 0.06
     : preset === 'pugetsound' ? (i) => h[i] < PRESETS.pugetsound.sea.level // the Sound's basins are sea, not lakes to drain
+    : preset === 'showcase' ? (i) => h[i] < PRESETS.showcase.sea.level || Math.hypot(i % N - show.vx * N, ((i / N) | 0) - show.vz * N) < N * 0.014
     : null;
   world.keepBasin = crater; // later re-breaching (after landslides) leaves the crater alone too
   breachDepressions(h, N, 0.02, crater);
@@ -111,7 +131,7 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   if (preset !== 'flat') {
     // The Cascades have a few big rivers (Skagit, Snoqualmie, Yakima…) in broad valleys, not a
     // channel in every hollow, and the lowland and plateau are mostly flat
-    carveRivers(h, N, preset === 'cascades' || preset === 'pugetsound' ? { threshold: 2500 * (N / 256) ** 2, depth: 1.2, perDoubling: 0.7, maxDepth: 4 } : undefined);
+    carveRivers(h, N, preset === 'cascades' || preset === 'pugetsound' || preset === 'showcase' ? { threshold: 2500 * (N / 256) ** 2, depth: 1.2, perDoubling: 0.7, maxDepth: 4 } : undefined);
     breachDepressions(h, N, 0.02, crater);
   }
 
@@ -262,6 +282,53 @@ function pugetHeight(c, noise, lu, lv, u, v) {
   const water = smoothstep(0.02, -0.1, landness);
   y -= water * (17 + 5 * smoothstep(-0.1, -0.6, landness));
   return y;
+}
+
+/** Showcase: where the volcano and the islands go. */
+function showcaseLayout(seed) {
+  const rnd = mulberry32(seed * 613 + 7);
+  const islands = [];
+  const add = (x, z, size) => islands.push({ x, z, rx: (0.012 + rnd() * 0.014) * size, rz: (0.025 + rnd() * 0.04) * size, tilt: (rnd() - 0.5) * 0.6 });
+  // Two clusters and a few lone islands out at sea
+  for (const cz of [0.22 + rnd() * 0.12, 0.6 + rnd() * 0.15]) {
+    const cx = 0.12 + rnd() * 0.08, k = 3 + Math.floor(rnd() * 3);
+    for (let j = 0; j < k; j++) add(cx + (rnd() - 0.5) * 0.14, cz + (rnd() - 0.5) * 0.18, j === 0 ? 2.6 : 1.0 + rnd() * 0.9);
+  }
+  for (let j = 0; j < 3; j++) add(0.05 + rnd() * 0.18, 0.08 + rnd() * 0.84, 0.7 + rnd() * 0.5);
+  return { islands, vx: 0.6 + rnd() * 0.06, vz: 0.22 + rnd() * 0.12 };
+}
+
+function showcaseHeight(c, noise, lu, lv, u, v) {
+  const coast = 0.3 + 0.03 * noise(lv * 4, 7.7);
+  const inland = lu - coast;
+  // The range: a ridged crest down the middle, rising from a forested coastal plain
+  const crest = 0.58 + 0.04 * noise(lv * 3, 2.2), dm = lu - crest;
+  const range = Math.exp(-(dm * dm) / (2 * 0.07 * 0.07));
+  let y = 6 + 9 * smoothstep(0, 0.25, inland) + range * (16 + 36 * Math.pow(ridged(noise, u * 2.4, v * 2.4, 6), 1.3)) + 2.5 * fbm(noise, u * 5, v * 5, 4);
+  // The dry plateau in its lee, capped by flat-lying sandstone
+  y += smoothstep(0.66, 0.8, lu) * (9 + 2.5 * fbm(noise, u * 3 + 4, v * 3, 3));
+  // A stratovolcano on the range, with a summit crater
+  const r = Math.hypot(lu - c.vx, lv - c.vz);
+  const cone = Math.max(0, 1 - r / 0.11), crater = Math.max(0, 1 - r / 0.014);
+  y += 46 * Math.pow(cone, 1.7) - 9 * crater * crater;
+  // Land vs sea: the coast, the islands' lobes, and a long sheltered bay cut into the plain
+  let isl = -1;
+  const wu = lu + 0.03 * noise(lu * 3 + 1.7, lv * 3), wv = lv + 0.03 * noise(lu * 3, lv * 3 + 3.3);
+  for (const k of c.islands) {
+    const dx = wu - k.x, dz = wv - k.z;
+    const ax = dx * Math.cos(k.tilt) - dz * Math.sin(k.tilt), az = dx * Math.sin(k.tilt) + dz * Math.cos(k.tilt);
+    isl = Math.max(isl, 1 - Math.sqrt((ax / k.rx) ** 2 + (az / k.rz) ** 2));
+  }
+  isl += 0.25 * fbm(noise, lu * 14 + 3.1, lv * 7 - 1.2, 3);
+  const bay = Math.exp(-(((lv - 0.72 - 0.03 * noise(lu * 6, 9.1)) / 0.06) ** 2)) * smoothstep(coast + 0.2, coast + 0.02, lu);
+  const landness = Math.max(isl * 0.25, inland * 2.5) - bay * 0.6 + 0.02 * fbm(noise, lu * 22, lv * 14, 2);
+  const water = smoothstep(0.02, -0.1, landness);
+  // The sea floor: a shallow shelf near land, deepening offshore; the bay stays shallow (tidal flats)
+  const floor = 1.5 - 6 * smoothstep(-0.02, -0.3, landness) * (1 - 0.7 * bay) - 8 * smoothstep(0.12, 0.0, lu);
+  // Islands stand lower than the mainland
+  const islandTop = 5 + 6 * smoothstep(0.05, 0.5, isl);
+  if (inland < 0) y = Math.min(y, islandTop + 2 * fbm(noise, u * 6, v * 6, 3));
+  return y + (floor - y) * water;
 }
 
 /** Long-term wetness offset: the Pacific side soaked, the plateau beyond the mountains dry. */

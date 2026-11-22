@@ -52,6 +52,7 @@ export class Inspector {
       waterTempAt(w, i) !== null
         ? ['Water temp.', `${waterTempAt(w, i).toFixed(1)} °C <span class="ins-dim">· year avg ${waterTempAt(w, i, false).toFixed(1)}</span>`]
         : ['Temperature', w.seasonT ? `${(w.temperature[i] + seasonalAt(w, i)).toFixed(1)} °C <span class="ins-dim">· year avg ${w.temperature[i].toFixed(1)}</span>` : `${w.temperature[i].toFixed(1)} °C`],
+      ...(w.wind ? [['Wind', `${bar(Math.min(1, w.wind[i] / 1.5), '#9ab8d0')} <span class="ins-dim">${w.wind[i] > 1.1 ? 'strong, exposed' : w.wind[i] > 0.6 ? 'breezy' : 'sheltered'} · ${Math.round(w.wind[i] * 40)} km/h</span>`]] : []),
       ['Evaporation', `${bar(Math.min(1, (w.evapRate ? w.evapRate[i] : 1) / 2), '#e0a24f')} <span class="ins-dim">×${(w.evapRate ? w.evapRate[i] : 1).toFixed(2)}</span>`],
       ['Cloud base', w.cloudBase ? `${(w.cloudBase[i] - h).toFixed(1)} above · ${cloudTempAt(w, i).toFixed(1)} °C` : '—'],
       ['Precipitation', `${bar(w.precip ? w.precip[i] : 0, '#4f8ce0')} <span class="ins-dim">${cloudTempAt(w, i) < 0 ? 'snow' : 'rain'}</span>`],
