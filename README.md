@@ -104,7 +104,8 @@ brush size its width. Shift-click removes the nearest one.
 **Wildlife**: design your own animals. Under **Wildlife → + Add animal**, name it, pick its colour and
 where it lives (anywhere on land, forest, meadows, mountains, streams and ponds, the sea, coastal
 shallows), what it eats (grass, shrubs and young trees, deciduous trees, conifers, plankton, seaweed,
-and any of your other animals), how fast it breeds and how far it roams, and its habits (avoids deep
+and any of your other animals), how fast it breeds, how far it roams and whether it migrates (to the far side of the map with the
+seasons, north–south or east–west, or wandering the whole map after food), and its habits (avoids deep
 snow, harmed by pollution, killed by hard frost, builds dams, kills the trees it eats, fertilises the
 ground, swims up rivers in autumn). Paint it onto the map with the **Animal** tool 🐾 (Paint button,
 Shift removes). Each lives where it finds food, starves where it doesn't, is thinned out by whatever

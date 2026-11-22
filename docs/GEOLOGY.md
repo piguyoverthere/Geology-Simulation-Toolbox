@@ -845,6 +845,12 @@ none and moves toward better feeding over its roaming range, and each links to t
   the sea up cool, clean rivers, held back by warm water, mud and dams; the spawners die and
   fertilise the stream banks, and next year's run depends on how many made it).
 - Every sea animal suffocates in low-oxygen water.
+- **Migration.** An animal can stay put, migrate with the seasons to the opposite side of the map
+  (north in summer and south in winter, or east in summer and west in winter: in the Showcase map
+  that's up into the mountains for the summer and down to the coast for the winter), or wander the
+  whole map following the food. Migrants trek over ground they can live on (land animals can't cross
+  the sea), slowing as they reach the far side; on the trek they graze less, so a long journey
+  through poor country costs them. Seasonal migration needs Seasons on.
 - **Starving.** Each animal has a hunger level where it lives: it builds where there is less food
   than the animals there need (too many of them, the plants grazed bare or buried by snow, the prey
   gone) and eases where food is plentiful. Hungry animals stop breeding; starving ones die off fast

@@ -13,7 +13,7 @@ import { ERUPTION_TYPES, INTRUSION_TYPES } from '../sim/volcanism.js';
 import { FAULT_TYPES } from '../sim/tectonics.js';
 import { SPECIES, OPEN } from '../sim/species.js';
 import { BIOMES } from '../render/biomes.js';
-import { HABITATS, PLANT_FOODS, HABITS, newAnimal, removeAnimal, describeAnimal } from '../sim/ecology.js';
+import { HABITATS, PLANT_FOODS, HABITS, MIGRATION, newAnimal, removeAnimal, describeAnimal } from '../sim/ecology.js';
 
 export class Toolbox {
   /**
@@ -441,6 +441,9 @@ export class Toolbox {
     const roam = el('select');
     for (const [v, t] of [[1, 'A small home range'], [3, 'A medium range'], [6, 'Far and wide']]) { const o = el('option', '', t); o.value = v; roam.append(o); }
     roam.value = String(draft.roam);
+    const migr = el('select');
+    for (const [v, t] of Object.entries(MIGRATION)) { const o = el('option', '', t); o.value = v; migr.append(o); }
+    migr.value = draft.migrates || 'none';
     const save = button(a ? 'Save' : 'Add animal', () => {
       draft.name = name.value.trim() || 'Animal';
       const hex = color.value;
@@ -451,6 +454,7 @@ export class Toolbox {
       draft.habits = Object.fromEntries(Object.entries(habits.inputs).filter(([, c]) => c.checked).map(([k]) => [k, true]));
       draft.breed = parseFloat(breed.value);
       draft.roam = parseFloat(roam.value);
+      draft.migrates = migr.value;
       if (!w.animals) w.animals = [];
       const at = w.animals.findIndex((b) => b.id === draft.id);
       if (at >= 0) w.animals[at] = draft; else w.animals.push(draft);
@@ -466,7 +470,7 @@ export class Toolbox {
     F.append(el('div', 'tb-form-head', a ? `Edit ${a.name}` : 'New animal'),
       field('Name', name), field('Colour', color), field('Lives in', hab),
       plants.box, prey.box,
-      field('Breeds', breed), field('Roams', roam),
+      field('Breeds', breed), field('Roams', roam), field('Migrates', migr),
       habits.box, btns);
     name.focus();
     name.select();

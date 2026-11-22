@@ -18,6 +18,7 @@
 
 import { boxBlur } from '../core/grid.js';
 import { seasonParams, seasonalAt } from './climate.js';
+import { advect } from './ocean.js';
 
 export const ecoParams = {
   enabled: true,
@@ -51,6 +52,13 @@ export const HABITS = {
   runsRivers: ['Swims up rivers in autumn', 'Lives at sea, then each autumn runs up the rivers to spawn in cool, clean water (like salmon), fertilising the stream banks. Next year\'s run depends on how many made it.'],
 };
 
+export const MIGRATION = {
+  none: 'Stays put',
+  ns: 'North in summer, south in winter',
+  ew: 'East in summer, west in winter',
+  nomad: 'Wanders the whole map following food',
+};
+
 /** Make a new animal definition. */
 export function newAnimal(opts = {}) {
   return {
@@ -63,6 +71,7 @@ export function newAnimal(opts = {}) {
     breed: opts.breed ?? 1,
     roam: opts.roam ?? 3,
     habits: { ...(opts.habits || {}) },
+    migrates: opts.migrates || 'none',
     stock: 1, // (runs up rivers: this year's run strength)
   };
 }
@@ -267,6 +276,9 @@ function stepAnimal(world, a, M, sea, k) {
   // --- Moving about: toward better feeding, over its roaming range ---
   if (runSeason) riverRun(world, a, P, M);
   else {
+    migrate(world, a, P, K, allow, k);
+    // (on the trek they keep moving rather than settling on the nearest good grazing)
+    const trekking = (a.migrates === 'ns' || a.migrates === 'ew') && seasonParams.enabled ? 0.3 : 1;
     const tmp = new Float32Array(n);
     for (let i = 0; i < n; i++) tmp[i] = P[i] * allow[i];
     const rr = Math.max(1, a.roam), b = boxBlur(tmp, N, rr), kb = boxBlur(K, N, rr);
@@ -274,7 +286,7 @@ function stepAnimal(world, a, M, sea, k) {
       if (!allow[i]) { P[i] = 0; continue; }
       const target = kb[i] > 1e-3 ? (b[i] * K[i]) / kb[i] : 0;
       // (hungry animals move on, looking for food)
-      P[i] += (target - P[i]) * Math.min(0.9, 0.2 * k * (1 + 2 * HU[i]));
+      P[i] += (target - P[i]) * Math.min(0.9, 0.2 * k * (1 + 2 * HU[i]) * trekking);
     }
   }
   // End of the run: those in the rivers spawn and die, fertilising the banks
@@ -295,6 +307,48 @@ function stepAnimal(world, a, M, sea, k) {
     }
     if (ph < 0.47) a.spawned = false;
   }
+}
+
+/**
+ * Migration. Seasonal migrants trek across the map to the far side each season (summer range one
+ * way, winter range the other), over ground they can live on (land animals can't cross the sea),
+ * slowing as they arrive. Nomads drift across the whole map toward wherever the food is best.
+ */
+function migrate(world, a, P, K, allow, k) {
+  const N = world.N, n = N * N, mode = a.migrates || 'none';
+  if (mode === 'none') return;
+  if (mode === 'nomad') {
+    // Follow the food over the whole map (a very wide view of where it's good)
+    const tmp = new Float32Array(n);
+    for (let i = 0; i < n; i++) tmp[i] = P[i] * allow[i];
+    const r = Math.max(4, Math.round(N / 10));
+    const b = boxBlur(tmp, N, r), kb = boxBlur(K, N, r);
+    for (let i = 0; i < n; i++) {
+      if (!allow[i]) continue;
+      const target = kb[i] > 1e-3 ? (b[i] * K[i]) / kb[i] : 0;
+      P[i] += (target - P[i]) * 0.08 * k;
+    }
+    return;
+  }
+  if (!seasonParams.enabled) return; // (no seasons, no seasonal migration)
+  const ph = seasonParams.phase;
+  const summer = ph > 0.05 && ph < 0.55; // (spring and summer: April to September)
+  // Direction: toward the summer side or the winter side (north = the top of the map, z = 0)
+  const dx = mode === 'ew' ? (summer ? 1 : -1) : 0, dz = mode === 'ns' ? (summer ? -1 : 1) : 0;
+  const U = new Float32Array(n), V = new Float32Array(n), mask = new Uint8Array(n);
+  const speed = 2.6 * Math.min(2, k);
+  for (let z = 0; z < N; z++) {
+    for (let x = 0; x < N; x++) {
+      const i = z * N + x;
+      if (!allow[i]) continue;
+      mask[i] = 1;
+      // How far along it is: slow down over the last quarter of the way, stop at the far edge
+      const along = dx > 0 ? x / N : dx < 0 ? 1 - x / N : dz > 0 ? z / N : 1 - z / N;
+      const go = speed * Math.max(0, Math.min(1, (0.92 - along) / 0.25));
+      U[i] = dx * go; V[i] = dz * go;
+    }
+  }
+  advect(P, U, V, mask, N, true);
 }
 
 /** The autumn run: from the river mouths, up the rivers against the flow. */
@@ -370,5 +424,6 @@ export function describeAnimal(world, a) {
   const foods = Object.keys(PLANT_FOODS).filter((k) => a.eats[k]).map((k) => PLANT_FOODS[k].split(' (')[0].toLowerCase());
   for (const pid of a.prey) { const b = (world.animals || []).find((x) => x.id === pid); if (b) foods.push(b.name); }
   const habits = Object.keys(HABITS).filter((k) => a.habits[k]).map((k) => HABITS[k][0].toLowerCase());
+  if (a.migrates && a.migrates !== 'none') habits.push(MIGRATION[a.migrates].toLowerCase());
   return `Lives in: ${HABITATS[a.habitat].toLowerCase()}. Eats: ${foods.length ? foods.join(', ') : 'nothing yet (it will die out)'}.${habits.length ? ' ' + habits.join('; ') + '.' : ''}`;
 }
