@@ -112,7 +112,8 @@ the sea. They grow along their roads, crowded towns found daughter villages, big
 roads to each other, floods, fires, lava and storm surges cost them people, and dwindling towns are
 abandoned and grow over. The Life tab lists the towns with population graphs; the Graphs window has
 population, towns, paved land, farmland and polluted rivers. Sliders: **Population increase** and **Expansion speed**; roads must be kept up
-by nearby towns or they break up, young towns hunt your land animals, and roads between towns wind
+by nearby towns or they break up, busy roads are widened to two or three lanes, towns past a few
+hundred people build a mass-paved industrial area on the water that pollutes on a very large scale, young towns hunt your land animals, and roads between towns wind
 over the land along valleys and contours.
 
 **Wildlife**: design your own animals. Under **Wildlife → + Add animal**, name it, pick its colour and

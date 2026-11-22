@@ -935,6 +935,16 @@ kept up: weather, frost, floods, fire, landslides and steep ground wear them, an
 repair them (a bigger town keeps up more road, farther out). A neglected road cracks, then breaks up
 and grows over; only a road in working order lets towns grow along it and brings trade.
 
+Roads carry the traffic of the towns they serve (nearer and bigger towns most). A busy road is
+widened to two lanes, a very busy one to three, the new lanes graded and paved beside it (and more
+road to keep up).
+
+**Industry.** A town past a few hundred people builds an industrial area on the water's edge (a
+river, lake or the coast: for transport, cooling and dumping), one solid mass-paved block that grows
+with the town. It brings work and trade (the town can support more people), and it pours pollution
+on a very large scale straight into the water beside it and down the drainage. Industry counts as
+town for the three-fields-per-cell rule.
+
 A young settlement hunts the game around it (your land animals) for much of its food, thinning it
 out; as it grows and takes to farming, hunting fades away.
 

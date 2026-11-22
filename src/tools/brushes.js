@@ -576,7 +576,7 @@ TOOLS.road = {
       const x = Math.round(a.x + ((b.x - a.x) * k) / (len * 2 || 1)), z = Math.round(a.z + ((b.z - a.z) * k) / (len * 2 || 1));
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         const i = (z + dz) * N + x + dx;
-        if (i >= 0 && i < N * N && world.landUse[i] === 3) { world.landUse[i] = 0; world.paved[i] = 0; }
+        if (i >= 0 && i < N * N && world.landUse[i] === 3) { world.landUse[i] = 0; world.paved[i] = 0; if (world.roadCore) world.roadCore[i] = 0; }
       }
     }
     world.dirty = true;

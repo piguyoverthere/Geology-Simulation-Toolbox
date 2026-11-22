@@ -24,6 +24,7 @@ export const STATS = [
   { id: 'people', label: 'Population', group: 'Civilization', unit: 'people', help: 'Everyone living in the towns.' },
   { id: 'towns', label: 'Towns', group: 'Civilization', unit: '', help: 'How many towns and villages there are.' },
   { id: 'paved', label: 'Paved land', group: 'Civilization', unit: '%', help: 'Share of the land paved over by towns and roads.' },
+  { id: 'industry', label: 'Industrial land', group: 'Civilization', unit: '%', help: 'Share of the land given over to industry.' },
   { id: 'farmland', label: 'Farmland', group: 'Civilization', unit: '%', help: 'Share of the land cleared for farming.' },
   { id: 'dirtyRivers', label: 'Polluted rivers', group: 'Civilization', unit: '%', help: 'Share of the rivers and streams carrying pollution from the towns upstream.' },
   { id: 'sea', label: 'Sea', group: 'Sea', unit: '%', help: 'Share of the map that is sea.' },
@@ -39,7 +40,7 @@ export function computeStats(world) {
   const N = world.N, n = N * N, H = world.height, V = world.vegetation;
   const sea = world.meanSea !== undefined && world.meanSea > -999 ? world.meanSea : -1e9;
   let land = 0, tempN = 0, forest = 0, grass = 0, bare = 0, old = 0, healthSum = 0, densSum = 0, snow = 0, ice = 0, burnt = 0, dead = 0, temp = 0;
-  let paved = 0, farmland = 0, streams = 0, dirtyStreams = 0;
+  let paved = 0, farmland = 0, industry = 0, streams = 0, dirtyStreams = 0;
   let seaN = 0, clean = 0, lowOx = 0, beds = 0, bedsOK = 0, coral = 0, seaIce = 0;
   const st = world.seasonT || 0;
   for (let i = 0; i < n; i += 2) { // (every other cell: plenty for a map-wide share)
@@ -56,6 +57,7 @@ export function computeStats(world) {
     land++;
     if (world.paved && world.paved[i] > 0.5) paved++;
     if (world.landUse && world.landUse[i] === 1) farmland++;
+    if (world.landUse && world.landUse[i] === 4) industry++;
     if (world.water[i] > 0.05) { streams++; if (world.riverPollution && world.riverPollution[i] > 0.1) dirtyStreams++; }
     const v = V[i];
     if (v > 0.66) {
@@ -82,7 +84,7 @@ export function computeStats(world) {
     sea: pct(seaN, seaN + land), clean: pct(clean, seaN), lowOxygen: pct(lowOx, seaN), beds: pct(bedsOK, beds),
     coral: pct(coral, seaN), seaIce: pct(seaIce, seaN),
     people: (world.towns || []).reduce((t, x) => t + x.pop, 0), towns: (world.towns || []).length,
-    paved: pct(paved, land), farmland: pct(farmland, land), dirtyRivers: pct(dirtyStreams, streams),
+    paved: pct(paved, land), farmland: pct(farmland, land), industry: pct(industry, land), dirtyRivers: pct(dirtyStreams, streams),
   };
 }
 

@@ -56,6 +56,8 @@ export function ensureCiv(world) {
   if (!world.riverPollution || world.riverPollution.length !== n) world.riverPollution = new Float32Array(n);
   if (!world.roadCond || world.roadCond.length !== n) world.roadCond = new Float32Array(n);
   if (!world.irrigated || world.irrigated.length !== n) world.irrigated = new Uint8Array(n);
+  if (!world.roadTraffic || world.roadTraffic.length !== n) world.roadTraffic = new Float32Array(n);
+  if (!world.roadCore || world.roadCore.length !== n) world.roadCore = new Uint8Array(n);
 }
 
 /**
@@ -206,7 +208,7 @@ export function buildRoad(world, pts) {
   });
   for (let k = 0; k < cells.length; k++) {
     const i = cells[k];
-    if (H[i] < sea || world.water[i] > 0.4) { world.landUse[i] = 3; world.roadCond[i] = 1; continue; } // (a bridge)
+    if (H[i] < sea || world.water[i] > 0.4) { world.landUse[i] = 3; world.roadCond[i] = 1; world.roadCore[i] = 1; continue; } // (a bridge)
     const target = Math.max(smooth[k], sea + 0.6);
     // Terrace: the road bed and its shoulders follow the grade
     for (const j of [i, i - 1, i + 1, i - N, i + N]) {
@@ -216,6 +218,7 @@ export function buildRoad(world, pts) {
       world.prevHeight[j] = H[j];
     }
     pave(world, i, 0, 3);
+    world.roadCore[i] = 1; // (the road's centre line: lanes are added beside it)
   }
   world.dirty = true;
   return cells.length;
@@ -237,13 +240,15 @@ export function civStep(world) {
       if (P[i] < 0.5) continue;
       anyPaved = true;
       // Light: into water right next to it
+      // (industry: on a vastly larger scale, straight into the water beside it and down the drains)
+      const ind = LU[i] === 4 ? 12 : 1;
       for (const j of [i - 1, i + 1, i - N, i + N]) {
-        if (H[j] < sea) { if (world.pollution) world.pollution[j] = Math.min(4, world.pollution[j] + 0.0015); }
-        else if (world.water[j] > 0.05) RP[j] += 0.004;
+        if (H[j] < sea) { if (world.pollution) world.pollution[j] = Math.min(4, world.pollution[j] + 0.0015 * ind); }
+        else if (world.water[j] > 0.05) RP[j] += 0.004 * ind;
       }
       // Heavy: down the drainage to the rivers and on to the sea
       let c = i;
-      const load = 0.012;
+      const load = 0.012 * (ind > 1 ? 6 : 1);
       for (let k = 0; k < 160; k++) {
         if (H[c] < sea) { if (world.pollution) world.pollution[c] = Math.min(4, world.pollution[c] + load * 0.6); break; }
         if (world.water[c] > 0.03) RP[c] += load;
@@ -285,6 +290,44 @@ export function civStep(world) {
       if (LU[i] === 3 && (x - t.x) ** 2 + (z - t.z) ** 2 < reach * reach) upkeep[i] = Math.max(upkeep[i], share);
     }
   }
+  // Traffic: how many people use each road (the towns it serves, nearer and bigger ones most)
+  const TR = world.roadTraffic;
+  TR.fill(0);
+  for (const t of towns) {
+    const reach = 30 + 6 * Math.sqrt(t.pop / 100);
+    const bx0 = Math.max(1, Math.floor(t.x - reach)), bx1 = Math.min(N - 2, Math.ceil(t.x + reach));
+    const bz0 = Math.max(1, Math.floor(t.z - reach)), bz1 = Math.min(N - 2, Math.ceil(t.z + reach));
+    for (let z = bz0; z <= bz1; z++) for (let x = bx0; x <= bx1; x++) {
+      const i = z * N + x;
+      if (LU[i] !== 3) continue;
+      const d = Math.hypot(x - t.x, z - t.z);
+      if (d < reach) TR[i] += t.pop / (1 + d / 12);
+    }
+  }
+  // Busy roads are widened: a second lane past ~600 people a day, a third past ~1500
+  let widened = 0;
+  const CORE = world.roadCore;
+  for (let i = N; i < n - N && widened < 40; i++) {
+    if (LU[i] !== 3 || !CORE[i] || RC[i] < 0.5) continue; // (widen from the centre line only)
+    const lanes = TR[i] > 1500 ? 3 : TR[i] > 600 ? 2 : 1;
+    if (lanes < 2) continue;
+    const x = i % N;
+    if (x < 1 || x > N - 2) continue;
+    // Lanes go beside the road, across its direction: a road running north–south widens east
+    // and west, one running east–west widens north and south
+    const ns = CORE[i - N] || CORE[i + N], ew = CORE[i - 1] || CORE[i + 1];
+    const side = ns && !ew ? [i + 1, i - 1] : [i + N, i - N];
+    const nb = lanes === 3 ? side : [side[0]];
+    for (const j of nb) {
+      if (LU[j] !== 0 && LU[j] !== 1) continue;
+      if (H[j] < sea || world.water[j] > 0.2) continue;
+      // (graded to the road and paved)
+      H[j] += (H[i] - H[j]) * 0.8; world.prevHeight[j] = H[j];
+      pave(world, j, 0, 3);
+      RC[j] = RC[i]; TR[j] = TR[i];
+      if (++widened >= 40) break;
+    }
+  }
   for (let i = 0; i < n; i++) {
     if (LU[i] !== 3) continue;
     const slope = slopeAt(world, i);
@@ -292,7 +335,7 @@ export function civStep(world) {
       * (world.fire[i] > 0 ? 3 : 1) * (Math.abs(H[i] - world.prevHeight[i]) > 0.3 ? 10 : 1); // (landslides, floods)
     RC[i] = Math.max(0, Math.min(1, RC[i] - wear + 0.03 * upkeep[i]));
     P[i] = Math.min(1, RC[i] * 1.6); // (a broken road loses its paving: plants creep back)
-    if (RC[i] <= 0.03) { LU[i] = 0; P[i] = 0; RC[i] = 0; }
+    if (RC[i] <= 0.03) { LU[i] = 0; P[i] = 0; RC[i] = 0; world.roadCore[i] = 0; }
   }
   if (!towns.length) { world.civPop = 0; return; }
   // (the site fields change slowly: refresh them every few steps)
@@ -306,13 +349,15 @@ export function civStep(world) {
   for (const t of [...towns]) {
     const ci = t.z * N + t.x;
     // Its land: town cells and farms (owner = t.num)
-    let townCells = 0, farmCells = 0, food = 0, hurt = 0;
-    const R = 4 + 2.4 * Math.sqrt(t.pop / PER_FARM_CELL);
+    let townCells = 0, farmCells = 0, indCells = 0, food = 0, hurt = 0;
+    // (how far out the town reaches: farmers can only work fields within a day's walk or so)
+    const R = Math.min(25, 4 + 2.4 * Math.sqrt(t.pop / PER_FARM_CELL));
     const x0 = Math.max(1, Math.floor(t.x - R - 4)), x1 = Math.min(N - 2, Math.ceil(t.x + R + 4));
     const z0 = Math.max(1, Math.floor(t.z - R - 4)), z1 = Math.min(N - 2, Math.ceil(t.z + R + 4));
     for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
       const i = z * N + x;
       if (OW[i] !== t.num) continue;
+      if (LU[i] === 4) { indCells++; if (world.lava && world.lava[i] > 0.05) { LU[i] = 0; P[i] = 0; OW[i] = 0; } continue; }
       if (LU[i] === 2) {
         townCells++;
         // Disasters on the town: floods, fire, lava, the sea
@@ -375,6 +420,8 @@ export function civStep(world) {
     }
     t.roadsWorking = roadsNear ? working / roadsNear : 1;
     food *= 1 + Math.min(0.3, 0.08 * t.links.length) * (roadsNear ? t.roadsWorking : 0);
+    // (industry brings work and trade: the town can support more people)
+    food *= 1 + Math.min(0.35, indCells * 0.012);
     food *= yearFactor;
     // Water: a river or lake nearby, or only wells; dirty water slows them
     const freshNear = fields.fresh[ci];
@@ -383,8 +430,8 @@ export function civStep(world) {
     const K = Math.max(20, food * waterOK * (1 - 0.4 * dirty));
     // Growth toward what the land feeds (and disasters)
     const r = 0.02 * civParams.popRate;
-    // (an overcrowded town shrinks as people drift away, a few percent a step, not all at once)
-    const change = Math.max(-0.08 * t.pop, r * t.pop * (1 - t.pop / K));
+    // (an overcrowded town shrinks as people drift away, a little at a time, not all at once)
+    const change = Math.max(-0.02 * t.pop, r * t.pop * (1 - t.pop / K));
     t.pop = Math.max(0, t.pop + change - hurt * t.pop);
     t.capacity = K; t.farm = farmCells; t.cells = townCells;
     // Build out: more town for more people (spreading along its roads where they run), and
@@ -394,10 +441,15 @@ export function civStep(world) {
     const perFarm = farmCells ? Math.max(8, harvest / farmCells) : PER_FARM_CELL * 0.5;
     const wantTown = Math.ceil(t.pop / PER_TOWN_CELL);
     // (every cell of town needs 3 of farmland: the town builds out only once its fields allow)
-    const wantFarm = Math.max(Math.ceil((t.pop * 1.8) / perFarm) + 4, FARMS_PER_TOWN_CELL * (Math.max(wantTown, townCells) + 1));
-    const roomForTown = Math.floor(farmCells / FARMS_PER_TOWN_CELL) - townCells;
+    const wantFarm = Math.max(Math.ceil((t.pop * 1.8) / perFarm) + 4, FARMS_PER_TOWN_CELL * (Math.max(wantTown, townCells) + indCells + 1));
+    const roomForTown = Math.floor(farmCells / FARMS_PER_TOWN_CELL) - townCells - indCells;
     if (townCells < wantTown && roomForTown > 0) expand(world, t, 2, Math.min(3, wantTown - townCells, roomForTown), R, fields);
-    if (farmCells < wantFarm) expand(world, t, 1, Math.min(8, wantFarm - farmCells), R * 2, fields, NW);
+    // Industry: a town past ~400 people builds an industrial area on the water (river, lake or
+    // coast: for transport, cooling and, alas, dumping), mass-paved, growing with the town
+    const wantInd = Math.min(40, Math.max(0, Math.floor((t.pop - 400) / 110)));
+    t.industry = indCells;
+    if (indCells < wantInd && roomForTown > 0) buildIndustry(world, t, Math.min(3, wantInd - indCells, roomForTown), NW);
+    if (farmCells < wantFarm) expand(world, t, 1, Math.min(8, wantFarm - farmCells), Math.min(45, R * 2), fields, NW);
     // A big town sends people out to found a daughter village (linked by road)
     // (when the town is crowded: near what its land can feed)
     if (t.pop > 300 && t.pop > 0.85 * K && towns.length < MAX_TOWNS && Math.random() < 0.015 * civParams.growth) {
@@ -520,6 +572,40 @@ function expand(world, t, use, count, R, fields, NWexp = null) {
     const i = cands[k][1];
     if (use === 2) pave(world, i, t.num, 2);
     else makeFarm(world, i, t.num);
+  }
+}
+
+/**
+ * Grow town t's industrial area by `count` cells: on the water's edge nearest the town (a river,
+ * lake or the coast), spreading along the shore and inland from it as one solid paved block.
+ */
+function buildIndustry(world, t, count, NW) {
+  const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse, OW = world.civOwner;
+  const R = 26;
+  const cands = [];
+  const x0 = Math.max(2, t.x - R), x1 = Math.min(N - 3, t.x + R), z0 = Math.max(2, t.z - R), z1 = Math.min(N - 3, t.z + R);
+  for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+    const i = z * N + x;
+    if ((LU[i] !== 0 && LU[i] !== 1) || H[i] < sea + 0.5 || world.water[i] > 0.1) continue;
+    const d = Math.hypot(x - t.x, z - t.z);
+    if (d > R || slopeAt(world, i) > 0.5) continue;
+    let ind = 0, shore = 0;
+    for (const j of [i - 1, i + 1, i - N, i + N]) {
+      if (LU[j] === 4 && OW[j] === t.num) ind = 1;
+      if (H[j] < sea || world.water[j] > 0.1) shore = 1;
+    }
+    const src = NW[i];
+    const waterDist = src >= 0 ? Math.hypot((src % N) - x, ((src / N) | 0) - z) : 99;
+    const hasInd = t.industry > 0;
+    if (hasInd && !ind) continue; // (one solid block)
+    if (!hasInd && waterDist > 2) continue; // (it starts on the water's edge)
+    cands.push([(ind ? 2 : 0) + shore * 0.8 - waterDist * 0.15 - d / R + Math.random() * 0.05, i]);
+  }
+  cands.sort((a, b) => b[0] - a[0]);
+  for (let k = 0; k < Math.min(count, cands.length); k++) {
+    const i = cands[k][1];
+    pave(world, i, t.num, 4);
+    t.industry = (t.industry || 0) + 1;
   }
 }
 
