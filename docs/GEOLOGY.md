@@ -1026,7 +1026,12 @@ plantation is only started while the town's timber land is less than twice its f
 are grown (60%), the whole plantation is clear-felled at once, leaving bare brown ground with slash
 and the soil a little thinner. All the natural forest that joins onto it is felled with it and
 taken into the plantation. Then the whole plantation is replanted to grow again, on a rotation of
-roughly 40 civilization steps. A road runs from the town centre out to each plantation. The wood adds to the town's trade (up to
+roughly 40 civilization steps. Each crop of timber takes nutrients out of the soil (the
+plantation's soil falls by about a fifth with every felling), and trees regrow more slowly on worn
+soil. When a plantation's soil is exhausted (below 30%), it is abandoned to recover. It goes back to
+the wild and its soil slowly comes back (about 270 steps from worn out to plantable). The town starts
+a new plantation on fresh land elsewhere, and plants only land whose soil has recovered to 60%, so
+plantations rotate around the country. A road runs from the town centre out to each plantation. The wood adds to the town's trade (up to
 30%). A town's own farms and streets can take over its plantation land, and an abandoned
 plantation goes back to the wild. Plantations are monocultures of even-aged
 trees, with no understory, no old or dead trees and no food, so they have very low biodiversity and
@@ -1061,7 +1066,9 @@ first goes into the harbour's **breakwater**, a causeway three cells wide and fa
 tipped from the harbour toward the deepest water nearby and grows longer with the town (up to 40
 cells), and the harbour moves out to its tip. What's left builds new land along the shallow coast.
 Every tipping smothers the sea bed and clouds and fouls the water; quarrying fouls the streams below
-it. The Destruction slider scales how fast all of this goes. Farmers also keep clearing a little
+it. Quarry pit walls are cut back in benches to about 50°, never left sheer, and quarried,
+terraced and reclaimed ground counts as kept ground, so rain doesn't gully it into spikes. The
+**Quarrying** switch turns quarrying off entirely. The Destruction slider scales how fast all of this goes. Farmers also keep clearing a little
 more land each year even while the town isn't growing.
 
 Towns spread fast and hard, with no caps on their expansion. A town's reach grows with its

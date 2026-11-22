@@ -329,6 +329,7 @@ export class Toolbox {
       slider('Population increase', app.civParams, 'popRate', 0.2, 4, 0.1, 'How fast the towns\' populations increase toward what their food supports.', this),
       slider('Max farm slope °', app.civParams, 'farmSlope', 2, 40, 1, 'The steepest ground that can be farmed (degrees). Steeper land has to be cut into flat terraces first (the towns\' earthworks do that); a field that later turns too steep for this is given up.', this),
       slider('Destruction', app.civParams, 'destruction', 0, 10, 0.05, 'How hard the towns are on the land: how much forest they burn off to clear fields, how much pollution their streets, works, farms and sewers put into the rivers and sea, and how much they cut hills into terraces. 0: careful, 1: normal, 10: strip the land bare.', this),
+      toggle('Quarrying', app.civParams, 'quarrying', 'Whether big towns quarry hills and mountains away (one pit per town, well out beyond it) for rock to build their breakwaters and new land. Off: no quarrying (terracing and other earthworks go on).', this),
       slider('Expansion speed', app.civParams, 'growth', 0.2, 10, 0.1, 'How fast civilization spreads: crowded towns founding new villages, and young towns hunting.', this),
       button('🏘 Found a town at the best spot', () => {
         ensureCiv(app.world);

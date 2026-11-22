@@ -152,11 +152,12 @@ export class World {
    * Ground people keep up (sim/civilization.js): farmland (terraced, banked, drained), towns,
    * roads, industry, harbours, quays, dams and timber plantations, and anything paved. Kept ground
    * doesn't wash away, slump, slide or blow away: its walls, drains and banks are maintained.
-   * Canals and sewers count too: they're lined, so their flow doesn't scour them deeper.
+   * Canals count too (lined), and so does ground people have cut, terraced, quarried or
+   * reclaimed: its benches and faces are kept, not left to gully.
    */
   builtUp(i) {
     const lu = this.landUse ? this.landUse[i] : 0;
-    return lu > 0 || (this.paved ? this.paved[i] > 0.3 : false);
+    return lu > 0 || (this.paved ? this.paved[i] > 0.3 : false) || (this.terraform ? this.terraform[i] > 0 : false);
   }
 
   /** Forget lava, deposits, intrusions, faults and running events (new terrain). */

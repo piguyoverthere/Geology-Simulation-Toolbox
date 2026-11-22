@@ -31,6 +31,7 @@ export const civParams = {
   popRate: 1,     // how fast their populations increase
   farmSlope: 15,  // steepest ground (degrees) that can be farmed; steeper must be terraced flat first
   destruction: 1, // how hard towns are on the land: burning to clear it, pollution, terracing
+  quarrying: true, // whether big towns quarry hills away
 };
 
 const FARMS_PER_TOWN_CELL = 3; // every cell of town needs at least this many cells of farmland
@@ -409,17 +410,21 @@ function quarry(world, t) {
   // Cut the top off: everything within the face's reach above the next level down
   const c = t.quarry, cx = c % N, cz = (c / N) | 0;
   const level = Math.max(base + 0.5, H[c] - 2.2 * Math.max(0.3, civParams.destruction));
-  const r = 5;
+  // (the floor is cut level around the face; beyond it the walls are cut back in benches to a
+  // slope of about 50°, never a sheer face for the rain to gully into spikes)
+  const r = 5, wall = 1.2, R2 = r + 10;
   let spoil = 0;
-  for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
-    if (dx * dx + dz * dz > r * r) continue;
+  for (let dz = -R2; dz <= R2; dz++) for (let dx = -R2; dx <= R2; dx++) {
+    const d = Math.sqrt(dx * dx + dz * dz);
+    if (d > R2) continue;
     const x = cx + dx, z = cz + dz;
     if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
     const j = z * N + x;
-    if (!ok(j) || H[j] <= level) continue;
-    if (Math.hypot(x - (t.quarrySite % N), z - ((t.quarrySite / N) | 0)) > t.quarryR + 1) continue; // (inside the pit)
-    spoil += H[j] - level;
-    H[j] = level; world.prevHeight[j] = level;
+    if (d <= r && Math.hypot(x - (t.quarrySite % N), z - ((t.quarrySite / N) | 0)) > t.quarryR + 1) continue; // (the floor stays inside the pit)
+    const allowed = level + Math.max(0, d - r) * wall;
+    if (!ok(j) || H[j] <= allowed) continue;
+    spoil += H[j] - allowed;
+    H[j] = allowed; world.prevHeight[j] = allowed;
     world.water[j] = 0;
     if (LU[j] === 3) continue; // (a road: just lowered and re-laid)
     world.terraform[j] = 1;
@@ -627,9 +632,11 @@ function timberStep(world, t, farmCells, R) {
   // Tend, and clear-fell: once most of a plantation's trees are grown, the whole plantation is cut
   // at once, and the natural forest next to it is felled with it (taken into the plantation, to be
   // replanted with it)
+  const FS = world.farmSoil;
   const N2 = N * N, fell = (i) => {
     V[i] = 0.12; if (TD) TD[i] *= 0.08; world.forestAge[i] = 0;
     if (world.soil) world.soil[i] *= 0.92; // (the bare ground washing a little soil away)
+    FS[i] = Math.max(0, FS[i] - 0.18); // (each crop of timber takes nutrients out with it)
   };
   let cells = 0, cut = 0;
   for (const pl of t.plantations) {
@@ -638,7 +645,7 @@ function timberStep(world, t, farmCells, R) {
       if (LU[i] !== 10 || OW[i] !== t.num) continue;
       alive++;
       if (V[i] > 0.7) grown++;
-      else { V[i] = Math.min(0.72, V[i] + 0.02); if (TD) TD[i] = Math.min(1, TD[i] + 0.015); } // (replanted fast-growing stock, tended)
+      else { const g = 0.3 + 0.7 * FS[i]; V[i] = Math.min(0.72, V[i] + 0.02 * g); if (TD) TD[i] = Math.min(1, TD[i] + 0.015 * g); } // (replanted fast-growing stock, tended: slower on worn soil)
     }
     if (alive && grown >= 0.6 * alive) {
       const live = pl.cells.filter((i) => LU[i] === 10 && OW[i] === t.num);
@@ -651,12 +658,24 @@ function timberStep(world, t, farmCells, R) {
       while (q.length) {
         const j = q.pop(), x = j % N, z = (j / N) | 0;
         if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
-        if (LU[j] || V[j] <= 0.6 || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j)) continue;
+        if (LU[j] || V[j] <= 0.6 || FS[j] < 0.5 || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j)) continue;
         fell(j); LU[j] = 10; OW[j] = t.num; pl.cells.push(j); cut++; alive++;
         for (const k of [j - 1, j + 1, j - N, j + N]) if (!seen[k]) { seen[k] = 1; q.push(k); }
       }
       pl.felled = (pl.felled || 0) + 1;
       world.dirty = true;
+    }
+    // Worn out: once a plantation's soil is exhausted it is abandoned to recover (left to the wild,
+    // its soil slowly coming back), and a new plantation is started on fresh land elsewhere
+    if (alive) {
+      let soil = 0;
+      for (const i of pl.cells) if (LU[i] === 10 && OW[i] === t.num) soil += FS[i];
+      pl.soil = soil / alive;
+      if (pl.soil < 0.3) {
+        for (const i of pl.cells) if (LU[i] === 10 && OW[i] === t.num) { LU[i] = 0; OW[i] = 0; }
+        t.platsRetired = (t.platsRetired || 0) + 1;
+        alive = 0;
+      }
     }
     pl.alive = alive;
     cells += alive;
@@ -676,6 +695,7 @@ function timberStep(world, t, farmCells, R) {
     for (let dz = -4; dz <= 4; dz += 2) for (let dx = -4; dx <= 4; dx += 2) {
       const j = (z + dz) * N + x + dx;
       if (LU[j] || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j)) continue;
+      if (FS[j] < 0.6) continue; // (worn-out ground isn't planted again until its soil has recovered)
       s += forestSuitability(world, j); c++;
     }
     const score = s / 25 - d / (reach * 4) + (V[z * N + x] > 0.6 ? 0.3 : 0); // (an existing forest first)
@@ -685,7 +705,7 @@ function timberStep(world, t, farmCells, R) {
   // The plantation takes in the whole forest there: every connected forest cell, however big the
   // forest (or, on open ground suitable for trees, a block planted around the site)
   const claimed = [], c0 = best.z * N + best.x;
-  const free = (j) => !LU[j] && H[j] >= sea + 0.5 && world.water[j] < 0.1 && !isProtected(world, j);
+  const free = (j) => !LU[j] && H[j] >= sea + 0.5 && world.water[j] < 0.1 && !isProtected(world, j) && FS[j] >= 0.5;
   if (V[c0] > 0.6 && free(c0)) {
     const seen = new Uint8Array(N * N), q = [c0];
     seen[c0] = 1;
@@ -702,7 +722,7 @@ function timberStep(world, t, farmCells, R) {
       const x = best.x + dx, z = best.z + dz;
       if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
       const j = z * N + x;
-      if (!free(j) || forestSuitability(world, j) < 0.3) continue;
+      if (!free(j) || FS[j] < 0.6 || forestSuitability(world, j) < 0.3) continue;
       LU[j] = 10; OW[j] = t.num;
       if (V[j] < 0.35) V[j] = 0.35; // (planted with saplings)
       claimed.push(j);
@@ -1016,7 +1036,7 @@ export function civStep(world) {
   // Abandoned pavement breaks up and grows over; farmland with no town goes back to the wild
   const FS = world.farmSoil;
   for (let i = 0; i < n; i++) {
-    if (LU[i] !== 1 && FS[i] < 1) FS[i] = Math.min(1, FS[i] + 0.0012); // (fallow ground recovers)
+    if (LU[i] !== 1 && LU[i] !== 10 && FS[i] < 1) FS[i] = Math.min(1, FS[i] + 0.0012); // (fallow ground recovers)
     if (LU[i] === 0 || OW[i] || LU[i] === 3) continue;
     if (LU[i] === 1 || LU[i] === 10) { LU[i] = 0; continue; } // (fields and plantations go back to the wild)
     P[i] = Math.max(0, P[i] - 0.004);
@@ -1154,7 +1174,7 @@ export function civStep(world) {
     // A bigger town reshapes the land: cutting hills and slopes into terraces, dumping the spoil
     if (t.pop > 200 && Math.random() < 0.7 * civParams.growth * civParams.destruction) terraform(world, t, Math.max(1, Math.round(Math.min(28, 4 + Math.floor(t.pop / 200)) * civParams.destruction)));
     // A big town quarries whole hills and mountains away (harder the bigger it is)
-    if (t.pop > 500 && civParams.destruction > 0) for (let q = Math.round(Math.min(4, Math.floor(t.pop / 1500) + 1) * Math.max(1, civParams.destruction / 1.5)); q > 0; q--) if (Math.random() < 0.6 * civParams.growth * civParams.destruction) quarry(world, t);
+    if (civParams.quarrying && t.pop > 500 && civParams.destruction > 0) for (let q = Math.round(Math.min(4, Math.floor(t.pop / 1500) + 1) * Math.max(1, civParams.destruction / 1.5)); q > 0; q--) if (Math.random() < 0.6 * civParams.growth * civParams.destruction) quarry(world, t);
     // Irrigation canals out to dry fields
     if (t.pop > 200 && farmCells > 10 && (t.canals || 0) < 1 + Math.floor(t.pop / 400) && Math.random() < 0.03 * civParams.growth) {
       let dry = 0;
