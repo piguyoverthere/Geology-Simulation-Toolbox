@@ -61,6 +61,7 @@ export function ensureCiv(world) {
   if (!world.roadCore || world.roadCore.length !== n) world.roadCore = new Uint8Array(n);
   // Farm soil: 1 when first cleared (fresh, rich); cropping wears it out; left fallow it recovers
   if (!world.farmSoil || world.farmSoil.length !== n) world.farmSoil = new Float32Array(n).fill(1);
+  if (!world.terraform || world.terraform.length !== n) world.terraform = new Int8Array(n); // 1 cut / terraced, 2 reclaimed
 }
 
 /**
@@ -206,6 +207,104 @@ function buildQuay(world, t, count) {
   }
   t.quay = (t.quay || 0) + built;
   return built;
+}
+
+/**
+ * Terraforming: a growing town reshapes the land around it. Hillsides and unwanted slopes are
+ * excavated into level terrace benches, and knobs that rise above the town are cut down; the spoil
+ * is dumped into the shallow sea along its coast, building new flat land above the tide (land
+ * reclamation), or, with no sea in reach, tipped into hollows nearby. Dumping smothers the sea bed,
+ * clouds the water with silt and pollutes it. The cut and reclaimed ground is flat, buildable land.
+ */
+function terraform(world, t, cells) {
+  const N = world.N, n = N * N, H = world.height, sea = seaOf(world), LU = world.landUse, TF = world.terraform;
+  const half = 0.5 * coastParams.tideRange;
+  const R = Math.min(22, 8 + Math.sqrt(t.pop) / 3);
+  const base = H[t.z * N + t.x];
+  // Cut: the steepest slopes and highest knobs near the town (not paved or protected)
+  const cuts = [];
+  for (let z = Math.max(2, Math.floor(t.z - R)); z <= Math.min(N - 3, Math.ceil(t.z + R)); z++) {
+    for (let x = Math.max(2, Math.floor(t.x - R)); x <= Math.min(N - 3, Math.ceil(t.x + R)); x++) {
+      const i = z * N + x;
+      if (H[i] < sea + half + 0.5 || (LU[i] && LU[i] !== 1) || isProtected(world, i) || world.water[i] > 0.1) continue;
+      const d = Math.hypot(x - t.x, z - t.z);
+      if (d > R) continue;
+      const slope = slopeAt(world, i), rise = H[i] - base;
+      if (slope < 0.35 && rise < 5) continue;
+      cuts.push([slope + Math.max(0, rise - 5) * 0.15 - d / R * 0.5, i]);
+    }
+  }
+  if (!cuts.length) return 0;
+  cuts.sort((a, b) => b[0] - a[0]);
+  let spoil = 0;
+  for (let k = 0; k < Math.min(cells, cuts.length); k++) {
+    const i = cuts[k][1];
+    // Down toward the terrace bench below (steps of 1.5), and knobs toward the town's level
+    const bench = Math.floor((H[i] - base) / 1.5) * 1.5 + base;
+    const target = Math.max(sea + half + 0.8, Math.min(bench, base + 5));
+    if (H[i] - target <= 0.02) continue;
+    // Cut a level platform (about 5 cells across) at the bench height: the high ground is dug
+    // away and the low ground filled up to it, so the terrace is a wide, flat step (its riser, the
+    // steep face at its edge, is all that's left of the slope)
+    const x = i % N, z = (i / N) | 0;
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+      if (dx * dx + dz * dz > 5) continue;
+      const xx = x + dx, zz = z + dz;
+      if (xx < 1 || zz < 1 || xx > N - 2 || zz > N - 2) continue;
+      const j = zz * N + xx;
+      if ((LU[j] && LU[j] !== 1) || isProtected(world, j) || H[j] < sea + half) continue;
+      if (H[j] > target) { const dh = H[j] - target; H[j] -= dh; spoil += dh; }
+      else if (H[j] > target - 3) { const fill = target - H[j]; H[j] = target; spoil -= fill; }
+      else continue;
+      world.prevHeight[j] = H[j];
+      TF[j] = 1;
+      world.vegetation[j] = Math.min(world.vegetation[j], 0.1); world.forestAge[j] = 0;
+    }
+  }
+  t.terraformed = (t.terraformed || 0) + 1;
+  if (spoil <= 0) { world.dirty = true; return 1; }
+  // Dump: into the shallow sea along the coast nearby (building new land), else into hollows
+  const dumps = [];
+  for (let z = Math.max(2, Math.floor(t.z - R - 8)); z <= Math.min(N - 3, Math.ceil(t.z + R + 8)); z++) {
+    for (let x = Math.max(2, Math.floor(t.x - R - 8)); x <= Math.min(N - 3, Math.ceil(t.x + R + 8)); x++) {
+      const i = z * N + x;
+      if (H[i] >= sea + half + 0.8 || sea - H[i] > 5 || isProtected(world, i)) continue;
+      let shoreNext = false;
+      for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] >= sea + half) shoreNext = true;
+      if (!shoreNext) continue; // (built out from the shore)
+      dumps.push([-Math.hypot(x - t.x, z - t.z) - (sea - H[i]) * 0.5, i]);
+    }
+  }
+  dumps.sort((a, b) => b[0] - a[0]);
+  for (let k = 0; k < dumps.length && spoil > 0.01; k++) {
+    const i = dumps[k][1], x = i % N, z = (i / N) | 0;
+    const need = sea + half + 0.8 - H[i], put = Math.min(spoil, need, 1.2);
+    H[i] += put; world.prevHeight[i] = H[i]; spoil -= put;
+    if (H[i] >= sea + half + 0.75) { TF[i] = 2; world.water[i] = 0; world.vegetation[i] = 0; if (world.humus) world.humus[i] = 0; }
+    // The dumped rock and soil smother the sea bed and cloud and foul the water around
+    for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+      const j = (z + dz) * N + x + dx;
+      if (j < 0 || j >= n || H[j] >= sea) continue;
+      const f = 1 - Math.hypot(dx, dz) / 4.3;
+      if (f <= 0) continue;
+      if (world.marineHealth) world.marineHealth[j] *= 1 - 0.2 * f;
+      if (world.silt) world.silt[j] = Math.min(4, world.silt[j] + 0.25 * put * f);
+      if (world.pollution) world.pollution[j] = Math.min(4, world.pollution[j] + 0.05 * put * f);
+    }
+  }
+  // (no sea to take it: into the hollows near town)
+  for (let k = 0; spoil > 0.01 && k < 200; k++) {
+    const x = Math.round(t.x + (Math.random() - 0.5) * 2 * R), z = Math.round(t.z + (Math.random() - 0.5) * 2 * R);
+    if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
+    const i = z * N + x;
+    if (LU[i] || H[i] < sea || isProtected(world, i)) continue;
+    const avg = (H[i - 1] + H[i + 1] + H[i - N] + H[i + N]) * 0.25;
+    if (avg - H[i] < 0.2) continue;
+    const put = Math.min(spoil, avg - H[i]);
+    H[i] += put; world.prevHeight[i] = H[i]; spoil -= put; TF[i] = 1;
+  }
+  world.dirty = true;
+  return 1;
 }
 
 /**
@@ -562,6 +661,8 @@ export function civStep(world) {
     const harvest = food; // (from the fields alone)
     // A coastal town builds a harbour; its fleet grows with the town and fishes the sea
     if (t.harbor !== undefined && LU[t.harbor] !== 5) t.harbor = undefined;
+    // A bigger town reshapes the land: cutting hills and slopes into terraces, dumping the spoil
+    if (t.pop > 350 && Math.random() < 0.35 * civParams.growth) terraform(world, t, Math.min(8, 2 + Math.floor(t.pop / 400)));
     // A coastal town of a few hundred armours its shore with quays (growing with the town)
     if (t.pop > 250 && fields.sea[ci] > 0.02 && (t.quay || 0) < Math.min(60, Math.floor((t.pop - 200) / 60)) && Math.random() < 0.3) buildQuay(world, t, 2);
     if (t.harbor === undefined && t.pop > 120 && fields.sea[ci] > 0.02) buildHarbor(world, t);

@@ -975,6 +975,16 @@ tie up, so harbours are easy to build there. Building it destroys the sea bed it
 the beds around and clouds the water with silt and pollution; a working quay keeps fouling the
 water at its foot and wearing the beds there down. Waves don't wear a quay and no sand gathers on it.
 
+**Earthworks.** A town past a few hundred people reshapes the land around it: hillsides and unwanted
+slopes are cut into level terrace platforms (high ground dug away, low ground filled up to the same
+level), and knobs rising above the town are cut down. The spoil is dumped into the shallow sea along
+its coast, building new flat land out from the shore above high tide (land reclamation), or, with no
+sea in reach, tipped into hollows. Dumping smothers the sea bed and clouds and pollutes the water.
+The inspector marks cut, terraced and reclaimed ground.
+
+Polluted rivers show clearly: murky ochre-brown water, opaque even in a thin stream, with stained
+banks.
+
 **Protected zones.** Any polygon you draw can be made a protected zone (🛡 in the Drawings list): it
 is kept wild. No town is founded or built inside it, no farmland is cleared, no industry is built,
 and roads between towns go around it (unless there is truly no other way). What was there already

@@ -333,6 +333,8 @@ export class TerrainRenderer {
           col = mix(SLOPE_LO, SLOPE_HI, t, S3);
         } else {
           col = this.naturalColor(h, slope, tan, h - BASE[i], D[i], i);
+          // Stained, fouled banks along polluted rivers
+          if (w.riverPollution && w.riverPollution[i] > 0.05 && D[i] < 0.1) mix(col, POLLUTED_BANK, Math.min(0.5, Math.sqrt(w.riverPollution[i]) * 0.45), col);
           // Civilization: fields in a patchwork of crops, towns, roads
           if (w.landUse && w.landUse[i]) {
             const lu = w.landUse[i];
@@ -392,7 +394,8 @@ export class TerrainRenderer {
         this.wPos[i3] = x - off;
         this.wPos[i3 + 2] = z - off;
         // Thin runoff films just darken the ground; draw a water surface only where it's a real stream/lake
-        if (d > 0.1 && ice < 0.2 && (this.showSea || !(h < sea))) { // (meltwater under a glacier stays hidden)
+        const dirtyStream = w.riverPollution && w.riverPollution[i] > 0.05 && d > 0.02;
+        if ((d > 0.1 || dirtyStream) && ice < 0.2 && (this.showSea || !(h < sea))) { // (meltwater under a glacier stays hidden)
           this.wPos[i3 + 1] = h + d;
           const mud = Math.min(1, (S[i] / Math.max(d, 0.05)) * 4);
           const deep = Math.min(1, d / 6);
@@ -407,7 +410,7 @@ export class TerrainRenderer {
             // A run of fish up the river (salmon and the like) turns it red
             if (w.runners && w.runners[i] > 0.1) base = mix(base, SALMON_RUN, Math.min(0.6, w.runners[i] * 0.5), S4);
             // Polluted rivers below towns run murky grey-brown
-            if (w.riverPollution && w.riverPollution[i] > 0.05) base = mix(base, DIRTY_RIVER, Math.min(0.75, w.riverPollution[i] * 0.35), S4);
+            if (w.riverPollution && w.riverPollution[i] > 0.02) base = mix(base, DIRTY_RIVER, Math.min(0.92, Math.sqrt(w.riverPollution[i]) * 0.95), S4);
           }
           let wc = mix(base, MUD, mud * 0.8, S4);
           if (isSea && w.silt) {
@@ -433,6 +436,8 @@ export class TerrainRenderer {
           if (iced) wc = mix(wc, ICE_SEA, Math.min(1, si * 1.6), S4);
           this.wCol[i4] = wc[0] * wc[0]; this.wCol[i4 + 1] = wc[1] * wc[1]; this.wCol[i4 + 2] = wc[2] * wc[2];
           this.wCol[i4 + 3] = iced ? Math.max(Math.min(0.9, 0.45 + (d - 0.1) * 0.5), Math.min(0.97, 0.5 + si)) : Math.min(isSea ? 0.9 : 0.85, (isSea ? 0.45 : 0.25) + (d - 0.1) * 0.5);
+          // (polluted river water is murky: opaque even in a thin stream, so it shows)
+          if (!isSea && w.riverPollution && w.riverPollution[i] > 0.05) this.wCol[i4 + 3] = Math.max(this.wCol[i4 + 3], Math.min(0.92, 0.55 + Math.sqrt(w.riverPollution[i]) * 0.5));
           // (the mangrove canopy stands above the tide)
           if (w.mangrove && w.mangrove[i] > 0.05) this.wCol[i4 + 3] *= 1 - 0.85 * Math.min(1, w.mangrove[i] * 1.2);
           // (the temperature map colours the sea by its water temperature: let it show through)
@@ -709,7 +714,7 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
-const FIELD_A = [0.78, 0.70, 0.38], FIELD_B = [0.52, 0.62, 0.30], TOWN_PAVE = [0.62, 0.60, 0.57], TOWN_ROOF = [0.66, 0.40, 0.32], ROAD = [0.30, 0.30, 0.32], ROAD_WORN = [0.55, 0.52, 0.46], INDUSTRY = [0.50, 0.53, 0.57], HARBOR_A = [0.46, 0.34, 0.22], QUAY = [0.66, 0.65, 0.61], QUAY_DARK = [0.46, 0.45, 0.43], HARBOR_B = [0.60, 0.58, 0.55], INDUSTRY_DARK = [0.24, 0.25, 0.28], DIRTY_RIVER = [0.42, 0.38, 0.26];
+const FIELD_A = [0.78, 0.70, 0.38], FIELD_B = [0.52, 0.62, 0.30], TOWN_PAVE = [0.62, 0.60, 0.57], TOWN_ROOF = [0.66, 0.40, 0.32], ROAD = [0.30, 0.30, 0.32], ROAD_WORN = [0.55, 0.52, 0.46], INDUSTRY = [0.50, 0.53, 0.57], HARBOR_A = [0.46, 0.34, 0.22], QUAY = [0.66, 0.65, 0.61], QUAY_DARK = [0.46, 0.45, 0.43], HARBOR_B = [0.60, 0.58, 0.55], INDUSTRY_DARK = [0.24, 0.25, 0.28], DIRTY_RIVER = [0.58, 0.47, 0.16], POLLUTED_BANK = [0.42, 0.36, 0.20];
 const TREES_NONE = [0.86, 0.84, 0.78], TREES_SPARSE = [0.78, 0.84, 0.58], TREES_MID = [0.36, 0.62, 0.30], TREES_DENSE = [0.06, 0.26, 0.12];
 const HEALTH_BAD = [0.80, 0.25, 0.18], HEALTH_MID = [0.92, 0.78, 0.30], HEALTH_GOOD = [0.18, 0.60, 0.28];
 const BEETLE_RED = [0.62, 0.32, 0.18], DEAD_WOOD = [0.52, 0.48, 0.44], SALMON_RUN = [0.80, 0.30, 0.30], WILD_NONE = [0.80, 0.80, 0.78];
