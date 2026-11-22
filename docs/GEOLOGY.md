@@ -1035,6 +1035,17 @@ already has one moves it there. A sea harbour gets a fishing fleet; a lake or ri
 landing. Shift-click closes the nearest harbour, though a coastal town will build itself a new one
 in time.
 
+**Quarries, breakwaters and reclaimed land.** Towns past about 250 people terrace often and in bulk
+(up to 20 platforms at a time). Towns past 500 **quarry** whole hills and mountains: a town picks
+the highest ground within about 50 cells and cuts it down 1.5 at a time, following the summit
+around, until it is down to the town's level. A big town works up to four faces at once. The rock
+first goes into the harbour's **breakwater**, a causeway three cells wide and faced as quay. It is
+tipped from the harbour toward the deepest water nearby and grows longer with the town (up to 40
+cells), and the harbour moves out to its tip. What's left builds new land along the shallow coast.
+Every tipping smothers the sea bed and clouds and fouls the water; quarrying fouls the streams below
+it. The Destruction slider scales how fast all of this goes. Farmers also keep clearing a little
+more land each year even while the town isn't growing.
+
 **Protected zones.** Any polygon you draw can be made a protected zone (🛡 in the Drawings list): it
 is kept wild. No town is founded or built inside it, no farmland is cleared, no industry is built,
 and roads between towns go around it (unless there is truly no other way). What was there already

@@ -271,7 +271,152 @@ function terraform(world, t, cells) {
   }
   t.terraformed = (t.terraformed || 0) + 1;
   if (spoil <= 0) { world.dirty = true; return 1; }
-  // Dump: into the shallow sea along the coast nearby (building new land), else into hollows
+  dumpSpoil(world, t, spoil, R);
+  world.dirty = true;
+  return 1;
+}
+
+/** Rock dumped into the sea at cell i (amount `put`): smothers the sea bed, clouds and fouls the water. */
+function smother(world, i, put) {
+  const N = world.N, n = N * N, H = world.height, sea = seaOf(world), x = i % N, z = (i / N) | 0;
+  for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+    const j = (z + dz) * N + x + dx;
+    if (j < 0 || j >= n || H[j] >= sea) continue;
+    const f = 1 - Math.hypot(dx, dz) / 4.3;
+    if (f <= 0) continue;
+    if (world.marineHealth) world.marineHealth[j] *= 1 - 0.2 * f;
+    if (world.silt) world.silt[j] = Math.min(4, world.silt[j] + 0.25 * put * f);
+    if (world.pollution) world.pollution[j] = Math.min(4, world.pollution[j] + 0.05 * put * f);
+  }
+}
+
+/**
+ * A harbour breakwater (mole): spoil tipped from the harbour straight out into the sea, a causeway
+ * about three cells wide built up above high tide and faced as a quay, growing longer with the town.
+ * The harbour moves out to its tip, into deeper water. Returns the spoil left over.
+ */
+function buildMole(world, t, spoil) {
+  if (t.harbor === undefined || t.harborLake || spoil <= 0.05) return spoil;
+  const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse;
+  const top = sea + 0.5 * coastParams.tideRange + 1;
+  const maxLen = Math.min(40, 4 + Math.floor(t.pop / 300));
+  if ((t.mole || 0) >= maxLen) return spoil;
+  // Its heading: from the harbour toward the deepest water nearby
+  if (!t.moleDir) {
+    let best = null, bd = 0;
+    const hx = t.harbor % N, hz = (t.harbor / N) | 0;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      let depth = 0;
+      for (let k = 2; k <= 8; k++) {
+        const x = hx + dx * k, z = hz + dz * k;
+        if (x < 2 || z < 2 || x > N - 3 || z > N - 3) { depth = -1; break; }
+        const d = sea - H[z * N + x];
+        if (d <= 0) { depth = -1; break; } // (runs back into land)
+        depth += d;
+      }
+      if (depth > bd) { bd = depth; best = [dx, dz]; }
+    }
+    if (!best) return spoil;
+    t.moleDir = best;
+  }
+  const [dx, dz] = t.moleDir;
+  while (spoil > 0.05 && (t.mole || 0) < maxLen) {
+    const tip = t.harbor, x = (tip % N) + dx, z = ((tip / N) | 0) + dz;
+    if (x < 3 || z < 3 || x > N - 4 || z > N - 4) { t.mole = maxLen; break; }
+    const i = z * N + x;
+    if (isProtected(world, i) || sea - H[i] > 14) { t.mole = maxLen; break; } // (too deep, or protected)
+    // Fill the causeway's cells (the centre line and one either side) up to the top
+    const side = dx && dz ? [i - dx, i - dz * N] : dx ? [i - N, i + N] : [i - 1, i + 1];
+    let done = true;
+    for (const j of [i, ...side]) {
+      if (H[j] >= top) continue;
+      const put = Math.min(spoil, top - H[j]);
+      H[j] += put; world.prevHeight[j] = H[j]; spoil -= put;
+      smother(world, j, put);
+      if (H[j] < top - 0.01) { done = false; break; }
+      world.water[j] = 0; world.vegetation[j] = 0; if (world.humus) world.humus[j] = 0;
+      world.terraform[j] = 2;
+      if (j !== i) { LU[j] = 6; world.paved[j] = 1; world.civOwner[j] = t.num; }
+    }
+    if (!done) break;
+    // The harbour moves out to the new tip; the old one becomes quay
+    LU[tip] = 6;
+    world.paved[i] = 1; LU[i] = 5; world.civOwner[i] = t.num;
+    t.harbor = i;
+    t.mole = (t.mole || 0) + 1;
+    t.quay = (t.quay || 0) + 3;
+  }
+  world.dirty = true;
+  return spoil;
+}
+
+/**
+ * A quarry: a big town picks a hill or mountain near it and cuts it away, a level at a time, until
+ * it is down to the town's level (whole mountains go in the end). The rock goes into the harbour's
+ * breakwater and to build new land along the coast.
+ */
+function quarry(world, t) {
+  const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse;
+  const base = Math.max(H[t.z * N + t.x], sea + 1);
+  const ok = (j) => (!LU[j] || LU[j] === 1) && !isProtected(world, j) && world.water[j] < 0.1;
+  // The quarry face: stay on the current mountain, moving to its highest point near the workings
+  if (t.quarry !== undefined) {
+    const qx = t.quarry % N, qz = (t.quarry / N) | 0;
+    let best = -1, bh = base + 1.5;
+    for (let z = Math.max(2, qz - 6); z <= Math.min(N - 3, qz + 6); z++) for (let x = Math.max(2, qx - 6); x <= Math.min(N - 3, qx + 6); x++) {
+      const j = z * N + x;
+      if (ok(j) && H[j] > bh) { bh = H[j]; best = j; }
+    }
+    t.quarry = best >= 0 ? best : undefined;
+  }
+  if (t.quarry === undefined) {
+    const R = Math.min(50, 15 + Math.sqrt(t.pop) / 2);
+    let best = -1, bs = 0;
+    for (let z = Math.max(2, Math.floor(t.z - R)); z <= Math.min(N - 3, Math.ceil(t.z + R)); z++) for (let x = Math.max(2, Math.floor(t.x - R)); x <= Math.min(N - 3, Math.ceil(t.x + R)); x++) {
+      const j = z * N + x, d = Math.hypot(x - t.x, z - t.z);
+      if (d > R || !ok(j)) continue;
+      const score = H[j] - base - 3 - d * 0.1; // (any hill standing well above the town)
+      if (score > bs) { bs = score; best = j; }
+    }
+    if (best < 0) return 0;
+    t.quarry = best;
+  }
+  // Cut the top off: everything within the face's reach above the next level down
+  const c = t.quarry, cx = c % N, cz = (c / N) | 0;
+  const level = Math.max(base + 0.5, H[c] - 1.5 * Math.max(0.3, civParams.destruction));
+  const r = 4;
+  let spoil = 0;
+  for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+    if (dx * dx + dz * dz > r * r) continue;
+    const x = cx + dx, z = cz + dz;
+    if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
+    const j = z * N + x;
+    if (!ok(j) || H[j] <= level) continue;
+    spoil += H[j] - level;
+    H[j] = level; world.prevHeight[j] = level;
+    world.terraform[j] = 1;
+    world.vegetation[j] = 0; world.forestAge[j] = 0;
+    if (world.soil) world.soil[j] *= 0.3;
+    if (world.humus) world.humus[j] = 0;
+  }
+  t.quarried = (t.quarried || 0) + spoil;
+  // (quarry dust and runoff foul the streams below)
+  if (world.riverPollution) world.riverPollution[c] += 0.02 * spoil;
+  if (spoil > 0) dumpSpoil(world, t, spoil, Math.min(30, 8 + Math.sqrt(t.pop) / 3));
+  world.dirty = true;
+  return spoil;
+}
+
+/**
+ * Get rid of a town's spoil (rock and earth dug from cuttings and quarries): first into its harbour's
+ * breakwater, pushing it out to sea; then into the shallow sea along its coast, building new land
+ * above the tide (reclamation); and with no sea in reach, into hollows nearby.
+ */
+function dumpSpoil(world, t, spoil, R) {
+  const N = world.N, n = N * N, H = world.height, sea = seaOf(world), LU = world.landUse, TF = world.terraform;
+  const half = 0.5 * coastParams.tideRange;
+  spoil = buildMole(world, t, spoil);
+  // Then into the shallow sea along the coast nearby (building new land), else into hollows
   const dumps = [];
   for (let z = Math.max(2, Math.floor(t.z - R - 8)); z <= Math.min(N - 3, Math.ceil(t.z + R + 8)); z++) {
     for (let x = Math.max(2, Math.floor(t.x - R - 8)); x <= Math.min(N - 3, Math.ceil(t.x + R + 8)); x++) {
@@ -289,16 +434,7 @@ function terraform(world, t, cells) {
     const need = sea + half + 0.8 - H[i], put = Math.min(spoil, need, 1.2);
     H[i] += put; world.prevHeight[i] = H[i]; spoil -= put;
     if (H[i] >= sea + half + 0.75) { TF[i] = 2; world.water[i] = 0; world.vegetation[i] = 0; if (world.humus) world.humus[i] = 0; }
-    // The dumped rock and soil smother the sea bed and cloud and foul the water around
-    for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
-      const j = (z + dz) * N + x + dx;
-      if (j < 0 || j >= n || H[j] >= sea) continue;
-      const f = 1 - Math.hypot(dx, dz) / 4.3;
-      if (f <= 0) continue;
-      if (world.marineHealth) world.marineHealth[j] *= 1 - 0.2 * f;
-      if (world.silt) world.silt[j] = Math.min(4, world.silt[j] + 0.25 * put * f);
-      if (world.pollution) world.pollution[j] = Math.min(4, world.pollution[j] + 0.05 * put * f);
-    }
+    smother(world, i, put); // (the dumped rock and soil smother the sea bed, cloud and foul the water)
   }
   // (no sea to take it: into the hollows near town)
   for (let k = 0; spoil > 0.01 && k < 200; k++) {
@@ -312,7 +448,6 @@ function terraform(world, t, cells) {
     H[i] += put; world.prevHeight[i] = H[i]; spoil -= put; TF[i] = 1;
   }
   world.dirty = true;
-  return 1;
 }
 
 /**
@@ -873,7 +1008,9 @@ export function civStep(world) {
     // A coastal town builds a harbour; its fleet grows with the town and fishes the sea
     if (t.harbor !== undefined && LU[t.harbor] !== 5) t.harbor = undefined;
     // A bigger town reshapes the land: cutting hills and slopes into terraces, dumping the spoil
-    if (t.pop > 350 && Math.random() < 0.35 * civParams.growth * Math.min(1.5, civParams.destruction)) terraform(world, t, Math.max(1, Math.round(Math.min(8, 2 + Math.floor(t.pop / 400)) * civParams.destruction)));
+    if (t.pop > 250 && Math.random() < 0.5 * civParams.growth * Math.min(1.5, civParams.destruction)) terraform(world, t, Math.max(1, Math.round(Math.min(20, 3 + Math.floor(t.pop / 250)) * civParams.destruction)));
+    // A big town quarries whole hills and mountains away (harder the bigger it is)
+    if (t.pop > 500 && civParams.destruction > 0) for (let q = Math.min(4, Math.floor(t.pop / 1500) + 1); q > 0; q--) if (Math.random() < 0.4 * civParams.growth * Math.min(1.5, civParams.destruction)) quarry(world, t);
     // Channels: irrigation canals out to dry fields; a sewer down to the water
     if (t.pop > 200 && farmCells > 10 && (t.canals || 0) < 3 && Math.random() < 0.03 * civParams.growth) {
       let dry = 0;
@@ -974,6 +1111,9 @@ export function civStep(world) {
     t.industry = indCells;
     if (indCells < wantInd && roomForTown > 0) buildIndustry(world, t, Math.min(3, wantInd - indCells, roomForTown), NW);
     if (farmCells < wantFarm) expand(world, t, 1, Math.min(8, wantFarm - farmCells), Math.min(45, R * 2), fields, NW);
+    // (and the farmers keep clearing a little more each year even when the town isn't growing:
+    // new holdings, pasture, land for the next generation)
+    else if (Math.random() < 0.4 * civParams.growth) expand(world, t, 1, 1 + (Math.random() < 0.5 ? 1 : 0), Math.min(45, R * 2), fields, NW);
     // A big town sends people out to found a daughter village (linked by road)
     // (when the town is crowded: near what its land can feed)
     // (a town with boats can send them across the water, farther afield; without, only overland)
@@ -1259,6 +1399,7 @@ export function placeHarbor(world, x, z) {
   pave(world, best, t.num, 5);
   t.harbor = best;
   t.harborLake = H[best - 1] >= sea && H[best + 1] >= sea && H[best - N] >= sea && H[best + N] >= sea;
+  t.moleDir = undefined; t.mole = 0; // (a new breakwater from here)
   world.dirty = true;
   return t;
 }
@@ -1274,7 +1415,7 @@ export function removeHarborNear(world, x, z) {
   }
   if (!best) return null;
   world.landUse[best.harbor] = 2;
-  best.harbor = undefined; best.boats = 0; best.harborLake = false;
+  best.harbor = undefined; best.boats = 0; best.harborLake = false; best.moleDir = undefined; best.mole = 0;
   world.dirty = true;
   return best;
 }
