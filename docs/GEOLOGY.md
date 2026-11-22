@@ -1014,6 +1014,23 @@ thins the forest either side, and lets the town spread out along it. Towns pollu
 from their shores, outfalls and drains. A town can only grow about a third beyond what its streets
 house, so it grows as fast as it builds and doesn't boom and crash.
 
+**The sewer network.** A town's sewers are real channels the sewage flows along. Every street,
+works and harbour cell within 10 cells of a sewer drains into the nearest one. The sewer carries it
+cell by cell, fouler and fuller the farther down it goes, to the outfall. A branch sewer joins the
+trunk and passes on everything it has collected, and the trunk empties into the sea (or a river)
+at the outfall. As the town spreads, it digs branch sewers, under its streets if need be, to the
+districts the network doesn't reach yet, nearest the centre first. A sewer always runs with water.
+Streets beyond the network's reach still drain downhill.
+
+**Timber plantations.** Each town keeps about twice as much land under timber as under fields, in
+blocks of woodland 3 to 5 cells across. It picks the land where forest grows best, out to three
+times its town's reach. Plantations are planted with saplings and tended, and the trees grow to
+full forest wherever the climate allows. Grown stands are clear-felled a few cells at a time,
+leaving bare brown ground with slash and the soil a little thinner, then replanted to grow again.
+A road runs from the town centre out to each plantation. The wood adds to the town's trade (up to
+30%). A town's own farms and streets can take over its plantation land, and an abandoned
+plantation goes back to the wild.
+
 **Sewers, livestock, harbours and the Destruction slider.** A town past about 150 people digs a
 **sewer**, to the sea if it can reach it (within about 70 cells), otherwise to a real river or lake
 downhill. A big town whose sewer empties into a river later digs a new one to the sea. Everything its

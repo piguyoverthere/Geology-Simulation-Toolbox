@@ -317,6 +317,8 @@ export function vegetationStep(world) {
     if (world.landUse && world.landUse[i]) {
       if (world.paved[i] > 0.3) { target = 0; v = Math.min(v, 1 - world.paved[i]); }
       else if (world.landUse[i] === 1) target = Math.min(target, 0.45);
+      // (timber plantations: planted and tended, they grow back to full forest wherever trees can)
+      else if (world.landUse[i] === 10 && target > 0.45) target = Math.max(target, 0.85);
     }
     // Grazing and browsing (sim/ecology.js): deer nip off seedlings and young trees, holding
     // meadows open and keeping cleared ground from growing back into forest

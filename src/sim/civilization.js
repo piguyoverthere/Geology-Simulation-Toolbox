@@ -505,7 +505,7 @@ function buildDam(world, t) {
  * through any higher ground on the way.
  */
 function digChannel(world, path, startLevel, kind, owner) {
-  const N = world.N, H = world.height, sea = seaOf(world);
+  const N = world.N, H = world.height, sea = seaOf(world), cells = [];
   let level = startLevel;
   let last = -1;
   for (const p of path) {
@@ -513,7 +513,10 @@ function digChannel(world, path, startLevel, kind, owner) {
     if (i === last) continue;
     last = i;
     level -= 0.04;
-    if (H[i] < sea || (world.landUse[i] && world.landUse[i] !== 1 && world.landUse[i] !== 8 && world.landUse[i] !== 9)) continue;
+    const lu = world.landUse[i];
+    // (canals cross open land and fields; sewers also run under the town's streets and works)
+    if (H[i] < sea || (lu && lu !== 1 && lu !== 8 && lu !== 9 && !(kind === 2 && (lu === 2 || lu === 4)))) continue;
+    if (lu === 2 || lu === 4) world.paved[i] = 0;
     const bed = Math.min(H[i] - 0.3, level);
     if (bed < sea) break;
     H[i] = bed; world.prevHeight[i] = bed;
@@ -521,8 +524,10 @@ function digChannel(world, path, startLevel, kind, owner) {
     world.landUse[i] = kind === 1 ? 8 : 9;
     world.civOwner[i] = owner;
     world.vegetation[i] = 0;
+    cells.push(i);
   }
   world.dirty = true;
+  return cells;
 }
 
 /** A straight-ish route from a to b as grid points (one per cell). */
@@ -575,10 +580,108 @@ function digSewer(world, t) {
   }
   if (best < 0) return false;
   const path = linePath({ x: t.x, z: t.z }, { x: best % N, z: (best / N) | 0 });
-  digChannel(world, path.slice(0, -1), hc - 0.3, 2, t.num);
+  const cells = digChannel(world, path.slice(0, -1), hc - 0.3, 2, t.num);
+  if (!cells.length) return false;
   t.sewerOutfall = best;
+  t.sewers = [{ path: cells, into: -1 }]; // (the trunk; branches are added as the town spreads)
   t.sewerToSea = H[best] < sea;
   return true;
+}
+
+/**
+ * A branch sewer: from a district of the town the sewers don't yet reach (`from`, a cell) to the
+ * nearest of the town's sewers, which carries its waste on down to the outfall.
+ */
+function digSewerBranch(world, t, from) {
+  const N = world.N, H = world.height, fx = from % N, fz = (from / N) | 0;
+  let best = -1, bd = Infinity;
+  for (const s of t.sewers) for (const c of s.path) {
+    const d = Math.hypot((c % N) - fx, ((c / N) | 0) - fz);
+    if (d < bd) { bd = d; best = c; }
+  }
+  if (best < 0 || bd < 3) return false;
+  // (sloping down to the sewer it joins: start a little above that sewer's bed)
+  const start = Math.max(H[from] - 0.3, H[best] + 0.04 * bd + 0.1);
+  const cells = digChannel(world, linePath({ x: fx, z: fz }, { x: best % N, z: (best / N) | 0 }).slice(0, -1), start, 2, t.num);
+  if (!cells.length) return false;
+  t.sewers.push({ path: cells, into: best });
+  return true;
+}
+
+/** How well a cell would grow trees (0 unsuitable): its forest now, or a climate, soil and water for one. */
+function forestSuitability(world, i) {
+  const T = world.temperature[i], soil = world.soil ? world.soil[i] : 0.5, wet = world.precip ? world.precip[i] : 0.5;
+  if (T < 0 || T > 29 || (world.snow && world.snow[i] > 0.5) || (world.ice && world.ice[i] > 0.05)) return 0;
+  if (slopeAt(world, i) > 1) return 0;
+  const climate = Math.min(1, Math.max(0, (T - 0) / 6)) * Math.min(1, Math.max(0, (30 - T) / 5)) * Math.min(1, Math.max(0, (wet - 0.2) * 2.5)) * Math.min(1, soil * 1.8);
+  return Math.max(world.vegetation[i] > 0.62 ? 0.7 + 0.3 * world.vegetation[i] : 0, climate);
+}
+
+/**
+ * Timber plantations: a town keeps about twice as much land under timber as under fields, on land
+ * where forest grows: blocks of woodland it lets grow to full forest, clear-fells for wood when the
+ * trees are grown (a stand at a time), and replants to grow again. A road runs from the town centre
+ * out to each plantation.
+ */
+function timberStep(world, t, farmCells, R) {
+  const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse, OW = world.civOwner;
+  const V = world.vegetation, TD = world.treeDensity;
+  if (!t.plantations) t.plantations = [];
+  // Tend and fell
+  let cells = 0, cut = 0;
+  for (const pl of t.plantations) {
+    let alive = 0;
+    for (const i of pl.cells) {
+      if (LU[i] !== 10 || OW[i] !== t.num) continue;
+      alive++;
+      if (V[i] > 0.78 && (!TD || TD[i] > 0.5) && Math.random() < 0.06) {
+        // (clear-felled: the wood hauled out, slash left, the bare ground washing a little silt away)
+        V[i] = 0.12; if (TD) TD[i] *= 0.08; world.forestAge[i] = 0;
+        if (world.soil) world.soil[i] *= 0.92;
+        cut++;
+      } else if (V[i] < 0.6) V[i] = Math.min(0.6, V[i] + 0.006); // (replanted, tended)
+    }
+    pl.alive = alive;
+    cells += alive;
+  }
+  t.plantations = t.plantations.filter((pl) => pl.alive > 0);
+  t.timberCells = cells;
+  t.timberCut = (t.timberCut || 0) * 0.9 + cut;
+  // New plantations: about twice the land of its fields
+  if (cells >= 2 * farmCells || t.pop < 80 || Math.random() > 0.5 * civParams.growth) return;
+  const reach = R * 3;
+  let best = null, bs = 0.35;
+  for (let k = 0; k < 40; k++) {
+    const a = Math.random() * Math.PI * 2, d = 6 + Math.random() * reach;
+    const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
+    if (x < 5 || z < 5 || x > N - 6 || z > N - 6) continue;
+    let s = 0, c = 0;
+    for (let dz = -4; dz <= 4; dz += 2) for (let dx = -4; dx <= 4; dx += 2) {
+      const j = (z + dz) * N + x + dx;
+      if (LU[j] || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j)) continue;
+      s += forestSuitability(world, j); c++;
+    }
+    const score = s / 25 - d / (reach * 4);
+    if (c > 12 && score > bs) { bs = score; best = { x, z }; }
+  }
+  if (!best) return;
+  const r = 3 + Math.floor(Math.random() * 3), claimed = [];
+  for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+    if (dx * dx + dz * dz > r * r + 1) continue;
+    const x = best.x + dx, z = best.z + dz;
+    if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
+    const j = z * N + x;
+    if (LU[j] || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j) || forestSuitability(world, j) < 0.3) continue;
+    LU[j] = 10; OW[j] = t.num;
+    if (V[j] < 0.35) V[j] = 0.35; // (planted with saplings)
+    claimed.push(j);
+  }
+  if (!claimed.length) return;
+  t.plantations.push({ x: best.x, z: best.z, cells: claimed, alive: claimed.length });
+  // (a timber road from the town centre out to it)
+  const path = routeRoad(world, t, best);
+  if (path && path.length > 1) buildRoad(world, path);
+  world.dirty = true;
 }
 
 /**
@@ -795,13 +898,31 @@ export function civStep(world) {
   for (let i = 0; i < n; i++) if (RP[i] > 0) RP[i] = RP[i] < 1e-3 ? 0 : RP[i] * 0.85;
   let anyPaved = false;
   // Towns' sewer outfalls (by town number)
-  const sewerOf = {};
-  for (const t of towns) if (t.sewerOutfall !== undefined) sewerOf[t.num] = t.sewerOutfall;
-  // The sewers themselves run foul
-  for (let i = 0; i < n; i++) if (world.channel[i] === 2) RP[i] = Math.max(RP[i], 1.2);
+  // The sewer network: every street drains into the nearest sewer within reach (a district drain),
+  // and the sewers carry it along, cell by cell, down to the outfall
+  const sewerCell = new Uint8Array(n);
+  for (const t of towns) {
+    if (t.sewerOutfall !== undefined && !t.sewers) t.sewerOutfall = undefined; // (an old sewer: dug again as a network)
+    for (const sw of t.sewers || []) for (const c of sw.path) if (world.channel[c] === 2) sewerCell[c] = 1;
+  }
+  // (nearest working sewer cell for every cell within 10 of one)
+  const drainTo = new Int32Array(n).fill(-1), dist = new Uint8Array(n).fill(255);
+  {
+    let q = [];
+    for (let i = 0; i < n; i++) if (sewerCell[i]) { drainTo[i] = i; dist[i] = 0; q.push(i); }
+    for (let d = 1; d <= 10 && q.length; d++) {
+      const nq = [];
+      for (const c of q) for (const j of [c - 1, c + 1, c - N, c + N]) {
+        if (j < 0 || j >= n || dist[j] !== 255 || H[j] < sea) continue;
+        dist[j] = d; drainTo[j] = drainTo[c]; nq.push(j);
+      }
+      q = nq;
+    }
+  }
+  world._sewerDist = dist;
+  const sewerAcc = new Float32Array(n);
   // (a working canal is kept running from the river it taps: sluices let water in as it soaks away)
   for (let i = 0; i < n; i++) if (world.channel[i] === 1 && OW[i] && world.water[i] < 0.12) world.water[i] = 0.12;
-  const sewerLoad = {};
   for (let z = 1; z < N - 1; z++) {
     for (let x = 1; x < N - 1; x++) {
       const i = z * N + x;
@@ -824,8 +945,7 @@ export function civStep(world) {
       // sewer, all of it out through the sewer's outfall)
       // (roads are not drained into sewers, but shed much less than streets and works)
       const load = 0.018 * (LU[i] === 4 ? 6 : 1) * (LU[i] === 3 ? 0.3 : 1) * civParams.destruction;
-      const owner = OW[i] ? sewerOf[OW[i]] : undefined;
-      if (owner !== undefined) { sewerLoad[OW[i]] = (sewerLoad[OW[i]] || 0) + load; continue; }
+      if (drainTo[i] >= 0 && LU[i] !== 3) { sewerAcc[drainTo[i]] += load; continue; } // (down the drains into the sewer)
       let c = i;
       for (let k = 0; k < 160; k++) {
         if (H[c] < sea) { if (world.pollution) world.pollution[c] = Math.min(4, world.pollution[c] + load * 1.6); break; }
@@ -842,22 +962,35 @@ export function civStep(world) {
       }
     }
   }
-  // Each sewer pours its town's whole load out at its outfall: into the sea, spreading there, or
-  // into a river, which carries it down as one foul stream to the sea
-  for (const num in sewerLoad) {
-    let c = sewerOf[num], load = sewerLoad[num];
-    for (let k = 0; k < 200; k++) {
-      if (H[c] < sea) {
-        if (world.pollution) for (const j of [c, c - 1, c + 1, c - N, c + N]) if (j >= 0 && j < n && H[j] < sea) world.pollution[j] = Math.min(4, world.pollution[j] + load * (j === c ? 0.8 : 0.3));
-        break;
+  // Along the sewers: each branch (newest first) carries what drains into it down into the sewer
+  // it joins; the trunk carries it all to the outfall. The water in them runs fouler downstream.
+  for (const t of towns) {
+    if (!t.sewers || t.sewerOutfall === undefined) continue;
+    for (let b = t.sewers.length - 1; b >= 0; b--) {
+      const sw = t.sewers[b];
+      let carry = 0;
+      for (const c of sw.path) {
+        if (world.channel[c] !== 2) continue;
+        carry += sewerAcc[c];
+        RP[c] = Math.max(RP[c], Math.min(3, 0.3 + carry * 0.6));
+        if (world.water[c] < 0.1) world.water[c] = 0.1; // (a sewer always runs)
       }
-      RP[c] += Math.min(3, load * 0.5);
-      const cx = c % N, cz = (c / N) | 0;
-      if (cx < 1 || cz < 1 || cx > N - 2 || cz > N - 2) break;
-      let low = c, lh = H[c] + world.water[c];
-      for (const j of [c - 1, c + 1, c - N, c + N, c - N - 1, c - N + 1, c + N - 1, c + N + 1]) { const hj = H[j] + world.water[j]; if (hj < lh) { lh = hj; low = j; } }
-      if (low === c) break;
-      c = low;
+      if (sw.into >= 0) { sewerAcc[sw.into] += carry; continue; }
+      // The trunk's outfall: into the sea, spreading there, or into a river that carries it on
+      let c = t.sewerOutfall;
+      for (let k = 0; k < 200 && carry > 0; k++) {
+        if (H[c] < sea) {
+          if (world.pollution) for (const j of [c, c - 1, c + 1, c - N, c + N]) if (j >= 0 && j < n && H[j] < sea) world.pollution[j] = Math.min(4, world.pollution[j] + carry * (j === c ? 0.8 : 0.3));
+          break;
+        }
+        RP[c] += Math.min(3, carry * 0.5);
+        const cx = c % N, cz = (c / N) | 0;
+        if (cx < 1 || cz < 1 || cx > N - 2 || cz > N - 2) break;
+        let low = c, lh = H[c] + world.water[c];
+        for (const j of [c - 1, c + 1, c - N, c + N, c - N - 1, c - N + 1, c + N - 1, c + N + 1]) { const hj = H[j] + world.water[j]; if (hj < lh) { lh = hj; low = j; } }
+        if (low === c) break;
+        c = low;
+      }
     }
   }
   // Livestock: the farms' cattle, sheep, goats and pigs roam out into the woods around them and
@@ -874,7 +1007,7 @@ export function civStep(world) {
   for (let i = 0; i < n; i++) {
     if (LU[i] !== 1 && FS[i] < 1) FS[i] = Math.min(1, FS[i] + 0.0012); // (fallow ground recovers)
     if (LU[i] === 0 || OW[i] || LU[i] === 3) continue;
-    if (LU[i] === 1) { LU[i] = 0; continue; }
+    if (LU[i] === 1 || LU[i] === 10) { LU[i] = 0; continue; } // (fields and plantations go back to the wild)
     P[i] = Math.max(0, P[i] - 0.004);
     if (P[i] <= 0) { LU[i] = 0; world.channel[i] = 0; }
   }
@@ -1020,6 +1153,17 @@ export function civStep(world) {
     // Exploratory roads out into the deep forest (more as the town grows)
     if (t.pop > 150 && (t.trails || 0) < 1 + Math.floor(t.pop / 500) && Math.random() < 0.04 * civParams.growth) exploreForest(world, t);
     if (t.pop > 1500 && t.sewerOutfall !== undefined && !t.sewerToSea && !t.seaSewerTried && Math.random() < 0.05 * civParams.growth) { t.seaSewerTried = true; const old = t.sewerOutfall; t.sewerOutfall = undefined; if (!digSewer(world, t) || !t.sewerToSea) t.sewerOutfall = old; }
+    // Branch sewers out to the districts the sewers don't reach yet
+    if (t.sewers && t.sewerOutfall !== undefined && world._sewerDist && Math.random() < 0.3 * civParams.growth) {
+      let far = -1, fd = Infinity, count = 0; // (the unserved district nearest the centre first)
+      for (let z = Math.max(1, Math.floor(t.z - R)); z <= Math.min(N - 2, Math.ceil(t.z + R)); z++) for (let x = Math.max(1, Math.floor(t.x - R)); x <= Math.min(N - 2, Math.ceil(t.x + R)); x++) {
+        const i = z * N + x;
+        if ((LU[i] !== 2 && LU[i] !== 4) || OW[i] !== t.num) continue;
+        const d = world._sewerDist[i];
+        if (d >= 10) { count++; const dc = Math.hypot(x - t.x, z - t.z); if (dc < fd) { fd = dc; far = i; } }
+      }
+      if (count > 6 && far >= 0) digSewerBranch(world, t, far);
+    }
     if (t.pop > 150 && t.sewerOutfall === undefined && (t.sewerTries || 0) < 6 && Math.random() < 0.05 * civParams.growth) { if (!digSewer(world, t)) t.sewerTries = (t.sewerTries || 0) + 1; }
     // A big town dams a river valley near it for a reservoir (one per town)
     if (t.pop > 700 && t.dam === undefined && Math.random() < 0.02 * civParams.growth) { if (!buildDam(world, t)) t.dam = -1; }
@@ -1068,6 +1212,8 @@ export function civStep(world) {
     food *= 1 + Math.min(0.3, 0.08 * t.links.length) * (roadsNear ? t.roadsWorking : 0);
     // (industry brings work and trade: the town can support more people)
     food *= 1 + Math.min(0.35, indCells * 0.012);
+    // (timber: building, fuel and trade, from its plantations)
+    food *= 1 + Math.min(0.3, (t.timberCut || 0) * 0.01);
     food *= yearFactor;
     // Water: a river or lake nearby, or only wells; dirty water slows them
     const freshNear = fields.fresh[ci];
@@ -1114,6 +1260,9 @@ export function civStep(world) {
     // (and the farmers keep clearing a little more each year even when the town isn't growing:
     // new holdings, pasture, land for the next generation)
     else if (Math.random() < 0.7 * civParams.growth) expand(world, t, 1, Math.round((2 + (Math.random() < 0.5 ? 1 : 0)) * Math.max(1, civParams.growth)), R * 2, fields, NW);
+    // Timber: plantations on land where forest grows, about twice as much land as its fields; each
+    // grows trees, is clear-felled when they're grown, and grows them again
+    timberStep(world, t, farmCells, R);
     // A big town sends people out to found a daughter village (linked by road)
     // (when the town is crowded: near what its land can feed)
     // (a town with boats can send them across the water, farther afield; without, only overland)
@@ -1264,7 +1413,7 @@ function expand(world, t, use, count, R, fields, NWexp = null) {
   const z0 = Math.max(2, Math.floor(t.z - R)), z1 = Math.min(N - 3, Math.ceil(t.z + R));
   for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
     const i = z * N + x;
-    if (LU[i] !== 0 && !(use === 2 && LU[i] === 1 && OW[i] === t.num)) continue; // (towns grow over their own fields)
+    if (LU[i] !== 0 && !(use === 2 && LU[i] === 1 && OW[i] === t.num) && !(LU[i] === 10 && OW[i] === t.num)) continue; // (towns grow over their own fields and plantations)
     if (isProtected(world, i)) continue; // (a protected zone)
     if (H[i] < sea + 0.8 || world.water[i] > 0.1 || (world.ice && world.ice[i] > 0.05)) continue;
     const d = Math.hypot(x - t.x, z - t.z);
