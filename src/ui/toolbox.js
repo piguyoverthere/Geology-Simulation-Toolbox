@@ -15,7 +15,7 @@ import { SPECIES, OPEN } from '../sim/species.js';
 import { BIOMES } from '../render/biomes.js';
 import { STATS } from '../sim/stats.js';
 import { PROBE_STATS } from '../sim/probes.js';
-import { bestSite, foundTown, ensureCiv } from '../sim/civilization.js';
+import { bestSite, foundTown, ensureCiv, updateProtectedZones } from '../sim/civilization.js';
 import { YEAR_KINDS } from '../sim/climate.js';
 import { HABITATS, PLANT_FOODS, HABITS, MIGRATION, newAnimal, removeAnimal, describeAnimal } from '../sim/ecology.js';
 
@@ -224,7 +224,7 @@ export class Toolbox {
     const drBtns = el('div', 'tb-row');
     drBtns.append(button('Clear drawings', () => app.drawings.clear(), '', 'Delete every path and polygon.', this));
     dr.append(drBtns);
-    app.drawings.onChange = () => this.updateDrawList();
+    app.drawings.onChange = () => { this.updateDrawList(); updateProtectedZones(app.world, app.drawings.shapes); app.world.dirty = true; };
     this.updateDrawList();
 
     // --- Geology -----------------------------------------------------------------------------
@@ -426,6 +426,14 @@ export class Toolbox {
       txt.append(el('span', '', s === d.current ? `${s.name} (drawing…)` : s.name), el('small', '', d.describe(s)));
       txt.title = d.describe(s);
       row.append(dot, txt);
+      // A closed shape can be made a protected zone (kept wild: no towns, farms or industry)
+      if (s !== d.current && s.closed) {
+        const prot = el('button', 'draw-protect' + (s.protected ? ' on' : ''), '🛡');
+        prot.title = s.protected ? 'Protected zone: no towns, farms, industry or new roads inside. Click to unprotect.' : 'Make this a protected zone: towns, farms and industry can\'t expand into it, and roads between towns go round it.';
+        prot.addEventListener('click', () => { s.protected = !s.protected; d.onChange(); });
+        row.append(prot);
+        if (s.protected) row.classList.add('protected');
+      }
       if (s !== d.current) {
         const del = el('button', '', '✕');
         del.title = 'Delete';

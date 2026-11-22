@@ -960,3 +960,8 @@ rivers. Towns grow out along their roads; big neighbours build roads to each oth
 sends people to found a daughter village nearby, linked by road. A town that dwindles away is
 abandoned: its fields go back to the wild and its pavement slowly breaks up and grows over.
 
+**Protected zones.** Any polygon you draw can be made a protected zone (🛡 in the Drawings list): it
+is kept wild. No town is founded or built inside it, no farmland is cleared, no industry is built,
+and roads between towns go around it (unless there is truly no other way). What was there already
+stays.
+

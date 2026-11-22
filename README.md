@@ -162,7 +162,8 @@ seasons, weather), **Sea** (ocean and coast) and **Life** (wildlife).
   coast & ocean (shore types, dunes, mangroves, ocean biomes), water quality, wind speed, wildlife, forest density, forest health, topographic map (elevation bands with contour lines, index contours every fifth), temperature,
   precipitation, snow depth, glacier ice, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
-- **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes.
+- **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes. A polygon
+  can be made a **protected zone** (🛡): no towns, farms, industry or new roads inside it.
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
 - **Climate → Environment**: ready-made climates applied to the current map without changing the
   terrain: Pacific Northwest coast, Inland Northwest, Alpine, Mediterranean, Tropical rainforest,

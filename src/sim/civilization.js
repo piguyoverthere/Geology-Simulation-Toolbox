@@ -84,6 +84,36 @@ function nearestWater(world) {
   return near;
 }
 
+/**
+ * Protected zones: polygons you draw (Drawings → 🛡 Protect) are kept wild. No town is founded or
+ * built there, no farmland cleared, no industry, and roads between towns go around them.
+ * world.protectedZone is the rasterised mask (1 = protected).
+ */
+export function updateProtectedZones(world, shapes) {
+  const N = world.N, n = N * N;
+  if (!world.protectedZone || world.protectedZone.length !== n) world.protectedZone = new Uint8Array(n);
+  const PZ = world.protectedZone;
+  PZ.fill(0);
+  for (const s of shapes || []) {
+    if (!s.protected || !s.closed || !s.points || s.points.length < 3) continue;
+    const pts = s.points;
+    let x0 = N, x1 = 0, z0 = N, z1 = 0;
+    for (const p of pts) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
+    for (let z = Math.max(0, Math.floor(z0)); z <= Math.min(N - 1, Math.ceil(z1)); z++) {
+      for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(N - 1, Math.ceil(x1)); x++) {
+        // Point in polygon (ray casting)
+        let inside = false;
+        for (let a = 0, b = pts.length - 1; a < pts.length; b = a++) {
+          const pa = pts[a], pb = pts[b];
+          if ((pa.z > z) !== (pb.z > z) && x < ((pb.x - pa.x) * (z - pa.z)) / (pb.z - pa.z) + pa.x) inside = !inside;
+        }
+        if (inside) PZ[z * N + x] = 1;
+      }
+    }
+  }
+}
+const isProtected = (world, i) => world.protectedZone && world.protectedZone[i] === 1;
+
 function seaOf(world) { return world.meanSea !== undefined && world.meanSea > -999 ? world.meanSea : -1e9; }
 
 /** How fertile cell i is for farming (0..1): wet-enough soil, flat, a growing season. */
@@ -107,7 +137,7 @@ function slopeAt(world, i) {
  */
 export function siteScore(world, i, near) {
   const H = world.height, sea = seaOf(world);
-  if (H[i] < sea + 1 || world.water[i] > 0.1 || (world.lava && world.lava[i] > 0) || (world.ice && world.ice[i] > 0.05)) return 0;
+  if (H[i] < sea + 1 || world.water[i] > 0.1 || (world.lava && world.lava[i] > 0) || (world.ice && world.ice[i] > 0.05) || isProtected(world, i)) return 0;
   const T = world.temperature[i];
   const climate = Math.max(0, Math.min(1, (T - 2) / 6)) * Math.max(0, Math.min(1, (26 - T) / 6));
   const slope = slopeAt(world, i);
@@ -324,7 +354,7 @@ export function civStep(world) {
     const nb = lanes === 3 ? side : [side[0]];
     for (const j of nb) {
       if (LU[j] !== 0 && LU[j] !== 1) continue;
-      if (H[j] < sea || world.water[j] > 0.2) continue;
+      if (H[j] < sea || world.water[j] > 0.2 || isProtected(world, j)) continue;
       // (graded to the road and paved)
       H[j] += (H[i] - H[j]) * 0.8; world.prevHeight[j] = H[j];
       pave(world, j, 0, 3);
@@ -460,7 +490,7 @@ export function civStep(world) {
     for (const i of exhausted) {
       let nextToTown = false;
       for (const j of [i - 1, i + 1, i - N, i + N]) if ((LU[j] === 2 || LU[j] === 4) && OW[j] === t.num) nextToTown = true;
-      if (nextToTown && housed < 3 && slopeAt(world, i) < 0.6 && farmCells - 1 >= FARMS_PER_TOWN_CELL * (townCells + indCells + 1)) { pave(world, i, t.num, 2); housed++; farmCells--; townCells++; }
+      if (nextToTown && housed < 3 && !isProtected(world, i) && slopeAt(world, i) < 0.6 && farmCells - 1 >= FARMS_PER_TOWN_CELL * (townCells + indCells + 1)) { pave(world, i, t.num, 2); housed++; farmCells--; townCells++; }
       else if (!nextToTown && Math.random() < 0.05) { LU[i] = 0; OW[i] = 0; farmCells--; } // (fallow)
     }
     t.exhausted = exhausted.length;
@@ -530,7 +560,8 @@ export function routeRoad(world, a, b) {
       const grade = Math.abs(H[j] - H[c]) / len;
       // The lie of the land: gentle undulations in where a road finds it easiest to go
       const lie = 0.35 * (1 + Math.sin(x * 0.19 + z * 0.07) * Math.cos(z * 0.15 - x * 0.06));
-      const cost = len * (1 + 14 * grade * grade + (D[j] > 0.1 ? 6 : 0) + lie - (LU[j] === 3 ? 0.6 : 0));
+      // (protected zones are kept wild: roads go round them unless there's truly no other way)
+      const cost = len * (1 + 14 * grade * grade + (D[j] > 0.1 ? 6 : 0) + lie - (LU[j] === 3 ? 0.6 : 0) + (isProtected(world, j) ? 60 : 0));
       const ng = g[c] + cost;
       if (ng < g[j]) { g[j] = ng; from[j] = c; heap.push(j, ng + hcost(j)); }
     }
@@ -560,6 +591,7 @@ function expand(world, t, use, count, R, fields, NWexp = null) {
   for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
     const i = z * N + x;
     if (LU[i] !== 0 && !(use === 2 && LU[i] === 1 && OW[i] === t.num)) continue; // (towns grow over their own fields)
+    if (isProtected(world, i)) continue; // (a protected zone)
     if (H[i] < sea + 0.8 || world.water[i] > 0.1 || (world.ice && world.ice[i] > 0.05)) continue;
     const d = Math.hypot(x - t.x, z - t.z);
     if (d > R) continue;
@@ -608,7 +640,7 @@ function buildIndustry(world, t, count, NW) {
   const x0 = Math.max(2, t.x - R), x1 = Math.min(N - 3, t.x + R), z0 = Math.max(2, t.z - R), z1 = Math.min(N - 3, t.z + R);
   for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
     const i = z * N + x;
-    if ((LU[i] !== 0 && LU[i] !== 1) || H[i] < sea + 0.5 || world.water[i] > 0.1) continue;
+    if ((LU[i] !== 0 && LU[i] !== 1) || H[i] < sea + 0.5 || world.water[i] > 0.1 || isProtected(world, i)) continue;
     const d = Math.hypot(x - t.x, z - t.z);
     if (d > R || slopeAt(world, i) > 0.5) continue;
     let ind = 0, shore = 0;

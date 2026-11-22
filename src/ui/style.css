@@ -314,3 +314,8 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   font-size: 11px; font-weight: 600; color: #fff; padding: 1px 6px; border-radius: 8px;
   background: rgba(60, 40, 25, 0.75); border: 1px solid rgba(255, 220, 170, 0.35); }
 .town-label[hidden] { display: none; }
+
+/* Protected zones in the Drawings list */
+.draw-protect { opacity: 0.45; }
+.draw-protect.on { opacity: 1; border-color: #5cbf6a !important; background: rgba(92, 191, 106, 0.18) !important; }
+.draw-item.protected .txt span { color: #9fe0a8; }
