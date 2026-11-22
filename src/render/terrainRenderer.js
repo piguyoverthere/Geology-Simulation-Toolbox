@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { BIOMES, classifyBiome, DRY_SOIL } from './biomes.js';
 import { ROCKS } from '../core/rocks.js';
 import { forestColor } from '../sim/forests.js';
-import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp, waterTempAt, marineShown } from '../sim/coast.js';
+import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp, waterTempAt, marineShown, marineColor } from '../sim/coast.js';
 import { waterQuality } from '../sim/waterQuality.js';
 import { SPECIES, OPEN } from '../sim/species.js';
 import { climateParams, snowAt, seasonalAt } from '../sim/climate.js';
@@ -271,7 +271,7 @@ export class TerrainRenderer {
           col = shade(w.vegetation[i] > 0.3 ? mix(DECID_NONE, DECID_FULL, Math.min(1, d / 0.8), S3) : NO_FOREST, 0.75 + 0.25 * ny, S3);
         } else if (mode === 'coast') {
           const sh = w.shore ? w.shore[i] : -1, m = w.marine ? marineShown(w, i) : -1, du = w.dune ? w.dune[i] : 0;
-          col = shade(w.mangrove && w.mangrove[i] > 0.3 ? MANGROVE : sh >= 0 ? SHORES[sh].color : m >= 0 ? MARINE[m].color : du > 0.3 ? DUNE : NO_FOREST, 0.75 + 0.25 * ny, S3);
+          col = shade(w.mangrove && w.mangrove[i] > 0.3 ? MANGROVE : sh >= 0 ? SHORES[sh].color : m >= 0 ? marineColor(w, i, false, BED_TMP) : du > 0.3 ? DUNE : NO_FOREST, 0.75 + 0.25 * ny, S3);
         } else if (mode === 'topo') {
           if (h < topoSea) {
             // Water: blue, deeper → darker
@@ -534,7 +534,7 @@ export class TerrainRenderer {
     } else if (h < sea) {
       const m = w.marine ? marineShown(w, i) : -1;
       // The sea bed: silt and sand, darker mud in the deep, and its meadows, kelp and reefs
-      mix(col, m >= 0 ? MARINE[m].bed : C.soil, 0.75, col);
+      mix(col, m >= 0 ? marineColor(w, i, true, BED_TMP) : C.soil, 0.75, col);
     }
     const dune = w.dune ? w.dune[i] : 0;
     if (dune > 0.05) mix(col, DUNE, dune * 0.75 * (1 - smooth(0.6, 0.85, v)), col);
@@ -594,6 +594,7 @@ const DECID_NONE = [0.10, 0.32, 0.22], DECID_FULL = [0.95, 0.60, 0.12];
 const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.64, 0.40];
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
+const BED_TMP = [0, 0, 0];
 const SILT_WATER = [0.78, 0.58, 0.34], FOUL_WATER = [0.58, 0.58, 0.30];
 const Q_FOUL = [0.45, 0.25, 0.12], Q_MID = [0.78, 0.68, 0.36], Q_CLEAR = [0.20, 0.55, 0.85];
 /** Water-quality overlay colour: brown (foul) → khaki → clear blue. */

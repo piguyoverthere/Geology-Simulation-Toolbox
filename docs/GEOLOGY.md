@@ -637,10 +637,12 @@ settles in quiet shallows it builds the tidal flats back up. **Pollutants** (sew
 the Pollute tool) linger much longer and poison sea life. Both spread with the tides and are flushed
 out to the open ocean at the edge of the map. Seagrass meadows, kelp forests, coral reefs and
 mangroves clean the water, in proportion to how healthy they are; but where it stays too dirty they
-sicken and die off (coral is the most sensitive), leaving bare seabed that cleans nothing, so a
-badly polluted bay can tip into a dead zone. Once the water is clean they slowly grow back. The
-inspector shows the water quality, silt, pollutants and sea-bed health, and the **Water quality**
-overlay maps it.
+decline. Seagrass and kelp **thin out gradually**: their density falls shoot by shoot over a long
+spell of dirty water, bare seabed showing through more and more, and the thinner meadow cleans less.
+Coral is the most sensitive and dies faster. A bed that is gone leaves bare seabed that cleans
+nothing, so a badly polluted bay can tip into a dead zone. Once the water is clean they slowly grow
+back in. The inspector shows the water quality, silt, pollutants and seagrass or kelp density (or
+reef health), and the **Water quality** overlay maps it.
 
 **Ocean biomes** follow the water temperature (the sea lags the air and swings less) and depth:
 sea ice, kelp forests on cool rocky shores, seagrass meadows, coral reefs in warm shallows (they

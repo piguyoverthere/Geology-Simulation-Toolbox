@@ -60,11 +60,31 @@ export const MARINE_ID = Object.fromEntries(MARINE.map((m, k) => [m.id, k]));
 // How well each sea bed cleans the water, and how easily dirty water harms it
 const FILTER = MARINE.map((m) => ({ seagrass: 0.06, kelp: 0.05, coral: 0.04 }[m.id] || 0));
 const SENSITIVE = MARINE.map((m) => ({ seagrass: 1.1, kelp: 1, coral: 1.6 }[m.id] || 0));
+// How fast each bed declines under dirty water and regrows once it's clean (seagrass slowest: the
+// meadow thins out gradually, its density falling over many weeks, and fills back in as slowly)
+const PACE = MARINE.map((m) => ({ seagrass: 0.2, kelp: 0.5, coral: 1 }[m.id] || 1));
+// Beds whose density thins gradually (they show as a sparser meadow, not a sudden die-off)
+const THINS = MARINE.map((m) => m.id === 'seagrass' || m.id === 'kelp');
+
+/** The colour of the sea bed at i (bed: the natural view's colours, else the overlay's). */
+export function marineColor(world, i, bed, out) {
+  const m = marineShown(world, i);
+  const c = bed ? MARINE[m].bed : MARINE[m].color;
+  if (!THINS[m]) return c;
+  // A thinning meadow: patches of bare seabed showing between the plants
+  const d = world.marineHealth ? world.marineHealth[i] : 1;
+  const b = bed ? MARINE[MARINE_ID.dieoff].bed : MARINE[MARINE_ID.dieoff].color, t = Math.min(1, d * 1.4);
+  out[0] = b[0] + (c[0] - b[0]) * t; out[1] = b[1] + (c[1] - b[1]) * t; out[2] = b[2] + (c[2] - b[2]) * t;
+  return out;
+}
+
+/** True for beds that thin gradually (seagrass, kelp): their health is their density. */
+export function marineThins(m) { return m >= 0 && THINS[m]; }
 
 /** The sea bed as it looks now: a living bed that dirty water has killed shows as a die-off. */
 export function marineShown(world, i) {
   const m = world.marine ? world.marine[i] : -1;
-  if (m >= 0 && SENSITIVE[m] > 0 && world.marineHealth && world.marineHealth[i] < 0.3) return MARINE_ID.dieoff;
+  if (m >= 0 && SENSITIVE[m] > 0 && world.marineHealth && world.marineHealth[i] < (THINS[m] ? 0.05 : 0.3)) return MARINE_ID.dieoff;
   return m;
 }
 
@@ -249,7 +269,7 @@ export function coastStep(world) {
   }
   // Seawater quality: silt and pollutants mix, settle, flush out to sea and are filtered by the
   // living sea beds, which die off where it stays too dirty
-  waterQualityStep(world, sea, half, FILTER, SENSITIVE);
+  waterQualityStep(world, sea, half, FILTER, SENSITIVE, PACE);
   world.dirty = true;
 }
 
