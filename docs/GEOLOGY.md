@@ -1018,6 +1018,22 @@ the outfall, and spreads through the sea from there. No channels are dug for it;
 from older levels are filled in. Roads, and towns on a map with no sea, still drain downhill into
 their streams.
 
+**Kept ground and growth limits.** Ground people keep up doesn't erode: farmland, towns, roads,
+industry, harbours, quays, dams, canals, plantations, anything paved, and ground that's been cut,
+terraced, quarried or reclaimed. It barely washes away (about 3% of the usual rate), and it doesn't
+slump, slide or blow away, because its walls, banks and drains are maintained. At the coast, the
+waves don't wear it away either: it's banked and armoured like a quay. Terraces, reclaimed land and
+quarry floors are built about 1.6 above high tide, out of the waves' reach, so the sea can't eat
+into flattened lowland. Terracing and quarrying lower the streets, works, roads, fields and
+plantations in their way along with the ground around them (a road is re-graded, not left on a
+ridge); bridges are left as they are. Each step, any spike left standing above the ground around it
+is levelled, on kept ground or at the edge of cuttings and quarries, single cells and small clumps
+alike, and any hole left in kept ground is filled. A scrap of kept ground left standing out in the
+sea, its surroundings long washed away, is washed away too. Harbours, quays, dams and canals are
+left as built. A town's growth tails off smoothly as it gets big (a soft limit): what it can support
+is scaled by 1 / (1 + support / (25,000 × Expansion speed)), so even huge farmland can't feed a
+runaway city. The steady clearing of new fields also slows as a town's farmland grows.
+
 **Timber plantations.** Each town keeps about twice as much land under timber as under fields.
 It picks the land where forest grows best, out to three times its town's reach, preferring an
 existing forest. A plantation takes in that entire forest: every connected forest cell, however big
