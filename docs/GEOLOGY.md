@@ -722,6 +722,15 @@ the wind piles water against the coast), flooding low shores for a while, and it
 the coast, eroding it several times faster. **Surf** breaks in white bands along exposed shores,
 fiercest under a storm.
 
+**Great storms.** Every so many years (on average; Sea → **Great storms every … years**, 0 = never;
+mostly from late summer to winter) a great storm, a hurricane or a once-in-a-generation gale, forms
+far out at sea and drives onto the coast. Its surge piles the sea up about twice as high as an
+ordinary storm's, flooding far inland over the low coast; its giant waves cut back cliffs and
+bluffs several times faster and drag the sand off the beaches into deeper water, so the dunes behind
+flatten; and the salt water kills the coastal forest and plants it floods. The coast then slowly
+recovers: the waves bring the sand back, dunes rebuild and the forest regrows from its edges. The
+month bar shows a great storm while it lasts; **Send a great storm now** starts one.
+
 Under **Ocean & coast**, sliders set the strength of the tidal currents, the storm surge and waves,
 and how readily plankton blooms. The inspector shows the current (speed, direction, flood or ebb, any
 storm surge), salinity, plankton, oxygen and sea ice.

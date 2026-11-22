@@ -275,7 +275,7 @@ export function coastStep(world) {
       if (inReach && erodeK > 0 && type !== SHORE.mudflat) {
         const protect = 1 - Math.min(0.85, SAND[i] * 0.6);
         // (mangrove roots take the force out of the waves)
-        const cut = erodeK * ex * (world.wind ? 0.4 + 0.6 * Math.min(1.5, world.wind[i]) : 1) * (1.2 - hard) * protect * (1 - 0.85 * world.mangrove[i]) * (type === SHORE.cliff ? 2 : 1) * (1 + 4 * world.stormWave[i]); // (storm waves pound it)
+        const cut = erodeK * ex * (world.wind ? 0.4 + 0.6 * Math.min(1.5, world.wind[i]) : 1) * (1.2 - hard) * protect * (1 - 0.85 * world.mangrove[i]) * (type === SHORE.cliff ? 2 : 1) * (1 + 4 * Math.min(1.6, world.stormWave[i])); // (storm waves pound it)
         H[i] -= cut;
         // Soft rock breaks down to sand; hard rock to shingle (doesn't add sand). The fines cloud
         // the water.
@@ -286,7 +286,7 @@ export function coastStep(world) {
       // (fast where they're bare; mangroves and seagrass hold the mud down)
       if (inReach && erodeK > 0 && type === SHORE.mudflat) {
         const grass = [i - 1, i + 1, i - N, i + N].some((j) => M[j] === MARINE_ID.seagrass) ? 0.6 * world.marineHealth[i] : 0;
-        const cut = erodeK * (0.3 + 2 * ex) * (1 - 0.85 * world.mangrove[i]) * (1 - grass) * (1 + 4 * world.stormWave[i]);
+        const cut = erodeK * (0.3 + 2 * ex) * (1 - 0.85 * world.mangrove[i]) * (1 - grass) * (1 + 4 * Math.min(1.6, world.stormWave[i]));
         H[i] -= cut;
         addSilt(world, i, cut * 6);
       }
@@ -298,9 +298,17 @@ export function coastStep(world) {
       }
       // --- Between the tide lines, the waves slowly bring sand in from the sea and spread it over
       // the bare, tide-scoured ground, building it up into beach (not on mudflats or cliffs) ---
-      if (h < sea + half && h > sea - half && type !== SHORE.mudflat && type !== SHORE.cliff && erodeK > 0) {
+      if (h < sea + half && h > sea - half && type !== SHORE.mudflat && type !== SHORE.cliff && erodeK > 0 && !(world.stormWave && world.stormWave[i] > 0.4)) {
         SAND[i] = Math.min(3, SAND[i] + 0.006 * (0.3 + ex));
         if (SAND[i] > 0.5) H[i] += 0.0006 * (0.3 + ex) * (1 - world.mangrove[i]);
+      }
+      // --- Big storm waves strip the beach: the sand is dragged off into deeper water (and the
+      // dunes behind, fed by it, flatten) ---
+      const sw = world.stormWave ? world.stormWave[i] : 0;
+      if (sw > 0.6 && SAND[i] > 0) {
+        const lost = SAND[i] * Math.min(0.3, 0.05 * (sw - 0.6) * (0.5 + ex * 2));
+        SAND[i] -= lost;
+        addSilt(world, i, lost * 0.5);
       }
       // --- Sand budget: rivers and coral feed it, exposed waves strip it ---
       const river = world.sediment[i] * 0.3;

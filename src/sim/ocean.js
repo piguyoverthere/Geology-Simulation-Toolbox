@@ -24,12 +24,66 @@
 import { boxBlur } from '../core/grid.js';
 import { climateParams, seasonParams } from './climate.js';
 import { updateWind } from './wind.js';
+import { spawnStormAt } from './weather.js';
 
 export const oceanParams = {
   currents: 1,   // strength of the tidal currents (0 = still water)
   surge: 1,      // how much storms raise the sea (storm surge) and whip up waves
   blooms: 1,     // how readily plankton blooms grow on nutrients
+  greatStorms: 8, // a great storm comes about once in this many years, on average (0 = never)
 };
+
+/**
+ * A great storm (a hurricane or a once-in-a-generation gale): every so many years a huge storm forms
+ * far out at sea and drives onto the coast. Its winds and low pressure pile the sea up into a
+ * storm surge several times higher than an ordinary storm's, flooding far inland over the low
+ * coast, and its giant waves pound the shore: cliffs and bluffs are cut back, beaches are stripped of
+ * their sand, the dunes behind are flattened, and the salt water kills the coastal forest and plants
+ * it floods. (The coast and the plants then slowly recover.)
+ */
+export function startGreatStorm(world) {
+  const N = world.N, H = world.height, n = N * N;
+  const sea = world.meanSea;
+  if (sea === undefined || sea < -999) return null;
+  // Where the land is (its middle), and the open sea upwind of it (the storm comes in off the ocean)
+  let lx = 0, lz = 0, ln = 0;
+  for (let i = 0; i < n; i += 7) if (H[i] >= sea) { lx += i % N; lz += (i / N) | 0; ln++; }
+  if (!ln) return null;
+  lx /= ln; lz /= ln;
+  let best = -1, bestD = -1;
+  for (let k = 0; k < 400; k++) {
+    const i = (Math.random() * n) | 0;
+    if (H[i] >= sea - 4) continue;
+    const d = Math.hypot((i % N) - lx, ((i / N) | 0) - lz);
+    if (d > bestD) { bestD = d; best = i; }
+  }
+  if (best < 0) return null;
+  const sx = best % N, sz = (best / N) | 0;
+  const st = spawnStormAt(world, sx, sz, N * 0.3, true);
+  st.thunder = false; st.great = true;
+  st.peak = 3; st.fuel = st.maxFuel = 3; st.age = 0; st.life = 80;
+  // It drives in toward the land
+  const dx = lx - sx, dz = lz - sz, d = Math.hypot(dx, dz) || 1;
+  st.speed = 0.9; st.vx = (dx / d) * 0.9; st.vz = (dz / d) * 0.9;
+  world.lastGreatStorm = { year: seasonParams.year || 1, time: world.time };
+  return st;
+}
+
+/** Now and then (on average every `greatStorms` years, mostly in late summer to winter) a great storm. */
+function maybeGreatStorm(world) {
+  const every = oceanParams.greatStorms;
+  if (!(every > 0) || (world.storms || []).some((s) => s.great)) return;
+  let years = 1 / 360;
+  if (seasonParams.enabled) {
+    const ph = seasonParams.phase;
+    years = (ph - (world.gsPhase ?? ph) + 1) % 1;
+    if (years > 0.1) years = 0;
+    world.gsPhase = ph;
+    // (the season of great storms: late summer through winter)
+    years *= ph > 0.4 && ph < 0.92 ? 1.7 : 0.15;
+  }
+  if (Math.random() < years / every) startGreatStorm(world);
+}
 
 export function ensureOcean(world) {
   const n = world.N * world.N;
@@ -293,8 +347,9 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
   }
 
   // --- Storm surge and storm waves --------------------------------------------------------
+  maybeGreatStorm(world);
   SW.fill(0);
-  let surgeT = 0;
+  let surgeT = 0, great = false;
   for (const st of world.storms || []) {
     const s = (st.strength || 0) * p.surge;
     if (s <= 0) continue;
@@ -310,10 +365,13 @@ export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
       // Big waves under the storm (spread to the skipped neighbours too)
       SW[i] = Math.max(SW[i], w); SW[i + 1] = Math.max(SW[i + 1], w); SW[i + N] = Math.max(SW[i + N], w); SW[i + N + 1] = Math.max(SW[i + N + 1], w);
     }
-    if (cells) surgeT += 1.2 * s * (overSea / cells);
+    // (a great storm piles the sea up far higher)
+    if (cells) surgeT += (st.great ? 3.2 : 1.2) * s * (overSea / cells);
+    if (st.great) great = true;
   }
   // (a surge raised by hand with the Storm surge tool ebbs away more slowly than it came)
-  world.surge = (world.surge || 0) + (Math.min(2.5, surgeT) - (world.surge || 0)) * (surgeT > 0.05 ? 0.08 : 0.03);
+  world.surge = (world.surge || 0) + (Math.min(great ? 5 : 2.5, surgeT) - (world.surge || 0)) * (surgeT > 0.05 ? 0.08 : 0.03);
+  world.greatStormActive = great;
   // Waves whipped up by hand (the Waves tool) die down over a while
   const WB = world.waveBoost;
   for (let i = 0; i < n; i++) if (WB[i] > 0) { if (WB[i] > SW[i]) SW[i] = WB[i]; WB[i] = WB[i] < 0.01 ? 0 : WB[i] * 0.97; }

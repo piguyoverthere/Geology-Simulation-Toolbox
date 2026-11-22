@@ -74,7 +74,7 @@ export class MonthBar {
     const part = day <= 10 ? 'Early' : day <= 20 ? 'Mid' : 'Late';
     const yk = YEAR_KINDS[seasonParams.yearKind] || YEAR_KINDS.normal;
     this.label.innerHTML = on
-      ? `<b>${part} ${FULL[month]}</b> <span>${SEASON[month]} · year ${seasonParams.year || 1}</span>${yk.short ? ` <span class="mb-year mb-${seasonParams.yearKind}">${yk.short}</span>` : ''}`
+      ? `<b>${part} ${FULL[month]}</b> <span>${SEASON[month]} · year ${seasonParams.year || 1}</span>${yk.short ? ` <span class="mb-year mb-${seasonParams.yearKind}">${yk.short}</span>` : ''}${this.app.world.greatStormActive ? ' <span class="mb-year mb-hot">🌀 Great storm</span>' : ''}`
       : '<b>Seasons off</b>';
   }
 }
