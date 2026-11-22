@@ -29,6 +29,7 @@ export const civParams = {
   enabled: true,
   growth: 1,      // how fast towns spread: new villages, hunting
   popRate: 1,     // how fast their populations increase
+  farmSlope: 15,  // steepest ground (degrees) that can be farmed; steeper must be terraced flat first
 };
 
 const FARMS_PER_TOWN_CELL = 3; // every cell of town needs at least this many cells of farmland
@@ -63,6 +64,7 @@ export function ensureCiv(world) {
   if (!world.farmSoil || world.farmSoil.length !== n) world.farmSoil = new Float32Array(n).fill(1);
   if (!world.terraform || world.terraform.length !== n) world.terraform = new Int8Array(n); // 1 cut / terraced, 2 reclaimed
   if (!world.bridge || world.bridge.length !== n) world.bridge = new Uint8Array(n);
+  if (!world.channel || world.channel.length !== n) world.channel = new Uint8Array(n); // 1 irrigation canal, 2 sewer
 }
 
 /**
@@ -357,6 +359,85 @@ function buildDam(world, t) {
 }
 
 /**
+ * Dig a channel along `path` (grid points from its head to its end), sloping gently down from
+ * `startLevel`: an irrigation canal (kind 1) carrying water from a river or lake out to the fields,
+ * or a sewer (kind 2) carrying the town's waste down to a river or the sea. The trench is cut
+ * through any higher ground on the way.
+ */
+function digChannel(world, path, startLevel, kind, owner) {
+  const N = world.N, H = world.height, sea = seaOf(world);
+  let level = startLevel;
+  let last = -1;
+  for (const p of path) {
+    const i = Math.round(p.z) * N + Math.round(p.x);
+    if (i === last) continue;
+    last = i;
+    level -= 0.04;
+    if (H[i] < sea || (world.landUse[i] && world.landUse[i] !== 1 && world.landUse[i] !== 8 && world.landUse[i] !== 9)) continue;
+    const bed = Math.min(H[i] - 0.3, level);
+    if (bed < sea) break;
+    H[i] = bed; world.prevHeight[i] = bed;
+    world.channel[i] = kind;
+    world.landUse[i] = kind === 1 ? 8 : 9;
+    world.civOwner[i] = owner;
+    world.vegetation[i] = 0;
+  }
+  world.dirty = true;
+}
+
+/** A straight-ish route from a to b as grid points (one per cell). */
+function linePath(a, b) {
+  const pts = [], len = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z)));
+  for (let k = 0; k <= len; k++) pts.push({ x: a.x + ((b.x - a.x) * k) / len, z: a.z + ((b.z - a.z) * k) / len });
+  return pts;
+}
+
+/**
+ * Irrigation canal: from the river or lake nearest the town's dry fields, out to the middle of them.
+ * (Once it carries water, the fields along it can be irrigated.)
+ */
+function digCanal(world, t, NW) {
+  const N = world.N, LU = world.landUse, OW = world.civOwner, H = world.height, sea = seaOf(world);
+  let sx = 0, sz = 0, c = 0;
+  for (let z = Math.max(0, t.z - 45); z <= Math.min(N - 1, t.z + 45); z++) for (let x = Math.max(0, t.x - 45); x <= Math.min(N - 1, t.x + 45); x++) {
+    const i = z * N + x;
+    if (LU[i] === 1 && OW[i] === t.num && !world.irrigated[i]) { sx += x; sz += z; c++; }
+  }
+  if (c < 6) return false;
+  const fx = sx / c, fz = sz / c;
+  // The nearest fresh water to the dry fields (within 30 cells)
+  let src = -1, bd = 30;
+  for (let z = Math.max(0, Math.round(fz) - 30); z <= Math.min(N - 1, Math.round(fz) + 30); z++) for (let x = Math.max(0, Math.round(fx) - 30); x <= Math.min(N - 1, Math.round(fx) + 30); x++) {
+    const i = z * N + x;
+    if (H[i] < sea || world.water[i] < 0.08 || world.channel[i]) continue;
+    const d = Math.hypot(x - fx, z - fz);
+    if (d < bd && d > 3) { bd = d; src = i; }
+  }
+  if (src < 0) return false;
+  digChannel(world, linePath({ x: src % N, z: (src / N) | 0 }, { x: fx, z: fz }), H[src] + world.water[src] - 0.1, 1, t.num);
+  t.canals = (t.canals || 0) + 1;
+  return true;
+}
+
+/** Sewer: from the town centre down to the nearest river or the sea (its outfall). */
+function digSewer(world, t) {
+  const N = world.N, H = world.height, sea = seaOf(world);
+  let best = -1, bd = 40;
+  for (let z = Math.max(0, t.z - 40); z <= Math.min(N - 1, t.z + 40); z++) for (let x = Math.max(0, t.x - 40); x <= Math.min(N - 1, t.x + 40); x++) {
+    const i = z * N + x;
+    const wet = H[i] < sea || (world.water[i] > 0.1 && !world.channel[i]);
+    if (!wet || H[i] > H[t.z * N + t.x]) continue; // (downhill of the town)
+    const d = Math.hypot(x - t.x, z - t.z);
+    if (d < bd) { bd = d; best = i; }
+  }
+  if (best < 0) return false;
+  const path = linePath({ x: t.x, z: t.z }, { x: best % N, z: (best / N) | 0 });
+  digChannel(world, path.slice(0, -1), H[t.z * N + t.x] - 0.3, 2, t.num);
+  t.sewerOutfall = best;
+  return true;
+}
+
+/**
  * Fires set by people: farmers burn forest to clear it for fields (slash and burn), and fires get
  * away from towns by accident, far more often in a dry season. Either can escape into a wildfire.
  */
@@ -498,6 +579,10 @@ export function removeTown(world, t) {
 /** Pave cell i (town or road): flatten it a little toward its neighbours, seal it. */
 function pave(world, i, owner, use) {
   const N = world.N, H = world.height, x = i % N, z = (i / N) | 0;
+  if (world.channel && world.channel[i]) { // (canals and sewers aren't paved over: a road bridges them)
+    if (use === 3) { world.landUse[i] = 3; world.bridge[i] = 1; world.paved[i] = 1; world.roadCond[i] = 1; }
+    return;
+  }
   if (x > 0 && z > 0 && x < N - 1 && z < N - 1 && world.paved[i] < 0.5) {
     const avg = (H[i - 1] + H[i + 1] + H[i - N] + H[i + N]) * 0.25;
     H[i] += (avg - H[i]) * 0.6;
@@ -539,11 +624,11 @@ export function buildRoad(world, pts) {
   });
   for (let k = 0; k < cells.length; k++) {
     const i = cells[k];
-    if (H[i] < sea || world.water[i] > 0.4) { world.landUse[i] = 3; world.roadCond[i] = 1; world.roadCore[i] = 1; world.bridge[i] = 1; world.paved[i] = 1; continue; } // (a bridge)
+    if (H[i] < sea || world.water[i] > 0.4 || world.channel[i]) { world.landUse[i] = 3; world.roadCond[i] = 1; world.roadCore[i] = 1; world.bridge[i] = 1; world.paved[i] = 1; continue; } // (a bridge)
     const target = Math.max(smooth[k], sea + 0.6);
     // Terrace: the road bed and its shoulders follow the grade
     for (const j of [i, i - 1, i + 1, i - N, i + N]) {
-      if (H[j] < sea) continue;
+      if (H[j] < sea || world.channel[j]) continue; // (and over a canal or sewer, a bridge)
       const w = j === i ? 1 : 0.5;
       H[j] += (target - H[j]) * w;
       world.prevHeight[j] = H[j];
@@ -565,6 +650,13 @@ export function civStep(world) {
   // --- Pollution: light near pavement, heavy downstream (always) ---------------------------
   for (let i = 0; i < n; i++) if (RP[i] > 0) RP[i] = RP[i] < 1e-3 ? 0 : RP[i] * 0.85;
   let anyPaved = false;
+  // Towns' sewer outfalls (by town number)
+  const sewerOf = {};
+  for (const t of towns) if (t.sewerOutfall !== undefined) sewerOf[t.num] = t.sewerOutfall;
+  // The sewers themselves run foul
+  for (let i = 0; i < n; i++) if (world.channel[i] === 2) RP[i] = Math.max(RP[i], 1.2);
+  // (a working canal is kept running from the river it taps: sluices let water in as it soaks away)
+  for (let i = 0; i < n; i++) if (world.channel[i] === 1 && OW[i] && world.water[i] < 0.12) world.water[i] = 0.12;
   for (let z = 1; z < N - 1; z++) {
     for (let x = 1; x < N - 1; x++) {
       const i = z * N + x;
@@ -580,14 +672,21 @@ export function civStep(world) {
       // (a working quay keeps fouling the water at its foot and wearing the beds there down)
       if (LU[i] === 6) for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] < sea && world.marineHealth) world.marineHealth[j] = Math.max(0, world.marineHealth[j] - 0.002);
       for (const j of [i - 1, i + 1, i - N, i + N]) {
-        if (H[j] < sea) { if (world.pollution) world.pollution[j] = Math.min(4, world.pollution[j] + 0.0015 * ind); }
+        if (H[j] < sea) { if (world.pollution) world.pollution[j] = Math.min(4, world.pollution[j] + 0.004 * ind); }
         else if (world.water[j] > 0.05) RP[j] += 0.004 * ind;
       }
-      // Heavy: down the drainage to the rivers and on to the sea
-      let c = i;
+      // Heavy: down the drainage to the rivers and on to the sea (or, where the town has dug a
+      // sewer, all of it out through the sewer's outfall)
       const load = 0.012 * (ind > 1 ? 6 : 1);
+      const owner = OW[i] ? sewerOf[OW[i]] : undefined;
+      if (owner !== undefined) {
+        if (H[owner] < sea) { if (world.pollution) world.pollution[owner] = Math.min(4, world.pollution[owner] + load * 2); }
+        else RP[owner] += load * 1.2;
+        continue;
+      }
+      let c = i;
       for (let k = 0; k < 160; k++) {
-        if (H[c] < sea) { if (world.pollution) world.pollution[c] = Math.min(4, world.pollution[c] + load * 0.6); break; }
+        if (H[c] < sea) { if (world.pollution) world.pollution[c] = Math.min(4, world.pollution[c] + load * 1.6); break; }
         if (world.water[c] > 0.03) RP[c] += load;
         const cx = c % N, cz = (c / N) | 0;
         if (cx < 1 || cz < 1 || cx > N - 2 || cz > N - 2) break;
@@ -608,7 +707,7 @@ export function civStep(world) {
     if (LU[i] === 0 || OW[i] || LU[i] === 3) continue;
     if (LU[i] === 1) { LU[i] = 0; continue; }
     P[i] = Math.max(0, P[i] - 0.004);
-    if (P[i] <= 0) LU[i] = 0;
+    if (P[i] <= 0) { LU[i] = 0; world.channel[i] = 0; }
   }
   // --- Roads wear out and must be kept up ------------------------------------------------
   // Weather, frost, floods and steep ground wear the road; the towns near it repair it (a bigger
@@ -674,7 +773,7 @@ export function civStep(world) {
       * (world.fire[i] > 0 ? 3 : 1) * (Math.abs(H[i] - world.prevHeight[i]) > 0.3 ? 10 : 1); // (landslides, floods)
     RC[i] = Math.max(0, Math.min(1, RC[i] - wear + 0.03 * upkeep[i]));
     P[i] = Math.min(1, RC[i] * 1.6); // (a broken road loses its paving: plants creep back)
-    if (RC[i] <= 0.03) { LU[i] = 0; P[i] = 0; RC[i] = 0; world.roadCore[i] = 0; world.bridge[i] = 0; }
+    if (RC[i] <= 0.03) { LU[i] = world.channel[i] ? (world.channel[i] === 1 ? 8 : 9) : 0; P[i] = 0; RC[i] = 0; world.roadCore[i] = 0; world.bridge[i] = 0; } // (a fallen bridge leaves its canal)
   }
   if (!towns.length) { world.civPop = 0; return; }
   // (the site fields change slowly: refresh them every few steps)
@@ -718,14 +817,17 @@ export function civStep(world) {
         }
         world.irrigated[i] = watered ? 1 : 0;
         if (src >= 0) {
-          if (H[src] < sea) { if (world.pollution) world.pollution[src] = Math.min(4, world.pollution[src] + 0.0004); }
+          if (H[src] < sea) { if (world.pollution) world.pollution[src] = Math.min(4, world.pollution[src] + 0.0012); }
           else RP[src] += 0.003;
         }
         // Cropping wears the soil out (faster when irrigated, cropped harder); a worn-out field
         // yields little
         FS[i] = Math.max(0, FS[i] - 0.0011 * (watered ? 1.3 : 1));
         if (FS[i] < 0.15) exhausted.push(i);
-        const f = fertility(world, i, slopeAt(world, i)) * (watered ? 1.2 : 1) * (0.15 + 0.85 * FS[i]);
+        // (a field too steep to plough, say after a landslide or the river cut into it, is given up)
+        const fSlope = fieldSlope(world, i);
+        if (fSlope > Math.tan((civParams.farmSlope * Math.PI) / 180) * 1.3) { LU[i] = 0; OW[i] = 0; world.irrigated[i] = 0; continue; }
+        const f = fertility(world, i, fSlope) * (watered ? 1.2 : 1) * (0.15 + 0.85 * FS[i]);
         // (burnt, flooded or snowbound fields yield little)
         const lost = world.fire[i] > 0 || world.burnt[i] > 0.5 || world.water[i] > 0.4 || (world.snow && world.snow[i] > 0.5 && ph > 0.1 && ph < 0.55) ? 0.2 : 1;
         food += PER_FARM_CELL * f * lost;
@@ -737,6 +839,15 @@ export function civStep(world) {
     if (t.harbor !== undefined && LU[t.harbor] !== 5) t.harbor = undefined;
     // A bigger town reshapes the land: cutting hills and slopes into terraces, dumping the spoil
     if (t.pop > 350 && Math.random() < 0.35 * civParams.growth) terraform(world, t, Math.min(8, 2 + Math.floor(t.pop / 400)));
+    // Channels: irrigation canals out to dry fields; a sewer down to the water
+    if (t.pop > 200 && farmCells > 10 && (t.canals || 0) < 3 && Math.random() < 0.03 * civParams.growth) {
+      let dry = 0;
+      for (let z = Math.max(0, t.z - 30); z <= Math.min(N - 1, t.z + 30); z++) for (let x = Math.max(0, t.x - 30); x <= Math.min(N - 1, t.x + 30); x++) { const i = z * N + x; if (LU[i] === 1 && OW[i] === t.num && !world.irrigated[i]) dry++; }
+      if (dry > farmCells * 0.4) digCanal(world, t, NW);
+    }
+    // Exploratory roads out into the deep forest (more as the town grows)
+    if (t.pop > 150 && (t.trails || 0) < Math.min(4, 1 + Math.floor(t.pop / 800)) && Math.random() < 0.02 * civParams.growth) exploreForest(world, t);
+    if (t.pop > 400 && t.sewerOutfall === undefined && (t.sewerTries || 0) < 4 && Math.random() < 0.05 * civParams.growth) { if (!digSewer(world, t)) t.sewerTries = (t.sewerTries || 0) + 1; }
     // A big town dams a river valley near it for a reservoir (one per town)
     if (t.pop > 700 && t.dam === undefined && Math.random() < 0.02 * civParams.growth) { if (!buildDam(world, t)) t.dam = -1; }
     // Fires: land cleared by burning, and accidents
@@ -786,7 +897,8 @@ export function civStep(world) {
     const freshNear = fields.fresh[ci];
     const waterOK = freshNear > 0.02 ? 1 : 0.35;
     const dirty = Math.min(1, (RP[ci] || 0) * 0.5 + (fields.fresh[ci] > 0 ? 0 : 0));
-    const K = Math.max(20, food * waterOK * (1 - 0.4 * dirty));
+    // (and it can only hold so many more than its streets house: it grows as fast as it builds)
+    const K = Math.max(20, Math.min(food * waterOK * (1 - 0.4 * dirty), (townCells + indCells + 4) * PER_TOWN_CELL * 1.3));
     // Growth toward what the land feeds (and disasters)
     const r = 0.02 * civParams.popRate;
     // (an overcrowded town shrinks as people drift away, a little at a time, not all at once)
@@ -907,6 +1019,52 @@ export function routeRoad(world, a, b) {
 }
 
 /** Connect two towns with a road, routed over the land (none if the only way is over open sea). */
+/**
+ * An exploratory road: a track pushed out from the town into the deepest forest nearby, for timber
+ * and game and new land. It cuts a strip of trees down along it, thins the forest either side, and
+ * like any road lets the town spread out along it.
+ */
+function exploreForest(world, t) {
+  const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse;
+  const TD = world.treeDensity || world.vegetation;
+  let best = null, bs = 0.55;
+  for (let k = 0; k < 60; k++) {
+    const a = Math.random() * Math.PI * 2, d = 15 + Math.random() * 25;
+    const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
+    if (x < 3 || z < 3 || x > N - 4 || z > N - 4) continue;
+    const i = z * N + x;
+    if (H[i] < sea + 0.5 || LU[i] || isProtected(world, i)) continue;
+    // (deep forest: dense all round, and no road already near)
+    let s = 0, c = 0, road = false;
+    for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+      const j = i + dz * N + dx;
+      s += TD[j] * (world.vegetation[j] > 0.6 ? 1 : 0.3); c++;
+      if (LU[j] === 3) road = true;
+    }
+    if (road) continue;
+    const score = s / c + d * 0.004;
+    if (score > bs) { bs = score; best = { x, z }; }
+  }
+  if (!best) return false;
+  const path = routeRoad(world, t, best);
+  if (!path || path.length < 4) return false;
+  buildRoad(world, path);
+  // (felled along the track, thinned either side)
+  for (const p of path) {
+    const i = Math.round(p.z) * N + Math.round(p.x);
+    for (const j of [i, i - 1, i + 1, i - N, i + N, i - 2, i + 2, i - 2 * N, i + 2 * N]) {
+      if (j < 0 || j >= N * N || LU[j] === 3) continue;
+      const near = j === i - 1 || j === i + 1 || j === i - N || j === i + N;
+      world.vegetation[j] = Math.min(world.vegetation[j], near ? 0.35 : 0.6);
+      if (world.treeDensity) world.treeDensity[j] *= near ? 0.3 : 0.7;
+      if (near && world.forestAge) world.forestAge[j] = 0;
+    }
+  }
+  t.trails = (t.trails || 0) + 1;
+  world.dirty = true;
+  return true;
+}
+
 function linkTowns(world, a, b) {
   a.links.push(b.id); b.links.push(a.id);
   const path = routeRoad(world, a, b);
@@ -941,7 +1099,7 @@ function expand(world, t, use, count, R, fields, NWexp = null) {
     } else {
       // Any land can be farmed if it can be watered and has a growing season: cleared (forest
       // too), flattened or terraced (up to fairly steep), and irrigated from water nearby
-      if (slope > 1.1) continue;
+      if (slope > Math.tan((civParams.farmSlope * Math.PI) / 180)) continue; // (too steep to farm)
       const T = world.temperature[i];
       const warm = Math.max(0, Math.min(1, (T - 2) / 8)) * Math.max(0, Math.min(1, (30 - T) / 6));
       if (warm < 0.2) continue;
@@ -1004,6 +1162,18 @@ function buildIndustry(world, t, count, NW) {
  * Turn cell i into farmland: clear it (trees and all), flatten it, or on a slope cut it into
  * terraces (level steps), and make it a field (the Farmland biome).
  */
+/**
+ * How steep a field's own surface is: along each axis the gentler side, so a level terrace step
+ * counts as flat even though the riser beside it is steep.
+ */
+function fieldSlope(world, i) {
+  const N = world.N, H = world.height, x = i % N, z = (i / N) | 0;
+  if (x < 1 || z < 1 || x > N - 2 || z > N - 2) return 0;
+  const gx = Math.min(Math.abs(H[i + 1] - H[i]), Math.abs(H[i] - H[i - 1]));
+  const gz = Math.min(Math.abs(H[i + N] - H[i]), Math.abs(H[i] - H[i - N]));
+  return Math.hypot(gx, gz);
+}
+
 function makeFarm(world, i, owner) {
   const N = world.N, H = world.height, x = i % N, z = (i / N) | 0;
   world.vegetation[i] = Math.min(world.vegetation[i], 0.3);

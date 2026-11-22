@@ -998,6 +998,22 @@ road and drip their runoff into the water below. And people start fires: farmers
 clear it for fields (slash and burn), and fires get away from towns by accident, far more often in a
 dry season; either can escape into a wildfire.
 
+**Flat fields, canals, sewers and forest roads.** Only ground gentler than the **Max farm slope**
+slider (15° by default) is cleared for fields; steeper hillsides must first be cut into level
+terraces by the town's earthworks. A field's own surface is what counts, so a level terrace step
+passes even though the riser beside it is steep. A field that later turns too steep (a landslide, a
+river cutting into it) is given up. A town of a few hundred whose fields are largely dry digs up to
+three **irrigation canals**: stone-lined channels from the nearest river or lake out to the middle
+of its dry fields. Sluices keep a working canal running, so the fields along it are irrigated, and
+it draws down the river it taps. A town past about 400 people digs a **sewer** from its centre down
+to the nearest river or bay. The sewer runs foul, and the town's heavy runoff then pours out at that
+one outfall instead of seeping out everywhere. Roads bridge canals and sewers rather than paving
+over them, and an abandoned channel silts up. Towns also push **exploratory roads** out into the
+deepest forest nearby (one at first, up to four as they grow). Each road fells a strip of trees,
+thins the forest either side, and lets the town spread out along it. Towns pollute the sea heavily
+from their shores, outfalls and drains. A town can only grow about a third beyond what its streets
+house, so it grows as fast as it builds and doesn't boom and crash.
+
 **Protected zones.** Any polygon you draw can be made a protected zone (🛡 in the Drawings list): it
 is kept wild. No town is founded or built inside it, no farmland is cleared, no industry is built,
 and roads between towns go around it (unless there is truly no other way). What was there already

@@ -19,6 +19,8 @@ export const BIOMES = {
   mangrove:  { label: 'Mangrove forest', color: [0.13, 0.33, 0.18], help: 'Salt-tolerant forest standing in the tide on warm, sheltered mudflats.' },
   dunes:     { label: 'Coastal dunes', color: [0.86, 0.82, 0.62], help: 'Wind-blown sand behind sand beaches: dune grass, with shore pine on the stabilised dunes.' },
   farmland:  { label: 'Farmland',  color: [0.74, 0.68, 0.40], help: 'Fields cleared, levelled or terraced and irrigated by a town: crops, no forest. Their irrigation draws down the nearest river or lake, and their runoff pollutes it.' },
+  canal:     { label: 'Irrigation canal', color: [0.56, 0.52, 0.44], help: 'A stone-lined channel dug from a river or lake out to a town\'s dry fields, carrying water so they can be irrigated; it draws down the river it taps.' },
+  sewer:     { label: 'Sewer',     color: [0.30, 0.26, 0.20], help: 'A town\'s drain: a foul channel from the town centre to its outfall, where the town\'s runoff pours into one river or bay instead of seeping out everywhere.' },
   dam:       { label: 'Dam',       color: [0.76, 0.75, 0.72], help: 'A concrete wall across a river valley, a reservoir filling behind it: water for the town; it blocks fish swimming upriver, traps the river\'s sediment and pollutes the river.' },
   quay:      { label: 'Quay (sea wall)', color: [0.62, 0.61, 0.57], help: 'A town\'s armoured shore: raised above the tide and walled, deep water dredged in front (a steep drop-off with no tidal flats). Easy to build harbours on; hard on the sea bed and the water beside it.' },
   harbor:    { label: 'Harbour',   color: [0.50, 0.40, 0.30], help: 'A coastal town\'s docks: home to its fishing boats, which also carry settlers across the water.' },
@@ -43,6 +45,8 @@ export function classifyBiome(world, i, slope) {
   if (world.landUse && world.landUse[i] === 5) return 'harbor';
   if (world.landUse && world.landUse[i] === 6) return 'quay';
   if (world.landUse && world.landUse[i] === 7) return 'dam';
+  if (world.landUse && world.landUse[i] === 8) return 'canal';
+  if (world.landUse && world.landUse[i] === 9) return 'sewer';
   if (world.landUse && world.landUse[i] === 4 && world.paved[i] > 0.5) return 'industry';
   if (world.landUse && world.landUse[i] === 2 && world.paved[i] > 0.5) return 'town';
   if (world.landUse && world.landUse[i] === 1) return 'farmland';
