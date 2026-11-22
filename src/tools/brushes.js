@@ -4,6 +4,7 @@
 import { strike, spawnStormAt } from '../sim/weather.js';
 import { addIce } from '../sim/glacier.js';
 import { MinHeap } from '../core/grid.js';
+import { paintShore, coastParams } from '../sim/coast.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -15,7 +16,7 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P' };
+const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O' };
 export function toolKey(id) { return LETTER_KEYS[id] || TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
 
 /**
@@ -335,6 +336,14 @@ export const TOOLS = {
     label: 'Cross-section', group: 'View', icon: '⊟', editsTerrain: false, line: true,
     help: 'Drag a line across the land to slice through it: a geological cross-section opens showing the rock layers underground in their colours, the soil, and any snow, glacier ice and water on top, with heights. Great for seeing folded strata, intrusions, U-shaped valleys or what a fault did.',
     place({ app }, a, b) { app.section.show(a, b); },
+  },
+  shoreline: {
+    label: 'Shoreline', group: 'Water', icon: '≈', editsTerrain: true,
+    help: 'Paint along a coast to give it a shore type (choose it under Ocean & coast → Shoreline type): mudflat (flattens it to a tidal flat), sand beach (adds sand), shingle beach (pebbles), rock cliff (steepens it) or basalt boulder beach (black basalt). Auto lets the conditions decide. Only works on the shore itself, around the tide line, with the sea on. Hold Shift to go back to auto.',
+    apply({ world, x, z, radius, dt, invert }) {
+      const type = invert ? 'auto' : coastParams.shoreType;
+      forEachCell(world, x, z, radius, (i, w) => paintShore(world, i, w, type, dt));
+    },
   },
 };
 

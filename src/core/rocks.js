@@ -76,6 +76,7 @@ export function generateGeology(world, preset, seed) {
       const core = fbm(a, x / 110, z / 110, 3) + 0.35 * t;
       if (core > 0.42) p = META;
       if (core > 0.58) p = PLUT;
+      if (preset === 'pugetsound' && x / N < 0.14) p = VOLC; // the coastal basalts (Crescent Formation)
       if (preset === 'cascades') {
         // Columbia River flood basalts east of the range; the volcanoes are stratovolcanoes
         if (x / N > 0.72) p = VOLC;

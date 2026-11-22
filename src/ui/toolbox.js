@@ -3,6 +3,8 @@
 // that is shown in the info box when you hover it.
 
 import { DRAW_COLORS } from '../render/drawings.js';
+import { SHORES, MARINE } from '../sim/coast.js';
+import { ENVIRONMENTS, applyEnvironment } from '../core/environments.js';
 import { TOOLS, toolKey } from '../tools/brushes.js';
 import { PRESETS } from '../core/generate.js';
 import { OVERLAYS } from '../render/terrainRenderer.js';
@@ -53,7 +55,7 @@ export class Toolbox {
     ov.append(this.legendTitle, this.legendEl);
 
     // --- Erosion -----------------------------------------------------------------------------
-    const ero = this.section('Erosion', true);
+    const ero = this.section('Erosion', false);
     const master = toggle('Erosion enabled', app.world, 'erosionEnabled',
       'Master switch for all erosion: rivers, weathering, landslides and the erosion brushes. Turn off to sculpt and watch water flow without the ground changing.', this, () => this.refresh());
     master.classList.add('tb-master');
@@ -80,7 +82,7 @@ export class Toolbox {
     ero.append(master, this.erosionControls);
 
     // --- Volcanism & tectonics ---------------------------------------------------------------
-    const vt = this.section('Volcanism & tectonics', true);
+    const vt = this.section('Volcanism & tectonics', false);
     const labels = (types) => Object.fromEntries(Object.entries(types).map(([k, v]) => [k, v.label]));
     const helps = (types) => Object.values(types).map((v) => `<br>• <b>${v.label}</b>: ${v.help}`).join('');
     vt.append(
@@ -109,45 +111,68 @@ export class Toolbox {
     vtBtns.append(button('Stop all events', () => { app.world.events.length = 0; app.world.flows.length = 0; }, '', 'End all running eruptions, intrusions, faults and pyroclastic flows. Lava already out keeps flowing until it cools.', this));
     vt.append(vtBtns);
 
-    // --- Water & climate ---------------------------------------------------------------------
-    const sim = this.section('Water & climate', true);
+    // --- Water ---------------------------------------------------------------------------------
+    const sim = this.section('Water', true);
     sim.append(
       slider('Sim speed', app.sim, 'substeps', 1, 20, 1,
         'Water-flow steps per frame. Higher = faster geological time, lower framerate.', this),
       slider('Global rain', app.waterParams, 'rain', 0, 0.1, 0.002,
         'Rainfall over the whole map, fed into the shallow-water flow model. Rivers form where runoff converges.', this),
+      slider('Evaporation', app.waterParams, 'evaporate', 0, 0.3, 0.005,
+        'Overall evaporation rate. Each spot evaporates faster in warm air, in sun and on bare ground, and slower in shaded valleys and under forest (see Inspect → Evaporation). Dry lakes leave their sediment behind as flat lake beds.', this),
       toggle('Plant growth', app.sim, 'vegetation',
         'Vegetation regrows toward what each spot can support (gentle, moist, not too high) and dies where ground is washed away, buried or flooded. Forest erodes ~4x slower than barren ground.', this),
-      slider('Climate wetness', app.vegetationParams, 'climate', 0, 1.5, 0.05,
-        'Long-term rainfall of the region. Dry it out and forests retreat to grassland, then to bare ground, holding on longest along rivers and lakes.', this),
+    );
+    const simBtns = el('div', 'tb-row');
+    simBtns.append(button('Clear water', () => app.clearWater(), '', 'Remove all water, suspended sediment and springs.', this));
+    sim.append(simBtns);
+
+    // --- Climate -------------------------------------------------------------------------------
+    const cli = this.section('Climate', true);
+    const envOpts = { custom: 'Choose an environment…', ...Object.fromEntries(Object.entries(ENVIRONMENTS).map(([k, e]) => [k, e.label])) };
+    app.env = app.env || { id: 'custom' };
+    cli.append(select('Environment', envOpts, app.env, 'id',
+      'Ready-made climates, applied to this map without changing the terrain: temperature, seasons, rain and dry summers, storms and snowstorms, lightning, ocean fog, wetness, evaporation and tides, all at once. Fine-tune with the sliders afterwards.' +
+        Object.values(ENVIRONMENTS).map((e) => `<br>• <b>${e.label}</b>: ${e.help}`).join(''), this,
+      () => { if (app.env.id !== 'custom') applyEnvironment(app, app.env.id); }));
+    cli.append(
       slider('Temperature °C', app.climateParams, 'seaTemp', -10, 35, 0.5,
         'Sea-level temperature. It gets about 0.4 °C colder per unit of height, and sunny slopes are warmer than shady ones. Sets the tree line, which forests grow (tropical jungle when hot and wet, conifers when cold) and whether clouds drop snow or rain. Snow and rain respond at once, but plants shift gradually: grassland within a short while, established forests much more slowly.', this, () => app.climateChanged()),
       slider('Lapse rate °C', app.climateParams, 'lapse', 0.05, 1.2, 0.01,
         'How much colder it gets per unit of height (and warmer going down). Real air cools about 6.5 °C per km. Raise it for sharp climate zones: snowy, treeless peaks above warm valleys; lower it for mountains that are barely colder than the lowlands. Plants follow the new temperatures gradually.', this, () => app.climateChanged()),
+      slider('Climate wetness', app.vegetationParams, 'climate', 0, 1.5, 0.05,
+        'Long-term rainfall of the region. Dry it out and forests retreat to grassland, then to bare ground, holding on longest along rivers and lakes.', this),
       slider('Wind direction °', app.climateParams, 'windAngle', 0, 360, 5,
         'Direction the moist prevailing wind blows toward. Slopes facing into it get the most rain and snow; the far side of a range sits in a dry rain shadow. See the Precipitation overlay.', this, () => app.climateChanged()),
+      slider('Dry summers', app.climateParams, 'summerDry', 0, 1, 0.05,
+        'With Seasons on: how much of the year\'s rain comes from autumn to spring instead of summer. High values give a Mediterranean-type climate like the Pacific Northwest: wet, stormy winters that build the snowpack, and dry summers with fewer storms and a wildfire season. The Cascade Range preset sets this.', this),
+    );
+
+    // --- Seasons -------------------------------------------------------------------------------
+    const sea = this.section('Seasons', false);
+    sea.append(
+      toggle('Seasons', app.seasonParams, 'enabled',
+        'Cycle through spring, summer, autumn and winter. Winter storms build up snow that melts in spring and swells the rivers. Deciduous trees turn colour in autumn (birch and aspen yellow, maple red and orange, oak brown), from the high slopes down to the valleys, drop their leaves, and come back fresh green in spring. Exposed ridges turn first; sheltered valleys last.', this, () => app.climateChanged()),
+      slider('Season speed', app.seasonParams, 'speed', 0.1, 6, 0.1,
+        'Years per minute of real time (while the simulation runs).', this),
+      slider('Season swing °C', app.seasonParams, 'swing', 0, 20, 0.5,
+        'How much warmer midsummer is (and colder midwinter) than the yearly average.', this, () => app.climateChanged()),
+    );
+
+    // --- Weather -------------------------------------------------------------------------------
+    const wx = this.section('Weather', false);
+    wx.append(
       slider('Storms', app.climateParams, 'storms', 0, 4, 0.1,
         'How often storms blow in from upwind. Each is a ragged cluster of rain cells drifting with the wind, heaviest on windward slopes. Storms carry a limited supply of moisture and rain it out fastest climbing over mountains, so they die out beyond a range (rain shadow). Rain raises the rivers; snow builds the snowpack. Warm weather brings thunderstorms. 0 = no storms.', this),
       slider('Snowstorms', app.climateParams, 'snowstorms', 0, 3, 0.05,
         'How many snowstorms build over the mountains each year (×1 = normal). They come in waves through fall and winter and are the main source of the mountain snowpack. 0 = none (only the ordinary storms bring snow).', this),
       slider('Lightning', app.weatherParams, 'lightning', 0, 4, 0.1,
         'How often thunderstorms (warm weather only) throw lightning. Strikes can start wildfires, most easily in dry woodland and pine; fires there are also much harder for rain to put out.', this),
-      toggle('Seasons', app.seasonParams, 'enabled',
-        'Cycle through spring, summer, autumn and winter. Winter storms build up snow that melts in spring and swells the rivers. Deciduous trees turn colour in autumn (birch and aspen yellow, maple red and orange, oak brown), from the high slopes down to the valleys, drop their leaves, and come back fresh green in spring. Exposed ridges turn first; sheltered valleys last.', this, () => app.climateChanged()),
       slider('Snow slope limit °', app.climateParams, 'snowSlope', 15, 75, 1,
         'Steepest slope snow builds up on. Steeper faces shed their snow in small slides that pile up below, unless the snowpack around them is already deep. Lower it for bare rocky crags above snowy slopes, raise it to plaster the mountains white.', this, () => app.climateChanged()),
-      slider('Dry summers', app.climateParams, 'summerDry', 0, 1, 0.05,
-        'With Seasons on: how much of the year\'s rain comes from autumn to spring instead of summer. High values give a Mediterranean-type climate like the Pacific Northwest: wet, stormy winters that build the snowpack, and dry summers with fewer storms and a wildfire season. The Cascade Range preset sets this.', this),
-      slider('Season speed', app.seasonParams, 'speed', 0.1, 6, 0.1,
-        'Years per minute of real time (while the simulation runs).', this),
-      slider('Season swing °C', app.seasonParams, 'swing', 0, 20, 0.5,
-        'How much warmer midsummer is (and colder midwinter) than the yearly average.', this, () => app.climateChanged()),
-      slider('Evaporation', app.waterParams, 'evaporate', 0, 0.3, 0.005,
-        'Overall evaporation rate. Each spot evaporates faster in warm air, in sun and on bare ground, and slower in shaded valleys and under forest (see Inspect → Evaporation). Dry lakes leave their sediment behind as flat lake beds.', this),
+      slider('Ocean fog', app.climateParams, 'oceanFog', 0, 1.5, 0.05,
+        'How often the marine layer (sea fog) rolls in over the sea and coastal lowlands, mostly in summer when the land behind is warm. Needs the sea on. The Puget Sound preset sets it high.', this, () => app.climateChanged()),
     );
-    const simBtns = el('div', 'tb-row');
-    simBtns.append(button('Clear water', () => app.clearWater(), '', 'Remove all water, suspended sediment and springs.', this));
-    sim.append(simBtns);
 
     // --- Drawings ----------------------------------------------------------------------------
     const dr = this.section('Drawings', false);
@@ -174,9 +199,7 @@ export class Toolbox {
         'How much rock types differ in hardness. High values carve dramatic ledges and stand-out ridges; low values let everything erode alike.', this, () => app.world.dirty = true),
       slider('Layer thickness', app.world, 'strataSpacing', 2, 25, 0.5,
         'Thickness of the layers in sedimentary, volcanic and metamorphic rock.', this, () => app.world.dirty = true),
-      toggle('Sea', app.sim, 'seaEnabled',
-        'Fill everything below sea level with ocean. Rivers slow down and drop sediment where they meet it, forming deltas.', this, () => app.applySea()),
-      slider('Sea level', app.sim, 'seaLevel', 0, 50, 0.5, 'Height of the ocean surface.', this, () => app.applySea()),
+
       toggle('Drain at edges', app.world, 'edgeDrain', 'Let water flow off the edges of the map instead of being walled in.', this),
     );
 
@@ -193,6 +216,22 @@ export class Toolbox {
         () => { try { localStorage.setItem('geo.keepLevel', app.keepLevel.on ? '1' : '0'); } catch { /* storage blocked */ } if (app.keepLevel.on) app.autosave(); }));
     this.saveStatusEl = el('div', 'tb-save-status', app.saveStatus || '');
     lvl.append(this.saveStatusEl);
+
+    // --- Ocean & coast -----------------------------------------------------------------------
+    const oc = this.section('Ocean & coast', false);
+    oc.append(
+      toggle('Sea', app.sim, 'seaEnabled',
+        'Fill everything below sea level with ocean. Rivers slow down and drop sediment where they meet it, forming deltas. The sea has tides, its own biomes and shores.', this, () => app.applySea()),
+      slider('Sea level', app.sim, 'seaLevel', 0, 50, 0.5, 'Mean height of the ocean surface.', this, () => app.applySea()),
+      slider('Tide range', app.coastParams, 'tideRange', 0, 6, 0.1,
+        'Height between low and high tide. The strip between them floods and drains every cycle: mudflats in bays, wet beaches. (Puget Sound tides are 3–4 m; the open Pacific coast about 2–3 m.)', this),
+      slider('Tide period', app.coastParams, 'tidePeriod', 5, 120, 1, 'Simulated seconds from one high tide to the next.', this),
+      slider('Wave erosion', app.coastParams, 'waveErosion', 0, 0.02, 0.0005,
+        'How hard waves attack the shore: exposed, soft coasts retreat fastest; beaches with deep sand protect the land behind.', this),
+      slider('Coral growth', app.coastParams, 'coral', 0, 3, 0.1, 'How much white coral sand reefs make in warm seas (above ~20 °C water).', this),
+      select('Shoreline type', { auto: 'Auto (by conditions)', mudflat: 'Mudflat', sand: 'Sand beach', shingle: 'Shingle beach', cliff: 'Rock cliff', basalt: 'Basalt boulder beach' },
+        app.coastParams, 'shoreType', 'What the Shoreline tool (≈, key O) paints.', this, () => app.setTool('shoreline')),
+    );
 
     // --- Terrain -----------------------------------------------------------------------------
     const ter = this.section('Terrain', false);
@@ -228,6 +267,16 @@ export class Toolbox {
       toggle('Show water', app.renderer, 'showWater', 'Show or hide surface water.', this, () => app.world.dirty = true),
       toggle('Wireframe', app.renderer.terrainMat, 'wireframe', 'Show the terrain grid.', this),
     );
+
+    // Order the sections: the everyday ones first, specialist ones further down
+    const order = ['Level', 'Overlays', 'Terrain', 'Water', 'Climate', 'Seasons', 'Weather', 'Ocean & coast',
+      'Erosion', 'Volcanism & tectonics', 'Geology', 'Drawings', 'View'];
+    const secs = [...r.querySelectorAll(':scope > details.tb-section')];
+    const pos = (d) => { const k = order.indexOf(d.querySelector('summary').textContent); return k < 0 ? 99 : k; };
+    const anchor = secs[0].previousSibling;
+    secs.sort((a, b) => pos(a) - pos(b));
+    let after = anchor;
+    for (const d of secs) { after ? after.after(d) : r.prepend(d); after = d; }
 
     // --- Info --------------------------------------------------------------------------------
     this.info = el('div', 'tb-info');
@@ -295,6 +344,7 @@ export class Toolbox {
     else if (mode === 'natural' || mode === 'biome') items(mode === 'biome' ? 'Biomes' : 'Biomes (blended)', Object.values(BIOMES));
     else if (mode === 'precip') ramp('Precipitation', 'dry (rain shadow)', 'wet (windward)', [[0.86, 0.74, 0.52], [0.12, 0.35, 0.75]]);
     else if (mode === 'snowDepth') ramp('Snow depth (grey = none)', 'thin', 'deep', [[0.88, 0.92, 0.98], [0.55, 0.72, 0.95], [0.18, 0.30, 0.75]]);
+    else if (mode === 'coast') items('Shores, dunes and ocean biomes', [...SHORES, { label: 'Coastal dunes', color: [0.86, 0.82, 0.62], help: 'Wind-blown sand behind sand beaches.' }, ...MARINE]);
     else if (mode === 'topo') {
       const t = this.app.renderer.topo || { lo: 0, hi: 50, interval: 2.5 };
       ramp(`Elevation · contours every ${t.interval} (bold every ${t.interval * 5})`, t.lo.toFixed(0), t.hi.toFixed(0), [[0.42, 0.62, 0.38], [0.62, 0.76, 0.46], [0.90, 0.86, 0.58], [0.80, 0.62, 0.40], [0.62, 0.48, 0.40], [0.97, 0.97, 0.97]]);
@@ -347,10 +397,14 @@ export class Toolbox {
     bar.append(brush);
   }
 
+  /** A collapsible section; whether it's open is remembered between visits. */
   section(title, open) {
     const d = document.createElement('details');
     d.className = 'tb-section';
-    d.open = open;
+    let saved = null;
+    try { saved = localStorage.getItem('geo.section.' + title); } catch { /* storage blocked */ }
+    d.open = saved === null ? open : saved === '1';
+    d.addEventListener('toggle', () => { try { localStorage.setItem('geo.section.' + title, d.open ? '1' : '0'); } catch { /* storage blocked */ } });
     d.append(el('summary', '', title));
     const body = el('div', 'tb-body');
     d.append(body);

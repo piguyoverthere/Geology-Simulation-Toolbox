@@ -157,6 +157,7 @@ export class World {
     if (this.storms) this.storms.length = 0;
     if (this.holdovers) this.holdovers.length = 0;
     if (this.ice) { this.ice.fill(0); this.iceDebris.fill(0); }
+    if (this.sand) { this.sand.fill(0); this.shoreSet.fill(-1); } this.coastInit = false;
     this.dirty = true;
   }
 

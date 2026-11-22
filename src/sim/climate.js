@@ -21,6 +21,7 @@ export const climateParams = {
   snowfall: 0.06,     // snow added per step at average precipitation
   melt: 0.09,         // snow melted per step per °C above meltTemp (× season speed)
   meltTemp: 2,        // snow only melts above this temperature (°C): a pack stays cold and reflects sunlight
+  oceanFog: 0.4,      // how often the marine layer (sea fog) rolls in over the sea and coast
   snowSlope: 47,      // steepest slope (degrees) snow accumulates on; steeper faces shed it unless the pack around is deep
   deepSnow: 2,        // snowpack depth around a slope at which steep faces start holding snow
   storms: 1,          // how often storms sweep across the map (0 = none; see sim/weather.js)
@@ -122,8 +123,22 @@ export function coldSnapActive(world) {
   return left > 0;
 }
 
+/**
+ * Today's seasonal temperature offset at cell i (°C). The sea stores heat, so near the coast the
+ * seasons swing much less (mild winters, cool summers: a maritime climate) and far inland more
+ * (continental: cold winters, hot summers); world.seasonScale holds that per cell. In winter, cold
+ * interior air also pours through low mountain passes (gap flow, as at Snoqualmie Pass on I-90),
+ * so a pass is far colder than its height alone would make it (world.gapCold).
+ */
+export function seasonalAt(world, i, st = world.seasonT || 0) {
+  const sc = world.seasonScale ? world.seasonScale[i] : 1;
+  let v = st * sc;
+  if (st < 0 && world.gapCold) v -= 7 * world.gapCold[i] * Math.min(1, -st / Math.max(1, seasonParams.swing));
+  return v;
+}
+
 /** Today's temperature at cell i (annual mean + season). */
-export function nowTemp(world, i) { return world.temperature[i] + (world.seasonT || 0); }
+export function nowTemp(world, i) { return world.temperature[i] + seasonalAt(world, i); }
 
 // Horizontal direction toward the sun (matches the scene's directional light)
 const SUN = (() => { const x = -160, z = 90, l = Math.hypot(x, z); return [x / l, z / l]; })();
@@ -169,7 +184,7 @@ export function updateEvaporation(world) {
   const E = world.evapRate, sun = world.sunExpo, Vy = world.valley, V = world.vegetation, H = world.height;
   const base = Math.max(0, world.seaLevel) + 6;
   for (let i = 0; i < n; i++) {
-    const heat = 0.4 + 0.04 * Math.max(0, T[i] + st);
+    const heat = 0.4 + 0.04 * Math.max(0, T[i] + seasonalAt(world, i, st));
     const light = 1 + 0.45 * (sun ? sun[i] : 0) - 0.35 * (Vy ? Math.max(0, Vy[i]) : 0);
     const cover = 1.3 - 0.55 * V[i];
     // Up high the air is thin, dry and windy and the sunlight strong, so water evaporates faster
@@ -234,9 +249,17 @@ export function updatePrecip(world) {
   const mean = total / n || 1;
   for (let i = 0; i < n; i++) P[i] = Math.min(1, (P[i] / mean) * 0.5);
   // Valley fog: cool, damp air pools in valley bottoms
-  const T = world.temperature, Vy = world.valley, S = world.soil;
+  const T = world.temperature, Vy = world.valley, S = world.soil, SC = world.seasonScale;
+  const summer = seasonParams.enabled ? smooth(-2, 6, world.seasonT || 0) : 0.5;
   for (let i = 0; i < n; i++) {
     FG[i] = Vy && S && T ? smooth(0.25, 0.7, Vy[i]) * smooth(0.6, 0.9, S[i]) * (1 - smooth(10, 18, T[i])) * Math.min(1, Q[i] / p.humidity + 0.3) : 0;
+    // Ocean fog (the marine layer): cool, damp sea air drifting over the sea and the coastal
+    // lowlands, mostly in summer when the land behind is warm
+    if (SC && p.oceanFog > 0) {
+      const marine = Math.max(0, (1.25 - SC[i]) / 0.75);
+      const low = 1 - smooth(8, 20, H[i] - (world.meanSea ?? 0));
+      FG[i] = Math.max(FG[i], Math.min(1, p.oceanFog * marine * low * (0.3 + 0.7 * summer)));
+    }
   }
 }
 
@@ -277,7 +300,8 @@ export function updateSnow(world, steps = 1, runoff = false) {
         // Snow melts from above (warm air) and from below (ground still warm from summer), but hardly
         // at all while a snowstorm is falling on it (the falling snow chills the air to freezing)
         const snowing = SNW && now - SNW[i] < 6 ? 0.08 : 1;
-        let d = before - p.melt * meltSpeed * snowing * Math.max(0, T[i] + melts - snap - p.meltTemp);
+        const mt = seasonalAt(world, i, melts);
+        let d = before - p.melt * meltSpeed * snowing * Math.max(0, T[i] + mt - snap - p.meltTemp);
         d = d < 0 ? 0 : d > 6 ? 6 : d;
         // Meltwater runs off into the streams: the spring flood of a snowy catchment
         if (runoff && d < before && before > 0.005) {
@@ -316,7 +340,7 @@ export function updateSnow(world, steps = 1, runoff = false) {
 export function cloudTempAt(world, i) {
   const p = climateParams;
   const base = world.cloudBase ? world.cloudBase[i] : Math.max(0, world.height[i]) + p.cloudLift;
-  return p.seaTemp - p.lapse * base + (world.seasonT || 0);
+  return p.seaTemp - p.lapse * base + seasonalAt(world, i);
 }
 
 /**

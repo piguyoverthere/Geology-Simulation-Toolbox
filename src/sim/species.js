@@ -3,6 +3,8 @@
 // A forest is a mix of species, each competing where conditions suit it best:
 //   temperature    – spruce and larch take the cold, tropical hardwoods and palms the heat
 //   moisture       – alder and willow need wet ground by water; acacia and juniper tolerate drought
+//   the coast      – salt spray and sea wind keep most trees back from the shore; shore pine (on
+//                    dunes) and Sitka spruce (in the sea fog) are the coastal specialists
 //   forest age     – pioneers (aspen in every young forest, plus pine, birch, larch, acacia)
 //                    colonise young or disturbed ground;
 //                    shade-tolerant species (fir, beech, tropical hardwoods) take over old growth
@@ -55,12 +57,16 @@ export const SPECIES = [
     help: 'Palms of hot, humid lowlands, especially near water.' },
   { id: 'acacia', label: 'Acacia', color: [0.47, 0.49, 0.21], mapColor: [0.92, 0.62, 0.55], temp: [18, 40], moist: [0.15, 0.6], age: 0.2, ageW: 0.5, soil: 'any', slope: 1.0, chem: 0, chemW: 2, flam: 1.3, soilBuild: 0.8,
     help: 'Drought-hardy tree of hot, dry savanna and dry forest; fixes nitrogen.' },
+  { id: 'shorepine', label: 'Shore pine', color: [0.20, 0.33, 0.22], mapColor: [0.62, 0.84, 0.62], temp: [-2, 18], moist: [0.05, 1.1], age: 0.2, ageW: 0.4, soil: 'any', slope: 1.3, chem: -0.3, chemW: 2.5, coastal: true, dune: true, flam: 1.2, soilBuild: 0.7,
+    help: 'Salt- and wind-tolerant pine of the coast: the first tree on stabilised dunes and coastal bogs, often stunted and wind-twisted.' },
+  { id: 'sitka', label: 'Sitka spruce', color: [0.07, 0.24, 0.18], mapColor: [0.12, 0.52, 0.46], temp: [2, 16], moist: [0.55, 1.1], age: 0.8, ageW: 0.5, soil: 'any', slope: 1.3, chem: -0.2, chemW: 2, coastal: true, flam: 0.8, soilBuild: 1.0,
+    help: 'Giant spruce of the foggy, salt-sprayed coastal strip (the Pacific coast rainforests); thrives on sea fog and spray that other trees can\'t take.' },
 ];
 export const OPEN = { label: 'Open ground', color: [0.52, 0.66, 0.30], mapColor: [0.80, 0.84, 0.70], help: 'Gaps, meadow and scrub between trees.' };
 
 const K = SPECIES.length;
 const MIXA = [0, 0, 0];
-const CONIFER = SPECIES.map((s) => ['pine', 'fir', 'spruce', 'larch', 'juniper'].includes(s.id));
+const CONIFER = SPECIES.map((s) => ['pine', 'fir', 'spruce', 'larch', 'juniper', 'shorepine', 'sitka'].includes(s.id));
 // Broadleaf trees give way to conifers with height: their thin leaves and soft wood can't take the
 // short, cold growing season and heavy snow. The change is gradual and patchy (aspect, shelter,
 // soil), not a line on the mountain. Pioneers (birch, aspen) climb a few degrees higher.
@@ -81,6 +87,7 @@ function suitability(world, i, out) {
   const slope = (world.standSlope ? world.standSlope[i] : 0.5) / (world.gentleSlope || 0.6);
   const chem = world.soilChem ? world.soilChem[i] : 0;
   const near = world.nearWater ? world.nearWater[i] : 0;
+  const coastal = world.coastal ? world.coastal[i] : 0, dune = world.dune ? world.dune[i] : 0;
   // A patchy ±1.5 °C offset so the broadleaf limit wanders up and down the slopes
   const px = i % world.N, pz = (i / world.N) | 0;
   const patch = 1.5 * Math.sin(px * 0.21 + pz * 0.13) * Math.cos(pz * 0.17 - px * 0.08);
@@ -97,6 +104,11 @@ function suitability(world, i, out) {
     else if (s.soil === 'shallow') f *= 1.3 - 0.3 * smooth(0.15, 0.5, soil); // roots in rock cracks: at home on thin mountain soil, fine on deep
     f *= 1 - 0.85 * smooth(s.slope, s.slope + 0.6, slope);
     f *= Math.max(0.08, 1 - Math.abs(chem - s.chem) / s.chemW);
+    // Salt spray and sea wind: only the coastal specialists thrive right by the sea (and only there)
+    if (s.coastal) f *= 0.03 + smooth(0.15, 0.6, Math.max(coastal, dune));
+    else f *= 1 - 0.8 * smooth(0.45, 0.95, coastal);
+    if (s.dune) f *= 0.25 + 6 * dune + 0.6 * (1 - Math.min(1, soil * 1.5)); // dunes and poor, thin coastal soil
+    else f *= 1 - 0.7 * dune; // loose, salty dune sand
     if (s.riparian) f *= smooth(0.3, 0.8, near);
     else if (s.nearWater) f *= 0.4 + 0.6 * smooth(0.2, 0.7, near);
     f = f * f; // sharpen: the best-suited species dominate

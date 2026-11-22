@@ -586,6 +586,43 @@ thickness, flow and the rock it carries.
 downwind, and a brown smog haze that settles over the land and lingers long after. The sky turns
 smoky tan and the sun dims and reddens, like a wildfire smoke day.
 
+## Coasts and the ocean (`src/sim/coast.js`)
+
+**Tides.** The sea rises and falls twice a "day" over the Tide range; the intertidal strip floods
+and drains every cycle.
+
+**Shores.** Each stretch of coast becomes one of:
+
+| Shore | Where |
+| --- | --- |
+| Mudflat | sheltered, very gentle bays and estuaries (Willapa Bay, the Skagit and Nisqually deltas) |
+| Sand beach | where sand collects: from rivers, eroded soft rock and, in warm seas, coral |
+| Shingle beach | exposed shores with little sand: pebbles and cobbles (much of Puget Sound) |
+| Rock cliff | steep coasts with height behind them; the waves undercut them and they retreat |
+| Basalt boulder beach | where basalt meets the sea (the Olympic coast) |
+
+Waves erode the shore hardest where it faces open water and the rock is soft; the debris becomes
+sand (soft rock) or shingle (hard rock). **Sand depth** builds from that, from river sediment and
+from coral, and waves strip it away on exposed shores; a deep beach protects the land behind. Wind
+blows sand off sand beaches into **coastal dunes**, where dune grass and **shore pine** grow.
+Salt spray and sea fog keep most trees back from the shore: **Sitka spruce** and shore pine are the
+coastal specialists.
+
+**Ocean biomes** follow the water temperature (the sea lags the air and swings less) and depth:
+sea ice, kelp forests on cool rocky shores, seagrass meadows, coral reefs in warm shallows (they
+make white coral sand), the open shelf and the deep ocean. The water itself shifts from dark
+green-blue in cold seas to tropical turquoise.
+
+**Maritime climate.** The sea stores heat, so near the coast the seasons swing about half as much
+(mild winters, cool summers) and far inland more (continental). On the Puget Sound map the swing was
+0.74× normal along the coast and 1.1× inland. **Ocean fog** (the marine layer) drifts over the sea and
+coastal lowlands, mostly in summer.
+
+**Mountain-pass cold.** In winter, cold interior air pours west through low passes (gap flow, as at
+Snoqualmie Pass on I-90), so a pass is far colder than its height suggests: on the Cascade Range map
+the pass averaged −14 °C in midwinter against −9 °C at the same height elsewhere. That is why the
+temperate lowland forest gives way so suddenly to deep subarctic snowpack at the pass.
+
 ## 8. Biomes
 
 Plant cover, soil water, slope and height together decide what the surface looks like:

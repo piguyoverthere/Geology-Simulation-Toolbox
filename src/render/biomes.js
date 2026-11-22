@@ -16,6 +16,7 @@ export const BIOMES = {
   mesa:      { label: 'Mesa',      color: [0.78, 0.42, 0.24], help: 'Dry, steep ground: bare banded red rock, like mesas and badlands.' },
   barren:    { label: 'Barren',    color: [0.55, 0.43, 0.30], help: 'Bare soil and rock: recently eroded, buried or too steep to grow on.' },
   tundra:    { label: 'Tundra',    color: [0.56, 0.58, 0.48], help: 'Too cold for trees: low alpine grasses and lichen thinning to rock.' },
+  dunes:     { label: 'Coastal dunes', color: [0.86, 0.82, 0.62], help: 'Wind-blown sand behind sand beaches: dune grass, with shore pine on the stabilised dunes.' },
   snow:      { label: 'Snow',      color: [0.95, 0.96, 0.98], help: 'Below freezing with enough moisture, on slopes gentle enough to hold snow.' },
 };
 
@@ -34,6 +35,7 @@ export function classifyBiome(world, i, slope) {
   const T = (world.vegTemp || world.temperature) ? (world.vegTemp || world.temperature)[i] : 12;
   if (snowAt(world, i, slope) > 0.5) return 'snow';
   if (T < climateParams.treeLineTemp - 0.5 && v > 0.12 && v <= 0.66) return 'tundra'; // (high fir forest stays forest)
+  if (world.dune && world.dune[i] > 0.3 && v <= 0.66) return 'dunes';
   if (v > 0.66) return FOREST_TYPES[forestTypeAt(world, i)].id;
   if (near > 0.5 && soil > 0.7 && slope < 0.25 && v > 0.4) return 'wetland';
   if (v > 0.42) return soil < 0.36 ? 'shrubland' : 'grassland';

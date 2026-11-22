@@ -29,7 +29,7 @@ To put it online, turn on **GitHub Pages** for this repo (Settings → Pages →
 | `1`–`9`, `0`, `-`, `=` | Pick a tool (numbers shown on the tool bar) |
 | `D`, `L`, `F` | Draw paths and polygons, Lightning, Wildfire |
 | `C`, `N`, `G`, `W`, `B`, `U` | Storm, Snow, Glacier, Drain, Sink land, Raise land |
-| `A`, `K`, `P` | Age forest, Lake, Cross-section |
+| `A`, `K`, `P`, `O` | Age forest, Lake, Cross-section, Shoreline |
 | Enter / double-click, Backspace, Esc | While drawing: finish, remove last point, cancel |
 | `[` / `]` | Shrink / grow brush |
 | Space | Pause / resume the simulation |
@@ -81,12 +81,18 @@ the soil, and any snow, glacier ice and water on top, with a height scale. It fo
 while you drag. **Age forest** ⌛ (Life): paint to age forest toward old growth (Shift: young
 again). **Lake** ◒ (Water): click a hollow to fill it to its spill level.
 
+**Shoreline** ≈ (Water): paint along a coast to make it a mudflat, sand beach, shingle beach,
+rock cliff or basalt boulder beach (pick the type under **Ocean & coast**); Shift returns it to
+the automatic choice.
+
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
 sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or
 lake), surface water depth and speed, sediment load, plant cover, rock hardness, erodibility,
 and how much it has been eroded or built up since the baseline.
 
 ### Side panel
+
+Sections are grouped from everyday to specialist, and each remembers whether you left it open:
 
 - **Erosion**: a master **Erosion enabled** switch, then the processes (river erosion,
   background weathering, landslides, angle of repose, big landslides with frequency and rain
@@ -105,11 +111,17 @@ and how much it has been eroded or built up since the baseline.
   mostly from autumn to spring, and a summer fire season with dry lightning storms), and **Snow slope
   limit** (the steepest slope snow builds up on).
 - **Overlays**: colour the map by one data layer (biomes, vegetation, tree species, forest age,
-  topographic map (elevation bands with contour lines, index contours every fifth), temperature,
+  coast & ocean (shore types, dunes, ocean biomes), topographic map (elevation bands with contour lines, index contours every fifth), temperature,
   precipitation, snow depth, glacier ice, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
 - **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes.
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
+- **Climate → Environment**: ready-made climates applied to the current map without changing the
+  terrain: Pacific Northwest coast, Inland Northwest, Alpine, Mediterranean, Tropical rainforest,
+  Desert, Boreal / subarctic and Arctic. Each sets temperature, seasons, rain, storms,
+  snowstorms, lightning, ocean fog, wetness, evaporation and tides at once.
+- **Ocean & coast**: sea on/off and level, tide range and period, wave erosion, coral growth, and
+  the Shoreline tool's type. **Weather** has **Ocean fog** (the marine layer).
 - **Level**: **Save level** downloads everything (terrain, water, vegetation, soil, snow, rocks,
   lava and burn scars, springs, drawings, camera and every setting) to a `.geolevel` file, and
   **Load level** opens one. With **Keep level on reload** (on by default) the level is also
@@ -117,10 +129,14 @@ and how much it has been eroded or built up since the baseline.
   reloads, so updates don't cost you your level. Each map size keeps its own; **Generate** starts a
   new one.
 - **Terrain**: map size (128–512 cells per side; bigger maps show more land and run slower),
-  presets (hills, mountains, plateau, volcano, Cascade Range, flat), seed, undo/redo, PNG
+  presets (hills, mountains, plateau, volcano, Cascade Range, Puget Sound, flat), seed, undo/redo, PNG
   heightmap export/import. The **Cascade Range** preset builds a north–south range with a rugged
   northern cluster, a low pass like the I-90 corridor, big stratovolcanoes in the south, a wet
-  forested west and a dry plateau in the rain shadow, with westerly wind and dry summers.
+  forested west and a dry plateau in the rain shadow, with westerly wind and dry summers. The
+  **Puget Sound** preset adds the sea: the Pacific coast with a sandy coastal plain and dunes, the
+  Olympic Mountains, the glacier-carved troughs of the Sound and Hood Canal with islands between, the
+  Strait of Juan de Fuca and the Cascade foothills, with big tides and frequent ocean fog. Presets
+  bring their own settings and put back the previous preset's when you switch.
 - **View**: clouds, water, wireframe.
 
 Try this: pick **Layered plateau**, turn on **Sea** at level 8, drop two **Springs** on top, and set
@@ -147,6 +163,8 @@ src/sim/volcanism.js    Eruptions, lava flow and cooling, ash fall, plutons and 
 src/sim/climate.js      Temperature (height, sun, seasons), clouds, precipitation, evaporation, snowpack
 src/sim/weather.js      Storms, thunderstorms and lightning
 src/sim/glacier.js      Glaciers: ice flow, U-shaped valley carving, moraines, melt
+src/sim/coast.js        Tides, shore types, wave erosion, beach sand, dunes, ocean biomes
+src/core/environments.js  Environment presets (ready-made climates)
 src/sim/phenology.js    Seasonal leaves: autumn colour, leaf fall, spring flush
 src/sim/species.js      Tree species, their preferences, and each cell's forest mix
 src/sim/forests.js      Forest types (jungle, tropical dry, temperate rainforest, broadleaf, conifer, dry woodland, swamp)

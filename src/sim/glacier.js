@@ -16,7 +16,7 @@
 // ends where flow downhill and melting balance. Warm the climate and it retreats up the valley,
 // leaving its moraines behind; cool it and it advances.
 
-import { climateParams, seasonParams } from './climate.js';
+import { climateParams, seasonParams, seasonalAt } from './climate.js';
 
 export const glacierParams = {
   flow: 0.08,       // how readily ice creeps downhill
@@ -118,7 +118,7 @@ export function glacierBalance(world) {
     }
     if (I[i] <= 0) continue;
     // Ablation: bare ice melts above freezing
-    const warm = T[i] + st;
+    const warm = T[i] + seasonalAt(world, i, st);
     if (warm > 0 && (!S || S[i] < 0.05)) {
       const m = Math.min(I[i], p.melt * warm * sp);
       I[i] -= m;

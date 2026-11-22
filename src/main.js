@@ -14,6 +14,7 @@ import { phenologyStep } from './sim/phenology.js';
 import { updateForestComposition } from './sim/species.js';
 import { weatherStep, weatherParams } from './sim/weather.js';
 import { glacierFlow, glacierBalance, glacierParams } from './sim/glacier.js';
+import { coastParams, coastStep, tideLevel } from './sim/coast.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
@@ -46,6 +47,7 @@ class App {
     this.fireParams = fireParams;
     this.landslideParams = landslideParams;
     this.glacierParams = glacierParams;
+    this.coastParams = coastParams;
 
     this.tool = 'raise';
     this.brush = { radius: 12, strength: 0.5 };
@@ -65,8 +67,9 @@ class App {
     this.drawSettings = this.drawSettings || drawSettings;
     this.brush = this.brush || { radius: 12, strength: 0.5 };
     captureDefaults(this);
-    if (PRESETS[this.gen.preset].climate) Object.assign(climateParams, PRESETS[this.gen.preset].climate);
+    this.applyPresetSettings(this.gen.preset);
     generateTerrain(this.world, this.gen.preset, this.gen.seed);
+    this.world.seaLevel = this.sim.seaEnabled ? this.sim.seaLevel : -1000; // (coast is set up in applySea below)
     this.renderer = new TerrainRenderer(this.world, this.scene);
     this.effects = new Effects(this.scene, this.world, this.renderer);
     this.drawSettings = drawSettings;
@@ -269,7 +272,7 @@ class App {
       if (e.key === 'd' && !mod) { this.setTool('draw'); return; }
       if (e.key === 'l' && !mod) { this.setTool('lightning'); return; }
       if (e.key === 'f' && !mod) { this.setTool('wildfire'); return; }
-      const letters = { c: 'storm', w: 'drain', n: 'snow', g: 'glacier', b: 'subside', u: 'uplift', a: 'age', k: 'lake', p: 'section' };
+      const letters = { c: 'storm', w: 'drain', n: 'snow', g: 'glacier', b: 'subside', u: 'uplift', a: 'age', k: 'lake', p: 'section', o: 'shoreline' };
       if (letters[e.key] && !mod) { this.setTool(letters[e.key]); return; }
       if (e.key === '[') { this.brush.radius = Math.max(2, this.brush.radius - 2); this.toolbox.refresh(); }
       if (e.key === ']') { this.brush.radius = Math.min(60, this.brush.radius + 2); this.toolbox.refresh(); }
@@ -453,10 +456,24 @@ class App {
     location.search = q.toString();
   }
 
+  /**
+   * Presets come with their own settings (the Cascades' westerly wind and dry summers, Puget Sound's
+   * sea, tides and ocean fog). Settings the previous preset set are put back first, so switching to a
+   * plain preset doesn't leave the sea or fog on.
+   */
+  applyPresetSettings(preset) {
+    if (this.presetKeys) for (const [obj, key, val] of this.presetKeys) obj[key] = val;
+    this.presetKeys = [];
+    const set = (obj, vals) => { for (const [k, v] of Object.entries(vals || {})) { this.presetKeys.push([obj, k, obj[k]]); obj[k] = v; } };
+    const pr = PRESETS[preset] || {};
+    set(climateParams, pr.climate);
+    set(coastParams, pr.coast);
+    if (pr.sea) set(this.sim, { seaEnabled: pr.sea.enabled, seaLevel: pr.sea.level });
+  }
+
   generate() {
-    // Some presets come with their own climate (e.g. the Cascades' westerly wind and dry summers)
-    const pc = PRESETS[this.gen.preset]?.climate;
-    if (pc) { Object.assign(this.climateParams, pc); this.toolbox?.refresh(); }
+    this.applyPresetSettings(this.gen.preset);
+    this.toolbox?.refresh();
     generateTerrain(this.world, this.gen.preset, this.gen.seed);
     this.history.push(this.world);
     this.applySea();
@@ -466,6 +483,9 @@ class App {
 
   applySea() {
     this.world.seaLevel = this.sim.seaEnabled ? this.sim.seaLevel : -1000;
+    this.world.meanSea = this.world.seaLevel;
+    this.world.tide = 0;
+    coastStep(this.world);
     if (!this.sim.seaEnabled) {
       // Drain the old ocean
       const H = this.world.height, D = this.world.water;
@@ -570,6 +590,8 @@ class App {
 
     if (this.sim.running) {
       advanceSeason(dt);
+      // Tides: the sea rises and falls about its mean level
+      if (this.sim.seaEnabled) this.world.seaLevel = tideLevel(this.world, this.sim.seaLevel);
       // Water substeps, within a time budget so big maps stay responsive (the simulation then runs
       // slower than the Sim speed setting asks for, rather than the frame rate collapsing)
       const t0 = performance.now();
@@ -594,6 +616,7 @@ class App {
         else { updateTemperature(this.world); updatePrecip(this.world); updateSnow(this.world, 1, true); } // terrain may have changed
         phenologyStep(this.world);
         glacierBalance(this.world);
+        coastStep(this.world);
         if (seasonParams.enabled || this.seasonWasOn) this.world.dirty = true;
         this.seasonWasOn = seasonParams.enabled;
       }

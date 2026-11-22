@@ -45,7 +45,7 @@
 import { createNoise2D, fbm } from '../core/noise.js';
 import { boxBlur } from '../core/grid.js';
 import { FOREST_TYPES, forestTypeAt } from './forests.js';
-import { climateParams, seasonParams, updateTemperature, updatePrecip, updateSnow } from './climate.js';
+import { climateParams, seasonParams, updateTemperature, updatePrecip, updateSnow, seasonalAt } from './climate.js';
 import { updateForestComposition } from './species.js';
 import { waterParams } from './water.js';
 
@@ -214,6 +214,8 @@ function potential(world, i, f) {
   // need to flood the lowlands to get trees onto drier mountain slopes)
   const wet = smoothstep(0.1, 0.5, soil);
   let v = Math.max(0.08 + 0.95 * wet + 0.4 * dryWood, 0.74 * pineDry) * steep * alpine * drowned;
+  // Shifting dune sand holds only sparse dune grass until shore pine stabilises it
+  if (world.dune && world.dune[i] > 0) v *= 1 - 0.45 * world.dune[i];
   // Seed spread: pulled toward the neighbours' cover, so groves fill in and merge
   v += (f.standCover[i] - v) * p.spread * steep * drowned;
 
@@ -261,7 +263,7 @@ export function vegetationStep(world) {
     // (and slower in the cold: a short growing season)
     let rate = target > v
       ? p.growth * (1 + p.riparianBoost * W[i]) * (0.5 + SO[i]) * (0.25 + 0.75 * smoothstep(-2, 12, VT[i]))
-        * (seasonal ? 0.3 + 1.1 * smoothstep(0, 10, world.temperature[i] + st) : 1)
+        * (seasonal ? 0.3 + 1.1 * smoothstep(0, 10, world.temperature[i] + seasonalAt(world, i, st)) : 1)
       : p.growth * (1 - 0.75 * age);
     if (burnt > 0) {
       if (target > v) rate *= 1 - 0.8 * burnt;

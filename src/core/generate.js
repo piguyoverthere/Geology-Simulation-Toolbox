@@ -15,7 +15,14 @@ export const PRESETS = {
   cascades: {
     label: 'Cascade Range',
     // Prevailing westerlies off the Pacific (wind blowing toward +x, i.e. east), cool temperate
-    climate: { seaTemp: 12, windAngle: 0, summerDry: 0.8 },
+    climate: { seaTemp: 12, windAngle: 0, summerDry: 0.8, oceanFog: 0.3 },
+  },
+  pugetsound: {
+    label: 'Puget Sound',
+    // The Pacific coast, the Olympic Mountains, the glacier-carved Sound and the Cascade foothills
+    climate: { seaTemp: 11, windAngle: 0, summerDry: 0.8, oceanFog: 1 },
+    sea: { enabled: true, level: 3 },
+    coast: { tideRange: 3.5, waveErosion: 0.005 },
   },
   flat: { label: 'Flat plain' },
 };
@@ -29,8 +36,13 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   const scale = 1 / 256, layout = 1 / N;
   world.cones = [];
   world.moistureBias = null;
+  world.gapCold = null;
   const cascades = preset === 'cascades' ? cascadeLayout(N, noise) : null;
-  if (cascades) { world.cones = cascades.cones; world.moistureBias = new Float32Array(N * N); }
+  if (cascades) {
+    world.cones = cascades.cones; world.moistureBias = new Float32Array(N * N); world.gapCold = new Float32Array(N * N);
+  }
+  const puget = preset === 'pugetsound' ? pugetLayout(N, noise) : null;
+  if (puget) world.moistureBias = new Float32Array(N * N);
 
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
@@ -66,6 +78,11 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
         case 'cascades':
           y = cascadeHeight(cascades, noise, x * layout, z * layout, u, v);
           world.moistureBias[z * N + x] = cascadeMoisture(cascades, x * layout, z * layout);
+          world.gapCold[z * N + x] = cascadeGap(cascades, x * layout, z * layout);
+          break;
+        case 'pugetsound':
+          y = pugetHeight(puget, noise, x * layout, z * layout, u, v);
+          world.moistureBias[z * N + x] = 0.3 - 0.25 * smoothstep(0.15, 0.3, x * layout) * (1 - smoothstep(0.35, 0.55, x * layout)); // Olympic rain shadow (Sequim) east of the peaks
           break;
         case 'flat':
         default:
@@ -177,6 +194,58 @@ function cascadeHeight(c, noise, lu, lv, u, v) {
     const r = Math.hypot(lu * c.N - k.x, lv * c.N - k.z) / k.r;
     if (r < 1) y += k.height * Math.pow(1 - r, 1.7);
   }
+  return y;
+}
+
+/**
+ * Winter cold-air gap flow: interior air spills west through the low pass (Snoqualmie Pass on I-90),
+ * strongest in the pass itself and fading down its approaches.
+ */
+function cascadeGap(c, lu, lv) {
+  const d = lu - c.crest(lv);
+  const pass = Math.exp(-((lv - 0.56) ** 2) / (2 * 0.05 * 0.05));
+  const near = Math.exp(-Math.pow(Math.abs(d) / 0.14, 2));
+  return pass * near;
+}
+
+/**
+ * Puget Sound, simplified, west to east: the open Pacific; the Olympic Mountains (a rugged, glaciated
+ * dome of basalt and sedimentary rock); the Puget lowland, carved by the Ice Age glaciers into long
+ * north–south troughs now flooded by the sea (the Sound, Hood Canal) with islands and peninsulas
+ * between; and the Cascade foothills rising to the east. The Strait of Juan de Fuca runs along the
+ * north, joining the Sound to the ocean.
+ */
+function pugetLayout(N, noise) {
+  return { N };
+}
+
+function pugetHeight(c, noise, lu, lv, u, v) {
+  // Ocean off the west coast (deepening offshore)
+  const coast = 0.07 + 0.02 * noise(lv * 3, 1.3);
+  if (lu < coast) return 2 - 12 * smoothstep(coast, coast - 0.06, lu);
+  // The Olympic Mountains: a rugged dome
+  const ox = lu - 0.2, oz = lv - 0.42;
+  const dome = Math.exp(-(ox * ox) / (2 * 0.075 * 0.075) - (oz * oz) / (2 * 0.2 * 0.2));
+  const crest = ridged(noise, u * 2.6, v * 2.6, 5);
+  let y = 9 + dome * (16 + 34 * Math.pow(crest, 1.2));
+  // The Cascade foothills in the east
+  y += smoothstep(0.78, 1.0, lu) * (14 + 10 * ridged(noise, u * 3 + 5, v * 3, 4));
+  // The lowland: gently rolling glacial till plains with drumlin-like ridges
+  y += (1 - dome) * 2.5 * fbm(noise, u * 5, v * 2, 3);
+  // Glacial troughs: long north–south channels flooded by the sea (the Sound), and Hood Canal hugging
+  // the Olympics' east side
+  const band = smoothstep(0.3, 0.36, lu) * (1 - smoothstep(0.66, 0.74, lu));
+  // (U-shaped, as glaciers carve them: flat floors and sloping sides, not V-notches)
+  const trough = 1 - smoothstep(0.04, 0.2, Math.abs(noise(u * 1.6 + 7.1, v * 0.35 + 2.2)));
+  const trough2 = 1 - smoothstep(0.03, 0.16, Math.abs(noise(u * 2.4 - 3.3, v * 0.5 + 9.1)));
+  y -= band * 15 * Math.max(trough, trough2 * 0.8);
+  const canal = Math.exp(-((lu - 0.33) ** 2) / (2 * 0.012 * 0.012)) * smoothstep(0.25, 0.4, lv) * (1 - smoothstep(0.75, 0.85, lv));
+  y -= canal * 13;
+  // A low coastal plain behind the Pacific shore: room for sand beaches and dunes
+  y -= 7.5 * (1 - smoothstep(coast - 0.005, coast + 0.09, lu)) * (1 - dome);
+  // The Strait of Juan de Fuca along the north, joining the ocean to the Sound
+  const strait = (1 - smoothstep(0.05, 0.12, lv)) * (1 - smoothstep(0.55, 0.7, lu));
+  y -= strait * 16;
   return y;
 }
 

@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { BIOMES, classifyBiome, DRY_SOIL } from './biomes.js';
 import { ROCKS } from '../core/rocks.js';
 import { forestColor } from '../sim/forests.js';
+import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp } from '../sim/coast.js';
 import { SPECIES, OPEN } from '../sim/species.js';
-import { climateParams, snowAt } from '../sim/climate.js';
+import { climateParams, snowAt, seasonalAt } from '../sim/climate.js';
 
 // Colour palette (linear-ish RGB 0..1)
 const C = {
@@ -42,6 +43,7 @@ export const OVERLAYS = {
   snowDepth: 'Snow depth',
   ice: 'Glacier ice',
   topo: 'Topographic map',
+  coast: 'Coast & ocean',
   decid: 'Deciduous trees',
   rock: 'Rock type',
   hardness: 'Rock hardness',
@@ -169,6 +171,14 @@ export class TerrainRenderer {
     const mode = this.colorMode;
     const sea = w.seaLevel;
     const LV = w.lava, LT = w.lavaTemp, FI = w.fire, IC = w.ice;
+    // Sea colours from the water temperature (once per update)
+    if (sea > -999) {
+      const Tw = seaTemp();
+      this.seaShallow = Tw > 20 ? mix(SEA_TEMP_SHALLOW, SEA_TROP_SHALLOW, Math.min(1, (Tw - 20) / 6), [0, 0, 0]) : Tw < 8 ? mix(SEA_TEMP_SHALLOW, SEA_COLD_SHALLOW, Math.min(1, (8 - Tw) / 8), [0, 0, 0]) : SEA_TEMP_SHALLOW.slice();
+      this.seaDeep = Tw > 20 ? mix(SEA_TEMP_DEEP, SEA_TROP_DEEP, Math.min(1, (Tw - 20) / 6), [0, 0, 0]) : Tw < 8 ? mix(SEA_TEMP_DEEP, SEA_COLD_DEEP, Math.min(1, (8 - Tw) / 8), [0, 0, 0]) : SEA_TEMP_DEEP.slice();
+      this.seaIce = Tw < -1.5;
+      this.coralNear = Tw > 20 ? Math.min(1, (Tw - 20) / 4) : 0;
+    }
     let anyLava = false;
     // Colouring is the expensive part. On big maps recolour an interleaved share of the rows each
     // frame (the full map every few frames); heights, normals and water still update every frame.
@@ -256,6 +266,9 @@ export class TerrainRenderer {
           // Share of the ground under deciduous trees (the ones that change colour and drop leaves)
           const d = w.decid ? w.decid[i] : 0;
           col = shade(w.vegetation[i] > 0.3 ? mix(DECID_NONE, DECID_FULL, Math.min(1, d / 0.8), S3) : NO_FOREST, 0.75 + 0.25 * ny, S3);
+        } else if (mode === 'coast') {
+          const sh = w.shore ? w.shore[i] : -1, m = w.marine ? w.marine[i] : -1, du = w.dune ? w.dune[i] : 0;
+          col = shade(sh >= 0 ? SHORES[sh].color : m >= 0 ? MARINE[m].color : du > 0.3 ? DUNE : NO_FOREST, 0.75 + 0.25 * ny, S3);
         } else if (mode === 'topo') {
           if (h < topoSea) {
             // Water: blue, deeper → darker
@@ -279,7 +292,7 @@ export class TerrainRenderer {
           col = shade(t < 0.02 ? NO_SNOW : t < 3 ? mix(ICE_THIN, ICE_MID, t / 3, S3) : mix(ICE_MID, ICE_DEEP, Math.min(1, (t - 3) / 8), S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'temp') {
           // Today's temperature (annual mean + season)
-          col = shade(tempColor(w.temperature[i] + (w.seasonT || 0), S3), 0.75 + 0.25 * ny, S3);
+          col = shade(tempColor(w.temperature[i] + seasonalAt(w, i), S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'slope') {
           const t = Math.min(1, slope / 0.35);
           col = mix(SLOPE_LO, SLOPE_HI, t, S3);
@@ -329,10 +342,17 @@ export class TerrainRenderer {
           const mud = Math.min(1, (S[i] / Math.max(d, 0.05)) * 4);
           const deep = Math.min(1, d / 6);
           const isSea = h < sea;
-          const base = isSea ? WATER_SEA : mix(WATER_SHALLOW, WATER_DEEP, deep, S4);
+          let base;
+          if (isSea) {
+            // Sea water colour follows its temperature: dark green-blue cold seas, deep blue temperate,
+            // turquoise tropical shallows
+            base = mix(this.seaShallow, this.seaDeep, Math.min(1, d / 10), S4);
+          } else base = mix(WATER_SHALLOW, WATER_DEEP, deep, S4);
           const wc = mix(base, MUD, mud * 0.8, S4);
+          const iced = isSea && this.seaIce;
+          if (iced) { wc[0] = 0.9; wc[1] = 0.94; wc[2] = 0.97; }
           this.wCol[i4] = wc[0] * wc[0]; this.wCol[i4 + 1] = wc[1] * wc[1]; this.wCol[i4 + 2] = wc[2] * wc[2];
-          this.wCol[i4 + 3] = Math.min(0.85, 0.25 + (d - 0.1) * 0.5);
+          this.wCol[i4 + 3] = iced ? 0.97 : Math.min(isSea ? 0.9 : 0.85, (isSea ? 0.45 : 0.25) + (d - 0.1) * 0.5);
         } else {
           this.wPos[i3 + 1] = h - 0.3;
           this.wCol[i4 + 3] = 0;
@@ -403,7 +423,7 @@ export class TerrainRenderer {
     const w = this.world;
     const col = mix(C.barren, this.rockColor(h, i), 0.55 + 0.45 * smooth(0.05, 0.25, slope), S3);
     if (change > 0.15) mix(col, C.soil, Math.min(0.8, change / 3) * (1 - smooth(0.1, 0.25, slope)), col);
-    if (h > w.seaLevel - 0.3 && h < w.seaLevel + 1.5) mix(col, C.sand, 0.8, col);
+    this.coastColor(w, i, h, 0, col);
     if (water > 0.005) shade(col, 0.88, col);
     return col;
   }
@@ -465,14 +485,39 @@ export class TerrainRenderer {
     // Wildfire ash and charred ground, hidden again as plants return
     const burnt = w.burnt[i];
     if (burnt > 0) mix(col, C.ash, burnt * 0.9 * (1 - smooth(0.2, 0.6, v)), col);
-    // Beaches just above sea level
-    if (h > w.seaLevel - 0.3 && h < w.seaLevel + 1.5) mix(col, C.sand, 0.8, col);
-    else if (h <= w.seaLevel - 0.3) mix(col, C.soil, 0.6, col); // muddy sea floor
+    // The coast: each shore type in its own colours, dunes behind sand beaches, the sea floor by
+    // ocean biome (kelp, seagrass, coral, open sea)
+    this.coastColor(w, i, h, v, col);
     // Snow where it's below freezing, shaped by moisture, steepness, hollows, canopy and sun
     if (w.snow && w.snow[i] > 0.005) mix(col, C.snow, snowAt(w, i, tan), col);
     // Wet ground is darker
     if (water > 0.005) shade(col, 0.88, col);
     return col;
+  }
+
+  /** Shore, dune and sea-floor colouring (shared by the natural and bare views). Writes into col. */
+  coastColor(w, i, h, v, col) {
+    const sea = w.meanSea !== undefined ? w.meanSea : w.seaLevel;
+    if (sea < -999) return;
+    const sh = w.shore ? w.shore[i] : -1;
+    if (sh >= 0) {
+      let c = SHORES[sh].color;
+      if (sh === SHORE.sand) {
+        // Coral sand is near-white; volcanic or river sand darker and greyer
+        c = mix(c, CORAL_SAND, Math.min(1, (w.coral ? this.coralNear : 0)), S1);
+        c = mix(SHORES[SHORE.shingle].color, c, Math.min(1, (w.sand ? w.sand[i] : 0) * 1.2), S1);
+      }
+      if (sh === SHORE.cliff) c = mix(this.rockColor(h, i), c, 0.25, S1); // the cliff's own rock
+      // Vegetation softens the upper shore; a wet sheen where the tide has just left
+      const t = 0.88 * (1 - 0.6 * smooth(0.45, 0.8, v));
+      mix(col, c, t, col);
+      if (sh === SHORE.mudflat && w.water[i] > 0.01) shade(col, 0.82, col);
+    } else if (h < sea) {
+      const m = w.marine ? w.marine[i] : -1;
+      mix(col, m >= 0 ? MARINE[m].color : C.soil, 0.7, col);
+    }
+    const dune = w.dune ? w.dune[i] : 0;
+    if (dune > 0.05) mix(col, DUNE, dune * 0.75 * (1 - smooth(0.6, 0.85, v)), col);
   }
 
   syncSprings() {
@@ -516,6 +561,10 @@ function niceStep(x) {
   const m = x / p;
   return (m < 1.5 ? 1 : m < 2.25 ? 2 : m < 3.5 ? 2.5 : m < 7.5 ? 5 : 10) * p;
 }
+const DUNE = [0.86, 0.82, 0.62], CORAL_SAND = [0.97, 0.95, 0.88];
+const SEA_COLD_SHALLOW = [0.20, 0.38, 0.40], SEA_COLD_DEEP = [0.06, 0.20, 0.27];
+const SEA_TEMP_SHALLOW = [0.22, 0.48, 0.62], SEA_TEMP_DEEP = [0.08, 0.26, 0.48];
+const SEA_TROP_SHALLOW = [0.30, 0.78, 0.80], SEA_TROP_DEEP = [0.06, 0.38, 0.62];
 const ICE = [0.80, 0.89, 0.97], ICE_DIRTY = [0.55, 0.55, 0.55];
 const ICE_THIN = [0.82, 0.93, 0.98], ICE_MID = [0.45, 0.72, 0.92], ICE_DEEP = [0.12, 0.28, 0.62];
 const DECID_NONE = [0.10, 0.32, 0.22], DECID_FULL = [0.95, 0.60, 0.12];

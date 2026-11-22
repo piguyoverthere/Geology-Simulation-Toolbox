@@ -64,7 +64,9 @@ export function waterStep(world) {
     }
   }
   const sea = world.seaLevel;
-  for (let i = 0; i < n; i++) if (B[i] < sea && B[i] + D[i] < sea) D[i] = sea - B[i];
+  // The sea holds its surface at sea level (which rises and falls with the tide): flooding the
+  // intertidal zone at high tide and letting it drain at low tide
+  for (let i = 0; i < n; i++) if (B[i] < sea) D[i] = sea - B[i];
 
   // 2. Outflow flux through the 8 virtual pipes
   const k = dt * p.gravity;
