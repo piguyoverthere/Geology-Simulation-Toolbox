@@ -22,6 +22,7 @@ export const qualityParams = {
   settle: 0.03,   // share of the silt that settles out each step
   decay: 0.002,   // share of the pollutants broken down each step
   filter: 1,      // how strongly living sea beds clean the water
+  spread: 0.2,    // how fast pollutants spread out over the water (0 = they stay put)
 };
 
 export function ensureQuality(world) {
@@ -82,18 +83,21 @@ export function waterQualityStep(world, sea, half, filterOf, sensitivity, pace, 
   for (let i = 0; i < n; i++) mask[i] = H[i] < sea + half ? 1 : 0;
   // Rivers deliver their muddy load to the sea
   for (let i = 0; i < n; i++) if (mask[i] && H[i] < sea) SI[i] = Math.min(4, SI[i] + 0.4 * SED[i]);
-  // Tides and currents mix it about (an average over the water only, so it doesn't leak onto land)
-  const mBlur = boxBlur(mask, N, 2);
-  const mix = (F) => {
+  // Tides and currents mix it about (an average over the water only, so it doesn't leak onto land).
+  // Silt is stirred quickly; pollutants creep outward slowly from where they came in, a plume that
+  // widens and thins over time (qualityParams.spread)
+  const mix = (F, r, rate) => {
+    const mB = boxBlur(mask, N, r);
     const tmp = new Float32Array(n);
     for (let i = 0; i < n; i++) tmp[i] = F[i] * mask[i];
-    const b = boxBlur(tmp, N, 2);
+    const b = boxBlur(tmp, N, r);
     for (let i = 0; i < n; i++) {
       if (!mask[i]) { F[i] = 0; continue; }
-      F[i] += (b[i] / Math.max(mBlur[i], 1e-3) - F[i]) * 0.3;
+      F[i] += (b[i] / Math.max(mB[i], 1e-3) - F[i]) * rate;
     }
   };
-  mix(SI); mix(PO);
+  mix(SI, 2, 0.3);
+  if (p.spread > 0) mix(PO, 2, Math.min(1, p.spread));
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
       const i = z * N + x;

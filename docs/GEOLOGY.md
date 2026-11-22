@@ -634,8 +634,9 @@ carrying sediment into the sea, from waves eating at the shore (mudflats wash ou
 nothing holds them; mangroves and seagrass hold the mud down) and from landslides that run into the
 water. It turns the water brown and blocks the light, but settles out within days, and where it
 settles in quiet shallows it builds the tidal flats back up. **Pollutants** (sewage, runoff, spills:
-the Pollute tool) linger much longer and poison sea life. Both spread with the tides and are flushed
-out to the open ocean at the edge of the map. Seagrass meadows, kelp forests, coral reefs and
+the Pollute tool) linger much longer and poison sea life. Silt is stirred about quickly; pollutants
+**spread out slowly** from where they come in, a plume that widens and thins over time (Ocean & coast →
+**Pollutant spread**). Both are flushed out to the open ocean at the edge of the map. Seagrass meadows, kelp forests, coral reefs and
 mangroves clean the water, in proportion to how healthy they are; but where it stays too dirty they
 decline. Seagrass and kelp **thin out gradually**: their density falls shoot by shoot over a long
 spell of dirty water, bare seabed showing through more and more, and the thinner meadow cleans less.

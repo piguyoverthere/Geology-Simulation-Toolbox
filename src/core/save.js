@@ -17,7 +17,7 @@ const SKIP_ARRAYS = new Set(['flux', 'strataWarp0']);
 const WORLD_JSON = ['sources', 'cones', 'geoRange', 'storms', 'holdovers', 'faults', 'landslides'];
 // Settings objects on the app (all plain values)
 const PARAMS = ['waterParams', 'thermalParams', 'vegetationParams', 'climateParams', 'seasonParams', 'weatherParams',
-  'volcanoSettings', 'faultSettings', 'fireParams', 'landslideParams', 'coastParams', 'glacierParams', 'sim', 'gen', 'brush', 'drawSettings'];
+  'volcanoSettings', 'faultSettings', 'fireParams', 'landslideParams', 'coastParams', 'qualityParams', 'glacierParams', 'sim', 'gen', 'brush', 'drawSettings'];
 
 // Settings as this version of the code starts them. Levels store only the settings you changed from
 // these, so improvements to the simulation's tuning in later versions still reach saved levels.

@@ -122,7 +122,8 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   Desert, Boreal / subarctic and Arctic, plus **Puget Sound** (big tides, cool water, marine fog, grey
   winters, rare lowland snow; it also turns the sea on, flooding the lowest ground if it was off). Each sets temperature, seasons, rain, storms,
   snowstorms, lightning, ocean fog, wetness, evaporation and tides at once.
-- **Ocean & coast**: sea on/off and level, tide range and period, wave erosion, coral growth, and
+- **Ocean & coast**: sea on/off and level, tide range and period, wave erosion, coral growth,
+  pollutant spread, and
   the Shoreline tool's type. **Weather** has **Ocean fog** (the marine layer).
 - **Level**: **Save level** downloads everything (terrain, water, vegetation, soil, snow, rocks,
   lava and burn scars, springs, drawings, camera and every setting) to a `.geolevel` file, and

@@ -232,6 +232,7 @@ export class Toolbox {
       slider('Wave erosion', app.coastParams, 'waveErosion', 0, 0.02, 0.0005,
         'How hard waves attack the shore: exposed, soft coasts retreat fastest; beaches with deep sand protect the land behind.', this),
       slider('Coral growth', app.coastParams, 'coral', 0, 3, 0.1, 'How much white coral sand reefs make in warm seas (above ~20 °C water).', this),
+      slider('Pollutant spread', app.qualityParams, 'spread', 0, 0.6, 0.01, 'How fast pollutants spread out over the water from where they come in: a plume that slowly widens and thins, carried by the tides. 0 keeps them where they are.', this),
       select('Shoreline type', { auto: 'Auto (by conditions)', mudflat: 'Mudflat', sand: 'Sand beach', shingle: 'Shingle beach', cliff: 'Rock cliff', basalt: 'Basalt boulder beach' },
         app.coastParams, 'shoreType', 'What the Shoreline tool (≈, key O) paints.', this, () => app.setTool('shoreline')),
     );

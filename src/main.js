@@ -15,6 +15,7 @@ import { updateForestComposition } from './sim/species.js';
 import { weatherStep, weatherParams } from './sim/weather.js';
 import { glacierFlow, glacierBalance, glacierParams } from './sim/glacier.js';
 import { coastParams, coastStep, tideLevel } from './sim/coast.js';
+import { qualityParams } from './sim/waterQuality.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
@@ -48,6 +49,7 @@ class App {
     this.landslideParams = landslideParams;
     this.glacierParams = glacierParams;
     this.coastParams = coastParams;
+    this.qualityParams = qualityParams;
 
     this.tool = 'raise';
     this.brush = { radius: 12, strength: 0.5 };
