@@ -687,20 +687,35 @@ function timberStep(world, t, farmCells, R) {
       if (LU[j] || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j)) continue;
       s += forestSuitability(world, j); c++;
     }
-    const score = s / 25 - d / (reach * 4);
+    const score = s / 25 - d / (reach * 4) + (V[z * N + x] > 0.6 ? 0.3 : 0); // (an existing forest first)
     if (c > 12 && score > bs) { bs = score; best = { x, z }; }
   }
   if (!best) return;
-  const r = 3 + Math.floor(Math.random() * 3), claimed = [];
-  for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
-    if (dx * dx + dz * dz > r * r + 1) continue;
-    const x = best.x + dx, z = best.z + dz;
-    if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
-    const j = z * N + x;
-    if (LU[j] || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j) || forestSuitability(world, j) < 0.3) continue;
-    LU[j] = 10; OW[j] = t.num;
-    if (V[j] < 0.35) V[j] = 0.35; // (planted with saplings)
-    claimed.push(j);
+  // The plantation takes in the whole forest there: every connected forest cell, however big the
+  // forest (or, on open ground suitable for trees, a block planted around the site)
+  const claimed = [], c0 = best.z * N + best.x;
+  const free = (j) => !LU[j] && H[j] >= sea + 0.5 && world.water[j] < 0.1 && !isProtected(world, j);
+  if (V[c0] > 0.6 && free(c0)) {
+    const seen = new Uint8Array(N * N), q = [c0];
+    seen[c0] = 1;
+    while (q.length) {
+      const j = q.pop(), x = j % N, z = (j / N) | 0;
+      if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
+      LU[j] = 10; OW[j] = t.num; claimed.push(j);
+      for (const k of [j - 1, j + 1, j - N, j + N]) if (!seen[k]) { seen[k] = 1; if (V[k] > 0.6 && free(k)) q.push(k); }
+    }
+  } else {
+    const r = 6;
+    for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dz * dz > r * r + 1) continue;
+      const x = best.x + dx, z = best.z + dz;
+      if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
+      const j = z * N + x;
+      if (!free(j) || forestSuitability(world, j) < 0.3) continue;
+      LU[j] = 10; OW[j] = t.num;
+      if (V[j] < 0.35) V[j] = 0.35; // (planted with saplings)
+      claimed.push(j);
+    }
   }
   if (!claimed.length) return;
   t.plantations.push({ x: best.x, z: best.z, cells: claimed, alive: claimed.length });

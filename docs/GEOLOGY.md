@@ -1034,9 +1034,11 @@ The steady clearing of new fields also slows as a town's farmland grows. Plantat
 rotation: a stand is felled soon after it reaches about 70% cover, and replanted with fast-growing
 stock.
 
-**Timber plantations.** Each town keeps about twice as much land under timber as under fields, in
-blocks of woodland 3 to 5 cells across. It picks the land where forest grows best, out to three
-times its town's reach. Plantations are planted with saplings and tended, and the trees grow to
+**Timber plantations.** Each town keeps about twice as much land under timber as under fields.
+It picks the land where forest grows best, out to three times its town's reach, preferring an
+existing forest. A plantation takes in that entire forest: every connected forest cell, however big
+it is. On open ground that suits trees, it plants a block about 12 cells across instead. A new
+plantation is only started while the town's timber land is less than twice its farmland. Plantations are planted with saplings and tended, and the trees grow to
 full forest wherever the climate allows. Grown stands are clear-felled a few cells at a time,
 leaving bare brown ground with slash and the soil a little thinner, then replanted to grow again.
 A road runs from the town centre out to each plantation. The wood adds to the town's trade (up to
