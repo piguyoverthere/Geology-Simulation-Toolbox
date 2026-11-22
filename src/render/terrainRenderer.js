@@ -63,6 +63,7 @@ export class TerrainRenderer {
     this.showVegetation = true; // off: natural view shows bare ground and bedrock
     this.showClouds = true;
     this.showWater = true;
+    this.showSea = true;    // off: hide the sea's surface to see the sea bed (its biomes, sand, reefs)
 
     const N = world.N;
     this.offset = (N - 1) / 2;
@@ -340,7 +341,7 @@ export class TerrainRenderer {
         this.wPos[i3] = x - off;
         this.wPos[i3 + 2] = z - off;
         // Thin runoff films just darken the ground; draw a water surface only where it's a real stream/lake
-        if (d > 0.1 && ice < 0.2) { // (meltwater under a glacier stays hidden)
+        if (d > 0.1 && ice < 0.2 && (this.showSea || !(h < sea))) { // (meltwater under a glacier stays hidden)
           this.wPos[i3 + 1] = h + d;
           const mud = Math.min(1, (S[i] / Math.max(d, 0.05)) * 4);
           const deep = Math.min(1, d / 6);
@@ -369,6 +370,8 @@ export class TerrainRenderer {
           // (the temperature map colours the sea by its water temperature: let it show through)
           if (mode === 'temp' && isSea) this.wCol[i4 + 3] *= 0.15;
           if (mode === 'quality' && isSea) this.wCol[i4 + 3] = 0.92;
+          // (the coast overlay is for looking at the sea bed: make the sea nearly clear)
+          if (mode === 'coast' && isSea) this.wCol[i4 + 3] *= 0.25;
         } else {
           this.wPos[i3 + 1] = h - 0.3;
           this.wCol[i4 + 3] = 0;
@@ -530,7 +533,8 @@ export class TerrainRenderer {
       if (sh === SHORE.mudflat && w.water[i] > 0.01) shade(col, 0.82, col);
     } else if (h < sea) {
       const m = w.marine ? marineShown(w, i) : -1;
-      mix(col, m >= 0 ? MARINE[m].color : C.soil, 0.7, col);
+      // The sea bed: silt and sand, darker mud in the deep, and its meadows, kelp and reefs
+      mix(col, m >= 0 ? MARINE[m].bed : C.soil, 0.75, col);
     }
     const dune = w.dune ? w.dune[i] : 0;
     if (dune > 0.05) mix(col, DUNE, dune * 0.75 * (1 - smooth(0.6, 0.85, v)), col);

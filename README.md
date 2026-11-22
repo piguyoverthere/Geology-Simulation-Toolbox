@@ -139,7 +139,9 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   north–south islands like Vashon and Maury, crowded in places and sparse in others, with open
   basins between and straight beaches below steep bluffs. Presets
   bring their own settings and put back the previous preset's when you switch.
-- **View**: clouds, water, wireframe.
+- **View**: clouds, water, **sea** (hide the sea's surface to see the sea bed: its sand and silt,
+  seagrass, kelp, reefs and die-offs; the sea keeps running), wireframe. The **Coast & ocean**
+  overlay draws the sea nearly clear so its sea-bed biomes show through.
 
 Try this: pick **Layered plateau**, turn on **Sea** at level 8, drop two **Springs** on top, and set
 **Overlays → Erosion / deposition**. Red shows where ground was carved away and blue shows where

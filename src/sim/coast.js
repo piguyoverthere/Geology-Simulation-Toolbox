@@ -48,13 +48,13 @@ export const SHORES = [
 export const SHORE = Object.fromEntries(SHORES.map((s, k) => [s.id, k]));
 
 export const MARINE = [
-  { id: 'ice', label: 'Sea ice', color: [0.90, 0.94, 0.97], help: 'Frozen sea surface in freezing water.' },
-  { id: 'kelp', label: 'Kelp forest', color: [0.30, 0.32, 0.14], help: 'Underwater forests of giant kelp on cool, rocky shores, like the Washington coast.' },
-  { id: 'seagrass', label: 'Seagrass meadow', color: [0.30, 0.50, 0.26], help: 'Eelgrass and seagrass in sandy and muddy shallows of bays.' },
-  { id: 'coral', label: 'Coral reef', color: [0.92, 0.62, 0.58], help: 'Reefs built by corals in warm, clear, shallow water; they make white coral sand.' },
-  { id: 'shelf', label: 'Open ocean (shelf)', color: [0.20, 0.45, 0.62], help: 'Shallow sea over the continental shelf.' },
-  { id: 'deep', label: 'Deep ocean', color: [0.08, 0.20, 0.42], help: 'Deep water far from shore.' },
-  { id: 'dieoff', label: 'Die-off (bare seabed)', color: [0.48, 0.42, 0.34], help: 'Seagrass, kelp or coral killed by dirty water (silt or pollutants): bare mud and rubble, or bleached, dead coral. It recovers slowly once the water is clean again.' },
+  { id: 'ice', label: 'Sea ice', color: [0.90, 0.94, 0.97], bed: [0.46, 0.44, 0.40], help: 'Frozen sea surface in freezing water.' },
+  { id: 'kelp', label: 'Kelp forest', color: [0.30, 0.32, 0.14], bed: [0.36, 0.34, 0.16], help: 'Underwater forests of giant kelp on cool, rocky shores, like the Washington coast.' },
+  { id: 'seagrass', label: 'Seagrass meadow', color: [0.30, 0.50, 0.26], bed: [0.32, 0.46, 0.24], help: 'Eelgrass and seagrass in sandy and muddy shallows of bays.' },
+  { id: 'coral', label: 'Coral reef', color: [0.92, 0.62, 0.58], bed: [0.86, 0.66, 0.56], help: 'Reefs built by corals in warm, clear, shallow water; they make white coral sand.' },
+  { id: 'shelf', label: 'Open ocean (shelf)', color: [0.20, 0.45, 0.62], bed: [0.58, 0.55, 0.47], help: 'Shallow sea over the continental shelf.' },
+  { id: 'deep', label: 'Deep ocean', color: [0.08, 0.20, 0.42], bed: [0.36, 0.36, 0.36], help: 'Deep water far from shore.' },
+  { id: 'dieoff', label: 'Die-off (bare seabed)', color: [0.48, 0.42, 0.34], bed: [0.50, 0.45, 0.38], help: 'Seagrass, kelp or coral killed by dirty water (silt or pollutants): bare mud and rubble, or bleached, dead coral. It recovers slowly once the water is clean again.' },
 ];
 export const MARINE_ID = Object.fromEntries(MARINE.map((m, k) => [m.id, k]));
 // How well each sea bed cleans the water, and how easily dirty water harms it

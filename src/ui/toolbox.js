@@ -268,6 +268,7 @@ export class Toolbox {
     view.append(
       toggle('Show clouds', app.renderer, 'showClouds', 'Show the clouds that form where moist air is pushed up over terrain.', this),
       toggle('Show water', app.renderer, 'showWater', 'Show or hide surface water.', this, () => app.world.dirty = true),
+      toggle('Show sea', app.renderer, 'showSea', 'Turn off to hide the sea\'s surface and look at the sea bed: kelp, seagrass, coral reefs, die-offs, sand and the shape of the bottom. The sea is still there (tides, coasts, sea life and everything else carry on).', this, () => { app.world.dirty = true; app.renderer.update(true); }),
       toggle('Wireframe', app.renderer.terrainMat, 'wireframe', 'Show the terrain grid.', this),
     );
 
