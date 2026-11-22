@@ -1068,9 +1068,13 @@ landing. Shift-click closes the nearest harbour, though a coastal town will buil
 in time.
 
 **Quarries, breakwaters and reclaimed land.** Towns past about 250 people terrace often and in bulk
-(up to 20 platforms at a time). Towns past 500 **quarry** whole hills and mountains: a town picks
-the highest ground within about 50 cells and cuts it down 1.5 at a time, following the summit
-around, until it is down to the town's level. A big town works up to four faces at once. The rock
+(up to 20 platforms at a time). Towns past 500 **quarry** whole hills and mountains, in one
+concentrated place: each town works a single pit well out beyond the town and its fields (at least
+10 cells past its reach), on the biggest hill it can find there and away from other towns, with a
+haul road out to it. The quarry face moves about inside the pit, cutting the highest ground down a
+level at a time. The pit widens bit by bit, up to about 12 cells across, until the hill there is
+down to the town's level. Only then is a new pit opened somewhere else. A big town works several
+faces at once, all in the same pit. The rock
 first goes into the harbour's **breakwater**, a causeway three cells wide and faced as quay. It is
 tipped from the harbour toward the deepest water nearby and grows longer with the town (up to 40
 cells), and the harbour moves out to its tip. What's left builds new land along the shallow coast.

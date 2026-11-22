@@ -361,28 +361,49 @@ function quarry(world, t) {
   // (fields, plantations and roads are cut down with the ground around them: the road re-graded,
   // not left standing on a ridge)
   const ok = (j) => (!LU[j] || LU[j] === 1 || LU[j] === 3 || LU[j] === 10) && !world.bridge[j] && !isProtected(world, j) && world.water[j] < 0.4;
-  // The quarry face: stay on the current mountain, moving to its highest point near the workings
-  if (t.quarry !== undefined) {
-    const qx = t.quarry % N, qz = (t.quarry / N) | 0;
+  // One quarry per town, well out beyond the town and its fields, worked as a single pit: the face
+  // moves about inside it, and the pit widens bit by bit (to about 12 cells across) until the hill
+  // there is down to the town's level. Only then is a new one opened.
+  const pick = () => {
+    const sx = t.quarrySite % N, sz = (t.quarrySite / N) | 0, qr = t.quarryR;
     let best = -1, bh = base + 1.5;
-    for (let z = Math.max(2, qz - 6); z <= Math.min(N - 3, qz + 6); z++) for (let x = Math.max(2, qx - 6); x <= Math.min(N - 3, qx + 6); x++) {
+    for (let z = Math.max(2, sz - qr); z <= Math.min(N - 3, sz + qr); z++) for (let x = Math.max(2, sx - qr); x <= Math.min(N - 3, sx + qr); x++) {
       const j = z * N + x;
-      if (ok(j) && H[j] > bh) { bh = H[j]; best = j; }
+      if ((x - sx) ** 2 + (z - sz) ** 2 > qr * qr || !ok(j)) continue;
+      if (H[j] > bh) { bh = H[j]; best = j; }
     }
-    t.quarry = best >= 0 ? best : undefined;
+    return best;
+  };
+  let face = -1;
+  if (t.quarrySite !== undefined) {
+    face = pick();
+    while (face < 0 && t.quarryR < 12) { t.quarryR += 2; face = pick(); } // (widen the pit)
+    if (face < 0) t.quarrySite = undefined; // (worked out)
   }
-  if (t.quarry === undefined) {
-    const R = 15 + Math.sqrt(t.pop) / 2;
+  if (t.quarrySite === undefined) {
+    const reach = 4 + 2.8 * Math.sqrt(t.pop / PER_FARM_CELL) * Math.max(1, civParams.growth);
+    const minD = reach + 10, maxD = minD + 45;
     let best = -1, bs = 0;
-    for (let z = Math.max(2, Math.floor(t.z - R)); z <= Math.min(N - 3, Math.ceil(t.z + R)); z++) for (let x = Math.max(2, Math.floor(t.x - R)); x <= Math.min(N - 3, Math.ceil(t.x + R)); x++) {
+    for (let z = Math.max(2, Math.floor(t.z - maxD)); z <= Math.min(N - 3, Math.ceil(t.z + maxD)); z += 2) for (let x = Math.max(2, Math.floor(t.x - maxD)); x <= Math.min(N - 3, Math.ceil(t.x + maxD)); x += 2) {
       const j = z * N + x, d = Math.hypot(x - t.x, z - t.z);
-      if (d > R || !ok(j)) continue;
-      const score = H[j] - base - 3 - d * 0.1; // (any hill standing well above the town)
-      if (score > bs) { bs = score; best = j; }
+      if (d < minD || d > maxD || !ok(j)) continue;
+      const score = H[j] - base - 4 - (d - minD) * 0.08; // (a big hill, not too far to haul from)
+      if (score <= bs) continue;
+      // (away from any town)
+      let nearTown = false;
+      for (const u of world.towns) if (Math.hypot(u.x - x, u.z - z) < 8 + Math.sqrt(u.pop) / 4) { nearTown = true; break; }
+      if (nearTown) continue;
+      bs = score; best = j;
     }
     if (best < 0) return 0;
-    t.quarry = best;
+    t.quarrySite = best; t.quarryR = 4;
+    // (a haul road out to it)
+    const path = routeRoad(world, t, { x: best % N, z: (best / N) | 0 });
+    if (path && path.length > 1) buildRoad(world, path);
+    face = pick();
+    if (face < 0) return 0;
   }
+  t.quarry = face;
   // Cut the top off: everything within the face's reach above the next level down
   const c = t.quarry, cx = c % N, cz = (c / N) | 0;
   const level = Math.max(base + 0.5, H[c] - 2.2 * Math.max(0.3, civParams.destruction));
@@ -394,6 +415,7 @@ function quarry(world, t) {
     if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
     const j = z * N + x;
     if (!ok(j) || H[j] <= level) continue;
+    if (Math.hypot(x - (t.quarrySite % N), z - ((t.quarrySite / N) | 0)) > t.quarryR + 1) continue; // (inside the pit)
     spoil += H[j] - level;
     H[j] = level; world.prevHeight[j] = level;
     world.water[j] = 0;
