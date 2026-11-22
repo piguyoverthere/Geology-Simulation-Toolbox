@@ -111,7 +111,7 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   mostly from autumn to spring, and a summer fire season with dry lightning storms), and **Snow slope
   limit** (the steepest slope snow builds up on).
 - **Overlays**: colour the map by one data layer (biomes, vegetation, tree species, forest age,
-  coast & ocean (shore types, dunes, ocean biomes), topographic map (elevation bands with contour lines, index contours every fifth), temperature,
+  coast & ocean (shore types, dunes, mangroves, ocean biomes), topographic map (elevation bands with contour lines, index contours every fifth), temperature,
   precipitation, snow depth, glacier ice, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
 - **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes.
@@ -165,7 +165,7 @@ src/sim/volcanism.js    Eruptions, lava flow and cooling, ash fall, plutons and 
 src/sim/climate.js      Temperature (height, sun, seasons), clouds, precipitation, evaporation, snowpack
 src/sim/weather.js      Storms, thunderstorms and lightning
 src/sim/glacier.js      Glaciers: ice flow, U-shaped valley carving, moraines, melt
-src/sim/coast.js        Tides, shore types, wave erosion, beach sand, dunes, ocean biomes
+src/sim/coast.js        Tides, shore types, wave erosion, beach sand, dunes, mangroves, ocean biomes
 src/core/environments.js  Environment presets (ready-made climates)
 src/sim/phenology.js    Seasonal leaves: autumn colour, leaf fall, spring flush
 src/sim/species.js      Tree species, their preferences, and each cell's forest mix

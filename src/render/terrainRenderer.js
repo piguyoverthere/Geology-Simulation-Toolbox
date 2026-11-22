@@ -268,7 +268,7 @@ export class TerrainRenderer {
           col = shade(w.vegetation[i] > 0.3 ? mix(DECID_NONE, DECID_FULL, Math.min(1, d / 0.8), S3) : NO_FOREST, 0.75 + 0.25 * ny, S3);
         } else if (mode === 'coast') {
           const sh = w.shore ? w.shore[i] : -1, m = w.marine ? w.marine[i] : -1, du = w.dune ? w.dune[i] : 0;
-          col = shade(sh >= 0 ? SHORES[sh].color : m >= 0 ? MARINE[m].color : du > 0.3 ? DUNE : NO_FOREST, 0.75 + 0.25 * ny, S3);
+          col = shade(w.mangrove && w.mangrove[i] > 0.3 ? MANGROVE : sh >= 0 ? SHORES[sh].color : m >= 0 ? MARINE[m].color : du > 0.3 ? DUNE : NO_FOREST, 0.75 + 0.25 * ny, S3);
         } else if (mode === 'topo') {
           if (h < topoSea) {
             // Water: blue, deeper → darker
@@ -353,6 +353,8 @@ export class TerrainRenderer {
           if (iced) { wc[0] = 0.9; wc[1] = 0.94; wc[2] = 0.97; }
           this.wCol[i4] = wc[0] * wc[0]; this.wCol[i4 + 1] = wc[1] * wc[1]; this.wCol[i4 + 2] = wc[2] * wc[2];
           this.wCol[i4 + 3] = iced ? 0.97 : Math.min(isSea ? 0.9 : 0.85, (isSea ? 0.45 : 0.25) + (d - 0.1) * 0.5);
+          // (the mangrove canopy stands above the tide)
+          if (w.mangrove && w.mangrove[i] > 0.05) this.wCol[i4 + 3] *= 1 - 0.85 * Math.min(1, w.mangrove[i] * 1.2);
         } else {
           this.wPos[i3 + 1] = h - 0.3;
           this.wCol[i4 + 3] = 0;
@@ -518,6 +520,9 @@ export class TerrainRenderer {
     }
     const dune = w.dune ? w.dune[i] : 0;
     if (dune > 0.05) mix(col, DUNE, dune * 0.75 * (1 - smooth(0.6, 0.85, v)), col);
+    // Mangrove canopy over the mudflats and shallows
+    const mg = w.mangrove ? w.mangrove[i] : 0;
+    if (mg > 0.03) mix(col, MANGROVE, Math.min(1, mg * 1.1), col);
   }
 
   syncSprings() {
@@ -561,7 +566,7 @@ function niceStep(x) {
   const m = x / p;
   return (m < 1.5 ? 1 : m < 2.25 ? 2 : m < 3.5 ? 2.5 : m < 7.5 ? 5 : 10) * p;
 }
-const DUNE = [0.86, 0.82, 0.62], CORAL_SAND = [0.97, 0.95, 0.88];
+const DUNE = [0.86, 0.82, 0.62], CORAL_SAND = [0.97, 0.95, 0.88], MANGROVE = [0.12, 0.30, 0.16];
 const SEA_COLD_SHALLOW = [0.20, 0.38, 0.40], SEA_COLD_DEEP = [0.06, 0.20, 0.27];
 const SEA_TEMP_SHALLOW = [0.22, 0.48, 0.62], SEA_TEMP_DEEP = [0.08, 0.26, 0.48];
 const SEA_TROP_SHALLOW = [0.30, 0.78, 0.80], SEA_TROP_DEEP = [0.06, 0.38, 0.62];

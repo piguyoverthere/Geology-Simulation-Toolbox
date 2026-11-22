@@ -11,6 +11,7 @@
 //              where glaciers left gravel everywhere)
 //   cliff    – steep coasts the waves undercut, so the cliff retreats
 //   basalt   – black boulder beaches where basalt lava meets the sea (the Olympic coast)
+// In warm seas, mangrove forests grow on the mudflats and sheltered shores (world.mangrove).
 // The Shoreline tool paints a type, overriding the automatic choice.
 //
 // Waves: they erode the shore, hardest where it is exposed to open water (a long fetch) and the rock
@@ -65,6 +66,7 @@ export function ensureCoast(world) {
   if (!world.coastal || world.coastal.length !== n) world.coastal = new Float32Array(n);
   if (!world.dune || world.dune.length !== n) world.dune = new Float32Array(n);
   if (!world.coral || world.coral.length !== n) world.coral = new Float32Array(n);
+  if (!world.mangrove || world.mangrove.length !== n) world.mangrove = new Float32Array(n);
 }
 
 /** Sea surface now: mean sea level plus the tide. Called every frame. */
@@ -161,7 +163,8 @@ export function coastStep(world) {
       const inReach = h < sea + half + 1.2;
       if (inReach && erodeK > 0 && type !== SHORE.mudflat) {
         const protect = 1 - Math.min(0.85, SAND[i] * 0.6);
-        const cut = erodeK * ex * (1.2 - hard) * protect * (type === SHORE.cliff ? 2 : 1);
+        // (mangrove roots take the force out of the waves)
+        const cut = erodeK * ex * (1.2 - hard) * protect * (1 - 0.85 * world.mangrove[i]) * (type === SHORE.cliff ? 2 : 1);
         H[i] -= cut;
         // Soft rock breaks down to sand; hard rock to shingle (doesn't add sand)
         SAND[i] += cut * (1.3 - hard) * 2;
@@ -187,6 +190,25 @@ export function coastStep(world) {
     const h = H[i];
     const low = h > sea + half && h < sea + half + 8 ? 1 : 0;
     world.dune[i] = low * Math.min(1, blown[i] * 12);
+  }
+  // Mangroves: forests of salt-tolerant trees standing in the tide on warm, sheltered mudflats.
+  // They need warm water all year (they die back where the sea drops much below ~20 °C), spread out
+  // across the flats and into the shallows, trap mud among their roots (so the flat slowly builds
+  // up) and break the waves.
+  const MG = world.mangrove, warm = smoothstep(19, 23, climateParams.seaTemp);
+  for (let i = 0; i < n; i++) {
+    const h = H[i];
+    let target = 0;
+    if (warm > 0) {
+      if (SH[i] === SHORE.mudflat) target = warm;
+      else if (SH[i] === SHORE.sand && exposure[i] < 0.3) target = 0.6 * warm;
+      else if (h < sea - half && h > sea - half - 1.2 && exposure[i] < 0.75 && i > N && i < n - N
+        && Math.max(MG[i - 1], MG[i + 1], MG[i - N], MG[i + N]) > 0.35) target = 0.8 * warm; // spreading out into the shallows
+    }
+    MG[i] += (target - MG[i]) * (target > MG[i] ? 0.03 : 0.08);
+    if (MG[i] < 0.005) MG[i] = 0;
+    // Trapped mud builds the flat up toward the high-tide line
+    if (MG[i] > 0.2 && h < sea + half) H[i] += 0.0015 * MG[i];
   }
   world.dirty = true;
 }
@@ -233,4 +255,9 @@ export function paintShore(world, i, w, type, dt) {
     world.vegetation[i] *= 1 - s;
   }
   world.dirty = true;
+}
+
+function smoothstep(e0, e1, x) {
+  const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1);
+  return t * t * (3 - 2 * t);
 }

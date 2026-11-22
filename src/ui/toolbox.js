@@ -347,7 +347,7 @@ export class Toolbox {
     else if (mode === 'natural' || mode === 'biome') items(mode === 'biome' ? 'Biomes' : 'Biomes (blended)', Object.values(BIOMES));
     else if (mode === 'precip') ramp('Precipitation', 'dry (rain shadow)', 'wet (windward)', [[0.86, 0.74, 0.52], [0.12, 0.35, 0.75]]);
     else if (mode === 'snowDepth') ramp('Snow depth (grey = none)', 'thin', 'deep', [[0.88, 0.92, 0.98], [0.55, 0.72, 0.95], [0.18, 0.30, 0.75]]);
-    else if (mode === 'coast') items('Shores, dunes and ocean biomes', [...SHORES, { label: 'Coastal dunes', color: [0.86, 0.82, 0.62], help: 'Wind-blown sand behind sand beaches.' }, ...MARINE]);
+    else if (mode === 'coast') items('Shores, dunes and ocean biomes', [...SHORES, { label: 'Coastal dunes', color: [0.86, 0.82, 0.62], help: 'Wind-blown sand behind sand beaches.' }, { label: 'Mangrove forest', color: [0.12, 0.30, 0.16], help: 'Forest standing in the tide on warm, sheltered mudflats.' }, ...MARINE]);
     else if (mode === 'topo') {
       const t = this.app.renderer.topo || { lo: 0, hi: 50, interval: 2.5 };
       ramp(`Elevation · contours every ${t.interval} (bold every ${t.interval * 5})`, t.lo.toFixed(0), t.hi.toFixed(0), [[0.42, 0.62, 0.38], [0.62, 0.76, 0.46], [0.90, 0.86, 0.58], [0.80, 0.62, 0.40], [0.62, 0.48, 0.40], [0.97, 0.97, 0.97]]);

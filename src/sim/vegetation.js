@@ -178,7 +178,7 @@ function neighbourhood(world) {
 /** The cover a cell can support (0..1), given the neighbourhood fields `f`. */
 function potential(world, i, f) {
   const h = world.height[i];
-  if (h < world.seaLevel) return 0;
+  if (h < world.seaLevel) return world.mangrove && world.mangrove[i] > 0 ? 0.92 * world.mangrove[i] : 0;
   const p = vegetationParams;
   const slope = f.slope[i];
 
@@ -230,6 +230,8 @@ function potential(world, i, f) {
     // (drought-hardy pine woodland is the exception: it runs right up to the steppe)
     * (1 - smoothstep(0.005, 0.06, f.nearArid[i]) * (1 - 0.9 * pineDry));
   v = Math.min(v, 0.58 + 0.42 * forestOk);
+  // Mangrove forest stands in the tide where nothing else survives
+  if (world.mangrove && world.mangrove[i] > 0) v = Math.max(v, 0.92 * world.mangrove[i]);
   return Math.max(0, Math.min(1, v));
 }
 

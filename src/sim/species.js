@@ -61,12 +61,15 @@ export const SPECIES = [
     help: 'Salt- and wind-tolerant pine of the coast: the first tree on stabilised dunes and coastal bogs, often stunted and wind-twisted.' },
   { id: 'sitka', label: 'Sitka spruce', color: [0.07, 0.24, 0.18], mapColor: [0.12, 0.52, 0.46], temp: [2, 16], moist: [0.55, 1.1], age: 0.8, ageW: 0.5, soil: 'any', slope: 1.3, chem: -0.2, chemW: 2, coastal: true, flam: 0.8, soilBuild: 1.0,
     help: 'Giant spruce of the foggy, salt-sprayed coastal strip (the Pacific coast rainforests); thrives on sea fog and spray that other trees can\'t take.' },
+  { id: 'mangrove', label: 'Mangrove', color: [0.10, 0.30, 0.16], mapColor: [0.35, 0.75, 0.20], temp: [18, 40], moist: [0.5, 1.2], age: 0.5, ageW: 0.2, soil: 'any', slope: 1.5, chem: 0, chemW: 3, mangrove: true, flam: 0.2, soilBuild: 1.4,
+    help: 'Salt-tolerant trees of warm tidal mudflats, standing in the sea on stilt roots; they trap mud, build land and shelter the coast from waves.' },
 ];
 export const OPEN = { label: 'Open ground', color: [0.52, 0.66, 0.30], mapColor: [0.80, 0.84, 0.70], help: 'Gaps, meadow and scrub between trees.' };
 
 const K = SPECIES.length;
 const MIXA = [0, 0, 0];
 const CONIFER = SPECIES.map((s) => ['pine', 'fir', 'spruce', 'larch', 'juniper', 'shorepine', 'sitka'].includes(s.id));
+// (mangrove counts as broadleaf; it is evergreen and never turns colour)
 // Broadleaf trees give way to conifers with height: their thin leaves and soft wood can't take the
 // short, cold growing season and heavy snow. The change is gradual and patchy (aspect, shelter,
 // soil), not a line on the mountain. Pioneers (birch, aspen) climb a few degrees higher.
@@ -88,6 +91,7 @@ function suitability(world, i, out) {
   const chem = world.soilChem ? world.soilChem[i] : 0;
   const near = world.nearWater ? world.nearWater[i] : 0;
   const coastal = world.coastal ? world.coastal[i] : 0, dune = world.dune ? world.dune[i] : 0;
+  const mang = world.mangrove ? world.mangrove[i] : 0;
   // A patchy ±1.5 °C offset so the broadleaf limit wanders up and down the slopes
   const px = i % world.N, pz = (i / world.N) | 0;
   const patch = 1.5 * Math.sin(px * 0.21 + pz * 0.13) * Math.cos(pz * 0.17 - px * 0.08);
@@ -105,6 +109,9 @@ function suitability(world, i, out) {
     f *= 1 - 0.85 * smooth(s.slope, s.slope + 0.6, slope);
     f *= Math.max(0.08, 1 - Math.abs(chem - s.chem) / s.chemW);
     // Salt spray and sea wind: only the coastal specialists thrive right by the sea (and only there)
+    // Mangroves only grow in the tidal mangrove zone, and nothing else can grow there
+    if (s.mangrove) f *= smooth(0.1, 0.4, mang) * 4;
+    else f *= 1 - 0.95 * smooth(0.1, 0.4, mang);
     if (s.coastal) f *= 0.03 + smooth(0.15, 0.6, Math.max(coastal, dune));
     else f *= 1 - 0.8 * smooth(0.45, 0.95, coastal);
     if (s.dune) f *= 0.25 + 6 * dune + 0.6 * (1 - Math.min(1, soil * 1.5)); // dunes and poor, thin coastal soil

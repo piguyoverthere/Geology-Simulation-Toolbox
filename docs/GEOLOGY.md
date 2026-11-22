@@ -613,6 +613,12 @@ blows sand off sand beaches into **coastal dunes**, where dune grass and **shore
 Salt spray and sea fog keep most trees back from the shore: **Sitka spruce** and shore pine are the
 coastal specialists.
 
+**Mangroves.** Where the sea is tropical (water above about 20 °C), mangrove forests take over the
+sheltered mudflats and quiet sandy shores: salt-tolerant trees standing in the tidal water on
+stilt roots. A stand creeps out into the shallows beside it, its roots trap mud so the flat slowly
+builds up, and the tangle breaks the waves, so a mangrove shore erodes far less. Cool the sea and
+the mangroves die back to bare mud.
+
 **Ocean biomes** follow the water temperature (the sea lags the air and swings less) and depth:
 sea ice, kelp forests on cool rocky shores, seagrass meadows, coral reefs in warm shallows (they
 make white coral sand), the open shelf and the deep ocean. The water itself shifts from dark
