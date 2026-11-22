@@ -118,7 +118,8 @@ Sections are grouped from everyday to specialist, and each remembers whether you
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
 - **Climate → Environment**: ready-made climates applied to the current map without changing the
   terrain: Pacific Northwest coast, Inland Northwest, Alpine, Mediterranean, Tropical rainforest,
-  Desert, Boreal / subarctic and Arctic. Each sets temperature, seasons, rain, storms,
+  Desert, Boreal / subarctic and Arctic, plus **Puget Sound** (big tides, cool water, marine fog, grey
+  winters, rare lowland snow; it also turns the sea on, flooding the lowest ground if it was off). Each sets temperature, seasons, rain, storms,
   snowstorms, lightning, ocean fog, wetness, evaporation and tides at once.
 - **Ocean & coast**: sea on/off and level, tide range and period, wave erosion, coral growth, and
   the Shoreline tool's type. **Weather** has **Ocean fog** (the marine layer).
@@ -133,11 +134,9 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   heightmap export/import. The **Cascade Range** preset builds a north–south range with a rugged
   northern cluster, a low pass like the I-90 corridor, big stratovolcanoes in the south, a wet
   forested west and a dry plateau in the rain shadow, with westerly wind and dry summers. The
-  **Puget Sound** preset adds the sea: the Pacific coast with a sandy coastal plain and dunes, the
-  Olympic Mountains, the Sound (open water broken by clusters of lobed, north–south islands like
-  Vashon and Maury, with open basins between and peninsulas reaching out from the shores; straight
-  beaches below steep bluffs) and Hood Canal, the
-  Strait of Juan de Fuca and the Cascade foothills, with big tides and frequent ocean fog. Presets
+  **Puget Sound** preset makes the whole map the Sound: open water broken by clusters of lobed,
+  north–south islands like Vashon and Maury, crowded in places and sparse in others, with open
+  basins between and straight beaches below steep bluffs. Presets
   bring their own settings and put back the previous preset's when you switch.
 - **View**: clouds, water, wireframe.
 

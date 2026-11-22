@@ -11,6 +11,14 @@ export const ENVIRONMENTS = {
     seasons: { enabled: true, swing: 11 },
     weather: { lightning: 0.3 }, coast: { tideRange: 3.5 }, wetness: 1.2, evaporate: 0.02,
   },
+  pugetsound: {
+    label: 'Puget Sound',
+    help: 'The Sound itself: an inland sea with big tides (3–4 m), cool water (~11 °C) that keeps the shores mild, summer marine fog, long grey drizzly winters, snow in the lowlands only a time or two a year, almost no lightning. Turns the sea on (flooding the lowest ground if it was off).',
+    climate: { seaTemp: 11, lapse: 0.4, windAngle: 0, summerDry: 0.8, storms: 1.2, snowstorms: 0.8, oceanFog: 1 },
+    seasons: { enabled: true, swing: 10 },
+    weather: { lightning: 0.15 }, coast: { tideRange: 3.5, waveErosion: 0.005, coral: 0 }, wetness: 1.2, evaporate: 0.02,
+    sea: true,
+  },
   inland: {
     label: 'Inland Northwest',
     help: 'Eastern Washington: the Cascades\' rain shadow. Continental, with cold snowy winters, hot dry summers, thunderstorms and wildfire.',
@@ -72,6 +80,15 @@ export function applyEnvironment(app, id) {
   Object.assign(app.coastParams, e.coast || {});
   if (e.wetness !== undefined) app.vegetationParams.climate = e.wetness;
   if (e.evaporate !== undefined) app.waterParams.evaporate = e.evaporate;
+  if (e.sea && !app.sim.seaEnabled) {
+    // Turn the sea on: at the Puget Sound terrain's sea level, or flooding the lowest quarter of the map
+    const H = app.world.height, sample = [];
+    for (let k = 0; k < 4096; k++) sample.push(H[(k * 2654435761) % H.length >>> 0]);
+    sample.sort((a, b) => a - b);
+    app.sim.seaEnabled = true;
+    app.sim.seaLevel = Math.round(Math.max(3, sample[Math.floor(sample.length * 0.25)]) * 2) / 2;
+    app.applySea();
+  }
   app.climateChanged();
   app.toolbox.refresh();
 }

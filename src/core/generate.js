@@ -19,7 +19,7 @@ export const PRESETS = {
   },
   pugetsound: {
     label: 'Puget Sound',
-    // The Pacific coast, the Olympic Mountains, the glacier-carved Sound and the Cascade foothills
+    // The glacier-carved Sound: clustered islands across the whole map
     climate: { seaTemp: 11, windAngle: 0, summerDry: 0.8, oceanFog: 1 },
     sea: { enabled: true, level: 3 },
     coast: { tideRange: 3.5, waveErosion: 0.005 },
@@ -82,7 +82,7 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
           break;
         case 'pugetsound':
           y = pugetHeight(puget, noise, x * layout, z * layout, u, v);
-          world.moistureBias[z * N + x] = 0.3 - 0.25 * smoothstep(0.15, 0.3, x * layout) * (1 - smoothstep(0.35, 0.55, x * layout)); // Olympic rain shadow (Sequim) east of the peaks
+          world.moistureBias[z * N + x] = 0.3; // the wet, mild lowland under the marine air
           break;
         case 'flat':
         default:
@@ -212,76 +212,55 @@ function cascadeGap(c, lu, lv) {
 }
 
 /**
- * Puget Sound, simplified, west to east: the open Pacific; the Olympic Mountains (a rugged, glaciated
- * dome of basalt and sedimentary rock); the Puget lowland, carved by the Ice Age glaciers into long
- * north–south troughs now flooded by the sea (the Sound, Hood Canal) with islands and peninsulas
- * between; and the Cascade foothills rising to the east. The Strait of Juan de Fuca runs along the
- * north, joining the Sound to the ocean.
+ * Puget Sound: the Puget lowland, carved by the Ice Age ice sheet into long north–south troughs now
+ * flooded by the sea, with the glacial upland left between them as islands and peninsulas. The whole
+ * map is the Sound: islands in clusters (Vashon and Maury, Bainbridge, the South Sound group, the San
+ * Juans) with open basins between, sparse in places, plus a few lone islands out in open water.
  */
 function pugetLayout(N, noise, seed) {
-  // Islands, placed in clusters (3 groups of 3–5) plus a couple of lone ones out in open water.
-  // Each is a lobe stretched north–south, as the ice sheet streamlined them.
+  // Clusters sit on a jittered 3×3 grid over the whole map; some grid cells are left empty, so the
+  // islands are crowded in places and sparse in others. Each island is a lobe stretched north–south,
+  // as the ice sheet streamlined them. (In map units, so bigger maps add detail, not more islands.)
   const rnd = mulberry32(seed * 977 + 13);
   const islands = [];
   const add = (x, z, size) => islands.push({
     x, z, rx: (0.012 + rnd() * 0.016) * size, rz: (0.03 + rnd() * 0.05) * size, tilt: (rnd() - 0.5) * 0.5,
   });
-  for (let c = 0; c < 3; c++) {
-    const cx = 0.44 + rnd() * 0.2, cz = 0.18 + c * 0.28 + (rnd() - 0.5) * 0.1;
-    const n = 3 + Math.floor(rnd() * 3);
-    for (let k = 0; k < n; k++) add(cx + (rnd() - 0.5) * 0.2, cz + (rnd() - 0.5) * 0.24, k === 0 ? 2.1 : 0.7 + rnd() * 0.7);
+  const G = 3, cell = 1 / G;
+  for (let gz = 0; gz < G; gz++) {
+    for (let gx = 0; gx < G; gx++) {
+      if (rnd() < 0.25) continue; // an open basin
+      const cx = (gx + 0.25 + rnd() * 0.5) * cell, cz = (gz + 0.25 + rnd() * 0.5) * cell;
+      const n = 2 + Math.floor(rnd() * 4);
+      for (let k = 0; k < n; k++) add(cx + (rnd() - 0.5) * 0.18, cz + (rnd() - 0.5) * 0.22, k === 0 ? 2.1 + rnd() * 0.8 : 0.8 + rnd() * 0.8);
+    }
   }
-  for (let k = 0; k < 2; k++) add(0.42 + rnd() * 0.26, 0.1 + rnd() * 0.8, 0.5 + rnd() * 0.5);
+  for (let k = 0; k < 4; k++) add(0.06 + rnd() * 0.88, 0.06 + rnd() * 0.88, 0.4 + rnd() * 0.5);
   return { N, islands };
 }
 
 function pugetHeight(c, noise, lu, lv, u, v) {
-  // Ocean off the west coast (deepening offshore)
-  const coast = 0.07 + 0.02 * noise(lv * 3, 1.3);
-  if (lu < coast) return 2 - 12 * smoothstep(coast, coast - 0.06, lu);
-  // The Olympic Mountains: a rugged dome
-  const ox = lu - 0.2, oz = lv - 0.42;
-  const dome = Math.exp(-(ox * ox) / (2 * 0.075 * 0.075) - (oz * oz) / (2 * 0.2 * 0.2));
-  const crest = ridged(noise, u * 2.6, v * 2.6, 5);
-  let y = 9 + dome * (16 + 34 * Math.pow(crest, 1.2));
-  // The Cascade foothills in the east
-  y += smoothstep(0.78, 1.0, lu) * (14 + 10 * ridged(noise, u * 3 + 5, v * 3, 4));
-  // The lowland: a glacial upland of till, streamlined north–south by the ice (drumlins)
-  y += 2 + (1 - dome) * 2.5 * fbm(noise, u * 5, v * 2, 3);
-  // The Sound: the ice sheet gouged a branching network of north–south troughs, now flooded by the
-  // sea. Between them the upland is left as long, irregular islands and peninsulas (Vashon,
-  // Bainbridge, the Kitsap Peninsula) with steep bluffs dropping to the water.
-  // Land vs water comes from a broad, smooth pattern stretched north–south (so the islands are
-  // a few big, lobed blocks, not ribbons), with a little fine roughness on the shore that the
-  // waves then straighten. Tied to the map, not the cell count, so bigger maps add detail, not
-  // more islands.
-  const band = smoothstep(0.3, 0.37, lu) * (1 - smoothstep(0.7, 0.78, lu));
+  // The glacial upland of till, streamlined north–south by the ice (drumlins), standing ~8 above the
+  // sea where it survives as islands
+  let y = 13 + 2.5 * fbm(noise, u * 5, v * 2, 3);
+  // Land vs water: the islands' lobes, slightly warped so no two are alike
   const wu = lu + 0.04 * noise(lu * 3 + 1.7, lv * 3), wv = lv + 0.04 * noise(lu * 3, lv * 3 + 3.3);
-  // The Sound is open water between its shores, broken by islands that come in clusters (Vashon and
-  // Maury, Bainbridge, the South Sound group) with open basins between, plus peninsulas reaching out
-  // from the shores
   let isl = -1;
   for (const k of c.islands) {
     const dx = wu - k.x, dz = wv - k.z;
     const ax = dx * Math.cos(k.tilt) - dz * Math.sin(k.tilt), az = dx * Math.sin(k.tilt) + dz * Math.cos(k.tilt);
     isl = Math.max(isl, 1 - Math.sqrt((ax / k.rx) ** 2 + (az / k.rz) ** 2));
   }
-  // Island edges: lobed and irregular
+  // Island edges: lobed and irregular, with a little fine roughness on the shore that the waves
+  // then straighten
   isl += 0.25 * fbm(noise, lu * 14 + 3.1, lv * 7 - 1.2, 3);
-  // Shores: land near the band's edges, with peninsulas poking out
-  const edge = Math.min(lu - 0.37, 0.72 - lu);
-  const shore = 1 - smoothstep(0, 0.045, edge) + 0.5 * fbm(noise, wu * 5 + 7.1, wv * 2 + 2.2, 3) - 0.3;
-  const landness = Math.max(isl * 0.25, shore * 0.25) + 0.02 * fbm(noise, lu * 22, lv * 14, 2);
-  // Water where the pattern dips below zero; the edge is a steep bluff, the channel floor broad
+  const landness = isl * 0.25 + 0.02 * fbm(noise, lu * 22, lv * 14, 2);
+  // The bigger islands rise a little toward their middles
+  y += 5 * smoothstep(0.05, 0.5, isl) * (0.6 + 0.4 * fbm(noise, u * 4 + 9, v * 4, 3));
+  // Water where the pattern dips below zero; the edge is a steep bluff, the channel floor broad and
+  // deepening away from the islands (the troughs run 100–280 m deep in the real Sound)
   const water = smoothstep(0.02, -0.1, landness);
-  y -= band * 17 * water;
-  const canal = Math.exp(-((lu - 0.33) ** 2) / (2 * 0.012 * 0.012)) * smoothstep(0.25, 0.4, lv) * (1 - smoothstep(0.75, 0.85, lv));
-  y -= canal * 13;
-  // A low coastal plain behind the Pacific shore: room for sand beaches and dunes
-  y -= 7.5 * (1 - smoothstep(coast - 0.005, coast + 0.09, lu)) * (1 - dome);
-  // The Strait of Juan de Fuca along the north, joining the ocean to the Sound
-  const strait = (1 - smoothstep(0.05, 0.12, lv)) * (1 - smoothstep(0.55, 0.7, lu));
-  y -= strait * 16;
+  y -= water * (17 + 5 * smoothstep(-0.1, -0.6, landness));
   return y;
 }
 
