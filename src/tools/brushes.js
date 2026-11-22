@@ -17,7 +17,7 @@ const detailNoise = createNoise2D(777);
 
 /** Keyboard shortcuts, assigned to tools in TOOLS order. */
 export const TOOL_KEYS = '1234567890-=';
-const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O', pollute: 'X', clean: 'V' };
+const LETTER_KEYS = { draw: 'D', lightning: 'L', wildfire: 'F', storm: 'C', drain: 'W', snow: 'N', glacier: 'G', subside: 'B', uplift: 'U', age: 'A', lake: 'K', section: 'P', shoreline: 'O', pollute: 'X', clean: 'V', stir: 'M' };
 export function toolKey(id) { return LETTER_KEYS[id] || TOOL_KEYS[Object.keys(TOOLS).indexOf(id)] || ''; }
 
 /**
@@ -357,6 +357,27 @@ export const TOOLS = {
       forEachCell(world, x, z, radius, (i, w) => {
         if (world.height[i] < top) F[i] = Math.min(4, F[i] + strength * 2 * dt * w);
       });
+      world.dirty = true;
+    },
+  },
+  stir: {
+    label: 'Stir water', group: 'Water', icon: '↻', editsTerrain: false,
+    help: 'Paint over the sea to stir it by hand: pollutants and silt under the brush are mixed together and evened out (a thick, concentrated patch is spread across the whole brush and thinned; nothing is removed). Drag it outward from a spill to smear the plume along. Brush strength sets how hard you stir.',
+    apply({ world, x, z, radius, strength, dt }) {
+      const sea = world.meanSea;
+      if (!world.pollution || sea === undefined || sea < -999) return;
+      const top = sea + 0.5 * coastParams.tideRange, H = world.height;
+      const cells = [];
+      forEachCell(world, x, z, radius, (i, w) => { if (H[i] < top) cells.push(i, w); });
+      if (cells.length < 4) return;
+      const k = Math.min(1, strength * 6 * dt);
+      for (const F of [world.pollution, world.silt]) {
+        // Pull each cell toward the brush's (weighted) average: the total stays the same
+        let sum = 0, ws = 0;
+        for (let c = 0; c < cells.length; c += 2) { sum += F[cells[c]] * cells[c + 1]; ws += cells[c + 1]; }
+        const avg = sum / ws;
+        for (let c = 0; c < cells.length; c += 2) F[cells[c]] += (avg - F[cells[c]]) * k * cells[c + 1];
+      }
       world.dirty = true;
     },
   },

@@ -85,6 +85,8 @@ again). **Lake** ◒ (Water): click a hollow to fill it to its spill level.
 rock cliff or basalt boulder beach (pick the type under **Ocean & coast**); Shift returns it to
 the automatic choice. **Pollute water** ☣ (X) pours pollutants into the sea (Shift: mud);
 **Clean water** ✧ (V) clears silt and pollutants so dead sea beds can recover.
+**Stir water** ↻ (M) mixes pollutants and silt by hand, evening them out across the brush (nothing
+is removed); drag it to smear a plume along.
 
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
 sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or
