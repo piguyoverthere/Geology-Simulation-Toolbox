@@ -690,7 +690,10 @@ from below. The Temperature overlay shows the sea's own surface temperature, spo
 **Brackish water.** Most sea beds can't stand fresher water: kelp and coral need full-strength
 seawater, and even seagrass (eelgrass copes best) dies back where rivers keep the water brackish.
 
-**The shore's edge.** Forest doesn't run down to the high-tide line: just above it, storm surges and
+**The shore's edge.** Between the tide lines the sea scours the ground bare twice a day: grass,
+shrubs and trees are stripped away (only mangroves, and swamp forest in brackish water, hold on), and
+the waves slowly bring sand in and spread it over the bare ground, building it up into beach (except
+on sheltered mudflats and at the foot of cliffs). Forest doesn't run down to the high-tide line either: just above it, storm surges and
 storm waves wash over the ground every so often, leaving only grass and low scrub. Behind exposed
 shores, salt spray and the sea wind thin and stunt the trees, and loose, dry beach and dune sand holds
 little; there the coastal specialists take over (shore pine on the sand, Sitka spruce in the spray and

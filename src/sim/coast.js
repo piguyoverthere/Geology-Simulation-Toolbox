@@ -296,6 +296,12 @@ export function coastStep(world) {
         const avg = (H[i - 1] + H[i + 1] + H[i - N] + H[i + N] + H[i - N - 1] + H[i - N + 1] + H[i + N - 1] + H[i + N + 1]) / 8;
         H[i] += (avg - H[i]) * 0.04 * ex * (1.2 - hard);
       }
+      // --- Between the tide lines, the waves slowly bring sand in from the sea and spread it over
+      // the bare, tide-scoured ground, building it up into beach (not on mudflats or cliffs) ---
+      if (h < sea + half && h > sea - half && type !== SHORE.mudflat && type !== SHORE.cliff && erodeK > 0) {
+        SAND[i] = Math.min(3, SAND[i] + 0.006 * (0.3 + ex));
+        if (SAND[i] > 0.5) H[i] += 0.0006 * (0.3 + ex) * (1 - world.mangrove[i]);
+      }
       // --- Sand budget: rivers and coral feed it, exposed waves strip it ---
       const river = world.sediment[i] * 0.3;
       // (living reefs make coral sand slowly; dead ones, broken up by the waves, much faster)

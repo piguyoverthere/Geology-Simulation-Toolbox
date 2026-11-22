@@ -277,7 +277,9 @@ export function vegetationStep(world) {
     let saltKill = false;
     if (salt > 0) {
       const swampOK = SW[i] && (salt === 1 || H[i] > meanSea - 0.4); // brackish fringe, shallow flooding
-      const tolerated = Math.max(0.92 * mang, swampOK ? 0.8 : 0, salt === 1 ? 0.35 : 0);
+      // (the tide scours the ground between the tide lines bare: only mangroves and swamp forest
+      // hold on; grass and shrubs are stripped away)
+      const tolerated = Math.max(0.92 * mang, swampOK ? 0.8 : 0);
       target = salt === 2 ? tolerated : Math.min(target, tolerated);
       saltKill = v > target;
     } else if (seaOn) {
