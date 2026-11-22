@@ -355,6 +355,8 @@ export class Toolbox {
       const sw = el('span', 'tb-swatch');
       sw.style.background = rgb(a.color);
       const name = el('span', 'tb-animal-name', a.name);
+      const status = el('span', 'tb-animal-status');
+      name.append(status);
       const paint = button('Paint', () => { app.animalChoice = a.id; app.setTool('animal'); this.renderAnimals(); }, 'tb-small', `Paint ${a.name} onto the map (Animal tool; Shift removes).`, this);
       const edit = button('Edit', () => this.editAnimal(a), 'tb-small', `Change ${a.name}.`, this);
       const del = button('✕', () => { removeAnimal(w, a.id); if (app.animalChoice === a.id) app.animalChoice = null; this.renderAnimals(); this.updateLegend(); }, 'tb-small', `Remove ${a.name} (and all of them from the map).`, this);
@@ -374,7 +376,7 @@ export class Toolbox {
         this.drawGraphs();
       });
       L.append(big);
-      this.graphs.push({ a, spark, big });
+      this.graphs.push({ a, spark, big, status });
     }
   }
 
@@ -384,6 +386,10 @@ export class Toolbox {
     for (const g of this.graphs || []) {
       const data = hist[g.a.id] || [];
       drawLine(g.spark, [{ data, color: rgb(g.a.color), width: 1.5 }], false);
+      // Starving: a warning beside the name
+      const st = g.a.starving || 0, gone = data.length && data[data.length - 1] < 0.5;
+      g.status.textContent = gone ? ' · died out' : st > 0.05 ? ` · ${Math.round(st * 100)}% starving` : '';
+      g.status.className = 'tb-animal-status' + (gone || st > 0.3 ? ' bad' : st > 0.05 ? ' warn' : '');
       if (!g.big.hidden) {
         // The animal itself, with what it eats and what eats it (fainter) for comparison
         const series = [{ data, color: rgb(g.a.color), width: 2, label: g.a.name }];

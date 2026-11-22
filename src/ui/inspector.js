@@ -116,7 +116,7 @@ export class Inspector {
 
     // --- Wildlife ---
     group('Wildlife', (w.animals || []).filter((an) => w['animal_' + an.id] && w['animal_' + an.id][i] > 0.03).map((an) =>
-      [esc(an.name), `${bar(Math.min(1, w['animal_' + an.id][i]), rgb(an.color))}${an.habits.runsRivers ? ` ${dim(`· run ${Math.round((an.stock || 0) * 100)}%`)}` : ''}`]));
+      [esc(an.name), `${bar(Math.min(1, w['animal_' + an.id][i]), rgb(an.color))} ${hungerText(w['hunger_' + an.id] ? w['hunger_' + an.id][i] : 0)}${an.habits.runsRivers ? ` ${dim(`· run ${Math.round((an.stock || 0) * 100)}%`)}` : ''}`]));
 
     this.root.innerHTML =
       `<div class="ins-head"><span class="tb-swatch" style="background:${swatch}"></span><b>${biome.label}</b>` +
@@ -134,6 +134,11 @@ function formation(w, i, h) {
   if (s >= 0 && h > w.surfaceBase[i] + 1e-3) return s === ROCK_INDEX.tuff ? 'Ash fall' : 'Lava flow';
   if (w.intrusionRock[i] >= 0 && h <= w.intrusionTop[i]) return w.intrusionTop[i] === Infinity ? 'Dike' : 'Pluton';
   return PROVINCES[w.province[i]];
+}
+
+/** Well fed / hungry / starving, for an animal at a cell. */
+function hungerText(h) {
+  return h > 0.4 ? '<span style="color:#ff7a5a">starving</span>' : h > 0.12 ? '<span style="color:#e0c060">hungry</span>' : '<span class="ins-dim">well fed</span>';
 }
 
 function chemText(c) {

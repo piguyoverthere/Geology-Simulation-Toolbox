@@ -255,3 +255,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .tb-spark { width: 64px; height: 18px; cursor: pointer; border-radius: 3px; background: rgba(255,255,255,0.04); }
 .tb-popchart { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
 .tb-popchart[hidden] { display: none; }
+
+.tb-animal-status { font-size: 10.5px; color: var(--muted); }
+.tb-animal-status.warn { color: #e0c060; }
+.tb-animal-status.bad { color: #ff7a5a; }

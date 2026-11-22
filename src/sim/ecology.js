@@ -73,10 +73,18 @@ export function animalField(world, a) {
   return world[k];
 }
 
+/** How hungry the animal is at each cell: 0 well fed … 1 starving. */
+export function hungerField(world, a) {
+  const n = world.N * world.N, k = 'hunger_' + a.id;
+  if (!world[k] || world[k].length !== n) world[k] = new Float32Array(n);
+  return world[k];
+}
+
 export function removeAnimal(world, id) {
   world.animals = (world.animals || []).filter((a) => a.id !== id);
   for (const a of world.animals) a.prey = a.prey.filter((p) => p !== id);
   delete world['animal_' + id];
+  delete world['hunger_' + id];
   world.dirty = true;
 }
 
@@ -193,6 +201,8 @@ function stepAnimal(world, a, M, sea, k) {
   }
   const runSeason = hb.runsRivers && ph > 0.47 && ph < 0.72;
   const K = new Float32Array(n), allow = new Float32Array(n);
+  const HU = hungerField(world, a);
+  let fed = 0, starving = 0;
   const PO = world.pollution, OX = world.oxygen, SNW = world.snow;
   const grazer = a.eats.grass || a.eats.young || a.eats.decid || a.eats.conifer;
   const r = 0.03 * a.breed * k;
@@ -204,16 +214,24 @@ function stepAnimal(world, a, M, sea, k) {
     const food = Math.min(1.2, plantFood(world, a, i, M) + (prey ? prey[i] * 1.5 : 0));
     K[i] = food * h;
     let p = P[i];
-    if (p <= 0) continue;
+    if (p <= 0) { HU[i] = 0; continue; }
+    // Hunger: builds where there's less food than the animals here need, eases where there's
+    // plenty. Hungry animals stop breeding; starving ones die off fast (and wander off for food)
+    const ratio = K[i] / p;
+    HU[i] += (Math.max(0, Math.min(1, 1 - ratio)) - HU[i]) * Math.min(1, 0.15 * k);
+    const hu = HU[i];
     let dp = r * p * (1 - p / Math.max(0.02, K[i]));
+    if (dp > 0) dp *= 1 - hu;
+    dp -= 0.12 * k * hu * hu * p; // (starving)
     if (hunted) dp -= 0.25 * k * hunted[i] * p;
     if (hb.avoidsSnow && SNW && SNW[i] > 1.2) dp -= 0.02 * k * p;
     if (hb.pollution && PO && PO[i] > 0.4) dp -= 0.1 * k * p;
     if (M.seaM[i] && OX && OX[i] < 0.35) dp -= 0.15 * k * p; // (suffocating)
     p = Math.max(0, Math.min(1.5, p + dp));
     if (hb.frostKills && world.temperature[i] + seasonalAt(world, i, st) < -12) p *= 0.6;
-    if (p < 0.002) { P[i] = 0; continue; }
+    if (p < 0.002) { P[i] = 0; HU[i] = 0; continue; }
     P[i] = p;
+    fed += p; starving += p * (hu > 0.4 ? 1 : 0);
     // --- What it does to the place ---
     if (grazer && M.land[i]) world.browse[i] = Math.min(1, world.browse[i] + p * (a.eats.grass || a.eats.young ? 1 : 0.5));
     if (a.eats.plankton && world.plankton && M.seaM[i]) world.plankton[i] = Math.max(0, world.plankton[i] - 0.02 * p * k);
@@ -243,6 +261,7 @@ function stepAnimal(world, a, M, sea, k) {
     }
     if (runSeason && M.stream[i]) world.runners[i] += p;
   }
+  a.starving = fed > 0.5 ? starving / fed : 0; // (share of them starving, for the panel)
   // Abandoned dams wash out
   if (hb.dams) for (let i = 0; i < n; i++) if (world.dam[i] > 0 && P[i] < 0.05) { const d = Math.min(world.dam[i], 0.002 * k); H[i] -= d; world.dam[i] -= d; }
   // --- Moving about: toward better feeding, over its roaming range ---
@@ -254,7 +273,8 @@ function stepAnimal(world, a, M, sea, k) {
     for (let i = 0; i < n; i++) {
       if (!allow[i]) { P[i] = 0; continue; }
       const target = kb[i] > 1e-3 ? (b[i] * K[i]) / kb[i] : 0;
-      P[i] += (target - P[i]) * 0.2 * k;
+      // (hungry animals move on, looking for food)
+      P[i] += (target - P[i]) * Math.min(0.9, 0.2 * k * (1 + 2 * HU[i]));
     }
   }
   // End of the run: those in the rivers spawn and die, fertilising the banks

@@ -845,6 +845,11 @@ none and moves toward better feeding over its roaming range, and each links to t
   the sea up cool, clean rivers, held back by warm water, mud and dams; the spawners die and
   fertilise the stream banks, and next year's run depends on how many made it).
 - Every sea animal suffocates in low-oxygen water.
+- **Starving.** Each animal has a hunger level where it lives: it builds where there is less food
+  than the animals there need (too many of them, the plants grazed bare or buried by snow, the prey
+  gone) and eases where food is plentiful. Hungry animals stop breeding; starving ones die off fast
+  and wander further looking for food. The inspector shows each animal as well fed, hungry or
+  starving, and the Wildlife panel warns how many are starving (or that they have died out).
 
 Paint them in with the Animal tool. They show in the map key, the Wildlife overlay (the most common
 animal in each place), the inspector and as small dots in their colours; dying forest and river runs
