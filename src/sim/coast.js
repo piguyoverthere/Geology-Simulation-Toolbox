@@ -29,6 +29,7 @@ import { boxBlur } from '../core/grid.js';
 import { climateParams, seasonParams } from './climate.js';
 import { ROCK_INDEX } from '../core/rocks.js';
 import { waterQualityStep, addSilt, ensureQuality } from './waterQuality.js';
+import { oceanStep, ensureOcean } from './ocean.js';
 
 export const coastParams = {
   tideRange: 1.5,     // height between low and high tide
@@ -54,6 +55,7 @@ export const MARINE = [
   { id: 'coral', label: 'Coral reef', color: [0.92, 0.62, 0.58], bed: [0.86, 0.66, 0.56], help: 'Reefs built by corals in warm, clear, shallow water; they make white coral sand.' },
   { id: 'shelf', label: 'Open ocean (shelf)', color: [0.20, 0.45, 0.62], bed: [0.58, 0.55, 0.47], help: 'Shallow sea over the continental shelf.' },
   { id: 'deep', label: 'Deep ocean', color: [0.08, 0.20, 0.42], bed: [0.36, 0.36, 0.36], help: 'Deep water far from shore.' },
+  { id: 'estuary', label: 'Estuary (brackish)', color: [0.42, 0.56, 0.52], bed: [0.46, 0.44, 0.36], help: 'Where a river meets the sea: brackish water, part fresh and part salt, muddy and rich in nutrients. Too fresh for coral and kelp.' },
   { id: 'dieoff', label: 'Die-off (bare seabed)', color: [0.40, 0.44, 0.34], bed: [0.42, 0.44, 0.34], help: 'Seagrass, kelp or coral killed by dirty water (silt or pollutants): bare mud and rubble, or bleached, dead coral. It recovers slowly once the water is clean again.' },
 ];
 export const MARINE_ID = Object.fromEntries(MARINE.map((m, k) => [m.id, k]));
@@ -86,7 +88,7 @@ export function marineThins(m) { return m >= 0 && THINS[m]; }
 /** The sea bed as it looks now: a living bed that dirty water has killed shows as a die-off. */
 export function marineShown(world, i) {
   const m = world.marine ? world.marine[i] : -1;
-  if (m >= 0 && seaTemp() < -1.5) return MARINE_ID.ice; // winter sea ice over the bed
+  if (m >= 0 && world.seaIce && world.seaIce[i] > 0.3) return MARINE_ID.ice; // winter sea ice over the bed
   if (m >= 0 && SENSITIVE[m] > 0 && world.marineHealth && world.marineHealth[i] < (THINS[m] ? 0.05 : 0.3)) return MARINE_ID.dieoff;
   return m;
 }
@@ -103,6 +105,7 @@ export function ensureCoast(world) {
   if (!world.coral || world.coral.length !== n) world.coral = new Float32Array(n);
   if (!world.mangrove || world.mangrove.length !== n) world.mangrove = new Float32Array(n);
   ensureQuality(world);
+  ensureOcean(world);
 }
 
 /** Sea surface now: mean sea level plus the tide. Called every frame. */
@@ -110,7 +113,8 @@ export function tideLevel(world, meanSea) {
   const p = coastParams;
   world.tide = 0.5 * p.tideRange * Math.sin((2 * Math.PI * (world.time || 0)) / p.tidePeriod);
   world.meanSea = meanSea;
-  return meanSea + world.tide;
+  // (plus any storm surge: storms over the sea raise it for a while)
+  return meanSea + world.tide + (world.surge || 0);
 }
 
 /** Water temperature of the sea (°C): the air's year average, with a damped season. */
@@ -189,9 +193,12 @@ export function coastStep(world) {
         const rocky = world.hardnessAt(h, i) > 0.6;
         // (each spot's own limits differ a little: currents, shade, upwelling)
         const T = Tbed + (((i * 2654435761) >>> 0) / 4294967296 - 0.5) * 3;
+        // (coral and kelp need full-strength seawater; river mouths are brackish estuaries)
+        const salt = world.salinity[i];
         if (depth > 14) m = MARINE_ID.deep;
-        else if (depth < 6 && T > 20) m = MARINE_ID.coral;
-        else if (depth < 6 && T > 4 && T < 19 && rocky) m = MARINE_ID.kelp;
+        else if (salt < 0.55 && depth < 8) m = MARINE_ID.estuary;
+        else if (depth < 6 && T > 20 && salt > 0.85) m = MARINE_ID.coral;
+        else if (depth < 6 && T > 4 && T < 19 && rocky && salt > 0.8) m = MARINE_ID.kelp;
         else if (depth < 4) m = MARINE_ID.seagrass;
         else m = MARINE_ID.shelf;
         const cur = M[i];
@@ -235,7 +242,7 @@ export function coastStep(world) {
       if (inReach && erodeK > 0 && type !== SHORE.mudflat) {
         const protect = 1 - Math.min(0.85, SAND[i] * 0.6);
         // (mangrove roots take the force out of the waves)
-        const cut = erodeK * ex * (1.2 - hard) * protect * (1 - 0.85 * world.mangrove[i]) * (type === SHORE.cliff ? 2 : 1);
+        const cut = erodeK * ex * (1.2 - hard) * protect * (1 - 0.85 * world.mangrove[i]) * (type === SHORE.cliff ? 2 : 1) * (1 + 4 * world.stormWave[i]); // (storm waves pound it)
         H[i] -= cut;
         // Soft rock breaks down to sand; hard rock to shingle (doesn't add sand). The fines cloud
         // the water.
@@ -246,7 +253,7 @@ export function coastStep(world) {
       // (fast where they're bare; mangroves and seagrass hold the mud down)
       if (inReach && erodeK > 0 && type === SHORE.mudflat) {
         const grass = [i - 1, i + 1, i - N, i + N].some((j) => M[j] === MARINE_ID.seagrass) ? 0.6 * world.marineHealth[i] : 0;
-        const cut = erodeK * (0.3 + 2 * ex) * (1 - 0.85 * world.mangrove[i]) * (1 - grass);
+        const cut = erodeK * (0.3 + 2 * ex) * (1 - 0.85 * world.mangrove[i]) * (1 - grass) * (1 + 4 * world.stormWave[i]);
         H[i] -= cut;
         addSilt(world, i, cut * 6);
       }
@@ -293,6 +300,21 @@ export function coastStep(world) {
   }
   // Seawater quality: silt and pollutants mix, settle, flush out to sea and are filtered by the
   // living sea beds, which die off where it stays too dirty
+  world.exposure = exposure; // (for the sea step)
+  world.dirty = true;
+}
+
+/**
+ * The moving, living sea: currents, salinity, plankton and oxygen, sea ice, storm surge and surf
+ * (sim/ocean.js), then seawater quality (sim/waterQuality.js). Run a few times a second, on a
+ * different frame from coastStep to spread the work.
+ */
+export function seaStep(world) {
+  const sea = world.meanSea;
+  if (sea === undefined || sea < -999 || !world.exposure) return;
+  ensureCoast(world);
+  const half = 0.5 * coastParams.tideRange;
+  oceanStep(world, sea, half, world.exposure, seaTemp(), coastParams.tidePeriod);
   waterQualityStep(world, sea, half, FILTER, SENSITIVE, PACE, RESIST);
   world.dirty = true;
 }

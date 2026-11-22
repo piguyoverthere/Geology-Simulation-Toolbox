@@ -660,6 +660,36 @@ differ a little. When the sea warms or cools, the beds that no longer suit a spo
 by patch over several years, the newcomers starting sparse and filling in, so coral spreads and kelp
 retreats (or the reverse) over many cycles.
 
+**Tidal currents.** As the tide rises (the flood) the sea pours into the bays and channels from the
+open ocean, and as it falls (the ebb) it drains back out. The current runs along each channel,
+fastest in narrow passages and slowed by friction in the shallows, with a slow drift with the wind
+on top. It carries silt, pollutants, plankton and river water back and forth with every tide.
+
+**Estuaries.** Rivers pour fresh water into the sea, and it floats out over the seawater as a plume.
+Near a river mouth the water is brackish (part fresh, part salt) and forms an **estuary**, mixing back
+to full seawater (about 35 ‰) further out. Coral and kelp need full-strength seawater; eelgrass and
+salt marsh don't mind brackish water.
+
+**Plankton blooms and dead zones.** Microscopic algae bloom where the water is warm, sunny (spring and
+summer) and rich in nutrients: sewage and farm runoff (the pollutants) and river water. A big bloom
+turns the water green (reddish-brown in warm seas: a red tide). When it dies and rots in deep water
+that is rarely flushed out (far up a long inlet, like Hood Canal), it uses up the oxygen there:
+**hypoxia**, and at worst a dead zone that suffocates the sea beds. Healthy sea beds take up the
+nutrients first and keep blooms down; open water and storms stir oxygen back in.
+
+**Sea ice** freezes cell by cell: seawater freezes at about −1.9 °C, fresher water closer to 0 °C, and
+sheltered, shallow bays freeze first, open, wavy water last. Thin new ice thickens into white pack
+ice through the winter and thaws again in spring.
+
+**Storm surge and storm waves.** A storm over the sea raises it (low pressure lifts the surface and
+the wind piles water against the coast), flooding low shores for a while, and its big waves pound
+the coast, eroding it several times faster. **Surf** breaks in white bands along exposed shores,
+fiercest under a storm.
+
+Under **Ocean & coast**, sliders set the strength of the tidal currents, the storm surge and waves,
+and how readily plankton blooms. The inspector shows the current (speed, direction, flood or ebb, any
+storm surge), salinity, plankton, oxygen and sea ice.
+
 **Maritime climate.** The sea stores heat, so near the coast the seasons swing about half as much
 (mild winters, cool summers) and far inland more (continental). On the Puget Sound map the swing was
 0.74× normal along the coast and 1.1× inland. **Ocean fog** (the marine layer) drifts over the sea and

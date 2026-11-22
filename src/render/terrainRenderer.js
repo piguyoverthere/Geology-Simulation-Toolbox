@@ -359,12 +359,23 @@ export class TerrainRenderer {
             else {
               wc = mix(wc, SILT_WATER, Math.min(0.95, w.silt[i] * 1.2), S4);
               wc = mix(wc, FOUL_WATER, Math.min(0.5, Math.sqrt(w.pollution[i]) * 0.4), S4); // (a thin plume still shows)
+              // A plankton bloom turns it green (a red tide in warm water)
+              const pl = w.plankton ? w.plankton[i] : 0;
+              if (pl > 0.3) wc = mix(wc, seaTemp() > 18 ? RED_TIDE : BLOOM, Math.min(0.6, (pl - 0.3) * 0.45), S4);
+              // Surf: white water where the waves break along exposed shores, rolling in in bands
+              const sf = w.surf ? w.surf[i] : 0;
+              if (sf > 0.05) {
+                const roll = 0.5 + 0.5 * Math.sin((w.time || 0) * 2.2 - (x * 0.9 + z * 0.7) * 0.35 + i * 0.13);
+                wc = mix(wc, FOAM, Math.min(0.85, sf * (0.35 + 0.65 * roll * roll)), S4);
+              }
             }
           }
-          const iced = isSea && this.seaIce;
-          if (iced) { wc[0] = 0.9; wc[1] = 0.94; wc[2] = 0.97; }
+          // Sea ice, cell by cell: thin new ice is grey and see-through, thick pack ice white
+          const si = isSea && w.seaIce ? w.seaIce[i] : 0;
+          const iced = si > 0.05;
+          if (iced) wc = mix(wc, ICE_SEA, Math.min(1, si * 1.6), S4);
           this.wCol[i4] = wc[0] * wc[0]; this.wCol[i4 + 1] = wc[1] * wc[1]; this.wCol[i4 + 2] = wc[2] * wc[2];
-          this.wCol[i4 + 3] = iced ? 0.97 : Math.min(isSea ? 0.9 : 0.85, (isSea ? 0.45 : 0.25) + (d - 0.1) * 0.5);
+          this.wCol[i4 + 3] = iced ? Math.max(Math.min(0.9, 0.45 + (d - 0.1) * 0.5), Math.min(0.97, 0.5 + si)) : Math.min(isSea ? 0.9 : 0.85, (isSea ? 0.45 : 0.25) + (d - 0.1) * 0.5);
           // (the mangrove canopy stands above the tide)
           if (w.mangrove && w.mangrove[i] > 0.05) this.wCol[i4 + 3] *= 1 - 0.85 * Math.min(1, w.mangrove[i] * 1.2);
           // (the temperature map colours the sea by its water temperature: let it show through)
@@ -595,6 +606,7 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
+const BLOOM = [0.32, 0.58, 0.30], RED_TIDE = [0.62, 0.36, 0.24], FOAM = [0.95, 0.97, 0.98], ICE_SEA = [0.90, 0.94, 0.97];
 const SILT_WATER = [0.78, 0.58, 0.34], FOUL_WATER = [0.58, 0.58, 0.30];
 const Q_FOUL = [0.45, 0.25, 0.12], Q_MID = [0.78, 0.68, 0.36], Q_CLEAR = [0.20, 0.55, 0.85];
 /** Water-quality overlay colour: brown (foul) → khaki → clear blue. */

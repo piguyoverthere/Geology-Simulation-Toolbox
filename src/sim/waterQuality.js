@@ -35,7 +35,8 @@ export function ensureQuality(world) {
 /** Water quality 0 (foul) … 1 (clear) at cell i. */
 export function waterQuality(world, i) {
   if (!world.silt) return 1;
-  return Math.max(0, Math.min(1, 1 - 0.45 * world.silt[i] - 0.8 * world.pollution[i]));
+  const bloom = world.plankton ? Math.max(0, world.plankton[i] - 0.5) : 0, ox = world.oxygen ? world.oxygen[i] : 1;
+  return Math.max(0, Math.min(1, 1 - 0.45 * world.silt[i] - 0.8 * world.pollution[i] - 0.15 * bloom - 0.6 * (1 - ox)));
 }
 
 export function qualityLabel(q) {
@@ -118,7 +119,9 @@ export function waterQualityStep(world, sea, half, filterOf, sensitivity, pace, 
       if (PO[i] < 1e-4) PO[i] = 0;
       // Too much dirt and poison sickens the beds; clean water lets them recover, slowly
       const sens = m >= 0 ? sensitivity[m] : 0;
-      const stress = (0.5 * SI[i] + PO[i]) * sens;
+      // (a dense bloom shades the beds; water with no oxygen suffocates them)
+      const bloom = world.plankton ? Math.max(0, world.plankton[i] - 1) : 0, anoxic = world.oxygen ? 1 - world.oxygen[i] : 0;
+      const stress = (0.5 * SI[i] + PO[i] + 0.3 * bloom + 1.2 * anoxic) * sens;
       // (for seagrass and kelp this is the bed's density: it thins gradually rather than dying at once)
       // A dense meadow resists: it shelters its own water (slowing it, so dirt settles out
       // before reaching the shoots), its roots hold the bed, and it has the reserves to ride out

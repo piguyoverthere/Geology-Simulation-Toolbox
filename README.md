@@ -125,7 +125,7 @@ Sections are grouped from everyday to specialist, and each remembers whether you
   winters, rare lowland snow; it also turns the sea on, flooding the lowest ground if it was off). Each sets temperature, seasons, rain, storms,
   snowstorms, lightning, ocean fog, wetness, evaporation and tides at once.
 - **Ocean & coast**: sea on/off and level, tide range and period, wave erosion, coral growth,
-  pollutant spread, and
+  tidal currents, storm surge, plankton blooms, pollutant spread, and
   the Shoreline tool's type. **Weather** has **Ocean fog** (the marine layer).
 - **Level**: **Save level** downloads everything (terrain, water, vegetation, soil, snow, rocks,
   lava and burn scars, springs, drawings, camera and every setting) to a `.geolevel` file, and
@@ -172,6 +172,7 @@ src/sim/weather.js      Storms, thunderstorms and lightning
 src/sim/glacier.js      Glaciers: ice flow, U-shaped valley carving, moraines, melt
 src/sim/coast.js        Tides, shore types, wave erosion, beach sand, dunes, mangroves, ocean biomes
 src/sim/waterQuality.js Seawater silt and pollutants, filtering by sea beds, die-off and recovery
+src/sim/ocean.js        Tidal currents, salinity and estuaries, plankton blooms and oxygen, sea ice, storm surge, surf
 src/core/environments.js  Environment presets (ready-made climates)
 src/sim/phenology.js    Seasonal leaves: autumn colour, leaf fall, spring flush
 src/sim/species.js      Tree species, their preferences, and each cell's forest mix

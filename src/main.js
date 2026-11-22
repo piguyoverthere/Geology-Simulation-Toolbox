@@ -14,8 +14,9 @@ import { phenologyStep } from './sim/phenology.js';
 import { updateForestComposition } from './sim/species.js';
 import { weatherStep, weatherParams } from './sim/weather.js';
 import { glacierFlow, glacierBalance, glacierParams } from './sim/glacier.js';
-import { coastParams, coastStep, tideLevel } from './sim/coast.js';
+import { coastParams, coastStep, seaStep, tideLevel } from './sim/coast.js';
 import { qualityParams } from './sim/waterQuality.js';
+import { oceanParams } from './sim/ocean.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
@@ -50,6 +51,7 @@ class App {
     this.glacierParams = glacierParams;
     this.coastParams = coastParams;
     this.qualityParams = qualityParams;
+    this.oceanParams = oceanParams;
 
     this.tool = 'raise';
     this.brush = { radius: 12, strength: 0.5 };
@@ -635,6 +637,7 @@ class App {
       }
       // Look for slopes about to fail a few times a second (scaled with sim speed)
       if (this.frame % 10 === 5 && this.sim.vegetation) compositionStep(this.world);
+      if (this.frame % 10 === 3) seaStep(this.world);
       // Glacier ice creeps a little every frame (faster at higher sim speed)
       if (this.world.ice) glacierFlow(this.world, this.sim.substeps / 6);
       if (this.frame % 5 === 0) landslideCheck(this.world, 0.25 * this.sim.substeps / 6);
