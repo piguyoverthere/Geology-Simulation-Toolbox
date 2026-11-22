@@ -70,9 +70,10 @@ export function addSiltAt(world, x, z, amount, r) {
 /**
  * One step (with the coast step). `filterOf[m]` is how well marine biome m cleans the water
  * (0 for bare or open water); `sensitivity[m]` how easily it is harmed; `pace[m]` how fast it
- * declines and regrows (seagrass thins out slowly, shoot by shoot, over a season or more).
+ * declines and regrows (seagrass thins out slowly, shoot by shoot, over a season or more);
+ * `resist[m]` how much a dense bed shields itself (thick meadows hold up far better than sparse ones).
  */
-export function waterQualityStep(world, sea, half, filterOf, sensitivity, pace) {
+export function waterQualityStep(world, sea, half, filterOf, sensitivity, pace, resist) {
   ensureQuality(world);
   const N = world.N, n = N * N, H = world.height, SI = world.silt, PO = world.pollution, HL = world.marineHealth;
   const M = world.marine, MG = world.mangrove, SED = world.sediment, p = qualityParams;
@@ -115,9 +116,14 @@ export function waterQualityStep(world, sea, half, filterOf, sensitivity, pace) 
       const sens = m >= 0 ? sensitivity[m] : 0;
       const stress = (0.5 * SI[i] + PO[i]) * sens;
       // (for seagrass and kelp this is the bed's density: it thins gradually rather than dying at once)
-      const k = m >= 0 ? pace[m] : 1;
-      if (stress > 0.35) HL[i] = Math.max(0, hl - 0.03 * k * Math.min(1.5, (stress - 0.35) * 2));
-      else HL[i] = Math.min(1, hl + 0.004 * k * (1 - stress / 0.35));
+      // A dense meadow resists: it shelters its own water (slowing it, so dirt settles out
+      // before reaching the shoots), its roots hold the bed, and it has the reserves to ride out
+      // a bad spell; so it tolerates dirtier water, and declines more slowly when it can't.
+      // A sparse one, already weakened, goes downhill fast.
+      const k = m >= 0 ? pace[m] : 1, r = (m >= 0 ? resist[m] : 0) * hl;
+      const limit = 0.35 * (1 + 1.6 * r);
+      if (stress > limit) HL[i] = Math.max(0, hl - 0.03 * k * (1 - 0.6 * r) * Math.min(1.5, (stress - limit) * 2));
+      else HL[i] = Math.min(1, hl + 0.004 * k * (1 - stress / limit));
     }
   }
 }

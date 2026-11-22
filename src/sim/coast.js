@@ -63,6 +63,8 @@ const SENSITIVE = MARINE.map((m) => ({ seagrass: 1.1, kelp: 1, coral: 1.6 }[m.id
 // How fast each bed declines under dirty water and regrows once it's clean (seagrass slowest: the
 // meadow thins out gradually, its density falling over many weeks, and fills back in as slowly)
 const PACE = MARINE.map((m) => ({ seagrass: 0.2, kelp: 0.5, coral: 1 }[m.id] || 1));
+// How much a dense bed shields itself from dirty water (seagrass meadows most)
+const RESIST = MARINE.map((m) => ({ seagrass: 1, kelp: 0.5 }[m.id] || 0));
 // Beds whose density thins gradually (they show as a sparser meadow, not a sudden die-off)
 const THINS = MARINE.map((m) => m.id === 'seagrass' || m.id === 'kelp');
 
@@ -269,7 +271,7 @@ export function coastStep(world) {
   }
   // Seawater quality: silt and pollutants mix, settle, flush out to sea and are filtered by the
   // living sea beds, which die off where it stays too dirty
-  waterQualityStep(world, sea, half, FILTER, SENSITIVE, PACE);
+  waterQualityStep(world, sea, half, FILTER, SENSITIVE, PACE, RESIST);
   world.dirty = true;
 }
 
