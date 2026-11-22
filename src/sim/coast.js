@@ -166,6 +166,12 @@ export function coastStep(world) {
         // Soft rock breaks down to sand; hard rock to shingle (doesn't add sand)
         SAND[i] += cut * (1.3 - hard) * 2;
       }
+      // --- Longshore drift: waves running along the shore fill coves and plane off bumps, so
+      // beaches straighten into long stretches between points (hard-rock headlands hold out) ---
+      if (inReach && erodeK > 0 && type !== SHORE.cliff) {
+        const avg = (H[i - 1] + H[i + 1] + H[i - N] + H[i + N] + H[i - N - 1] + H[i - N + 1] + H[i + N - 1] + H[i + N + 1]) / 8;
+        H[i] += (avg - H[i]) * 0.04 * ex * (1.2 - hard);
+      }
       // --- Sand budget: rivers and coral feed it, exposed waves strip it ---
       const river = world.sediment[i] * 0.3;
       const coralSand = nearCoral(CO, i, N) * 0.01 * p.coral;

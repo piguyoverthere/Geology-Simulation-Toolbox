@@ -96,19 +96,22 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
     // Soften any remaining roughness; the big crests and summits survive a light blur
     h.set(boxBlur(h, N, 1));
   }
+  if (preset === 'pugetsound') straightenShore(h, N, PRESETS.pugetsound.sea.level, 14);
   if (preset !== 'flat') smoothLowlands(world, noise);
   // Real landscapes drain: almost every spot has a downhill route to the sea. Raw noise leaves
   // hundreds of closed basins where each river would die in its own little lake. Carve an outlet
   // from each one; the outlets merge into a branching valley network. The volcano keeps its crater
   // but not the little hollows on its flanks (left closed, they fill into stepped ponds).
-  const crater = preset === 'volcano' ? (i) => Math.hypot(i % N - N / 2, ((i / N) | 0) - N / 2) < N * 0.06 : null;
+  const crater = preset === 'volcano' ? (i) => Math.hypot(i % N - N / 2, ((i / N) | 0) - N / 2) < N * 0.06
+    : preset === 'pugetsound' ? (i) => h[i] < PRESETS.pugetsound.sea.level // the Sound's basins are sea, not lakes to drain
+    : null;
   world.keepBasin = crater; // later re-breaching (after landslides) leaves the crater alone too
   breachDepressions(h, N, 0.02, crater);
   // Cut the drainage network: tributaries merging into deeper trunk channels
   if (preset !== 'flat') {
     // The Cascades have a few big rivers (Skagit, Snoqualmie, Yakima…) in broad valleys, not a
     // channel in every hollow, and the lowland and plateau are mostly flat
-    carveRivers(h, N, preset === 'cascades' ? { threshold: 2500 * (N / 256) ** 2, depth: 1.2, perDoubling: 0.7, maxDepth: 4 } : undefined);
+    carveRivers(h, N, preset === 'cascades' || preset === 'pugetsound' ? { threshold: 2500 * (N / 256) ** 2, depth: 1.2, perDoubling: 0.7, maxDepth: 4 } : undefined);
     breachDepressions(h, N, 0.02, crater);
   }
 
@@ -230,15 +233,18 @@ function pugetHeight(c, noise, lu, lv, u, v) {
   let y = 9 + dome * (16 + 34 * Math.pow(crest, 1.2));
   // The Cascade foothills in the east
   y += smoothstep(0.78, 1.0, lu) * (14 + 10 * ridged(noise, u * 3 + 5, v * 3, 4));
-  // The lowland: gently rolling glacial till plains with drumlin-like ridges
-  y += (1 - dome) * 2.5 * fbm(noise, u * 5, v * 2, 3);
-  // Glacial troughs: long north–south channels flooded by the sea (the Sound), and Hood Canal hugging
-  // the Olympics' east side
-  const band = smoothstep(0.3, 0.36, lu) * (1 - smoothstep(0.66, 0.74, lu));
-  // (U-shaped, as glaciers carve them: flat floors and sloping sides, not V-notches)
-  const trough = 1 - smoothstep(0.04, 0.2, Math.abs(noise(u * 1.6 + 7.1, v * 0.35 + 2.2)));
-  const trough2 = 1 - smoothstep(0.03, 0.16, Math.abs(noise(u * 2.4 - 3.3, v * 0.5 + 9.1)));
-  y -= band * 15 * Math.max(trough, trough2 * 0.8);
+  // The lowland: a glacial upland of till, streamlined north–south by the ice (drumlins)
+  y += 2 + (1 - dome) * 2.5 * fbm(noise, u * 5, v * 2, 3);
+  // The Sound: the ice sheet gouged a branching network of north–south troughs, now flooded by the
+  // sea. Between them the upland is left as long, irregular islands and peninsulas (Vashon,
+  // Bainbridge, the Kitsap Peninsula) with steep bluffs dropping to the water.
+  const band = smoothstep(0.3, 0.36, lu) * (1 - smoothstep(0.7, 0.78, lu));
+  const wu = u + 0.05 * noise(u * 4 + 1.7, v * 4), wv = v + 0.05 * noise(u * 4, v * 4 + 3.3);
+  const main = Math.abs(noise(wu * 3.2 + 7.1, wv * 0.9 + 2.2));   // the main channels
+  const side = Math.abs(noise(wu * 5.6 - 3.3, wv * 1.6 + 9.1));   // side passages and inlets
+  const cove = Math.abs(noise(wu * 9.5 + 13, wv * 2.8 - 4));      // small bays and narrows
+  const ch = Math.max(1 - smoothstep(0.1, 0.3, main), 1 - smoothstep(0.07, 0.22, side), 0.45 * (1 - smoothstep(0.03, 0.1, cove)));
+  y -= band * 17 * Math.min(1, ch * 1.15);
   const canal = Math.exp(-((lu - 0.33) ** 2) / (2 * 0.012 * 0.012)) * smoothstep(0.25, 0.4, lv) * (1 - smoothstep(0.75, 0.85, lv));
   y -= canal * 13;
   // A low coastal plain behind the Pacific shore: room for sand beaches and dunes
@@ -254,6 +260,26 @@ function cascadeMoisture(c, lu, lv) {
   const d = lu - c.crest(lv);
   // Wet west; pine on the drier east slopes; then shrub-steppe, and desert only far to the east
   return 0.45 - 0.75 * smoothstep(-0.04, 0.34, d);
+}
+
+/**
+ * Waves and longshore drift straighten a coast: sand fills the coves and the bumps are planed off, so
+ * beaches run in fairly straight stretches between points. Here: repeatedly blend heights near the
+ * waterline toward their neighbours' average.
+ */
+export function straightenShore(H, N, sea, iters = 1, k = 0.5) {
+  const tmp = new Float32Array(H.length);
+  for (let it = 0; it < iters; it++) {
+    tmp.set(H);
+    for (let z = 1; z < N - 1; z++) {
+      for (let x = 1; x < N - 1; x++) {
+        const i = z * N + x, h = tmp[i];
+        if (h < sea - 3 || h > sea + 3) continue;
+        const avg = (tmp[i - 1] + tmp[i + 1] + tmp[i - N] + tmp[i + N] + tmp[i - N - 1] + tmp[i - N + 1] + tmp[i + N - 1] + tmp[i + N + 1]) / 8;
+        H[i] = h + (avg - h) * k;
+      }
+    }
+  }
 }
 
 function smoothstep(e0, e1, x) {

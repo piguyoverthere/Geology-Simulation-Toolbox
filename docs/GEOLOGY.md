@@ -601,6 +601,11 @@ and drains every cycle.
 | Rock cliff | steep coasts with height behind them; the waves undercut them and they retreat |
 | Basalt boulder beach | where basalt meets the sea (the Olympic coast) |
 
+**Straight beaches.** Waves running along the shore (longshore drift) fill coves with sand and plane
+off small bumps, so beaches straighten into long, gently curving stretches between points (like
+Three Tree Point), while hard-rock headlands hold out. The Puget Sound preset starts that way and the
+waves keep at it as the simulation runs.
+
 Waves erode the shore hardest where it faces open water and the rock is soft; the debris becomes
 sand (soft rock) or shingle (hard rock). **Sand depth** builds from that, from river sediment and
 from coral, and waves strip it away on exposed shores; a deep beach protects the land behind. Wind
