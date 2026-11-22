@@ -26,7 +26,7 @@
 import { snapshot, applySnapshot, encodeLevel, decodeLevel, storeLevel, fetchLevel, deleteLevel } from './save.js';
 import { generateTerrain } from './generate.js';
 import { seasonParams } from '../sim/climate.js';
-import { civStep, routeRoad, buildRoad } from '../sim/civilization.js';
+import { civStep, routeRoad, buildRoad, bestSite, foundTown } from '../sim/civilization.js';
 import { vegetationStep } from '../sim/vegetation.js';
 import { updateWind } from '../sim/wind.js';
 import { World } from './world.js';
@@ -69,6 +69,7 @@ export function gridStartup(app) {
   const g = app.grid;
   if (!g) return;
   foreignTowns(app, g.cur.x, g.cur.z);
+  neighbourEdges(app, g.cur.x, g.cur.z);
 }
 
 /** Bookkeeping each civilization step (how many steps a year takes, for catching up). */
@@ -78,6 +79,7 @@ export function gridTick(app) {
   const t = now();
   if (!g.rate) g.rate = { from: t, steps: 0 };
   g.rate.steps++;
+  exchangeEdges(app);
   if (t - g.rate.from > 0.5) { g.perYear = g.rate.steps / (t - g.rate.from); g.rate = { from: t, steps: 0 }; }
 }
 
@@ -96,10 +98,16 @@ async function freezeCurrent(app) {
   info.rivers = outflowingRivers(w);
   info.towns = (w.towns || []).map((t) => ({ id: t.id, name: t.name, x: t.x, z: t.z, pop: Math.round(t.pop) }));
   info.thumb = thumbnail(w);
+  info.edgeLife = edgeAnimals(w);
+  info.edgeSea = edgeSea(w);
   info.preset = app.gen.preset;
   // Roads this cell's towns have built to its edges, to be continued in the cells beyond
   for (const p of w.portalsOut || []) g.portals.push({ ...p, fromCell: ck });
   w.portalsOut = [];
+  // Settlers this cell's boats have sent off to the cells beyond
+  if (!g.settlers) g.settlers = [];
+  for (const p of w.settlersOut || []) g.settlers.push({ ...p, fromCell: ck });
+  w.settlersOut = [];
 }
 
 /** The height along each edge of the map. */
@@ -109,6 +117,41 @@ function edgeRows(w) {
   out.s = Array.from({ length: N }, (_, k) => H[(N - 1) * N + k]);
   out.w = Array.from({ length: N }, (_, k) => H[k * N]);
   out.e = Array.from({ length: N }, (_, k) => H[k * N + N - 1]);
+  return out;
+}
+
+const STRIDE = 4; // (edge values are kept every 4 cells along the edge)
+
+/** Average of a field over the outer 3 rows along each edge, every STRIDE cells. */
+function edgeProfile(w, F, only) {
+  const N = w.N, out = {};
+  for (const side of Object.keys(SIDES)) {
+    const row = [];
+    for (let k = 0; k < N; k += STRIDE) {
+      let s = 0, c = 0;
+      for (let d = 0; d < 3; d++) for (let q = k; q < Math.min(N, k + STRIDE); q++) {
+        const i = edgeCell(N, side, q, d)[0];
+        if (only && !only(i)) continue;
+        s += F[i]; c++;
+      }
+      row.push(c ? Math.round((s / c) * 1000) / 1000 : -1);
+    }
+    out[side] = row;
+  }
+  return out;
+}
+
+/** Each of your animals along each edge (how many there are by the border). */
+function edgeAnimals(w) {
+  const out = {};
+  for (const a of w.animals || []) { const F = w['animal_' + a.id]; if (F) out[a.id] = edgeProfile(w, F); }
+  return out;
+}
+
+/** The sea along each edge: its pollution, silt and saltiness (-1 where there's no sea). */
+function edgeSea(w) {
+  const sea = w.meanSea > -999 ? w.meanSea : -1e9, wet = (i) => w.height[i] < sea, out = {};
+  for (const k of ['pollution', 'silt', 'salinity']) if (w[k]) out[k] = edgeProfile(w, w[k], wet);
   return out;
 }
 
@@ -206,7 +249,9 @@ export async function travelTo(app, x, z, status = () => {}) {
     seamSync(app, x, z, SEAM);
     borderRivers(app, x, z);
     foreignTowns(app, x, z);
+    neighbourEdges(app, x, z);
     continuePortals(app, x, z);
+    arriveSettlers(app, x, z);
     // Catch up on the time it missed
     if (info && info.frozenAt !== undefined) {
       const years = Math.max(0, now() - info.frozenAt);
@@ -343,5 +388,80 @@ async function catchUp(app, years) {
     if (k % 4 === 0) vegetationStep(w);
     if (performance.now() - t0 > 6000) break;
     if (k % 10 === 9) await new Promise((r) => setTimeout(r, 0)); // (let the page breathe)
+  }
+}
+
+// --- Animals and the sea across the borders ----------------------------------------------------
+
+/** What lies just across each border: the neighbours' animals and sea along their facing edges,
+ * and which cell each side leads to. */
+function neighbourEdges(app, x, z) {
+  const g = app.grid, w = app.world, edges = {}, sides = {};
+  for (const [side, [dx, dz]] of Object.entries(SIDES)) {
+    const ck = key(x + dx, z + dz), nb = g.cells[ck];
+    sides[side] = ck;
+    if (!nb || nb.frozenAt === undefined) continue;
+    const life = {}, sea = {};
+    for (const [id, prof] of Object.entries(nb.edgeLife || {})) life[id] = prof[OPP[side]];
+    for (const [k, prof] of Object.entries(nb.edgeSea || {})) sea[k] = prof[OPP[side]];
+    edges[side] = { life, sea };
+  }
+  w.gridEdges = edges;
+  w.gridSides = sides;
+  if (!w.settlersOut) w.settlersOut = [];
+}
+
+/**
+ * The border strips meet what's across the border: along each edge with a neighbour, the outer few
+ * cells are drawn toward the neighbour's animals (they wander in, or out where it's emptier) and
+ * its sea (pollution, silt, saltiness mixing across). The usual spreading then carries it inland.
+ */
+function exchangeEdges(app) {
+  const w = app.world, E = w.gridEdges;
+  if (!E) return;
+  const N = w.N, H = w.height, sea = w.meanSea > -999 ? w.meanSea : -1e9;
+  for (const [side, e] of Object.entries(E)) {
+    for (const [id, row] of Object.entries(e.life || {})) {
+      const F = w['animal_' + id];
+      if (!F || !row) continue;
+      for (let k = 0; k < N; k++) {
+        const v = row[(k / STRIDE) | 0];
+        if (v === undefined || v < 0) continue;
+        for (let d = 0; d < 3; d++) {
+          const i = edgeCell(N, side, k, d)[0];
+          if (F[i] === 0 && v < 0.01) continue;
+          F[i] += (v - F[i]) * 0.15 * (1 - d / 3);
+        }
+      }
+    }
+    for (const [fk, row] of Object.entries(e.sea || {})) {
+      const F = w[fk];
+      if (!F || !row) continue;
+      for (let k = 0; k < N; k++) {
+        const v = row[(k / STRIDE) | 0];
+        if (v === undefined || v < 0) continue;
+        for (let d = 0; d < 3; d++) {
+          const i = edgeCell(N, side, k, d)[0];
+          if (H[i] >= sea) continue;
+          F[i] += (v - F[i]) * 0.2 * (1 - d / 3);
+        }
+      }
+    }
+  }
+}
+
+/** Settlers who sailed here from a neighbouring cell found a village on the nearest good coast. */
+function arriveSettlers(app, x, z) {
+  const g = app.grid, w = app.world, N = w.N, ck = key(x, z);
+  if (!g.settlers) g.settlers = [];
+  const mine = g.settlers.filter((p) => p.toCell === ck);
+  g.settlers = g.settlers.filter((p) => p.toCell !== ck);
+  for (const p of mine) {
+    const i = edgeCell(N, OPP[p.side], p.pos, 6)[0];
+    const site = bestSite(w, i % N, (i / N) | 0, 90);
+    if (!site) continue;
+    const v = foundTown(w, site.i, p.pop);
+    v.byBoat = true;
+    v.links.push(p.fromId);
   }
 }

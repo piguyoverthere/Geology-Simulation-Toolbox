@@ -565,6 +565,24 @@ TOOLS.settle = {
     world.dirty = true;
   },
 };
+TOOLS.clearFields = {
+  label: 'Clear fields', group: 'Civilization', icon: '🚜', editsTerrain: false,
+  help: 'Paint over farmland to take it out of farming: the fields are abandoned, left as bare, worn-out ground with poor, thin soil (little humus, no crops, the irrigation gone). Plants come back only slowly, and the town can\'t farm it again until the soil has recovered. Hold Shift to wear the soil of any ground out the same way without clearing anything.',
+  apply({ world, x, z, radius, invert }) {
+    ensureCiv(world);
+    const LU = world.landUse, FS = world.farmSoil;
+    forEachCell(world, x, z, radius, (i) => {
+      if (!invert && LU[i] !== 1) return;
+      if (!invert) { LU[i] = 0; world.civOwner[i] = 0; world.irrigated[i] = 0; }
+      FS[i] = Math.min(FS[i], 0.05); // (worn out: the town won't farm it until it recovers)
+      world.vegetation[i] = Math.min(world.vegetation[i], 0.08);
+      if (world.humus) world.humus[i] = Math.min(world.humus[i], 0.05);
+      if (world.soil) world.soil[i] = Math.min(world.soil[i], 0.2);
+      world.forestAge[i] = 0;
+    });
+    world.dirty = true;
+  },
+};
 TOOLS.road = {
   label: 'Road', group: 'Civilization', icon: '🛣', editsTerrain: true, line: true,
   help: 'Drag from one point to another to build a road: the hills along the route are terraced to an even grade (cut and fill), it is paved, and rivers are bridged. Towns grow out along their roads where the land suits. Hold Shift while dragging to tear up the road along the line instead.',

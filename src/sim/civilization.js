@@ -363,13 +363,14 @@ function quarry(world, t) {
   const base = Math.max(H[t.z * N + t.x], sea + 0.5 * coastParams.tideRange + 1.6); // (the pit floor clear of the waves)
   // (fields, plantations and roads are cut down with the ground around them: the road re-graded,
   // not left standing on a ridge)
-  const ok = (j) => (!LU[j] || LU[j] === 1 || LU[j] === 3 || LU[j] === 10) && !world.bridge[j] && !isProtected(world, j) && world.water[j] < 0.4;
+  // (streets and works in the way are re-graded too, never left standing on pillars)
+  const ok = (j) => (!LU[j] || LU[j] === 1 || LU[j] === 2 || LU[j] === 3 || LU[j] === 4 || LU[j] === 10) && !world.bridge[j] && !isProtected(world, j) && world.water[j] < 0.4;
   // One quarry per town, well out beyond the town and its fields, worked as a single pit: the face
   // moves about inside it, and the pit widens bit by bit (to about 12 cells across) until the hill
   // there is down to the town's level. Only then is a new one opened.
   const pick = () => {
     const sx = t.quarrySite % N, sz = (t.quarrySite / N) | 0, qr = t.quarryR;
-    let best = -1, bh = base + 1.5;
+    let best = -1, bh = Math.max(base, t.quarryFloorSite === t.quarrySite ? t.quarryFloor : base) + 1.5;
     for (let z = Math.max(2, sz - qr); z <= Math.min(N - 3, sz + qr); z++) for (let x = Math.max(2, sx - qr); x <= Math.min(N - 3, sx + qr); x++) {
       const j = z * N + x;
       if ((x - sx) ** 2 + (z - sz) ** 2 > qr * qr || !ok(j)) continue;
@@ -407,9 +408,22 @@ function quarry(world, t) {
     if (face < 0) return 0;
   }
   t.quarry = face;
+  // The pit's floor: no deeper than the lowest ground around it (out past its walls), so it always
+  // drains and never becomes a closed basin; and never below the town's level
+  if (t.quarryFloor === undefined || t.quarryFloorSite !== t.quarrySite) {
+    const sx = t.quarrySite % N, sz = (t.quarrySite / N) | 0, rr = 26;
+    let lo = Infinity;
+    for (let a = 0; a < 64; a++) {
+      const x = Math.round(sx + Math.cos((a / 64) * Math.PI * 2) * rr), z = Math.round(sz + Math.sin((a / 64) * Math.PI * 2) * rr);
+      if (x < 1 || z < 1 || x > N - 2 || z > N - 2) continue;
+      lo = Math.min(lo, H[z * N + x]);
+    }
+    t.quarryFloor = Math.max(base + 0.5, Number.isFinite(lo) ? lo : base + 0.5);
+    t.quarryFloorSite = t.quarrySite;
+  }
   // Cut the top off: everything within the face's reach above the next level down
   const c = t.quarry, cx = c % N, cz = (c / N) | 0;
-  const level = Math.max(base + 0.5, H[c] - 2.2 * Math.max(0.3, civParams.destruction));
+  const level = Math.max(t.quarryFloor, H[c] - 2.2 * Math.max(0.3, civParams.destruction));
   // (the floor is cut level around the face; beyond it the walls are cut back in benches to a
   // slope of about 50°, never a sheer face for the rain to gully into spikes)
   const r = 5, wall = 1.2, R2 = r + 10;
@@ -1349,6 +1363,23 @@ export function civStep(world) {
         const v = foundTown(world, site.i, 50);
         t.pop -= 50;
         v.byBoat = true; t.links.push(v.id); v.links.push(t.id);
+      }
+    }
+    // …and over the sea to the cells next door (the world grid): they land there when it is next
+    // visited, and found a village on the coast nearest where they crossed
+    if (t.boats >= 2 && t.pop > 300 && world.gridSides && Math.random() < 0.004 * civParams.growth) {
+      const side = ['n', 's', 'w', 'e'][(Math.random() * 4) | 0];
+      let pos = -1, bd = Infinity;
+      for (let k = 2; k < N - 2; k++) {
+        const i = side === 'n' ? k : side === 's' ? (N - 1) * N + k : side === 'w' ? k * N : k * N + N - 1;
+        if (H[i] >= seaOf(world) - 1) continue; // (open sea at that edge)
+        const d = Math.hypot((i % N) - t.x, ((i / N) | 0) - t.z);
+        if (d < bd) { bd = d; pos = k; }
+      }
+      if (pos >= 0 && bd < 120) {
+        if (!world.settlersOut) world.settlersOut = [];
+        world.settlersOut.push({ toCell: world.gridSides[side], side, pos, pop: 50, fromId: t.id });
+        t.pop -= 50;
       }
     }
     // Big neighbours build roads to each other

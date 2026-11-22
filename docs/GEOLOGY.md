@@ -1089,7 +1089,7 @@ cells), and the harbour moves out to its tip. What's left builds new land along 
 Every tipping smothers the sea bed and clouds and fouls the water; quarrying fouls the streams below
 it. Quarry pit walls are cut back in benches to about 50°, never left sheer, and quarried,
 terraced and reclaimed ground counts as kept ground, so rain doesn't gully it into spikes. The
-**Quarrying** switch turns quarrying off entirely. The Destruction slider scales how fast all of this goes. Farmers also keep clearing a little
+**Quarrying** switch turns quarrying off entirely. A pit is never dug deeper than the lowest ground around it, so it always drains rather than becoming a closed basin, and streets and works in its way are re-graded with it, never left standing on pillars. The Destruction slider scales how fast all of this goes. Farmers also keep clearing a little
 more land each year even while the town isn't growing.
 
 Towns spread fast and hard, with no caps on their expansion. A town's reach grows with its
@@ -1109,6 +1109,12 @@ is kept wild. No town is founded or built inside it, no farmland is cleared, no 
 and roads between towns go around it (unless there is truly no other way). What was there already
 stays.
 
+
+**Clearing fields.** The **Clear fields** tool (🚜, under Civilization) takes farmland out of
+farming. The fields you paint over are abandoned and left as bare ground with poor, worn-out soil:
+little humus, almost no plants and no irrigation. Plants return only slowly, and no town will farm
+the ground again until its soil has recovered. Holding Shift wears out the soil of any ground the
+same way without clearing anything.
 
 ## The world grid
 
@@ -1139,6 +1145,17 @@ neighbours' over about 10 cells, so the ground stays continuous however each sid
   runs to the border where the straight line between the towns crosses it. When you next enter the
   other cell, the road is continued from the same spot on its edge up to the town. The two towns
   are then linked and trade over the road.
+- *Animals:* the outer few cells along each border are drawn toward the numbers of your animals
+  along the facing edge of the cell next door, as they were when it was left. Animals wander in
+  where there are more of them across the border, and out where there are fewer; ordinary
+  spreading carries them on inland. A cell's animals along its edges are recorded each time it is
+  left.
+- *The sea:* pollution, silt and saltiness mix across the border the same way, so a fouled sea next
+  door seeps in along the shared coast.
+- *Boats:* a town with a fleet of two or more boats and a few hundred people now and then sends 50
+  settlers across the sea to a neighbouring cell, sailing out where open sea meets the edge. When
+  that cell is next visited, or first made, they found a village on the best coast near where they
+  crossed, linked to the town they came from.
 
 Storage: the grid's list of cells (their edges, rivers, towns, road ends, when each was left and a
 small picture of each) is kept under `grid-<size>`; each frozen cell under
