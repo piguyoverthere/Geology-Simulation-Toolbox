@@ -815,33 +815,28 @@ A future "geological clock" could make this explicit.
 - Musgrave, Kolb & Mace, *The Synthesis and Rendering of Eroded Fractal Terrains* (SIGGRAPH 1989): the original thermal + hydraulic terrain erosion paper
 - Sebastian Lague, *Coding Adventure: Hydraulic Erosion* (YouTube), a very approachable intro to the droplet model
 
-## Wildlife: an ecosystem
+## Wildlife: an ecosystem of your own animals
 
-Animal populations live on the land and in the sea, each a density that grows, declines and moves,
-and each depending on the others and on the plants, rivers, sea and fire:
+You design the animals (Wildlife → Add animal): a name and colour, where it lives, what it eats and
+its habits. Each is a population density that grows where there is food, starves where there is
+none and moves toward better feeding over its roaming range, and each links to the rest:
 
-- **Deer** graze meadows and browse young trees and shrubs. A big herd holds meadows open and stops
-  cleared or burnt ground (and the willows along streams) from growing back into forest. Deep snow
-  buries their food and drives them downhill; hard winters kill some.
-- **Wolves** live on deer. With wolves about, deer are fewer and wary: they keep away from the open
-  stream banks, so the willows and aspen there grow back (a *trophic cascade*), which brings back the
-  beavers. Without deer, wolves starve.
-- **Beavers** need streams lined with willow, alder, aspen or birch. They fell those trees and dam the
-  stream, slowly raising a pond and soggy wetland behind the dam; abandoned dams wash out. Too many deer
-  eat the willows and starve them out.
-- **Bark beetles** bore into drought-stressed, warm conifer forest. Outbreaks spread from stand to stand,
-  turning the forest red and then grey, and leave dead wood that burns fiercely when fire comes. A hard
-  winter freeze (below about −12 °C) kills them back.
-- **Forage fish** (herring, anchovy) swarm where plankton is plentiful and graze it down, keeping
-  blooms in check; they shelter in seagrass and kelp and die in low-oxygen or polluted water.
-- **Salmon** feed at sea on the forage fish, then each autumn (September to November) run up the
-  rivers in cool, clean water (warm water, mud and dams hold them back). They spawn and die, and their
-  bodies fertilise the stream banks, so the forest along salmon rivers grows faster. Next year's run
-  depends on how many spawned and on the forage fish at sea.
-- **Sea urchins** graze kelp; unchecked, they mow it into bare urchin barrens. **Sea otters** eat the
-  urchins, so kelp forests thrive where otters live; pollution kills otters.
+- **Food.** An animal can live only where there is something it eats: grass and meadow plants,
+  shrubs and young trees, deciduous trees, conifers (all buried by deep snow), plankton, seaweed
+  (kelp and seagrass) or other animals. Predators are fed by the prey within their range, thin
+  it out, and starve without it, so predator and prey numbers rise and fall together.
+- **Effects on the place.** Grazers and browsers hold meadows open and stop cleared or burnt ground
+  from growing back into forest; plankton-eaters keep blooms down; seaweed-eaters can strip kelp and
+  seagrass into bare barrens.
+- **Habits.** *Avoids deep snow* (hard winters kill some); *harmed by pollution*; *killed by hard
+  frost* (below about −12 °C, like bark beetles); *builds dams* (on streams, slowly raising ponds and
+  wetland, and felling the deciduous trees around them; abandoned dams wash out); *kills the trees it
+  eats* (whole stands turn red, then grey, leaving dead wood that burns fiercely); *fertilises the
+  ground* (plants grow faster where it lives); *swims up rivers in autumn* (a run like salmon from
+  the sea up cool, clean rivers, held back by warm water, mud and dams; the spawners die and
+  fertilise the stream banks, and next year's run depends on how many made it).
+- Every sea animal suffocates in low-oxygen water.
 
-The Wildlife tools paint each one in (Shift removes it); the **Wildlife** overlay maps the most common
-animal in each place, the inspector lists them, and in the natural view the animals show as small
-dots, beetle outbreaks as red-grey dying forest and salmon runs as reddened rivers.
-
+Paint them in with the Animal tool. They show in the map key, the Wildlife overlay (the most common
+animal in each place), the inspector and as small dots in their colours; dying forest and river runs
+also show in the terrain colours.

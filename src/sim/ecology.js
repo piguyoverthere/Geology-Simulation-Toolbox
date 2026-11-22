@@ -1,30 +1,20 @@
-// Wildlife: animal populations that depend on the land, the sea and on each other.
+// Wildlife: animals you design yourself, living on the land and in the sea.
 //
-// Each population is a density field (0 = none … ~1 = as many as the place can hold), growing,
-// dying and moving every few frames. The links between them (and to the plants, rivers, sea and
-// fire) are what make it an ecosystem:
+// Each animal (world.animals: name, colour, where it lives, what it eats, how it behaves) has a
+// density field, world['animal_' + id] (0 = none … ~1 = as many as the place can hold), that grows,
+// declines and moves every few frames. What links them into an ecosystem:
 //
-//   On land
-//   • Deer graze meadows and browse young trees and shrubs at forest edges. Many deer keep
-//     meadows open and stop forest (and the willows and aspen along streams) from regrowing; deep
-//     snow buries their food and drives them downhill in winter, and kills some.
-//   • Wolves live on deer. Where there are wolves, deer are fewer and wary: they keep away from the
-//     open stream banks, so the willows there grow back (a trophic cascade).
-//   • Beavers need streams lined with willow, alder, aspen or birch. They fell those trees and dam
-//     the streams, raising ponds and soggy wetland behind the dams; too many deer (eating the
-//     willows) starve them out.
-//   • Bark beetles bore into conifers stressed by drought and warmth; outbreaks spread from tree
-//     to tree and kill whole stands, leaving grey dead wood that burns fiercely. A hard winter
-//     freeze kills the beetles.
-//
-//   Rivers and sea
-//   • Forage fish (herring, anchovy) swarm where plankton is plentiful, grazing it down (keeping
-//     blooms in check), with seagrass and kelp beds as nurseries; they die in low-oxygen water.
-//   • Salmon feed at sea on the forage fish, then each autumn run up the rivers to spawn in cool,
-//     clean, flowing water (warm or dirty water and dams stop them). They die after spawning, and
-//     their bodies fertilise the stream banks: forests along salmon rivers grow faster.
-//   • Sea urchins graze kelp; unchecked, they mow it down into bare urchin barrens. Sea otters eat
-//     the urchins, so where there are otters the kelp forests thrive; pollution kills otters.
+//   • Food: an animal can live only where there is something it eats: grass and meadow plants,
+//     shrubs and young trees, deciduous trees, conifers, plankton, seaweed (kelp and seagrass), or
+//     other animals. Plant-eaters crop what they eat (grazers hold meadows open and stop forest
+//     regrowing; plankton-eaters keep blooms down; seaweed-eaters can strip kelp into barrens);
+//     predators thin out their prey, and starve without it.
+//   • Habitat: land, forest, meadows, mountains, streams, the sea or the coastal shallows.
+//   • Habits: avoiding deep snow (some die in hard winters), harm from pollution, being killed by
+//     hard frost, building dams (ponds behind them), killing the trees it eats (leaving dead wood
+//     that burns fiercely), fertilising the ground, and swimming up the rivers each autumn (a run
+//     like salmon, fertilising the stream banks).
+//   Every sea animal suffocates in low-oxygen water.
 
 import { boxBlur } from '../core/grid.js';
 import { seasonParams, seasonalAt } from './climate.js';
@@ -34,305 +24,308 @@ export const ecoParams = {
   speed: 1,      // how fast populations grow, decline and move
 };
 
-export const SPECIES_ECO = [
-  { id: 'deer', label: 'Deer', color: [0.66, 0.46, 0.26], help: 'Graze meadows and browse young trees: keep meadows open and stop forest regrowing. Driven downhill by deep snow. Eaten by wolves.' },
-  { id: 'wolves', label: 'Wolves', color: [0.30, 0.30, 0.32], help: 'Hunt deer, keeping them fewer and away from stream banks, so streamside willows grow back.' },
-  { id: 'beaver', label: 'Beavers', color: [0.86, 0.48, 0.16], help: 'Dam streams lined with willow, alder, aspen or birch, making ponds and wetland. Need those trees (which deer also eat).' },
-  { id: 'beetle', label: 'Bark beetles', color: [0.80, 0.18, 0.12], help: 'Kill drought-stressed conifers, leaving dead wood that burns fiercely. Killed by hard winter freezes.' },
-  { id: 'salmon', label: 'Salmon (run)', color: [0.95, 0.45, 0.50], help: 'Run up cool, clean rivers to spawn each autumn, fertilising the stream banks. Feed at sea on forage fish.' },
-  { id: 'fish', label: 'Forage fish', color: [0.70, 0.80, 0.88], help: 'Herring and anchovy: graze plankton (keeping blooms down), shelter in seagrass and kelp, die in low-oxygen water.' },
-  { id: 'urchin', label: 'Sea urchins', color: [0.50, 0.22, 0.55], help: 'Graze kelp: unchecked, they leave bare urchin barrens.' },
-  { id: 'otter', label: 'Sea otters', color: [0.42, 0.30, 0.20], help: 'Eat urchins, so kelp forests thrive where they live. Killed by pollution.' },
-];
-const FIELDS = SPECIES_ECO.map((s) => s.id);
+export const HABITATS = {
+  land: 'Anywhere on land',
+  forest: 'Forest',
+  meadow: 'Meadows and open land',
+  mountains: 'Mountains (cold, high ground)',
+  stream: 'Streams and ponds',
+  sea: 'The sea',
+  coast: 'Coastal shallows',
+};
+export const PLANT_FOODS = {
+  grass: 'Grass and meadow plants',
+  young: 'Shrubs and young trees',
+  decid: 'Deciduous trees (willow, aspen, oak…)',
+  conifer: 'Conifers',
+  plankton: 'Plankton',
+  seaweed: 'Seaweed (kelp, seagrass)',
+};
+export const HABITS = {
+  avoidsSnow: ['Avoids deep snow', 'Leaves deep snow in winter, and some die in hard winters.'],
+  pollution: ['Harmed by pollution', 'Dies off where the water is polluted.'],
+  frostKills: ['Killed by hard frost', 'A winter freeze below about −12 °C kills most of them (like bark beetles).'],
+  dams: ['Builds dams', 'Dams the streams it lives on, slowly raising ponds and wetland behind (and fells nearby deciduous trees).'],
+  killsTrees: ['Kills the trees it eats', 'Kills whole stands of the trees it eats (like bark beetles), leaving grey dead wood that burns fiercely.'],
+  fertilises: ['Fertilises the ground', 'Its droppings enrich the soil where it lives: plants grow faster.'],
+  runsRivers: ['Swims up rivers in autumn', 'Lives at sea, then each autumn runs up the rivers to spawn in cool, clean water (like salmon), fertilising the stream banks. Next year\'s run depends on how many made it.'],
+};
+
+/** Make a new animal definition. */
+export function newAnimal(opts = {}) {
+  return {
+    id: 'a' + Math.random().toString(36).slice(2, 8),
+    name: opts.name || 'New animal',
+    color: opts.color || [0.6, 0.45, 0.3],
+    habitat: opts.habitat || 'land',
+    eats: { ...(opts.eats || {}) },
+    prey: [...(opts.prey || [])],
+    breed: opts.breed ?? 1,
+    roam: opts.roam ?? 3,
+    habits: { ...(opts.habits || {}) },
+    stock: 1, // (runs up rivers: this year's run strength)
+  };
+}
+
+export function animalField(world, a) {
+  const n = world.N * world.N, k = 'animal_' + a.id;
+  if (!world[k] || world[k].length !== n) world[k] = new Float32Array(n);
+  return world[k];
+}
+
+export function removeAnimal(world, id) {
+  world.animals = (world.animals || []).filter((a) => a.id !== id);
+  for (const a of world.animals) a.prey = a.prey.filter((p) => p !== id);
+  delete world['animal_' + id];
+  world.dirty = true;
+}
 
 export function ensureEcology(world) {
   const n = world.N * world.N;
-  let fresh = false;
-  for (const k of [...FIELDS, 'dam', 'deadWood', 'browse', 'salmonN']) {
-    if (!world[k] || world[k].length !== n) { world[k] = new Float32Array(n); fresh = true; }
+  if (!world.animals) world.animals = [];
+  for (const k of ['dam', 'deadWood', 'browse', 'salmonN', 'treeKill', 'runners']) {
+    if (!world[k] || world[k].length !== n) world[k] = new Float32Array(n);
   }
-  if (world.salmonStock === undefined) world.salmonStock = 1;
-  return fresh;
-}
-
-/** Seed a new map with a starting population of everything (called on the first step). */
-function seed(world) {
-  const N = world.N, n = N * N, H = world.height, V = world.vegetation;
-  const sea = seaLevel(world);
-  for (const k of [...FIELDS, 'dam', 'deadWood', 'browse', 'salmonN']) world[k].fill(0); // (nothing left from the last map)
-  for (let i = 0; i < n; i++) {
-    const r = ((i * 2654435761) >>> 0) / 4294967296;
-    if (H[i] >= sea) {
-      const v = V[i];
-      world.deer[i] = v > 0.1 ? 0.35 * Math.min(1, v * 1.5) : 0;
-      world.wolves[i] = v > 0.5 ? 0.12 : 0;
-      world.beetle[i] = world.conifer && world.conifer[i] > 0.5 && r < 0.01 ? 0.3 : 0;
-    } else {
-      const depth = sea - H[i];
-      world.fish[i] = depth > 1 ? 0.3 : 0;
-      const m = world.marine ? world.marine[i] : -1;
-      world.urchin[i] = m === 1 ? 0.25 : 0;          // (kelp)
-      world.otter[i] = m === 1 && r < 0.3 ? 0.15 : 0;
-    }
-  }
-  world.ecoSeeded = true;
+  for (const a of world.animals) animalField(world, a);
 }
 
 function seaLevel(world) { return world.meanSea !== undefined && world.meanSea > -999 ? world.meanSea : -1e9; }
 
-/** Spread a population: move a share toward the neighbourhood average (where allowed). */
-function spread(F, allow, N, r, rate) {
-  const n = N * N, tmp = new Float32Array(n);
-  for (let i = 0; i < n; i++) tmp[i] = F[i] * allow[i];
-  const b = boxBlur(tmp, N, r), m = boxBlur(allow, N, r);
-  for (let i = 0; i < n; i++) {
-    if (!allow[i]) { F[i] = 0; continue; }
-    F[i] += (b[i] / Math.max(m[i], 1e-3) - F[i]) * rate;
+let masks = null;
+
+/** How well cell i suits an animal of this habitat (0..1). */
+function habitatAt(world, a, i, M, sea) {
+  const H = world.height, V = world.vegetation;
+  switch (a.habitat) {
+    case 'sea': return M.seaM[i];
+    case 'coast': return M.seaM[i] && sea - H[i] < 12 ? 1 : 0;
+    case 'stream': return M.stream[i] || world.dam[i] > 0.05 ? 1 : 0;
+    case 'forest': return M.land[i] ? (V[i] > 0.6 ? 1 : V[i] * 0.5) : 0;
+    case 'meadow': return M.land[i] ? (V[i] > 0.05 && V[i] < 0.7 ? 1 : 0.25) : 0;
+    case 'mountains': return M.land[i] ? (world.temperature[i] < 6 ? 1 : 0.15) : 0;
+    default: return M.land[i];
   }
 }
 
-let masks = null; // habitat masks, shared by the three parts of a step
+/** What there is to eat at cell i for animal a (plants only; prey is added separately). */
+function plantFood(world, a, i, M) {
+  const e = a.eats, v = world.vegetation[i];
+  let f = 0;
+  if (M.land[i] || M.stream[i]) {
+    if (e.grass) f += v < 0.75 ? Math.min(1, v * 1.8) : 0.25;
+    if (e.young) f += v * (1 - world.forestAge[i]);
+    if (e.decid) f += (world.decid ? world.decid[i] : 0) * v * 1.4;
+    if (e.conifer) f += (world.conifer ? world.conifer[i] : 0) * v * 1.4;
+    const snow = world.snow ? world.snow[i] : 0;
+    if (snow > 0) f *= Math.max(0.05, 1 - snow * 0.8);
+  }
+  if (M.seaM[i]) {
+    if (e.plankton) f += Math.min(1, (world.plankton ? world.plankton[i] : 0.2) * 1.2 + 0.1);
+    if (e.seaweed) {
+      const m = world.marine ? world.marine[i] : -1;
+      if (m === 1 || m === 2) f += world.marineHealth ? world.marineHealth[i] : 1; // kelp, seagrass
+    }
+  }
+  return f;
+}
 
 /**
- * One wildlife step, in three parts run on successive calls (to spread the work over frames):
- * 0 = deer and wolves (and the habitat masks), 1 = beavers and bark beetles, 2 = the sea and salmon.
+ * One wildlife step, in three parts run on successive calls (to spread the work over frames): each
+ * part handles a third of the animals (part 0 also refreshes the habitat masks and shared effects).
  */
 export function ecologyStep(world, part = -1) {
   if (!ecoParams.enabled) return;
-  if (ensureEcology(world) || !world.ecoSeeded) seed(world);
+  ensureEcology(world);
   if (part < 0) { for (let p = 0; p < 3; p++) ecologyPart(world, p, 1); return; }
   ecologyPart(world, part, 2);
 }
 
 function ecologyPart(world, part, mult) {
-  const N = world.N, n = N * N, H = world.height, V = world.vegetation, AGE = world.forestAge;
-  const D = world.water, SN = world.snow, SOIL = world.soil;
-  const sea = seaLevel(world), k = ecoParams.speed * mult;
-  const DE = world.deer, WO = world.wolves, BV = world.beaver, BT = world.beetle;
-  const SA = world.salmon, FI = world.fish, UR = world.urchin, OT = world.otter;
-  const DAM = world.dam, DW = world.deadWood, BR = world.browse;
-  const ph = seasonParams.enabled ? seasonParams.phase : 0.3;
-  const st = world.seasonT || 0;
-
-  // Habitat masks (recomputed at the start of each round)
+  const N = world.N, n = N * N, H = world.height, D = world.water;
+  const sea = seaLevel(world);
   if (part === 0 || !masks || masks.n !== n) {
-    masks = { n, land: new Float32Array(n), seaM: new Float32Array(n), stream: new Float32Array(n) };
+    if (!masks || masks.n !== n) masks = { n, land: new Float32Array(n), seaM: new Float32Array(n), stream: new Float32Array(n) };
+    const VX = world.velX, VZ = world.velZ;
+    for (let i = 0; i < n; i++) {
+      const wet = H[i] < sea;
+      masks.seaM[i] = wet ? 1 : 0;
+      masks.land[i] = !wet && D[i] < 0.3 ? 1 : 0;
+      masks.stream[i] = !wet && D[i] > 0.04 && D[i] < 2 && VX[i] * VX[i] + VZ[i] * VZ[i] > 0.0025 ? 1 : 0;
+    }
+    // Shared effects, rebuilt each round from the animals' contributions; old ones fade
+    world.browse.fill(0);
+    world.runners.fill(0);
+    const TK = world.treeKill, SN = world.salmonN, DW = world.deadWood;
+    for (let i = 0; i < n; i++) {
+      if (TK[i] > 0) TK[i] *= 0.9;
+      if (SN[i] > 0) SN[i] = Math.max(0, SN[i] - 0.0015 * mult);
+      if (DW[i] > 0) DW[i] = world.fire[i] > 0 ? 0 : Math.max(0, DW[i] - 0.0015 * mult);
+    }
   }
-  const { land, seaM, stream } = masks;
-  if (part === 0 || !masks.ready) for (let i = 0; i < n; i++) {
-    const wet = H[i] < sea;
-    seaM[i] = wet ? 1 : 0;
-    land[i] = !wet && D[i] < 0.3 ? 1 : 0;
-    // A stream: flowing water on land
-    stream[i] = !wet && D[i] > 0.04 && D[i] < 2 && (world.velX[i] * world.velX[i] + world.velZ[i] * world.velZ[i]) > 0.0025 ? 1 : 0;
-  }
-  masks.ready = true;
-  const decid = world.decid, conifer = world.conifer;
-  if (part === 0) landAnimals(world, N, n, land, stream, boxBlur(stream, N, 2), k, V, AGE, SN, DE, WO, BR);
-  else if (part === 1) { beavers(world, N, n, H, V, stream, decid, DE, BV, DAM, k); beetles(world, N, n, V, AGE, SOIL, conifer, BT, DW, st, k); }
-  else { seaLife(world, N, n, H, sea, seaM, FI, UR, OT, k); salmonRun(world, N, n, ph, st, stream, seaM, SA, DAM); }
+  world.animals.forEach((a, idx) => { if (idx % 3 === part) stepAnimal(world, a, masks, sea, ecoParams.speed * mult); });
   world.dirty = true;
 }
 
-function landAnimals(world, N, n, land, stream, streamNear, k, V, AGE, SN, DE, WO, BR) {
-  // --- Deer and wolves -------------------------------------------------------------------
-  const wolfNear = boxBlur(WO, N, 5);
-  const K = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    if (!land[i]) { DE[i] = 0; WO[i] = 0; continue; }
-    const v = V[i];
-    // Food: grass and shrubs, young forest and edges; mature forest has little in reach
-    let food = v < 0.05 ? 0 : v < 0.75 ? Math.min(1, v * 1.8) : 0.35 + 0.65 * (1 - AGE[i]);
-    // Snow buries it (and drives the deer down to the valleys)
-    const snow = SN ? SN[i] : 0;
-    food *= Math.max(0.05, 1 - snow * 0.8);
-    // Wary of wolves on the open stream banks (where they can be ambushed)
-    food *= 1 - 0.6 * Math.min(1, wolfNear[i] * 3) * Math.min(1, streamNear[i] * 2);
-    K[i] = food;
-    const d = DE[i];
-    let dd = 0.03 * d * (1 - d / Math.max(0.02, food));       // grow toward what the land can feed
-    dd -= 0.25 * WO[i] * d;                                       // wolves
-    if (snow > 1.2) dd -= 0.02 * d;                               // winter kill in deep snow
-    DE[i] = Math.max(0, Math.min(1.5, d + dd * k));
-    // Wolves: thrive on plenty of deer, starve without
-    const prey = Math.min(1, d * 2);
-    WO[i] = Math.max(0, Math.min(1, WO[i] + 0.03 * k * WO[i] * (prey - 0.3)));
-    BR[i] = DE[i]; // browsing pressure, read by the vegetation
+function stepAnimal(world, a, M, sea, k) {
+  const N = world.N, n = N * N, H = world.height, V = world.vegetation, P = animalField(world, a);
+  const hb = a.habits, st = world.seasonT || 0;
+  const ph = seasonParams.enabled ? seasonParams.phase : 0.3;
+  // Prey: what it can catch around it (it roams for its food)
+  let prey = null;
+  if (a.prey.length) {
+    const sum = new Float32Array(n);
+    for (const pid of a.prey) { const q = world['animal_' + pid]; if (q) for (let i = 0; i < n; i++) sum[i] += q[i]; }
+    prey = boxBlur(sum, N, Math.max(1, a.roam));
   }
-  // Deer drift toward better grazing (and downhill out of the snow); wolves roam widely
-  {
+  // Its predators, which thin it out
+  let hunted = null;
+  for (const b of world.animals) {
+    if (!b.prey.includes(a.id)) continue;
+    const q = world['animal_' + b.id];
+    if (!q) continue;
+    if (!hunted) hunted = new Float32Array(n);
+    for (let i = 0; i < n; i++) hunted[i] += q[i];
+  }
+  const runSeason = hb.runsRivers && ph > 0.47 && ph < 0.72;
+  const K = new Float32Array(n), allow = new Float32Array(n);
+  const PO = world.pollution, OX = world.oxygen, SNW = world.snow;
+  const grazer = a.eats.grass || a.eats.young || a.eats.decid || a.eats.conifer;
+  const r = 0.03 * a.breed * k;
+  for (let i = 0; i < n; i++) {
+    let h = habitatAt(world, a, i, M, sea);
+    if (runSeason && M.stream[i]) h = Math.max(h, 0.8); // (up the rivers in the autumn run)
+    allow[i] = h > 0 ? 1 : 0;
+    if (h <= 0) { P[i] = 0; continue; }
+    const food = Math.min(1.2, plantFood(world, a, i, M) + (prey ? prey[i] * 1.5 : 0));
+    K[i] = food * h;
+    let p = P[i];
+    if (p <= 0) continue;
+    let dp = r * p * (1 - p / Math.max(0.02, K[i]));
+    if (hunted) dp -= 0.25 * k * hunted[i] * p;
+    if (hb.avoidsSnow && SNW && SNW[i] > 1.2) dp -= 0.02 * k * p;
+    if (hb.pollution && PO && PO[i] > 0.4) dp -= 0.1 * k * p;
+    if (M.seaM[i] && OX && OX[i] < 0.35) dp -= 0.15 * k * p; // (suffocating)
+    p = Math.max(0, Math.min(1.5, p + dp));
+    if (hb.frostKills && world.temperature[i] + seasonalAt(world, i, st) < -12) p *= 0.6;
+    if (p < 0.002) { P[i] = 0; continue; }
+    P[i] = p;
+    // --- What it does to the place ---
+    if (grazer && M.land[i]) world.browse[i] = Math.min(1, world.browse[i] + p * (a.eats.grass || a.eats.young ? 1 : 0.5));
+    if (a.eats.plankton && world.plankton && M.seaM[i]) world.plankton[i] = Math.max(0, world.plankton[i] - 0.02 * p * k);
+    if (a.eats.seaweed && world.marineHealth && M.seaM[i]) {
+      const m = world.marine ? world.marine[i] : -1;
+      if (m === 1 || m === 2) world.marineHealth[i] = Math.max(0, world.marineHealth[i] - 0.012 * k * Math.max(0, p - 0.3));
+    }
+    if (hb.killsTrees && p > 0.3 && M.land[i]) {
+      const share = (a.eats.conifer && world.conifer ? world.conifer[i] : 0) + (a.eats.decid && world.decid ? world.decid[i] : 0) || (a.eats.young ? 0.5 : 0);
+      const kill = 0.006 * p * k * V[i] * Math.min(1, share);
+      if (kill > 0) {
+        V[i] -= kill; world.forestAge[i] = Math.max(0, world.forestAge[i] - kill * 2);
+        world.deadWood[i] = Math.min(1, world.deadWood[i] + kill * 2);
+        world.treeKill[i] = Math.min(1, world.treeKill[i] + kill * 20);
+      }
+    }
+    if (hb.dams && p > 0.4) {
+      if ((M.stream[i] || world.dam[i] > 0.05) && world.dam[i] < 1.4) {
+        const gx = (H[Math.min(n - 1, i + 1)] - H[Math.max(0, i - 1)]) * 0.5, gz = (H[Math.min(n - 1, i + N)] - H[Math.max(0, i - N)]) * 0.5;
+        if (gx * gx + gz * gz < 0.36) { const inc = 0.004 * p * k; H[i] += inc; world.dam[i] += inc; }
+      }
+      if (world.decid && world.decid[i] > 0.2) V[i] = Math.max(0, V[i] - 0.001 * p * k); // (fells the trees)
+    }
+    if (hb.fertilises && M.land[i]) {
+      world.humus[i] = Math.min(1, world.humus[i] + 0.0015 * p * k);
+      world.salmonN[i] = Math.min(1, world.salmonN[i] + 0.004 * p * k);
+    }
+    if (runSeason && M.stream[i]) world.runners[i] += p;
+  }
+  // Abandoned dams wash out
+  if (hb.dams) for (let i = 0; i < n; i++) if (world.dam[i] > 0 && P[i] < 0.05) { const d = Math.min(world.dam[i], 0.002 * k); H[i] -= d; world.dam[i] -= d; }
+  // --- Moving about: toward better feeding, over its roaming range ---
+  if (runSeason) riverRun(world, a, P, M);
+  else {
     const tmp = new Float32Array(n);
-    for (let i = 0; i < n; i++) tmp[i] = DE[i] * land[i];
-    const b = boxBlur(tmp, N, 3), kb = boxBlur(K, N, 3);
+    for (let i = 0; i < n; i++) tmp[i] = P[i] * allow[i];
+    const rr = Math.max(1, a.roam), b = boxBlur(tmp, N, rr), kb = boxBlur(K, N, rr);
     for (let i = 0; i < n; i++) {
-      if (!land[i]) continue;
+      if (!allow[i]) { P[i] = 0; continue; }
       const target = kb[i] > 1e-3 ? (b[i] * K[i]) / kb[i] : 0;
-      DE[i] += (target - DE[i]) * 0.2 * k;
+      P[i] += (target - P[i]) * 0.2 * k;
     }
   }
-  spread(WO, land, N, 5, 0.15 * k);
-}
-
-function beavers(world, N, n, H, V, stream, decid, DE, BV, DAM, k) {
-  // --- Beavers ----------------------------------------------------------------------------
-  // Food: willow, alder, aspen and birch along the stream (deciduous trees), less where deer eat them
-  const willow = new Float32Array(n);
-  for (let i = 0; i < n; i++) willow[i] = (decid ? decid[i] : 0) * V[i] * (1 - 0.6 * Math.min(1, DE[i] * 1.5));
-  const willowNear = boxBlur(willow, N, 3);
-  for (let i = 0; i < n; i++) {
-    const onStream = stream[i] || DAM[i] > 0.05;
-    if (!onStream) { BV[i] *= 0.9; if (BV[i] < 0.01) BV[i] = 0; }
-    else BV[i] = Math.max(0, Math.min(1, BV[i] + 0.03 * k * BV[i] * (willowNear[i] * 3 - 0.35)));
-    // A healthy colony dams its stream: the dam rises a little each step (on gentle ground)
-    if (BV[i] > 0.4 && DAM[i] < 1.4) {
-      const gx = (H[Math.min(n - 1, i + 1)] - H[Math.max(0, i - 1)]) * 0.5, gz = (H[Math.min(n - 1, i + N)] - H[Math.max(0, i - N)]) * 0.5;
-      if (gx * gx + gz * gz < 0.36) { const inc = 0.004 * BV[i] * k; H[i] += inc; DAM[i] += inc; }
-    } else if (BV[i] < 0.05 && DAM[i] > 0) {
-      // Abandoned dams slowly wash out
-      const dec = Math.min(DAM[i], 0.002 * k); H[i] -= dec; DAM[i] -= dec;
-    }
-    // They fell the trees around their pond
-    if (BV[i] > 0.2 && decid && decid[i] > 0.2) V[i] = Math.max(0, V[i] - 0.001 * BV[i] * k);
-  }
-  {
-    const allow = new Float32Array(n);
-    for (let i = 0; i < n; i++) allow[i] = stream[i] || DAM[i] > 0.05 ? 1 : 0;
-    spread(BV, allow, N, 3, 0.05 * k);
-  }
-
-}
-
-function beetles(world, N, n, V, AGE, SOIL, conifer, BT, DW, st, k) {
-  // --- Bark beetles -----------------------------------------------------------------------
-  {
-    const temp = (i) => world.temperature[i] + seasonalAt(world, i, st);
-    for (let i = 0; i < n; i++) {
-      const c = conifer ? conifer[i] * V[i] : 0;
-      if (c < 0.1) { BT[i] *= 0.8; if (BT[i] < 0.005) BT[i] = 0; continue; }
-      // Drought-stressed, warm forest is easy prey; a hard freeze kills the larvae
-      const drought = 1 - Math.min(1, (SOIL ? SOIL[i] : 0.5) * 1.6);
-      const t = temp(i);
-      const warm = Math.max(0, Math.min(1, (t - 8) / 14));
-      const g = 0.06 * k * BT[i] * (c * (0.4 * drought + 0.4 * warm + 0.2) - 0.25);
-      BT[i] = Math.max(0, Math.min(1, BT[i] + g));
-      if (t < -12) BT[i] *= 0.6;
-      // Infested trees die: the forest turns grey, leaving dead wood
-      if (BT[i] > 0.35) {
-        const kill = 0.006 * BT[i] * k * V[i];
-        V[i] -= kill; AGE[i] = Math.max(0, AGE[i] - kill * 2);
-        DW[i] = Math.min(1, DW[i] + kill * 2);
-      }
-    }
-    const allow = new Float32Array(n);
-    for (let i = 0; i < n; i++) allow[i] = conifer && conifer[i] > 0.15 && V[i] > 0.2 ? 1 : 0;
-    spread(BT, allow, N, 2, 0.12 * k);
-  }
-  for (let i = 0; i < n; i++) if (DW[i] > 0) { DW[i] = Math.max(0, DW[i] - 0.0015 * k); if (world.fire[i] > 0) DW[i] = 0; }
-
-}
-
-function seaLife(world, N, n, H, sea, seaM, FI, UR, OT, k) {
-  // --- The sea: forage fish, urchins, otters -----------------------------------------------
-  const PL = world.plankton, OX = world.oxygen, HL = world.marineHealth, M = world.marine, PO = world.pollution;
-  let fishSum = 0, fishCells = 0;
-  for (let i = 0; i < n; i++) {
-    if (!seaM[i]) { FI[i] = 0; UR[i] = 0; OT[i] = 0; continue; }
-    const m = M ? M[i] : -1;
-    const bed = m >= 1 && m <= 3 && HL ? HL[i] : 0; // kelp, seagrass, coral nurseries
-    const food = Math.min(1, (PL ? PL[i] : 0.2) * 1.2 + 0.25 * bed + 0.1);
-    const ox = OX ? OX[i] : 1;
-    let f = FI[i];
-    f += 0.04 * k * f * (food - f) - (ox < 0.35 ? 0.15 * f : 0) - (PO ? 0.05 * Math.min(1, PO[i]) * f : 0);
-    FI[i] = Math.max(0, Math.min(1.2, f));
-    // They graze the plankton down
-    if (PL) PL[i] = Math.max(0, PL[i] - 0.02 * FI[i] * k);
-    fishSum += FI[i]; fishCells++;
-    // Urchins graze kelp (and other weed); otters eat urchins; pollution kills otters
-    const kelp = m === 1 && HL ? HL[i] : 0;
-    const depth = sea - H[i];
-    const algae = depth < 10 ? 0.3 + kelp : 0;
-    let u = UR[i];
-    u += 0.03 * k * u * (algae - u) - 0.2 * k * OT[i] * u;
-    UR[i] = Math.max(0, Math.min(1.5, u));
-    if (m === 1 && HL) HL[i] = Math.max(0, HL[i] - 0.012 * k * Math.max(0, UR[i] - 0.3)); // urchin barrens
-    let o = OT[i];
-    o += 0.03 * k * o * (Math.min(1, UR[i] * 2) - 0.35) - (PO && PO[i] > 0.4 ? 0.1 * o : 0);
-    OT[i] = depth < 12 ? Math.max(0, Math.min(1, o)) : 0;
-  }
-  // Fish school about and ride the currents; urchins creep; otters swim along the coast
-  spread(FI, seaM, N, 3, 0.2 * k);
-  spread(UR, seaM, N, 1, 0.05 * k);
-  spread(OT, seaM, N, 3, 0.1 * k);
-  world.fishMean = fishCells ? fishSum / fishCells : 0;
-
-}
-
-function salmonRun(world, N, n, ph, st, stream, seaM, SA, DAM) {
-  // --- Salmon ------------------------------------------------------------------------------
-  // The run: in autumn (Sept–Nov) salmon gather at the river mouths and swim upstream; in early
-  // winter they spawn and die, fertilising the banks. Their numbers next year depend on how many
-  // spawned and on the food at sea (forage fish).
-  const run = ph > 0.47 && ph < 0.72;
-  // (salmon-derived nutrients in the stream banks fade over a few years)
-  const SN2 = world.salmonN;
-  for (let i = 0; i < n; i++) if (SN2[i] > 0) SN2[i] = Math.max(0, SN2[i] - 0.0015);
-  let mouths = 0;
-  if (run) {
-    const strength = Math.min(1.5, world.salmonStock);
-    for (let i = 0; i < n; i++) {
-      if (!stream[i]) { if (!seaM[i]) SA[i] *= 0.5; else SA[i] = 0; continue; }
-      // Entering from the sea: stream cells next to the sea
-      const x = i % N;
-      const mouth = (x > 0 && seaM[i - 1]) || (x < N - 1 && seaM[i + 1]) || (i >= N && seaM[i - N]) || (i < n - N && seaM[i + N]);
-      const q = world.silt ? 1 - Math.min(1, 0.5 * (world.silt[i] || 0)) : 1;
-      if (mouth) { SA[i] = Math.max(SA[i], 0.8 * strength * q); mouths++; }
-    }
-    // Swim upstream (against the flow), stopped by warm water and by dams
-    const tmp = new Float32Array(n);
-    for (let z = 1; z < N - 1; z++) {
-      for (let x = 1; x < N - 1; x++) {
-        const i = z * N + x;
-        if (!stream[i] || SA[i] <= 0.01) continue;
-        const vx = world.velX[i], vz = world.velZ[i], sp = Math.sqrt(vx * vx + vz * vz) || 1;
-        const tx = Math.round(x - (vx / sp) * 1.5), tz = Math.round(z - (vz / sp) * 1.5);
-        const j = tz * N + tx;
-        const warm = world.temperature[i] + seasonalAt(world, i, st) > 18 ? 0.5 : 1;
-        const blocked = DAM[j] > 0.8 ? 0.3 : 1;
-        const go = 0.5 * warm * blocked;
-        if (j >= 0 && j < n && stream[j]) { tmp[j] += SA[i] * go; tmp[i] += SA[i] * (1 - go) * 0.97; }
-        else tmp[i] += SA[i] * 0.97;
-      }
-    }
-    for (let i = 0; i < n; i++) SA[i] = Math.min(1.5, tmp[i]);
-    world.salmonMouths = Math.max(world.salmonMouths || 0, mouths);
-  } else if (ph >= 0.72 && !world.salmonSpawned) {
-    // Spawning: the run ends, the fish die and fertilise the stream banks
-    let spawned = 0;
-    const carcass = boxBlur(SA, N, 3);
-    for (let i = 0; i < n; i++) {
-      spawned += SA[i];
-      if (carcass[i] > 0.02 && !seaM[i]) {
+  // End of the run: those in the rivers spawn and die, fertilising the banks
+  if (hb.runsRivers) {
+    if (ph >= 0.72 && !a.spawned) {
+      let spawned = 0;
+      const inRiver = new Float32Array(n);
+      for (let i = 0; i < n; i++) if (M.stream[i]) { inRiver[i] = P[i]; spawned += P[i]; P[i] = 0; }
+      const carcass = boxBlur(inRiver, N, 3);
+      for (let i = 0; i < n; i++) if (carcass[i] > 0.01 && !M.seaM[i]) {
         world.humus[i] = Math.min(1, world.humus[i] + 0.15 * carcass[i]);
-        SN2[i] = Math.min(1, SN2[i] + 4 * carcass[i]); // (marine nitrogen: the banks grow richer)
+        world.salmonN[i] = Math.min(1, world.salmonN[i] + 4 * carcass[i]);
       }
+      const expected = Math.max(1, (a.mouths || 1) * 4 * a.stock);
+      a.stock = Math.max(0.05, Math.min(2, 0.5 * a.stock + a.stock * Math.min(1.5, spawned / expected) * 0.9));
+      a.mouths = 0;
+      a.spawned = true;
     }
-    SA.fill(0);
-    // Next year's run: how well this year's run did (spawners per river mouth, against what a
-    // healthy run brings) × how well the young survive at sea (forage fish to eat)
-    const expected = Math.max(1, (world.salmonMouths || 1) * 4 * world.salmonStock);
-    const success = Math.min(1.5, spawned / expected);
-    const sea = 0.4 + 1.2 * Math.min(1, world.fishMean * 2.5);
-    world.salmonStock = Math.max(0.02, Math.min(2, 0.5 * world.salmonStock + world.salmonStock * success * sea * 0.8));
-    world.salmonMouths = 0;
-    world.salmonSpawned = true;
+    if (ph < 0.47) a.spawned = false;
   }
-  if (ph < 0.47) world.salmonSpawned = false;
 }
 
-/** Dominant animal at cell i (for the overlay and inspector): [index, density] or null. */
+/** The autumn run: from the river mouths, up the rivers against the flow. */
+function riverRun(world, a, P, M) {
+  const N = world.N, n = N * N, st = world.seasonT || 0;
+  let atSea = 0, seaCells = 0;
+  for (let i = 0; i < n; i++) if (M.seaM[i]) { atSea += P[i]; seaCells++; }
+  const pool = Math.min(1.5, (seaCells ? atSea / seaCells : 0) * 3 + 0.2) * Math.min(1.5, a.stock);
+  let mouths = 0;
+  const tmp = new Float32Array(n);
+  for (let z = 1; z < N - 1; z++) {
+    for (let x = 1; x < N - 1; x++) {
+      const i = z * N + x;
+      if (M.seaM[i]) { tmp[i] += P[i]; continue; }
+      if (!M.stream[i]) continue;
+      const mouth = M.seaM[i - 1] || M.seaM[i + 1] || M.seaM[i - N] || M.seaM[i + N];
+      const q = world.silt ? 1 - Math.min(1, 0.5 * (world.silt[i] || 0)) : 1;
+      if (mouth) { P[i] = Math.max(P[i], 0.8 * pool * q); mouths++; }
+      if (P[i] <= 0.01) continue;
+      const vx = world.velX[i], vz = world.velZ[i], sp = Math.sqrt(vx * vx + vz * vz) || 1;
+      const tx = Math.round(x - (vx / sp) * 1.5), tz = Math.round(z - (vz / sp) * 1.5), j = tz * N + tx;
+      const warm = world.temperature[i] + seasonalAt(world, i, st) > 18 ? 0.5 : 1;
+      const go = 0.5 * warm * (j >= 0 && j < n && world.dam[j] > 0.8 ? 0.3 : 1);
+      if (j >= 0 && j < n && M.stream[j]) { tmp[j] += P[i] * go; tmp[i] += P[i] * (1 - go) * 0.97; }
+      else tmp[i] += P[i] * 0.97;
+    }
+  }
+  for (let i = 0; i < n; i++) P[i] = Math.min(1.5, tmp[i]);
+  a.mouths = Math.max(a.mouths || 0, mouths);
+}
+
+/** Can animal a live at cell i (for painting it in)? */
+export function canLive(world, a, i) {
+  const sea = seaLevel(world), wet = world.height[i] < sea;
+  switch (a.habitat) {
+    case 'sea': return wet || a.habits.runsRivers && world.water[i] > 0.03;
+    case 'coast': return wet && sea - world.height[i] < 12;
+    case 'stream': return !wet && (world.water[i] > 0.03 || (world.dam && world.dam[i] > 0.05));
+    default: return !wet && world.water[i] < 0.3;
+  }
+}
+
+/** The most common animal at cell i: [definition, density] or null. */
 export function dominantAnimal(world, i) {
-  let best = -1, bv = 0.06;
-  SPECIES_ECO.forEach((s, k) => { const f = world[s.id]; const v = f ? f[i] * (s.id === 'beetle' || s.id === 'beaver' || s.id === 'salmon' ? 2 : 1) : 0; if (v > bv) { bv = v; best = k; } });
-  return best >= 0 ? [best, bv] : null;
+  let best = null, bv = 0.06;
+  for (const a of world.animals || []) {
+    const f = world['animal_' + a.id];
+    if (f && f[i] > bv) { bv = f[i]; best = a; }
+  }
+  return best ? [best, bv] : null;
+}
+
+/** A short description: where it lives, what it eats, its habits. */
+export function describeAnimal(world, a) {
+  const foods = Object.keys(PLANT_FOODS).filter((k) => a.eats[k]).map((k) => PLANT_FOODS[k].split(' (')[0].toLowerCase());
+  for (const pid of a.prey) { const b = (world.animals || []).find((x) => x.id === pid); if (b) foods.push(b.name); }
+  const habits = Object.keys(HABITS).filter((k) => a.habits[k]).map((k) => HABITS[k][0].toLowerCase());
+  return `Lives in: ${HABITATS[a.habitat].toLowerCase()}. Eats: ${foods.length ? foods.join(', ') : 'nothing yet (it will die out)'}.${habits.length ? ' ' + habits.join('; ') + '.' : ''}`;
 }

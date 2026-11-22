@@ -13,7 +13,7 @@ import { ERUPTION_TYPES, INTRUSION_TYPES } from '../sim/volcanism.js';
 import { FAULT_TYPES } from '../sim/tectonics.js';
 import { SPECIES, OPEN } from '../sim/species.js';
 import { BIOMES } from '../render/biomes.js';
-import { SPECIES_ECO } from '../sim/ecology.js';
+import { HABITATS, PLANT_FOODS, HABITS, newAnimal, removeAnimal, describeAnimal } from '../sim/ecology.js';
 
 export class Toolbox {
   /**
@@ -276,11 +276,18 @@ export class Toolbox {
     // --- View --------------------------------------------------------------------------------
     // --- Wildlife ------------------------------------------------------------------------------
     const wild = this.section('Wildlife', false);
+    this.animalList = el('div', 'tb-animals');
+    this.animalForm = el('div', 'tb-animal-form');
+    this.animalForm.hidden = true;
     wild.append(
-      toggle('Wildlife', app.ecoParams, 'enabled', 'Animal populations that depend on the land, the sea and each other: deer and wolves, beavers, bark beetles, salmon, forage fish, sea urchins and sea otters. Paint them in with the Wildlife tools; the Wildlife overlay maps them and the inspector shows them.', this),
+      toggle('Wildlife', app.ecoParams, 'enabled', 'Animals you design: give each a name and colour, say where it lives, what it eats (plants, plankton, seaweed or your other animals) and its habits. They grow where there is food, starve where there is none, are thinned out by whatever eats them, and change the land and sea (grazing, damming streams, killing trees, cropping plankton or kelp). Paint them in with the Animal tool.', this),
       slider('Population speed', app.ecoParams, 'speed', 0.2, 3, 0.1, 'How fast the animal populations grow, decline and move.', this),
-      toggle('Show animals', app.wildlife, 'visible', 'Show the animals as small coloured dots where they live: deer (tan), wolves (grey), beavers (orange), forage fish (silver), sea otters (brown). Bark beetle outbreaks show as dying red-grey forest and salmon runs as reddened rivers.', this),
+      toggle('Show animals', app.wildlife, 'visible', 'Show the animals as small dots in their colours where they live (and in the map key).', this, () => this.updateLegend()),
+      this.animalList,
+      button('+ Add animal', () => this.editAnimal(null), 'tb-add-animal', 'Design a new animal: its name, colour, where it lives, what it eats and its habits.', this),
+      this.animalForm,
     );
+    this.renderAnimals();
     const view = this.section('View', false);
     view.append(
       toggle('Show clouds', app.renderer, 'showClouds', 'Show the clouds that form where moist air is pushed up over terrain.', this),
@@ -335,6 +342,95 @@ export class Toolbox {
   }
 
   /** Legend for the current overlay: swatches for categories, a ramp for continuous values. */
+  /** The list of animals in the Wildlife panel. */
+  renderAnimals() {
+    const app = this.app, w = app.world, L = this.animalList;
+    L.innerHTML = '';
+    const list = w.animals || [];
+    if (!list.length) L.append(el('div', 'tb-note', 'No animals yet. Add one, then paint it onto the map with the Animal tool.'));
+    for (const a of list) {
+      const row = el('div', 'tb-animal' + (app.animalChoice === a.id ? ' chosen' : ''));
+      const sw = el('span', 'tb-swatch');
+      sw.style.background = rgb(a.color);
+      const name = el('span', 'tb-animal-name', a.name);
+      const paint = button('Paint', () => { app.animalChoice = a.id; app.setTool('animal'); this.renderAnimals(); }, 'tb-small', `Paint ${a.name} onto the map (Animal tool; Shift removes).`, this);
+      const edit = button('Edit', () => this.editAnimal(a), 'tb-small', `Change ${a.name}.`, this);
+      const del = button('✕', () => { removeAnimal(w, a.id); if (app.animalChoice === a.id) app.animalChoice = null; this.renderAnimals(); this.updateLegend(); }, 'tb-small', `Remove ${a.name} (and all of them from the map).`, this);
+      row.append(sw, name, paint, edit, del);
+      this.helpOn(row, `<b>${escapeHtml(a.name)}</b> — ${escapeHtml(describeAnimal(w, a))}`);
+      L.append(row);
+    }
+  }
+
+  /** The add / edit form for an animal (a = null: a new one). */
+  editAnimal(a) {
+    const app = this.app, w = app.world, F = this.animalForm;
+    const draft = a ? JSON.parse(JSON.stringify(a)) : newAnimal({ color: [0.3 + Math.random() * 0.6, 0.3 + Math.random() * 0.5, 0.2 + Math.random() * 0.5] });
+    F.innerHTML = '';
+    F.hidden = false;
+    const field = (label, input) => { const r = el('label', 'tb-form-row'); r.append(el('span', 'tb-label', label), input); return r; };
+    const name = el('input'); name.type = 'text'; name.value = draft.name; name.maxLength = 40;
+    const color = el('input'); color.type = 'color';
+    color.value = '#' + draft.color.map((c) => Math.round(c * 255).toString(16).padStart(2, '0')).join('');
+    const hab = el('select');
+    for (const [k, t] of Object.entries(HABITATS)) { const o = el('option', '', t); o.value = k; hab.append(o); }
+    hab.value = draft.habitat;
+    const checks = (title, entries, isOn) => {
+      const box = el('div', 'tb-form-group');
+      box.append(el('div', 'tb-form-title', title));
+      const inputs = {};
+      for (const [k, label, help] of entries) {
+        const r = el('label', 'tb-check');
+        const c = el('input'); c.type = 'checkbox'; c.checked = isOn(k);
+        r.append(c, el('span', '', label));
+        if (help) this.helpOn(r, `<b>${label}</b> — ${help}`);
+        box.append(r);
+        inputs[k] = c;
+      }
+      return { box, inputs };
+    };
+    const plants = checks('Eats (plants)', Object.entries(PLANT_FOODS).map(([k, t]) => [k, t]), (k) => !!draft.eats[k]);
+    const others = (w.animals || []).filter((b) => b.id !== draft.id);
+    const prey = checks('Eats (animals)', others.length ? others.map((b) => [b.id, b.name]) : [], (k) => draft.prey.includes(k));
+    if (!others.length) prey.box.append(el('div', 'tb-note', 'Add more animals to choose prey.'));
+    const habits = checks('Habits', Object.entries(HABITS).map(([k, [t, h]]) => [k, t, h]), (k) => !!draft.habits[k]);
+    const breed = el('select');
+    for (const [v, t] of [[0.5, 'Slowly'], [1, 'Normally'], [2, 'Quickly']]) { const o = el('option', '', t); o.value = v; breed.append(o); }
+    breed.value = String(draft.breed);
+    const roam = el('select');
+    for (const [v, t] of [[1, 'A small home range'], [3, 'A medium range'], [6, 'Far and wide']]) { const o = el('option', '', t); o.value = v; roam.append(o); }
+    roam.value = String(draft.roam);
+    const save = button(a ? 'Save' : 'Add animal', () => {
+      draft.name = name.value.trim() || 'Animal';
+      const hex = color.value;
+      draft.color = [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16) / 255);
+      draft.habitat = hab.value;
+      draft.eats = Object.fromEntries(Object.entries(plants.inputs).filter(([, c]) => c.checked).map(([k]) => [k, true]));
+      draft.prey = Object.entries(prey.inputs).filter(([, c]) => c.checked).map(([k]) => k);
+      draft.habits = Object.fromEntries(Object.entries(habits.inputs).filter(([, c]) => c.checked).map(([k]) => [k, true]));
+      draft.breed = parseFloat(breed.value);
+      draft.roam = parseFloat(roam.value);
+      if (!w.animals) w.animals = [];
+      const at = w.animals.findIndex((b) => b.id === draft.id);
+      if (at >= 0) w.animals[at] = draft; else w.animals.push(draft);
+      app.animalChoice = draft.id;
+      F.hidden = true;
+      this.renderAnimals();
+      this.updateLegend();
+      w.dirty = true;
+    }, 'tb-primary');
+    const cancel = button('Cancel', () => { F.hidden = true; });
+    const btns = el('div', 'tb-form-buttons');
+    btns.append(save, cancel);
+    F.append(el('div', 'tb-form-head', a ? `Edit ${a.name}` : 'New animal'),
+      field('Name', name), field('Colour', color), field('Lives in', hab),
+      plants.box, prey.box,
+      field('Breeds', breed), field('Roams', roam),
+      habits.box, btns);
+    name.focus();
+    name.select();
+  }
+
   updateLegend() {
     const mode = this.app.renderer.colorMode;
     const L = this.legendEl;
@@ -362,11 +458,26 @@ export class Toolbox {
     };
     if (mode === 'rock' || (mode === 'natural' && !this.app.renderer.showVegetation)) items('Rock types', ROCKS);
     else if (mode === 'bare') items('Exposed rock (pale = under soil)', [{ label: 'Soil-covered', color: [0.86, 0.84, 0.78], help: 'Bedrock buried under soil deep enough to grow on.' }, ...ROCKS]);
-    else if (mode === 'natural' || mode === 'biome') items(mode === 'biome' ? 'Biomes' : 'Biomes (blended)', Object.values(BIOMES));
+    else if (mode === 'natural' || mode === 'biome') {
+      items(mode === 'biome' ? 'Biomes' : 'Biomes (blended)', Object.values(BIOMES));
+      // Your animals, when shown on the map
+      const animals = this.app.world.animals || [];
+      if (mode === 'natural' && animals.length && this.app.wildlife.visible) {
+        L.append(el('div', 'tb-legend-sub', 'Animals'));
+        for (const an of animals) {
+          const item = el('div', 'tb-legend-item');
+          const sw = el('span', 'tb-swatch tb-dot');
+          sw.style.background = rgb(an.color);
+          item.append(sw, el('span', '', an.name));
+          this.helpOn(item, `<b>${escapeHtml(an.name)}</b> — ${escapeHtml(describeAnimal(this.app.world, an))}`);
+          L.append(item);
+        }
+      }
+    }
     else if (mode === 'precip') ramp('Precipitation', 'dry (rain shadow)', 'wet (windward)', [[0.86, 0.74, 0.52], [0.12, 0.35, 0.75]]);
     else if (mode === 'snowDepth') ramp('Snow depth (grey = none)', 'thin', 'deep', [[0.88, 0.92, 0.98], [0.55, 0.72, 0.95], [0.18, 0.30, 0.75]]);
     else if (mode === 'coast') items('Shores, dunes and ocean biomes', [...SHORES, { label: 'Coastal dunes', color: [0.86, 0.82, 0.62], help: 'Wind-blown sand behind sand beaches.' }, { label: 'Mangrove forest', color: [0.12, 0.30, 0.16], help: 'Forest standing in the tide on warm, sheltered mudflats.' }, ...MARINE]);
-    else if (mode === 'wildlife') items('Most common animal (stronger colour = more of them)', SPECIES_ECO);
+    else if (mode === 'wildlife') items((this.app.world.animals || []).length ? 'Most common animal (stronger colour = more of them)' : 'No animals yet (add them under Wildlife)', (this.app.world.animals || []).map((an) => ({ label: an.name, color: an.color, help: describeAnimal(this.app.world, an) })));
     else if (mode === 'wind') ramp('Wind speed (land blocks it: calm in its lee)', 'calm', 'gale', [[0.86, 0.90, 0.92], [0.45, 0.72, 0.80], [0.20, 0.38, 0.72], [0.52, 0.20, 0.58]]);
     else if (mode === 'quality') ramp('Seawater quality', 'foul (silt, pollutants)', 'clear', [[0.45, 0.25, 0.12], [0.78, 0.68, 0.36], [0.20, 0.55, 0.85]]);
     else if (mode === 'topo') {
@@ -456,6 +567,7 @@ export class Toolbox {
     this.playBtn.textContent = this.app.sim.running ? '❚❚ Pause' : '▶ Play';
     this.playBtn.classList.toggle('running', this.app.sim.running);
     document.querySelectorAll('[data-sync]').forEach((n) => n.sync());
+    if (this.animalList) this.renderAnimals();
     this.erosionControls.classList.toggle('tb-disabled', !this.app.world.erosionEnabled);
     this.erosionTools.classList.toggle('tb-disabled', !this.app.world.erosionEnabled);
     this.setInfo(this.defaultInfo());
@@ -544,3 +656,5 @@ function numberInput(label, obj, key, help, tb) {
 }
 
 function rgb(c) { return `rgb(${c.map((v) => Math.round(v * 255)).join(',')})`; }
+
+function escapeHtml(t) { return String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }

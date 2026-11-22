@@ -141,7 +141,9 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   world.sources.length = 0;
   world.pollSources = [];
   world.currentPaths = [];
-  world.ecoSeeded = false; world.salmonStock = 1; // (wildlife starts afresh on a new map)
+  // (your animals carry over to the new map, but with no population yet: paint them in)
+  for (const k of ['dam', 'deadWood', 'browse', 'salmonN', 'treeKill', 'runners']) if (world[k]) world[k].fill(0);
+  for (const a of world.animals || []) { const f = world['animal_' + a.id]; if (f) f.fill(0); a.stock = 1; }
   initVegetation(world, seed);
   world.dirty = true;
 }

@@ -7,7 +7,6 @@ import { saturation, stableSlope } from '../sim/landslides.js';
 import { snowAt, cloudTempAt, seasonalAt } from '../sim/climate.js';
 import { SHORES, MARINE, waterTempAt, marineShown, marineThins, coastParams } from '../sim/coast.js';
 import { waterQuality, qualityLabel } from '../sim/waterQuality.js';
-import { SPECIES_ECO } from '../sim/ecology.js';
 import { compositionAt } from '../sim/species.js';
 
 export class Inspector {
@@ -69,7 +68,7 @@ export class Inspector {
       ...(w.silt && w.meanSea > -999 && h < w.meanSea ? [['Water quality', `${bar(waterQuality(w, i), waterQuality(w, i) > 0.65 ? '#4fb0e0' : waterQuality(w, i) > 0.4 ? '#b09a5a' : '#8a5a2e')} <span class="ins-dim">${qualityLabel(waterQuality(w, i))} · silt ${w.silt[i].toFixed(2)} · pollutants ${w.pollution[i].toFixed(2)}</span>`]] : []),
       ...(w.marine && w.marine[i] >= 0 && ['kelp', 'seagrass', 'coral'].includes(MARINE[w.marine[i]].id) ? [[marineThins(w.marine[i]) ? `${MARINE[w.marine[i]].id === 'kelp' ? 'Kelp' : 'Seagrass'} density` : 'Sea-bed health', bar(w.marineHealth[i], w.marineHealth[i] > 0.5 ? '#5cbf6a' : '#c96a4a')]] : []),
             ...(w.coral && (w.coral[i] > 0.03 || (w.coralRubble && w.coralRubble[i] > 0.05)) ? [['Coral', `${bar(Math.min(1, w.coral[i]), '#e8a08f')} <span class="ins-dim">living cover${w.coralRubble[i] > 0.05 ? ` · dead rubble ${w.coralRubble[i].toFixed(2)}` : ''}</span>`]] : []),
-            ...(w.deer ? SPECIES_ECO.filter((sp) => w[sp.id][i] > 0.03).map((sp) => [sp.label, `${bar(Math.min(1, w[sp.id][i]), `rgb(${sp.color.map((c) => Math.round(c * 255)).join(',')})`)}${sp.id === 'salmon' ? ` <span class="ins-dim">· ${Math.round((w.salmonStock || 0) * 100)}% of a normal run</span>` : ''}`]) : []),
+...(w.animals || []).filter((an) => w['animal_' + an.id] && w['animal_' + an.id][i] > 0.03).map((an) => [esc(an.name), `${bar(Math.min(1, w['animal_' + an.id][i]), `rgb(${an.color.map((c) => Math.round(c * 255)).join(',')})`)}${an.habits.runsRivers ? ` <span class="ins-dim">· run ${Math.round((an.stock || 0) * 100)}% of normal</span>` : ''}`]),
       ...(w.dam && w.dam[i] > 0.05 ? [['Beaver dam', `${w.dam[i].toFixed(2)} high`]] : []),
       ...(w.deadWood && w.deadWood[i] > 0.05 ? [['Dead wood', `${bar(w.deadWood[i], '#8a7f75')} <span class="ins-dim">beetle-killed: burns fiercely</span>`]] : []),
       ...(w.dune && w.dune[i] > 0.1 ? [['Dunes', bar(w.dune[i], '#d8c99a')]] : []),
@@ -150,3 +149,5 @@ function leafLabel(w, i) {
     : f > 0.25 ? 'fresh spring leaves' : L < 0.85 ? 'leafing out' : 'in leaf';
   return `${state} <span class="ins-dim">· ${d}% deciduous</span>`;
 }
+
+function esc(t) { return String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }

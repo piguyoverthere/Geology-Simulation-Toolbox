@@ -1,28 +1,33 @@
-// Animals on the map: small coloured dots scattered where each population lives, more where there
-// are more of them (deer herds, wolf packs, beaver lodges, schools of fish, otter rafts). Bark
-// beetles show as dying red-grey forest and salmon runs as reddened rivers, in the terrain colours.
+// Animals on the map: small dots in each animal's colour, scattered where it lives, more where there
+// are more of them. (Animals that kill trees also show as dying red-grey forest, and runs up the
+// rivers as reddened water, in the terrain colours.)
 
 import * as THREE from 'three';
-import { SPECIES_ECO } from '../sim/ecology.js';
 
-const SHOWN = { deer: 220, wolves: 60, beaver: 50, fish: 160, otter: 60 }; // most dots per kind
+const PER = 120; // most dots per animal
 
 export class WildlifeMarkers {
   constructor(scene, world, renderer) {
     this.world = world;
     this.renderer = renderer;
-    this.max = Object.values(SHOWN).reduce((a, b) => a + b, 0);
-    this.pos = new Float32Array(this.max * 3);
-    this.col = new Float32Array(this.max * 3);
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
-    g.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
-    g.setDrawRange(0, 0);
-    this.points = new THREE.Points(g, new THREE.PointsMaterial({ size: 1.6, vertexColors: true, sizeAttenuation: true }));
+    this.points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: 2.6, vertexColors: true, sizeAttenuation: true }));
+    this.alloc(8 * PER);
     this.points.renderOrder = 4;
     scene.add(this.points);
     this.visible = true;
     this.timer = 0;
+  }
+
+  alloc(max) {
+    this.max = max;
+    this.pos = new Float32Array(max * 3);
+    this.col = new Float32Array(max * 3);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
+    g.setDrawRange(0, 0);
+    this.points.geometry.dispose();
+    this.points.geometry = g;
   }
 
   update(dt) {
@@ -32,13 +37,15 @@ export class WildlifeMarkers {
     if (this.timer > 0) return;
     this.timer = 0.6;
     const w = this.world, N = w.N, n = N * N;
-    if (!w.deer) { this.points.geometry.setDrawRange(0, 0); return; }
+    const list = w.animals || [];
+    if (!list.length) { this.points.geometry.setDrawRange(0, 0); return; }
+    if (list.length * PER > this.max) this.alloc(list.length * PER);
     const sea = w.meanSea !== undefined && w.meanSea > -999 ? w.seaLevel : -1e9;
     let c = 0;
-    for (const s of SPECIES_ECO) {
-      const cap = SHOWN[s.id];
-      if (!cap) continue;
-      const F = w[s.id];
+    for (const s of list) {
+      const cap = PER;
+      const F = w['animal_' + s.id];
+      if (!F) continue;
       let placed = 0;
       for (let t = 0; t < cap * 30 && placed < cap; t++) {
         const i = (Math.random() * n) | 0;

@@ -4,7 +4,7 @@ import { ROCKS } from '../core/rocks.js';
 import { forestColor } from '../sim/forests.js';
 import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp, waterTempAt, marineShown, marineColor } from '../sim/coast.js';
 import { waterQuality } from '../sim/waterQuality.js';
-import { SPECIES_ECO, dominantAnimal } from '../sim/ecology.js';
+import { dominantAnimal } from '../sim/ecology.js';
 import { SPECIES, OPEN } from '../sim/species.js';
 import { climateParams, snowAt, seasonalAt } from '../sim/climate.js';
 
@@ -305,8 +305,8 @@ export class TerrainRenderer {
           col = shade(tempColor(wt !== null ? wt : w.temperature[i] + seasonalAt(w, i), S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'wildlife') {
           // The most common animal here, its colour stronger where there are more of them
-          const da = w.deer ? dominantAnimal(w, i) : null;
-          col = da ? mix(WILD_NONE, SPECIES_ECO[da[0]].color, Math.min(1, 0.35 + da[1] * 0.8), S3) : WILD_NONE.slice();
+          const da = w.animals && w.animals.length ? dominantAnimal(w, i) : null;
+          col = da ? mix(WILD_NONE, da[0].color, Math.min(1, 0.35 + da[1] * 0.8), S3) : WILD_NONE.slice();
           shade(col, 0.75 + 0.25 * ny, col);
         } else if (mode === 'wind') {
           col = shade(windColor(w.wind ? w.wind[i] : 0, S3), 0.75 + 0.25 * ny, S3);
@@ -315,10 +315,10 @@ export class TerrainRenderer {
           col = mix(SLOPE_LO, SLOPE_HI, t, S3);
         } else {
           col = this.naturalColor(h, slope, tan, h - BASE[i], D[i], i);
-          // Bark-beetle country: red-brown dying stands, grey dead snags
+          // Trees killed by animals (bark beetles and the like): red-brown dying stands, grey snags
           if (this.showVegetation && w.deadWood) {
-            const dw = w.deadWood[i], bt = w.beetle[i];
-            if (bt > 0.25) mix(col, BEETLE_RED, Math.min(0.55, (bt - 0.25) * 0.9), col);
+            const dw = w.deadWood[i], tk = w.treeKill ? w.treeKill[i] : 0;
+            if (tk > 0.05) mix(col, BEETLE_RED, Math.min(0.55, tk * 0.8), col);
             if (dw > 0.04) mix(col, DEAD_WOOD, Math.min(0.7, dw * 1.3), col);
           }
         }
@@ -372,8 +372,8 @@ export class TerrainRenderer {
             base = mix(this.seaShallow, this.seaDeep, Math.min(1, d / 10), S4);
           } else {
             base = mix(WATER_SHALLOW, WATER_DEEP, deep, S4);
-            // A salmon run: the river turns red with spawning fish
-            if (w.salmon && w.salmon[i] > 0.1) base = mix(base, SALMON_RUN, Math.min(0.6, w.salmon[i] * 0.5), S4);
+            // A run of fish up the river (salmon and the like) turns it red
+            if (w.runners && w.runners[i] > 0.1) base = mix(base, SALMON_RUN, Math.min(0.6, w.runners[i] * 0.5), S4);
           }
           let wc = mix(base, MUD, mud * 0.8, S4);
           if (isSea && w.silt) {

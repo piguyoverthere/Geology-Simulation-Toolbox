@@ -224,3 +224,24 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .section-head button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; }
 .section-head button:hover { color: var(--text); }
 .section-panel canvas { display: block; max-width: 100%; border-radius: 4px; }
+
+/* Wildlife: your animals and the add / edit form */
+.tb-animals { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; }
+.tb-animal { display: grid; grid-template-columns: 14px 1fr auto auto auto; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
+.tb-animal.chosen { border-color: var(--accent); }
+.tb-animal-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-btn.tb-small { padding: 2px 7px; font-size: 11px; }
+.tb-note { color: var(--muted); font-size: 11.5px; padding: 4px 2px; }
+.tb-animal-form { margin-top: 8px; padding: 8px; border: 1px solid var(--accent); border-radius: 8px; background: var(--panel-2); display: flex; flex-direction: column; gap: 6px; }
+.tb-animal-form[hidden] { display: none; }
+.tb-form-head { font-weight: 600; }
+.tb-form-row { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 8px; }
+.tb-form-row input[type=text], .tb-form-row select { width: 100%; box-sizing: border-box; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; font: inherit; }
+.tb-form-row input[type=color] { width: 44px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: none; }
+.tb-form-group { display: flex; flex-direction: column; gap: 2px; }
+.tb-form-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 2px; }
+.tb-check { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+.tb-form-buttons { display: flex; gap: 6px; margin-top: 4px; }
+.tb-btn.tb-primary { border-color: var(--accent); }
+.tb-legend-sub { grid-column: 1 / -1; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 6px; }
+.tb-swatch.tb-dot { border-radius: 50%; }

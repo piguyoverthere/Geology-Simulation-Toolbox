@@ -101,13 +101,16 @@ again for a circling eddy; Backspace undoes a point, Escape cancels). The sea fl
 carrying what's in the water, shown as flowing dashes and arrows; brush strength sets its speed and
 brush size its width. Shift-click removes the nearest one.
 
-**Wildlife** tools (paint them in; Shift removes): **Deer**, **Wolves**, **Beavers** (on streams; they
-dam them into ponds), **Bark beetles** (start an outbreak in conifers), **Salmon** (stock the runs),
-**Forage fish**, **Sea urchins** and **Sea otters**. They depend on each other and on the land and sea:
-deer browse forest regrowth, wolves keep deer down and off the stream banks, beavers need streamside
-willows, beetles kill drought-stressed conifers and leave fire fuel, forage fish graze plankton and feed
-the salmon, salmon fertilise the rivers' banks, urchins graze kelp and otters eat urchins. A **Wildlife**
-panel section turns it on or off, sets the population speed and shows or hides the animals.
+**Wildlife**: design your own animals. Under **Wildlife → + Add animal**, name it, pick its colour and
+where it lives (anywhere on land, forest, meadows, mountains, streams and ponds, the sea, coastal
+shallows), what it eats (grass, shrubs and young trees, deciduous trees, conifers, plankton, seaweed,
+and any of your other animals), how fast it breeds and how far it roams, and its habits (avoids deep
+snow, harmed by pollution, killed by hard frost, builds dams, kills the trees it eats, fertilises the
+ground, swims up rivers in autumn). Paint it onto the map with the **Animal** tool 🐾 (Paint button,
+Shift removes). Each lives where it finds food, starves where it doesn't, is thinned out by whatever
+eats it, and changes the place (grazers stop forest regrowing, dam-builders raise ponds, tree-killers
+leave fire fuel, plankton- and seaweed-eaters crop the sea). They appear in the map key, the
+**Wildlife** overlay, the inspector and as dots on the map, and are saved with the level.
 
 **Inspect** shows a readout of the spot under the cursor: biome, altitude (and height above
 sea level), slope, soil wetness, climate moisture, when it was last watered (rain, river or
@@ -198,7 +201,7 @@ src/sim/coast.js        Tides, shore types, wave erosion, beach sand, dunes, man
 src/sim/waterQuality.js Seawater silt and pollutants, filtering by sea beds, die-off and recovery
 src/sim/ocean.js        Water temperature by place, tidal and wind currents, salinity and estuaries, plankton blooms and oxygen, sea ice, storm surge, surf
 src/sim/wind.js         Wind field (fetch over the sea, shadows behind land) and slow wind erosion of sedimentary rock
-src/sim/ecology.js      Wildlife: deer, wolves, beavers, bark beetles, salmon, forage fish, urchins, otters
+src/sim/ecology.js      Wildlife: the animals you design, what they eat, their habits and effects
 src/render/wildlife.js  The animals as dots on the map
 src/render/currentPaths.js  Drawn permanent currents
 src/core/environments.js  Environment presets (ready-made climates)
