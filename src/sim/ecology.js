@@ -245,7 +245,7 @@ function stepAnimal(world, a, M, sea, k) {
     dp -= 0.12 * k * hu * hu * p; // (starving)
     if (hunted) dp -= 0.25 * k * hunted[i] * p;
     if (hb.avoidsSnow && SNW && SNW[i] > 1.2) dp -= 0.02 * k * p;
-    if (hb.pollution && PO && PO[i] > 0.4) dp -= 0.1 * k * p;
+    if (hb.pollution && ((PO && PO[i] > 0.4) || (world.riverPollution && world.riverPollution[i] > 0.3))) dp -= 0.1 * k * p;
     if (M.seaM[i] && OX && OX[i] < 0.35) dp -= 0.15 * k * p; // (suffocating)
     p = Math.max(0, Math.min(1.5, p + dp));
     if (hb.frostKills && world.temperature[i] + seasonalAt(world, i, st) < -12) p *= 0.6;

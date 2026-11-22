@@ -232,7 +232,8 @@ export function waterStep(world) {
       const x = i % N, z = (i / N) | 0;
       const gx = x > 0 && x < N - 1 ? (B[i + 1] - B[i - 1]) * 0.5 : 0, gz = z > 0 && z < N - 1 ? (B[i + N] - B[i - N]) * 0.5 : 0;
       const flat = 1 - Math.min(1, Math.sqrt(gx * gx + gz * gz) / 0.25);
-      const sink = infK * flat * flat * (1.2 - SM[i]) * (0.6 + 0.6 * V[i]) * (D[i] < 0.6 ? 1 : 0.6 / D[i]);
+      const sink = infK * flat * flat * (1.2 - SM[i]) * (0.6 + 0.6 * V[i]) * (D[i] < 0.6 ? 1 : 0.6 / D[i])
+        * (world.paved ? 1 - world.paved[i] : 1); // (pavement seals the ground: rain runs straight off)
       D[i] = Math.max(0, D[i] - sink);
     }
     if (D[i] < 1e-4) {

@@ -101,6 +101,17 @@ again for a circling eddy; Backspace undoes a point, Escape cancels). The sea fl
 carrying what's in the water, shown as flowing dashes and arrows; brush strength sets its speed and
 brush size its width. Shift-click removes the nearest one.
 
+**Civilization** (toolbar): **Settle** 🏘 founds a town at the most suitable spot near your click (a
+comfortable climate, a river, lake or coast nearby, fertile flat land, timber and fish, safe from
+floods; Shift-click abandons a town); **Road** 🛣 builds a road along a drag, terracing the hills to an
+even grade, paving it and bridging rivers (Shift-drag tears it up). Towns clear patchwork farmland,
+grow toward what it feeds (drought years cut harvests), pave their streets (flat, sealed, nothing
+grows), and pollute: lightly into water beside them and always heavily down the rivers below them to
+the sea. They grow along their roads, crowded towns found daughter villages, big neighbours build
+roads to each other, floods, fires, lava and storm surges cost them people, and dwindling towns are
+abandoned and grow over. The Life tab lists the towns with population graphs; the Graphs window has
+population, towns, paved land, farmland and polluted rivers.
+
 **Wildlife**: design your own animals. Under **Wildlife → + Add animal**, name it, pick its colour and
 the temperatures it likes (it thrives inside that range and fades out beyond it), where it lives (anywhere on land, forest, meadows, mountains, streams and ponds, the sea, coastal
 shallows), what it eats (grass, shrubs and young trees, deciduous trees, conifers, plankton, seaweed,
@@ -223,6 +234,8 @@ src/render/wildlife.js  The animals as dots on the map
 src/render/currentPaths.js  Drawn permanent currents
 src/sim/stats.js        Whole-map statistics over time (the Graphs panel)
 src/sim/probes.js       Probes: per-spot readings over time (Graphs window tabs)
+src/sim/civilization.js Towns: siting, farms, paving, roads, pollution downstream, growth rules
+src/render/townLabels.js Town names on the map
 src/core/environments.js  Environment presets (ready-made climates)
 src/sim/phenology.js    Seasonal leaves: autumn colour, leaf fall, spring flush
 src/sim/species.js      Tree species, their preferences, and each cell's forest mix

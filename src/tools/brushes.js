@@ -9,6 +9,7 @@ import { ensureQuality } from '../sim/waterQuality.js';
 import { ensureOcean, advect } from '../sim/ocean.js';
 import { ensureEcology, animalField, canLive } from '../sim/ecology.js';
 import { addProbe, removeProbesNear } from '../sim/probes.js';
+import { bestSite, foundTown, removeTown, townNear, buildRoad, ensureCiv } from '../sim/civilization.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -544,6 +545,40 @@ TOOLS.animal = {
       if (invert) F[i] *= 1 - Math.min(1, k * w * 2);
       else if (canLive(world, a, i)) F[i] = Math.min(1, F[i] + k * w);
     });
+    world.dirty = true;
+  },
+};
+
+// --- Civilization tools -------------------------------------------------------------------
+TOOLS.settle = {
+  label: 'Settle', group: 'Civilization', icon: '🏘', editsTerrain: true, click: true,
+  help: 'Click near where people should settle: the best spot within about 35 cells is chosen, as people would choose it (a comfortable climate, a river, lake or the coast close by, fertile flat land to farm, timber and fish, safe from floods), and a town is founded there. It clears farmland around it, grows toward what its land can feed, paves its streets, and pollutes: lightly into water right beside it, and heavily down every river below it (always). Hold Shift and click a town to abandon it.',
+  apply({ world, app, x, z, invert }) {
+    ensureCiv(world);
+    if (invert) { const t = townNear(world, x, z, 12); if (t) removeTown(world, t); }
+    else {
+      const site = bestSite(world, x, z, 35);
+      if (site) foundTown(world, site.i);
+      else app.toolbox.setInfo('<b>Settle</b> — nowhere suitable near there: people need a liveable climate, fresh water or the coast, and some flat land that can be farmed (away from other towns).');
+    }
+    app.toolbox.renderTowns();
+    world.dirty = true;
+  },
+};
+TOOLS.road = {
+  label: 'Road', group: 'Civilization', icon: '🛣', editsTerrain: true, line: true,
+  help: 'Drag from one point to another to build a road: the hills along the route are terraced to an even grade (cut and fill), it is paved, and rivers are bridged. Towns grow out along their roads where the land suits. Hold Shift while dragging to tear up the road along the line instead.',
+  place({ world, invert }, a, b) {
+    ensureCiv(world);
+    if (!invert) { buildRoad(world, [a, b]); return; }
+    const N = world.N, len = Math.hypot(b.x - a.x, b.z - a.z);
+    for (let k = 0; k <= len * 2; k++) {
+      const x = Math.round(a.x + ((b.x - a.x) * k) / (len * 2 || 1)), z = Math.round(a.z + ((b.z - a.z) * k) / (len * 2 || 1));
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+        const i = (z + dz) * N + x + dx;
+        if (i >= 0 && i < N * N && world.landUse[i] === 3) { world.landUse[i] = 0; world.paved[i] = 0; }
+      }
+    }
     world.dirty = true;
   },
 };

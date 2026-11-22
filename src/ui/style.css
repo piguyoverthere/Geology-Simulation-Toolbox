@@ -308,3 +308,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .probe-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .probe-head .tb-btn { margin-left: auto; }
 .probe-biomes { width: 100%; height: 14px; border-radius: 3px; }
+
+/* Town labels on the map */
+.town-label { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; pointer-events: none;
+  font-size: 11px; font-weight: 600; color: #fff; padding: 1px 6px; border-radius: 8px;
+  background: rgba(60, 40, 25, 0.75); border: 1px solid rgba(255, 220, 170, 0.35); }
+.town-label[hidden] { display: none; }

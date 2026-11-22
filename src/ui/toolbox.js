@@ -15,6 +15,7 @@ import { SPECIES, OPEN } from '../sim/species.js';
 import { BIOMES } from '../render/biomes.js';
 import { STATS } from '../sim/stats.js';
 import { PROBE_STATS } from '../sim/probes.js';
+import { bestSite, foundTown, ensureCiv } from '../sim/civilization.js';
 import { YEAR_KINDS } from '../sim/climate.js';
 import { HABITATS, PLANT_FOODS, HABITS, MIGRATION, newAnimal, removeAnimal, describeAnimal } from '../sim/ecology.js';
 
@@ -24,7 +25,7 @@ const TABS = {
   land: { label: 'Land', icon: '⛰', sections: ['Water', 'Erosion', 'Geology', 'Volcanism & tectonics'], help: 'Water on the land, erosion, rocks, volcanoes and faults.' },
   climate: { label: 'Climate', icon: '☀', sections: ['Climate', 'Seasons', 'Weather'], help: 'Environments, temperature and wind, the seasons (and good and bad years), storms and weather.' },
   sea: { label: 'Sea', icon: '🌊', sections: ['Ocean & coast'], help: 'The sea, tides, currents, coasts and water quality.' },
-  life: { label: 'Life', icon: '🐾', sections: ['Wildlife'], help: 'Your animals: design them, paint them in, follow their populations.' },
+  life: { label: 'Life', icon: '🐾', sections: ['Wildlife', 'Civilization'], help: 'Your animals (design them, paint them in, follow their populations) and civilization: towns, farms, roads.' },
 };
 
 export class Toolbox {
@@ -320,6 +321,21 @@ export class Toolbox {
       this.animalForm,
     );
     this.renderAnimals();
+    // --- Civilization ------------------------------------------------------------------------
+    const civ = this.section('Civilization');
+    this.townList = el('div', 'tb-animals');
+    civ.append(
+      toggle('Civilization', app.civParams, 'enabled', 'Towns that grow on the land. Found them with the Settle tool (or the button below): each clears farmland, grows toward what its land can feed, paves its streets (flat, sealed, nothing grows) and pollutes, lightly into water beside it and heavily down every river below it. Roads (Road tool, or built between big neighbouring towns) are terraced through the hills and let towns spread along them. Drought years cut harvests; floods, fires, lava and storm surges cost people; big towns found daughter villages; dwindling towns are abandoned.', this),
+      slider('Growth speed', app.civParams, 'growth', 0.2, 4, 0.1, 'How fast towns grow (and found new villages).', this),
+      button('🏘 Found a town at the best spot', () => {
+        ensureCiv(app.world);
+        const site = bestSite(app.world, app.world.N / 2, app.world.N / 2, app.world.N);
+        if (site) { foundTown(app.world, site.i); this.renderTowns(); app.world.dirty = true; }
+        else this.setInfo('<b>Found a town</b> — there is nowhere suitable left (a liveable climate, fresh water or the coast, farmable flat land, away from other towns).');
+      }, '', 'Pick the most suitable place on the whole map to settle (away from existing towns) and found a town there.', this),
+      this.townList,
+    );
+    this.renderTowns();
     const view = this.section('View', false);
     view.append(
       toggle('Show clouds', app.renderer, 'showClouds', 'Show the clouds that form where moist air is pushed up over terrain.', this),
@@ -458,9 +474,42 @@ export class Toolbox {
     }
   }
 
+  /** The list of towns (Civilization section), each with a population graph. */
+  renderTowns() {
+    if (!this.townList) return;
+    const w = this.app.world, L = this.townList;
+    L.innerHTML = '';
+    this.townGraphs = [];
+    if (!this.openTowns) this.openTowns = new Set();
+    const towns = w.towns || [];
+    this.townKey = towns.map((t) => t.id).join(',');
+    if (!towns.length) { L.append(el('div', 'tb-note', 'No towns yet: use the Settle tool on the map, or the button above.')); return; }
+    for (const t of towns) {
+      const row = el('div', 'tb-stat');
+      const val = el('span', 'tb-stat-val', '');
+      const spark = el('canvas', 'tb-spark');
+      spark.width = 64; spark.height = 18;
+      row.append(el('span', 'tb-stat-name', `🏘 ${t.name}`), val, spark);
+      const big = el('canvas', 'tb-popchart');
+      big.width = 270; big.height = 120; big.hidden = !this.openTowns.has(t.id);
+      row.addEventListener('click', () => { if (this.openTowns.has(t.id)) this.openTowns.delete(t.id); else this.openTowns.add(t.id); big.hidden = !this.openTowns.has(t.id); this.drawGraphs(); });
+      this.helpOn(row, `<b>${escapeHtml(t.name)}</b> — founded in year ${t.founded}. Population ${Math.round(t.pop)} of the ${Math.round(t.capacity || 0)} its land can feed; ${t.cells || 0} cells of town, ${t.farm || 0} of farmland. Click for its population chart.`);
+      L.append(row, big);
+      this.townGraphs.push({ t, val, spark, big });
+    }
+  }
+
   /** Redraw the population graphs (sparklines, and the expanded charts that are open). */
   drawGraphs() {
     const w = this.app.world, hist = w.popHistory || {};
+    // Towns (rebuild the list when towns come and go)
+    if ((w.towns || []).map((t) => t.id).join(',') !== this.townKey) this.renderTowns();
+    for (const g of this.townGraphs || []) {
+      const fmtP = (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`);
+      g.val.textContent = fmtP(g.t.pop);
+      drawLine(g.spark, [{ data: g.t.history, color: '#d9a066', width: 1.5 }], false);
+      if (!g.big.hidden) drawLine(g.big, [{ data: g.t.history, color: '#d9a066', width: 2, label: `${g.t.name} (people)` }], true, fmtP);
+    }
     for (const g of this.graphs || []) {
       const data = hist[g.a.id] || [];
       drawLine(g.spark, [{ data, color: rgb(g.a.color), width: 1.5 }], false);
@@ -539,7 +588,9 @@ export class Toolbox {
     const hist = this.app.world.statHistory || {};
     for (const r of this.statRows || []) {
       const data = hist[r.st.id] || [];
-      const fmt = r.st.unit === '%' ? (v) => `${v.toFixed(v < 10 ? 1 : 0)}%` : (v) => `${v.toFixed(1)} ${r.st.unit}`;
+      const fmt = r.st.unit === '%' ? (v) => `${v.toFixed(v < 10 ? 1 : 0)}%`
+        : r.st.unit === 'people' ? (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`)
+        : r.st.unit === '' ? (v) => `${Math.round(v)}` : (v) => `${v.toFixed(1)} ${r.st.unit}`;
       r.val.textContent = data.length ? fmt(data[data.length - 1]) : '—';
       drawLine(r.spark, [{ data, color: '#e0a458', width: 1.5 }], false);
       if (!r.big.hidden) drawLine(r.big, [{ data, color: '#e0a458', width: 2, label: r.st.label }], true, fmt);

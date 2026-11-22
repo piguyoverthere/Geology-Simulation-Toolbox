@@ -23,6 +23,8 @@ import { ecoParams, ecologyStep } from './sim/ecology.js';
 import { WildlifeMarkers } from './render/wildlife.js';
 import { recordStats } from './sim/stats.js';
 import { recordProbes } from './sim/probes.js';
+import { civParams, civStep } from './sim/civilization.js';
+import { TownLabels } from './render/townLabels.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
@@ -60,6 +62,7 @@ class App {
     this.oceanParams = oceanParams;
     this.windParams = windParams;
     this.ecoParams = ecoParams;
+    this.civParams = civParams;
 
     this.tool = 'raise';
     this.brush = { radius: 12, strength: 0.5 };
@@ -88,6 +91,7 @@ class App {
     this.drawings = new Drawings(this.scene, this.world, this.renderer, document.getElementById('labels'));
     this.currentPaths = new CurrentPaths(this.scene, this.world, this.renderer);
     this.wildlife = new WildlifeMarkers(this.scene, this.world, this.renderer);
+    this.townLabels = new TownLabels(document.getElementById('labels'), this);
     this.effects.climateParams = climateParams;
     this.setupCursor();
     this.setupInput();
@@ -660,6 +664,7 @@ class App {
       if (this.frame % 10 === 5 && this.sim.vegetation) compositionStep(this.world);
       if (this.frame % 10 === 3) seaStep(this.world);
       // Wind (recomputed only when the wind, sea or land changes) and its very slow erosion
+      if (this.frame % 30 === 15) civStep(this.world); // (towns, farms, roads and their pollution)
       if (this.frame % 10 === 9) { this.ecoPart = ((this.ecoPart ?? -1) + 1) % 3; ecologyStep(this.world, this.ecoPart); }
       if (this.frame % 10 === 7) { updateWind(this.world); if (this.world.erosionEnabled) windErosion(this.world); }
       // Glacier ice creeps a little every frame (faster at higher sim speed)
@@ -682,6 +687,7 @@ class App {
     this.drawings.update(dt, this.camera, hit, this.tool === 'draw');
     this.currentPaths.update(dt);
     this.wildlife.update(dt);
+    this.townLabels.update();
     if (this.frame % 30 === 0) { this.toolbox.drawGraphs(); this.toolbox.drawStats(); } // (population and map graphs)
     if (this.sim.running && this.frame % 120 === 60) { recordStats(this.world); recordProbes(this.world); } // (whole-map statistics and probes, every couple of seconds)
     this.controls.update();

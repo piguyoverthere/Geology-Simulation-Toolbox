@@ -147,6 +147,9 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   world.popHistory = {};
   world.statHistory = {};
   world.probes = [];
+  world.towns = [];
+  for (const k of ['paved', 'landUse', 'civOwner', 'riverPollution']) if (world[k]) world[k].fill(0);
+  world._civFields = null;
   initVegetation(world, seed);
   world.dirty = true;
 }

@@ -143,7 +143,8 @@ export class World {
     // Deep soil binds the surface a little on top of what roots do
     // Old-growth forest (big root mats, deep litter) protects the ground more than young forest
     return (1.15 - this.hardnessAt(h, i)) * (1.4 - 1.25 * this.vegetation[i]) * (1.1 - 0.25 * this.humus[i])
-      * (1 - 0.35 * this.forestAge[i]);
+      * (1 - 0.35 * this.forestAge[i])
+      * (this.paved ? 1 - 0.95 * this.paved[i] : 1); // (pavement doesn't erode)
   }
 
   /** Forget lava, deposits, intrusions, faults and running events (new terrain). */

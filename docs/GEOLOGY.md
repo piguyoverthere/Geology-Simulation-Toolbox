@@ -906,3 +906,24 @@ melts at a lower temperature and faster; mild lowland ground melts snow from bel
 rain falling on snow washes it away. Lowland snow is gone within days to a couple of weeks, the
 foothills clear in spring, and only the high mountains keep their snowpack into summer.
 
+## Civilization
+
+Towns are founded where people would choose to settle: a comfortable climate (a yearly mean of
+roughly 8–20 °C), fresh water or the coast close by, fertile flat land, timber and fish within reach,
+safe from floods and lava, and away from other towns. A town clears farmland around it (fields: no
+forest grows back there) and grows toward what its fields, and the sea if it's on the coast, can
+feed; farmers clear more land than they need, so a town grows until the fertile land around it runs
+out. Drought years cut the harvest and mild summers improve it; a town with no river or lake nearby
+stays small; dirty drinking water slows it; floods, wildfires, lava and storm surges cost it people.
+
+As it grows it paves its streets: pavement is flattened, sealed (rain runs straight off), doesn't
+erode and grows nothing. It lightly pollutes any water beside it, and every patch of pavement always
+sends heavy pollution down the drainage: the rivers below towns run murky, and the pollution pours
+into the sea at their mouths (where it spreads with the currents, feeds blooms and harms the sea
+beds and sea life).
+
+Roads are built by terracing the hills along the route to an even grade and paving it, bridging the
+rivers. Towns grow out along their roads; big neighbours build roads to each other; a crowded town
+sends people to found a daughter village nearby, linked by road. A town that dwindles away is
+abandoned: its fields go back to the wild and its pavement slowly breaks up and grows over.
+

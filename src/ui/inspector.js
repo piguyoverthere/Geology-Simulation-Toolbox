@@ -82,6 +82,7 @@ export class Inspector {
     // --- Water and soil moisture (land) ---
     if (!wet) {
       group('Water', [
+        w.riverPollution && w.riverPollution[i] > 0.05 ? ['Pollution', `${bar(Math.min(1, w.riverPollution[i] / 2), '#8a6a3a')} ${dim('from towns upstream')}`] : null,
         ['Surface', depth > 0.005 ? `${depth.toFixed(2)} deep ${dim(`· ${speed > 0.4 ? 'flowing' : 'standing'}${w.sediment[i] > 0.001 ? ` · silt ${w.sediment[i].toFixed(2)}` : ''}`)}` : `dry ${dim(`· last wet ${lastWater}`)}`],
         ['Soil wetness', `${bar(w.soil ? w.soil[i] : 0, '#4f8ce0')} ${dim(`· climate ${Math.round((w.moisture ? w.moisture[i] : 0) * 100)}%`)}`],
         w.ice && w.ice[i] > 0.02 ? ['Glacier', `${w.ice[i].toFixed(2)} thick ${dim(`· flow ${(w.iceFlow ? w.iceFlow[i] * 100 : 0).toFixed(1)}${w.iceDebris && w.iceDebris[i] > 0.01 ? ` · rock ${w.iceDebris[i].toFixed(2)}` : ''}`)}`] : null,
@@ -110,6 +111,7 @@ export class Inspector {
         ['Stability', `${stability(slope / stableSlope(w, i))} ${dim(`· soaked ${Math.round(saturation(w, i) * 100)}%`)}`],
         w.freshRock[i] > 0.01 ? ['Fresh rock', `${bar(w.freshRock[i], '#ff8a4a')} ${dim('no soil yet')}`] : null,
         w.dam && w.dam[i] > 0.05 ? ['Dam', `${w.dam[i].toFixed(2)} high`] : null,
+        w.landUse && w.landUse[i] ? ['Land use', (() => { const t = (w.towns || []).find((u) => u.num === w.civOwner[i]); const lu = w.landUse[i]; return `${lu === 1 ? 'Farmland' : lu === 2 ? 'Town (paved)' : 'Road'}${t ? ` ${dim(`· ${esc(t.name)}, ${Math.round(t.pop)} people`)}` : lu === 2 ? ` ${dim('· abandoned')}` : ''}`; })()] : null,
         Math.abs(change) > 0.05 ? ['Change', `<span style="color:${change < 0 ? 'var(--erode)' : 'var(--deposit)'}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</span> ${dim(change < 0 ? 'eroded' : 'deposited')}`] : null,
       ]);
     }

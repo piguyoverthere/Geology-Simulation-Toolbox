@@ -312,6 +312,12 @@ export function vegetationStep(world) {
     // Regrowth is faster near water and on deep soil; dieback (drought, cold) is slowed by forest
     // age, since mature trees ride out bad years on their reserves
     // (and slower in the cold: a short growing season)
+    // Towns, roads and farms (sim/civilization.js): nothing grows on pavement; fields hold crops
+    // and grass, never forest
+    if (world.landUse && world.landUse[i]) {
+      if (world.paved[i] > 0.3) { target = 0; v = Math.min(v, 1 - world.paved[i]); }
+      else if (world.landUse[i] === 1) target = Math.min(target, 0.45);
+    }
     // Grazing and browsing (sim/ecology.js): deer nip off seedlings and young trees, holding
     // meadows open and keeping cleared ground from growing back into forest
     const browse = world.browse ? Math.min(1, world.browse[i]) : 0;
