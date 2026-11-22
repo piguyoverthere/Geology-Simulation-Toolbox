@@ -1049,9 +1049,11 @@ and the soil a little thinner. All the natural forest that joins onto it is fell
 taken into the plantation. Then the whole plantation is replanted to grow again, on a rotation of
 roughly 40 civilization steps. Each crop of timber takes nutrients out of the soil (the
 plantation's soil falls by about a fifth with every felling), and trees regrow more slowly on worn
-soil. When a plantation's soil is exhausted (below 30%), it is abandoned to recover. It goes back to
+soil. Each clear-fell also strips the soil itself: hauling, ruts and bare ground washing off take
+about 30% of its depth. A plantation builds almost none back, since it's a young crop of one kind
+whose litter goes with the timber. Trees regrow more slowly on thin soil, too. When a plantation's nutrients are exhausted (below 30%) or its soil is stripped too thin (below 10% depth), it is abandoned to recover. It goes back to
 the wild and its soil slowly comes back (about 270 steps from worn out to plantable). The town starts
-a new plantation on fresh land elsewhere, and plants only land whose soil has recovered to 60%, so
+a new plantation on fresh land elsewhere, and plants only land whose soil has recovered (nutrients to 60% and some depth of soil), so
 plantations rotate around the country. A road runs from the town centre out to each plantation. The wood adds to the town's trade (up to
 30%). A town's own farms and streets can take over its plantation land, and an abandoned
 plantation goes back to the wild. Plantations are monocultures of even-aged

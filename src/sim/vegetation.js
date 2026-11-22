@@ -382,7 +382,10 @@ export function vegetationStep(world) {
     const build = v > 0.66
       ? p.forestSoilBoost * (world.forestSoilBuild ? world.forestSoilBuild[i] : FOREST_TYPES[forestTypeAt(world, i)].soilBuild) * (1 + 0.4 * age)
       : 1;
-    soil += p.soilBuild * v * v * build * (1 - soil) - p.soilDecay * soil * (1 - v) - change * p.soilErosion;
+    // (a timber plantation hardly builds soil: an even-aged crop of one kind, cut young, its litter
+    // and brash hauled off with the timber)
+    const plantation = world.landUse && world.landUse[i] === 10;
+    soil += p.soilBuild * v * v * build * (plantation ? 0.1 : 1) * (1 - soil) - p.soilDecay * soil * (1 - v) - change * p.soilErosion;
     if (F[i] > 0) soil = Math.min(soil, 1 - F[i]);
     SO[i] = soil < 0 ? 0 : soil > 1 ? 1 : soil;
 

@@ -656,7 +656,9 @@ function timberStep(world, t, farmCells, R) {
     V[i] = 0.12; if (TD) TD[i] *= 0.08; world.forestAge[i] = 0;
     if (world.soil) world.soil[i] *= 0.92; // (the bare ground washing a little soil away)
     FS[i] = Math.max(0, FS[i] - 0.18); // (each crop of timber takes nutrients out with it)
+    if (world.humus) world.humus[i] *= 0.7; // (and the clear-fell strips the soil: hauled, rutted, washed off)
   };
+  const HU = world.humus;
   let cells = 0, cut = 0;
   for (const pl of t.plantations) {
     let alive = 0, grown = 0;
@@ -664,7 +666,7 @@ function timberStep(world, t, farmCells, R) {
       if (LU[i] !== 10 || OW[i] !== t.num) continue;
       alive++;
       if (V[i] > 0.7) grown++;
-      else { const g = 0.3 + 0.7 * FS[i]; V[i] = Math.min(0.72, V[i] + 0.02 * g); if (TD) TD[i] = Math.min(1, TD[i] + 0.015 * g); } // (replanted fast-growing stock, tended: slower on worn soil)
+      else { const g = (0.3 + 0.7 * FS[i]) * (HU ? 0.35 + 0.65 * Math.min(1, HU[i] * 2.5) : 1); V[i] = Math.min(0.72, V[i] + 0.02 * g); if (TD) TD[i] = Math.min(1, TD[i] + 0.015 * g); } // (replanted fast-growing stock, tended: slower on worn soil)
     }
     if (alive && grown >= 0.6 * alive) {
       const live = pl.cells.filter((i) => LU[i] === 10 && OW[i] === t.num);
@@ -677,7 +679,7 @@ function timberStep(world, t, farmCells, R) {
       while (q.length) {
         const j = q.pop(), x = j % N, z = (j / N) | 0;
         if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
-        if (LU[j] || V[j] <= 0.6 || FS[j] < 0.5 || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j)) continue;
+        if (LU[j] || V[j] <= 0.6 || FS[j] < 0.5 || (HU && HU[j] < 0.15) || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j)) continue;
         fell(j); LU[j] = 10; OW[j] = t.num; pl.cells.push(j); cut++; alive++;
         for (const k of [j - 1, j + 1, j - N, j + N]) if (!seen[k]) { seen[k] = 1; q.push(k); }
       }
@@ -687,10 +689,12 @@ function timberStep(world, t, farmCells, R) {
     // Worn out: once a plantation's soil is exhausted it is abandoned to recover (left to the wild,
     // its soil slowly coming back), and a new plantation is started on fresh land elsewhere
     if (alive) {
-      let soil = 0;
-      for (const i of pl.cells) if (LU[i] === 10 && OW[i] === t.num) soil += FS[i];
+      let soil = 0, depth = 0;
+      for (const i of pl.cells) if (LU[i] === 10 && OW[i] === t.num) { soil += FS[i]; depth += HU ? HU[i] : 1; }
       pl.soil = soil / alive;
-      if (pl.soil < 0.3 && (pl.felled || 0) >= 1) { // (after at least one crop)
+      pl.depth = depth / alive;
+      // (worn out: its nutrients gone, or its soil stripped too thin to grow another crop)
+      if ((pl.soil < 0.3 || pl.depth < 0.1) && (pl.felled || 0) >= 1) { // (after at least one crop)
         for (const i of pl.cells) if (LU[i] === 10 && OW[i] === t.num) { LU[i] = 0; OW[i] = 0; }
         t.platsRetired = (t.platsRetired || 0) + 1;
         alive = 0;
@@ -717,7 +721,7 @@ function timberStep(world, t, farmCells, R) {
     for (let dz = -4; dz <= 4; dz += 2) for (let dx = -4; dx <= 4; dx += 2) {
       const j = (z + dz) * N + x + dx;
       if (LU[j] || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j)) continue;
-      if (FS[j] < 0.6) continue; // (worn-out ground isn't planted again until its soil has recovered)
+      if (FS[j] < 0.6 || (HU && HU[j] < 0.2)) continue; // (worn-out or thin-soiled ground isn't planted again until its soil has recovered)
       s += forestSuitability(world, j); c++;
     }
     const score = s / 25 - d / (reach * 4) + (V[z * N + x] > 0.6 ? 0.3 : 0); // (an existing forest first)
@@ -728,7 +732,7 @@ function timberStep(world, t, farmCells, R) {
   // The plantation takes in the whole forest there: every connected forest cell, however big the
   // forest (or, on open ground suitable for trees, a block planted around the site)
   const claimed = [], c0 = best.z * N + best.x;
-  const free = (j) => !LU[j] && H[j] >= sea + 0.5 && world.water[j] < 0.1 && !isProtected(world, j) && FS[j] >= 0.5;
+  const free = (j) => !LU[j] && H[j] >= sea + 0.5 && world.water[j] < 0.1 && !isProtected(world, j) && FS[j] >= 0.5 && (!HU || HU[j] >= 0.15);
   if (V[c0] > 0.6 && free(c0)) {
     const seen = new Uint8Array(N * N), q = [c0];
     seen[c0] = 1;
