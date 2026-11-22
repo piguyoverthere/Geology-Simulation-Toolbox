@@ -193,7 +193,7 @@ function buildQuay(world, t, count) {
   for (let k = 0; k < Math.min(count, cands.length); k++) {
     const i = cands[k][1], x = i % N, z = (i / N) | 0;
     // The wall: raised above high tide, paved
-    H[i] = Math.max(H[i], sea + half + 0.8); world.prevHeight[i] = H[i];
+    H[i] = Math.max(H[i], sea + half + 1.6); world.prevHeight[i] = H[i];
     pave(world, i, t.num, 6);
     world.water[i] = 0;
     // The water in front dredged deep: a steep drop-off
@@ -250,7 +250,7 @@ function terraform(world, t, cells) {
     const i = cuts[k][1];
     // Down toward the terrace bench below (steps of 1.5), and knobs toward the town's level
     const bench = Math.floor((H[i] - base) / 1.5) * 1.5 + base;
-    const target = Math.max(sea + half + 0.8, Math.min(bench, base + 5));
+    const target = Math.max(sea + half + 1.6, Math.min(bench, base + 5)); // (clear of the waves' reach)
     if (H[i] - target <= 0.02) continue;
     // Cut a level platform (about 5 cells across) at the bench height: the high ground is dug
     // away and the low ground filled up to it, so the terrace is a wide, flat step (its riser, the
@@ -360,7 +360,7 @@ function buildMole(world, t, spoil) {
  */
 function quarry(world, t) {
   const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse;
-  const base = Math.max(H[t.z * N + t.x], sea + 1);
+  const base = Math.max(H[t.z * N + t.x], sea + 0.5 * coastParams.tideRange + 1.6); // (the pit floor clear of the waves)
   // (fields, plantations and roads are cut down with the ground around them: the road re-graded,
   // not left standing on a ridge)
   const ok = (j) => (!LU[j] || LU[j] === 1 || LU[j] === 3 || LU[j] === 10) && !world.bridge[j] && !isProtected(world, j) && world.water[j] < 0.4;
@@ -454,7 +454,7 @@ function dumpSpoil(world, t, spoil, R) {
   for (let z = Math.max(2, Math.floor(t.z - R - 8)); z <= Math.min(N - 3, Math.ceil(t.z + R + 8)); z++) {
     for (let x = Math.max(2, Math.floor(t.x - R - 8)); x <= Math.min(N - 3, Math.ceil(t.x + R + 8)); x++) {
       const i = z * N + x;
-      if (H[i] >= sea + half + 0.8 || sea - H[i] > 5 || isProtected(world, i)) continue;
+      if (H[i] >= sea + half + 1.6 || sea - H[i] > 5 || isProtected(world, i)) continue;
       let shoreNext = false;
       for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] >= sea + half) shoreNext = true;
       if (!shoreNext) continue; // (built out from the shore)
@@ -464,9 +464,9 @@ function dumpSpoil(world, t, spoil, R) {
   dumps.sort((a, b) => b[0] - a[0]);
   for (let k = 0; k < dumps.length && spoil > 0.01; k++) {
     const i = dumps[k][1], x = i % N, z = (i / N) | 0;
-    const need = sea + half + 0.8 - H[i], put = Math.min(spoil, need, 1.2);
+    const need = sea + half + 1.6 - H[i], put = Math.min(spoil, need, 1.2);
     H[i] += put; world.prevHeight[i] = H[i]; spoil -= put;
-    if (H[i] >= sea + half + 0.75) { TF[i] = 2; world.water[i] = 0; world.vegetation[i] = 0; if (world.humus) world.humus[i] = 0; }
+    if (H[i] >= sea + half + 1.55) { TF[i] = 2; world.water[i] = 0; world.vegetation[i] = 0; if (world.humus) world.humus[i] = 0; }
     smother(world, i, put); // (the dumped rock and soil smother the sea bed, cloud and foul the water)
   }
   // (no sea to take it: into the hollows near town)
@@ -1019,7 +1019,13 @@ export function civStep(world) {
     if (!(world.builtUp(i) || TF[i] || TF[i - 1] || TF[i + 1] || TF[i - N] || TF[i + N])) continue;
     if (world.bridge[i] || (LU[i] >= 5 && LU[i] <= 9)) continue; // (not harbours, quays, dams or channels: built to stand or sink)
     const a = H[i - 1], b = H[i + 1], c = H[i - N], d = H[i + N];
-    if (Math.min(a, b, c, d) < sea) continue; // (nor at the water's edge)
+    if (Math.min(a, b, c, d) < sea) {
+      // (a scrap of kept ground left standing out in the sea, its surroundings long washed away,
+      // goes too)
+      const wet = (a < sea) + (b < sea) + (c < sea) + (d < sea);
+      if (wet >= 3 && H[i] - (a + b + c + d) * 0.25 > 1.5) { H[i] = (a + b + c + d) * 0.25; world.prevHeight[i] = H[i]; LU[i] = 0; OW[i] = 0; P[i] = 0; if (world.terraform) world.terraform[i] = 0; }
+      continue;
+    }
     const lo = Math.min(a, b, c, d), hi = Math.max(a, b, c, d), avg = (a + b + c + d) * 0.25;
     if (H[i] - hi > 1.2 || H[i] - lo > 3 || H[i] - avg > 1.5) { H[i] = Math.max(sea + 0.3, avg + 0.3); world.prevHeight[i] = H[i]; } // (clumps of two or three too)
     else if (lo - H[i] > 1.2) { H[i] = avg; world.prevHeight[i] = H[i]; }

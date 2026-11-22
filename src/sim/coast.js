@@ -280,9 +280,12 @@ export function coastStep(world) {
       // A quay (a town's sea wall, sim/civilization.js): a fixed, steep stone face. The waves don't
       // wear it, no sand gathers on it, and the tide can't reach over it
       if (world.landUse && world.landUse[i] === 6) { SH[i] = SHORE.cliff; SAND[i] = 0; continue; }
+      // (nor do they wear away other kept ground at the shore: towns, roads, fields, reclaimed land
+      // and terraces are banked and armoured, the way quays are)
+      const kept = world.builtUp(i);
       // --- Waves erode the shore: exposed, soft coasts fastest; a thick beach protects ---
       const inReach = h < sea + half + 1.2;
-      if (inReach && erodeK > 0 && type !== SHORE.mudflat) {
+      if (inReach && erodeK > 0 && type !== SHORE.mudflat && !kept) {
         const protect = 1 - Math.min(0.85, SAND[i] * 0.6);
         // (mangrove roots take the force out of the waves)
         const cut = erodeK * ex * (world.wind ? 0.4 + 0.6 * Math.min(1.5, world.wind[i]) : 1) * (1.2 - hard) * protect * (1 - 0.85 * world.mangrove[i]) * (type === SHORE.cliff ? 2 : 1) * (1 + 4 * Math.min(1.6, world.stormWave[i])); // (storm waves pound it)
@@ -294,7 +297,7 @@ export function coastStep(world) {
       }
       // Mudflats wash out where the waves reach them, and the mud they lose clouds the water
       // (fast where they're bare; mangroves and seagrass hold the mud down)
-      if (inReach && erodeK > 0 && type === SHORE.mudflat) {
+      if (inReach && erodeK > 0 && type === SHORE.mudflat && !kept) {
         const grass = [i - 1, i + 1, i - N, i + N].some((j) => M[j] === MARINE_ID.seagrass) ? 0.6 * world.marineHealth[i] : 0;
         const cut = erodeK * (0.3 + 2 * ex) * (1 - 0.85 * world.mangrove[i]) * (1 - grass) * (1 + 4 * Math.min(1.6, world.stormWave[i]));
         H[i] -= cut;
@@ -302,7 +305,7 @@ export function coastStep(world) {
       }
       // --- Longshore drift: waves running along the shore fill coves and plane off bumps, so
       // beaches straighten into long stretches between points (hard-rock headlands hold out) ---
-      if (inReach && erodeK > 0 && type !== SHORE.cliff) {
+      if (inReach && erodeK > 0 && type !== SHORE.cliff && !kept) {
         const avg = (H[i - 1] + H[i + 1] + H[i - N] + H[i + N] + H[i - N - 1] + H[i - N + 1] + H[i + N - 1] + H[i + N + 1]) / 8;
         H[i] += (avg - H[i]) * 0.04 * ex * (1.2 - hard);
       }
