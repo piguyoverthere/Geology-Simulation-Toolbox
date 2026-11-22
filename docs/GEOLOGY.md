@@ -1022,10 +1022,11 @@ their streams.
 It picks the land where forest grows best, out to three times its town's reach, preferring an
 existing forest. A plantation takes in that entire forest: every connected forest cell, however big
 it is. On open ground that suits trees, it plants a block about 12 cells across instead. A new
-plantation is only started while the town's timber land is less than twice its farmland. Plantations are planted with saplings and tended, and the trees grow to
-full forest wherever the climate allows. Grown stands are clear-felled a few cells at a time,
-leaving bare brown ground with slash and the soil a little thinner, then replanted to grow again.
-A road runs from the town centre out to each plantation. The wood adds to the town's trade (up to
+plantation is only started while the town's timber land is less than twice its farmland. Plantations are planted with fast-growing stock and tended. Once most of a plantation's trees
+are grown (60%), the whole plantation is clear-felled at once, leaving bare brown ground with slash
+and the soil a little thinner. All the natural forest that joins onto it is felled with it and
+taken into the plantation. Then the whole plantation is replanted to grow again, on a rotation of
+roughly 40 civilization steps. A road runs from the town centre out to each plantation. The wood adds to the town's trade (up to
 30%). A town's own farms and streets can take over its plantation land, and an abandoned
 plantation goes back to the wild. Plantations are monocultures of even-aged
 trees, with no understory, no old or dead trees and no food, so they have very low biodiversity and

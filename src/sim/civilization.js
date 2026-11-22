@@ -624,19 +624,39 @@ function timberStep(world, t, farmCells, R) {
   const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse, OW = world.civOwner;
   const V = world.vegetation, TD = world.treeDensity;
   if (!t.plantations) t.plantations = [];
-  // Tend and fell
+  // Tend, and clear-fell: once most of a plantation's trees are grown, the whole plantation is cut
+  // at once, and the natural forest next to it is felled with it (taken into the plantation, to be
+  // replanted with it)
+  const N2 = N * N, fell = (i) => {
+    V[i] = 0.12; if (TD) TD[i] *= 0.08; world.forestAge[i] = 0;
+    if (world.soil) world.soil[i] *= 0.92; // (the bare ground washing a little soil away)
+  };
   let cells = 0, cut = 0;
   for (const pl of t.plantations) {
-    let alive = 0;
+    let alive = 0, grown = 0;
     for (const i of pl.cells) {
       if (LU[i] !== 10 || OW[i] !== t.num) continue;
       alive++;
-      if (V[i] > 0.7 && (!TD || TD[i] > 0.35) && Math.random() < 0.3) { // (felled young: a short rotation)
-        // (clear-felled: the wood hauled out, slash left, the bare ground washing a little silt away)
-        V[i] = 0.12; if (TD) TD[i] *= 0.08; world.forestAge[i] = 0;
-        if (world.soil) world.soil[i] *= 0.92;
-        cut++;
-      } else if (V[i] < 0.72) { V[i] = Math.min(0.72, V[i] + 0.02); if (TD) TD[i] = Math.min(1, TD[i] + 0.015); } // (replanted fast-growing stock, tended)
+      if (V[i] > 0.7) grown++;
+      else { V[i] = Math.min(0.72, V[i] + 0.02); if (TD) TD[i] = Math.min(1, TD[i] + 0.015); } // (replanted fast-growing stock, tended)
+    }
+    if (alive && grown >= 0.6 * alive) {
+      const live = pl.cells.filter((i) => LU[i] === 10 && OW[i] === t.num);
+      for (const i of live) fell(i);
+      cut += live.length;
+      // (and the forest around it, all of it that joins on)
+      const seen = new Uint8Array(N2), q = [];
+      for (const i of live) seen[i] = 1;
+      for (const i of live) for (const k of [i - 1, i + 1, i - N, i + N]) if (k >= 0 && k < N2 && !seen[k]) { seen[k] = 1; q.push(k); }
+      while (q.length) {
+        const j = q.pop(), x = j % N, z = (j / N) | 0;
+        if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
+        if (LU[j] || V[j] <= 0.6 || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j)) continue;
+        fell(j); LU[j] = 10; OW[j] = t.num; pl.cells.push(j); cut++; alive++;
+        for (const k of [j - 1, j + 1, j - N, j + N]) if (!seen[k]) { seen[k] = 1; q.push(k); }
+      }
+      pl.felled = (pl.felled || 0) + 1;
+      world.dirty = true;
     }
     pl.alive = alive;
     cells += alive;
