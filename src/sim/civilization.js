@@ -1099,9 +1099,19 @@ export function civStep(world) {
     if (!world.grazing || world.grazing.length !== n) world.grazing = new Float32Array(n);
     for (let i = 0; i < n; i++) world.grazing[i] = LU[i] ? 0 : Math.min(1, g[i] * 3.5);
   }
+  const seaNow = world.seaLevel > -999 ? Math.max(sea, world.seaLevel) : sea; // (with today's tide and any surge)
   // Abandoned pavement breaks up and grows over; farmland with no town goes back to the wild
   const FS = world.farmSoil;
   for (let i = 0; i < n; i++) {
+    // Under the sea (sunk, eroded away, or drowned by a surge): fields, plantations and canals are
+    // destroyed: the crop and trees killed, the soil salted (it takes years to be farmable again)
+    if ((LU[i] === 1 || LU[i] === 10 || LU[i] === 8) && (H[i] < sea || (H[i] < seaNow && world.water[i] > 0.2))) {
+      LU[i] = 0; OW[i] = 0; world.irrigated[i] = 0; if (world.channel) world.channel[i] = 0;
+      FS[i] = Math.min(FS[i], 0.05);
+      world.vegetation[i] = 0; world.forestAge[i] = 0;
+      if (world.treeDensity) world.treeDensity[i] = 0;
+      continue;
+    }
     if (LU[i] !== 1 && LU[i] !== 10 && FS[i] < 1) FS[i] = Math.min(1, FS[i] + 0.0012); // (fallow ground recovers)
     if (LU[i] === 0 || OW[i] || LU[i] === 3) continue;
     if (LU[i] === 1 || LU[i] === 10) { LU[i] = 0; continue; } // (fields and plantations go back to the wild)
