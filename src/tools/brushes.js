@@ -9,7 +9,7 @@ import { ensureQuality } from '../sim/waterQuality.js';
 import { ensureOcean, advect } from '../sim/ocean.js';
 import { ensureEcology, animalField, canLive } from '../sim/ecology.js';
 import { addProbe, removeProbesNear } from '../sim/probes.js';
-import { bestSite, foundTown, removeTown, townNear, buildRoad, ensureCiv, placeHarbor, removeHarborNear, paintPlantation, addFootpath, removeFootpathsNear, markOldField } from '../sim/civilization.js';
+import { bestSite, foundTown, removeTown, townNear, buildRoad, ensureCiv, placeHarbor, removeHarborNear, paintPlantation, addFootpath, removeFootpathsNear, markOldField, harvestPlantationAt } from '../sim/civilization.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -664,6 +664,15 @@ TOOLS.footpath = {
     if (invert) removeFootpathsNear(world, a, b);
     else addFootpath(world, a, b);
     app.toolbox.renderFootpaths?.();
+  },
+};
+TOOLS.harvest = {
+  label: 'Harvest', group: 'Civilization', icon: '🪵', editsTerrain: false, click: true,
+  help: 'Click a timber plantation to clear-fell it now, whether or not its trees are grown. It counts as its town\'s felling: the timber goes to the town, the soil is worn (less nutrients, thinner), and the plot is replanted with saplings at once and takes its turn in the town\'s rotation. Felling young trees gives little wood and wears the soil just the same.',
+  apply({ world, app, x, z }) {
+    const r = harvestPlantationAt(world, x, z);
+    if (typeof r === 'string') { app.toolbox.setInfo(`<b>Harvest</b> — ${r}.`); return; }
+    app.toolbox.setInfo(`<b>Harvest</b> — ${r.town.name} clear-felled a plantation of ${r.cells} cells (${Math.round((100 * r.grown) / Math.max(1, r.cells))}% of it fully grown) and replanted it.`);
   },
 };
 TOOLS.road = {

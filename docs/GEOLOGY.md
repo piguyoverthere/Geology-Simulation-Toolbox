@@ -1191,6 +1191,12 @@ wall is knocked down to the valley floor, letting its reservoir go, and a canal 
 leaves bare, broken ground that plants slowly come back to. Fields and plantations are left alone
 unless you hold Shift. A town whose streets are all gone is abandoned.
 
+**Harvesting by hand.** The **Harvest** tool (🪵, under Civilization) clear-fells the plantation you
+click, whether or not its trees are grown. It counts as its town's felling: the timber goes to the
+town, the soil is worn (fewer nutrients, thinner), and the plot is replanted with saplings at once
+and takes its turn in the town's rotation. Felling young trees gives little wood but wears the soil
+just the same.
+
 **Clearing fields.** The **Clear fields** tool (🚜, under Civilization) takes farmland out of
 farming. The fields you paint over are abandoned and left as bare ground with poor, worn-out soil:
 little humus, almost no plants and no irrigation. Plants return only slowly, and no town will farm

@@ -2259,6 +2259,48 @@ export function markFootpaths(world) {
   world.dirty = true;
 }
 
+/**
+ * The Harvest tool: clear-fell the plantation at (x, z) now, whether or not its trees are grown. It
+ * counts as the town's felling: the timber goes to the town, the soil is worn (nutrients and depth),
+ * the plot is replanted with saplings at once, and it takes its turn in the town's rotation.
+ * Returns { town, plot, cells, grown } or a string saying why not.
+ */
+export function harvestPlantationAt(world, x, z) {
+  const N = world.N, LU = world.landUse, OW = world.civOwner;
+  let i = Math.round(z) * N + Math.round(x);
+  // (the click may land just beside it: the nearest plantation cell within 3)
+  if (LU[i] !== 10) {
+    let bd = 4;
+    for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+      const j = (Math.round(z) + dz) * N + Math.round(x) + dx, d = Math.hypot(dx, dz);
+      if (j >= 0 && j < N * N && LU[j] === 10 && d < bd) { bd = d; i = j; }
+    }
+  }
+  if (LU[i] !== 10) return 'click on a timber plantation';
+  const t = (world.towns || []).find((u) => u.num === OW[i]);
+  const pl = t && (t.plantations || []).find((p) => p.cells.includes(i));
+  if (!pl) return 'that plantation has no town working it';
+  const V = world.vegetation, TD = world.treeDensity, FS = world.farmSoil, HU = world.humus;
+  let cells = 0, grown = 0;
+  for (const j of pl.cells) {
+    if (LU[j] !== 10 || OW[j] !== t.num) continue;
+    cells++;
+    if (V[j] > 0.82) grown++;
+    V[j] = world.plantedField && world.plantedField[j] ? 0.3 : 0.2; // (felled, and replanted with saplings)
+    if (TD) TD[j] *= 0.08;
+    world.forestAge[j] = 0;
+    if (world.soil) world.soil[j] *= 0.92;
+    if (FS) FS[j] = Math.max(0, FS[j] - 0.18);
+    if (HU) HU[j] *= 0.7;
+  }
+  t.timberCut = (t.timberCut || 0) + cells;
+  t.fellCount = (t.fellCount || 0) + 1;
+  pl.lastFell = t.fellCount; pl.felled = (pl.felled || 0) + 1; pl.resting = false;
+  t.lastPlot = pl.id;
+  world.dirty = true;
+  return { town: t, plot: pl, cells, grown };
+}
+
 /** Shift with the Harbour tool: close the harbour nearest (x, z) (within 8 cells). */
 export function removeHarborNear(world, x, z) {
   const N = world.N;
