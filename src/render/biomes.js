@@ -21,6 +21,8 @@ export const BIOMES = {
   farmland:  { label: 'Farmland',  color: [0.74, 0.68, 0.40], help: 'Fields cleared, levelled or terraced and irrigated by a town: crops, no forest. Their irrigation draws down the nearest river or lake, and their runoff pollutes it.' },
   canal:     { label: 'Irrigation canal', color: [0.56, 0.52, 0.44], help: 'A stone-lined channel dug from a river or lake out to a town\'s dry fields, carrying water so they can be irrigated; it draws down the river it taps.' },
   timber:    { label: 'Timber plantation', color: [0.16, 0.30, 0.15], help: 'Woodland a town grows for timber, on land where forest grows: planted, left to grow to full forest, clear-felled a stand at a time when grown (bare brown ground with slash), then replanted. A road runs out to each from the town.' },
+  mine:      { label: 'Mine', color: [0.30, 0.27, 0.25], help: 'A town\'s mine: an open pit sunk into hard, ore-bearing rock (granite, basalt, gneiss…), deepened year by year. It makes the town richer.' },
+  spoil:     { label: 'Spoil heap', color: [0.70, 0.48, 0.26], help: 'The waste rock from a mine, piled beside it: raw and poisonous. Nothing grows on it, little near it, and the water running off it fouls the streams.' },
   sewer:     { label: 'Sewer',     color: [0.30, 0.26, 0.20], help: 'A town\'s drain: a foul channel from the town centre to its outfall, where the town\'s runoff pours into one river or bay instead of seeping out everywhere.' },
   dam:       { label: 'Dam',       color: [0.76, 0.75, 0.72], help: 'A concrete wall across a river valley, a reservoir filling behind it: water for the town; it blocks fish swimming upriver, traps the river\'s sediment and pollutes the river.' },
   quay:      { label: 'Quay (sea wall)', color: [0.62, 0.61, 0.57], help: 'A town\'s armoured shore: raised above the tide and walled, deep water dredged in front (a steep drop-off with no tidal flats). Easy to build harbours on; hard on the sea bed and the water beside it.' },
@@ -49,6 +51,8 @@ export function classifyBiome(world, i, slope) {
   if (world.landUse && world.landUse[i] === 8) return 'canal';
   if (world.landUse && world.landUse[i] === 9) return 'sewer';
   if (world.landUse && world.landUse[i] === 10) return 'timber';
+  if (world.landUse && world.landUse[i] === 11) return 'mine';
+  if (world.landUse && world.landUse[i] === 12) return 'spoil';
   if (world.landUse && world.landUse[i] === 4 && world.paved[i] > 0.5) return 'industry';
   if (world.landUse && world.landUse[i] === 2 && world.paved[i] > 0.5) return 'town';
   if (world.landUse && world.landUse[i] === 1) return 'farmland';

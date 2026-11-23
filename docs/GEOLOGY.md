@@ -1242,3 +1242,37 @@ Storage: the grid's list of cells (their edges, rivers, towns, road ends, when e
 small picture of each) is kept under `grid-<size>`; each frozen cell under
 `cell-<size>-<grid id>-<x>,<z>`; the cell you're in is the ordinary autosave. Generating a new map,
 or loading a level from a file, starts a new grid.
+
+## More of civilization: mines, smoke, migration, disease and worn-out land
+
+**Mining.** A town of a few hundred sinks a mine into the hard, ore-bearing rock near it (granite,
+basalt, gneiss, schist and the like, just beneath the surface), with a haul road out to the pit's
+edge. More mines come as it grows (one more for every 3,000 people). The open pit is deepened year
+by year, up to about 14 down, and the waste rock goes onto a spoil heap beside it, downhill. The
+heap is raw and poisonous: nothing grows on it, little grows around it, and its acid, metal-laden
+drainage fouls the streams down to the sea. Each working mine makes the town richer, so it can
+support up to 40% more people. Mines are earthworks, so the No earthworks restriction keeps them
+out, and the Destruction slider sets how fast they're dug.
+
+**Air pollution and acid rain.** Smoke from industry (heavily), towns and mines drifts downwind with
+the prevailing wind, about 2 cells a step, spreading and thinning as it goes. Where it settles, acid
+rain falls: forest health drops, and where the smoke is thick, the trees die back. The soil of
+fields turns sour and loses fertility. The *Air pollution* overlay shows it, and so does the
+inspector.
+
+**Migration.** People move along the roads and sea routes between linked towns. They leave the
+town that is more crowded, nearer to or past what its land can support, for the more prosperous
+one, faster the bigger the difference. Booming towns draw people in, and failing ones empty, some to
+ghost towns. The town list says when people are moving in or away.
+
+**Epidemics.** Now and then disease breaks out in a crowded town, more readily where its water is
+dirty. It spreads through the town, killing some of those it strikes, and along roads and sea routes
+to the towns it trades with. Then it burns out within about 40 steps, leaving the survivors immune
+for a good while. A town with an outbreak shows 🤒 on its label. The **Epidemics** switch
+(Civilization) turns them off.
+
+**Overgrazing and desertification.** In dry country, the farms' livestock strip the grass and scrub
+around the fields down to bare soil, which blows and washes away. The land degrades toward desert:
+little grows back there, the soil thins, and the bare ground creeps outward where it's dry. Taken off
+grazing, it slowly recovers, more slowly the drier it is. Degraded land shows sandy on the map and in
+the inspector.

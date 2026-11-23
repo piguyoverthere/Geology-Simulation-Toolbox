@@ -344,6 +344,7 @@ export class Toolbox {
       slider('Max farm slope °', app.civParams, 'farmSlope', 2, 40, 1, 'The steepest ground that can be farmed (degrees). Steeper land has to be cut into flat terraces first (the towns\' earthworks do that); a field that later turns too steep for this is given up.', this),
       slider('Destruction', app.civParams, 'destruction', 0, 10, 0.05, 'How hard the towns are on the land: how much forest they burn off to clear fields, how much pollution their streets, works, farms and sewers put into the rivers and sea, and how much they cut hills into terraces. 0: careful, 1: normal, 10: strip the land bare.', this),
       slider('Plantation plot size', app.civParams, 'plotSize', 20, 2000, 10, 'The largest plot (cells) a town lays out as one plantation, and how far a felling may spread into the forest beside it. Small plots are felled and regrown faster and rotate more often, leaving more wild forest between them; big ones take in whole forests. Plots you paint keep the size you paint them.', this),
+      toggle('Epidemics', app.civParams, 'epidemics', 'Now and then disease breaks out in a crowded town, more readily where its water is dirty; it kills some of its people and spreads along roads and sea routes to the towns it trades with, then burns out, leaving the survivors immune for a while.', this),
       toggle('Extra plantations', app.civParams, 'extraPlantations', 'Towns keep starting new timber plantations even when they already have all they need (normally they stop at about twice their farmland). Every village plants, however small, and the plantations spread on over the forests around.', this),
       toggle('Quarrying', app.civParams, 'quarrying', 'Whether big towns quarry hills and mountains away (one pit per town, well out beyond it) for rock to build their breakwaters and new land. Off: no quarrying (terracing and other earthworks go on).', this),
       slider('Expansion speed', app.civParams, 'growth', 0.2, 10, 0.1, 'How fast civilization spreads: crowded towns founding new villages, and young towns hunting.', this),
@@ -595,7 +596,7 @@ export class Toolbox {
       const big = el('canvas', 'tb-popchart');
       big.width = 270; big.height = 120; big.hidden = !this.openTowns.has(t.id);
       row.addEventListener('click', () => { if (this.openTowns.has(t.id)) this.openTowns.delete(t.id); else this.openTowns.add(t.id); big.hidden = !this.openTowns.has(t.id); this.drawGraphs(); });
-      this.helpOn(row, `<b>${escapeHtml(t.name)}</b> — founded in year ${t.founded}. Population ${Math.round(t.pop)} of the ${Math.round(t.capacity || 0)} its land can feed; ${t.cells || 0} cells of town, ${t.industry || 0} of industry, ${t.farm || 0} of farmland${t.hunted > 0.01 ? '; still hunting much of its food' : ''}${t.boats ? `; a harbour with ${t.boats} fishing boat${t.boats > 1 ? 's' : ''}` : ''}${t.byBoat ? '; settled by boat' : ''}${t.dam >= 0 ? '; has dammed a river for a reservoir' : ''}${t.canals ? `; ${t.canals} irrigation canal${t.canals > 1 ? 's' : ''}` : ''}${t.seaOutfall >= 0 ? '; its sewage piped out to the nearest sea' : ''}${t.timberCells ? `; ${t.timberCells} cells of timber plantation` : ''}${t.lastFire ? `; a fire got away from it in year ${t.lastFire}` : ''}${t.links && t.links.length ? `; roads to ${t.links.length} town${t.links.length > 1 ? 's' : ''} (${Math.round((t.roadsWorking ?? 1) * 100)}% in working order)` : ''}. Click for its population chart.`);
+      this.helpOn(row, `<b>${escapeHtml(t.name)}</b> — founded in year ${t.founded}. Population ${Math.round(t.pop)} of the ${Math.round(t.capacity || 0)} its land can feed; ${t.cells || 0} cells of town, ${t.industry || 0} of industry, ${t.farm || 0} of farmland${t.hunted > 0.01 ? '; still hunting much of its food' : ''}${t.boats ? `; a harbour with ${t.boats} fishing boat${t.boats > 1 ? 's' : ''}` : ''}${t.byBoat ? '; settled by boat' : ''}${t.dam >= 0 ? '; has dammed a river for a reservoir' : ''}${t.canals ? `; ${t.canals} irrigation canal${t.canals > 1 ? 's' : ''}` : ''}${t.seaOutfall >= 0 ? '; its sewage piped out to the nearest sea' : ''}${t.timberCells ? `; ${t.timberCells} cells of timber plantation` : ''}${t.mineCount ? `; ${t.mineCount} mine${t.mineCount > 1 ? 's' : ''}` : ''}${t.sick > 0 ? `; an epidemic: ${Math.round(t.sick * 100)}% sick` : t.outbreaks ? `; ${t.outbreaks} outbreak${t.outbreaks > 1 ? 's' : ''} of disease (last in year ${t.lastOutbreak})` : ''}${Math.abs(t.migrants || 0) > 2 ? `; people ${t.migrants > 0 ? 'moving in' : 'moving away'}` : ''}${t.lastFire ? `; a fire got away from it in year ${t.lastFire}` : ''}${t.links && t.links.length ? `; roads to ${t.links.length} town${t.links.length > 1 ? 's' : ''} (${Math.round((t.roadsWorking ?? 1) * 100)}% in working order)` : ''}. Click for its population chart.`);
       L.append(row, big);
       this.townGraphs.push({ t, val, spark, big });
     }
@@ -856,6 +857,7 @@ export class Toolbox {
         }
       }
     }
+    else if (mode === 'air') ramp('Air pollution (smoke, acid rain)', 'clean', 'thick smoke', [[0.86, 0.90, 0.92], [0.35, 0.28, 0.22]]);
     else if (mode === 'landuse') items('Land use', [
       { label: 'Fields', color: [0.95, 0.80, 0.30], help: 'Farmland (greener where irrigated).' },
       { label: 'Timber plantation', color: [0.09, 0.48, 0.20], help: 'Outlined in dark green; brown-green where it has just been felled and is regrowing.' },
@@ -867,6 +869,8 @@ export class Toolbox {
       { label: 'Quay / breakwater', color: [0.70, 0.70, 0.72], help: 'Sea walls and breakwaters.' },
       { label: 'Dam', color: [0.95, 0.95, 0.95], help: 'Dams.' },
       { label: 'Canal', color: [0.25, 0.80, 0.90], help: 'Irrigation canals.' },
+      { label: 'Mine', color: [0.30, 0.27, 0.25], help: 'Open-pit mines.' },
+      { label: 'Spoil heap', color: [0.85, 0.50, 0.20], help: 'Waste rock from the mines: poisonous ground.' },
       { label: 'Wild land', color: [0.62, 0.70, 0.56], help: 'Not used by any town (paler where bare). This view leaves out pollution, murky water, clouds and fog.' },
     ]);
     else if (mode === 'precip') ramp('Precipitation', 'dry (rain shadow)', 'wet (windward)', [[0.86, 0.74, 0.52], [0.12, 0.35, 0.75]]);

@@ -283,6 +283,8 @@ export function vegetationStep(world) {
     const age = world.forestAge[i];
     let v = V[i] - change * p.disturbance * (1 - 0.6 * age); // old stands shrug off disturbance
     let target = potential(world, i, f);
+    // (land degraded by overgrazing, sim/civilization.js: little grows back until it recovers)
+    if (world.degraded) target *= 1 - 0.85 * world.degraded[i];
     // Salt: 0 dry land, 1 tidal fringe, 2 under the sea
     const salt = H[i] < highTide ? (H[i] < meanSea ? 2 : 1) : 0;
     // (a swamp remembers it was one, so it keeps its tolerance once the sea comes in)

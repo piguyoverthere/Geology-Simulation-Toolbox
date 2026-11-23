@@ -22,7 +22,8 @@
 //   slowly breaks up and grows over.
 
 import { boxBlur, MinHeap } from '../core/grid.js';
-import { seasonParams, seasonalAt, drySeason } from './climate.js';
+import { seasonParams, seasonalAt, drySeason, climateParams } from './climate.js';
+import { ROCK_INDEX } from '../core/rocks.js';
 import { coastParams, isLivingBed, MARINE_ID } from './coast.js';
 
 export const civParams = {
@@ -34,6 +35,7 @@ export const civParams = {
   quarrying: true, // whether big towns quarry hills away
   extraPlantations: false, // towns keep starting plantations even when they have all the timber they need
   plotSize: 120,  // largest plantation plot a town lays out (cells): smaller plots rotate faster
+  epidemics: true, // crowded towns with dirty water suffer outbreaks of disease, spreading along their links
 };
 
 const FARMS_PER_TOWN_CELL = 3; // every cell of town needs at least this many cells of farmland
@@ -1418,6 +1420,8 @@ export function civStep(world) {
     food *= 1 + Math.min(0.3, 0.08 * t.links.length) * (roadsNear ? t.roadsWorking : 0);
     // (industry brings work and trade: the town can support more people)
     food *= 1 + Math.min(0.35, indCells * 0.012);
+    // (mines bring wealth: the town can support more people)
+    food *= 1 + Math.min(0.4, (t.mineCount || 0) * 0.12);
     // (timber: building, fuel and trade, from its plantations)
     food *= 1 + Math.min(0.3, (t.timberCut || 0) * 0.01);
     food *= yearFactor;
@@ -1473,6 +1477,8 @@ export function civStep(world) {
     // Timber: plantations on land where forest grows, about twice as much land as its fields; each
     // grows trees, is clear-felled when they're grown, and grows them again
     timberStep(world, t, farmCells, R);
+    // Mines into the hard rock nearby
+    mineStep(world, t, R);
     // A big town sends people out to found a daughter village (linked by road)
     // (when the town is crowded: near what its land can feed)
     // (a town with boats can send them across the water, farther afield; without, only overland)
@@ -1541,7 +1547,239 @@ export function civStep(world) {
     else total += t.pop;
   }
   world.civPop = total;
+  // People on the move, disease, smoke and worn-out land
+  migrationStep(world, world.towns);
+  if (civParams.epidemics) epidemicStep(world, world.towns);
+  airPollutionStep(world);
+  desertStep(world);
   world.dirty = true;
+}
+
+// --- Mining -------------------------------------------------------------------------------
+// The hard, mineral-bearing rocks (igneous and metamorphic): where ores are found
+const ORE_ROCKS = new Set(['basalt', 'andesite', 'rhyolite', 'granite', 'gneiss', 'schist', 'marble'].map((id) => ROCK_INDEX[id]));
+
+/**
+ * Mining: a town of a few hundred sinks a mine into the hard, mineral-bearing rock near it (granite,
+ * basalt, gneiss and the like), with a road out to it. The mine deepens its pit year by year; the
+ * waste rock is piled into a spoil heap beside it, a raw, poisonous heap where nothing grows and that
+ * poisons the ground around it, with foul, metal-laden drainage running off it down the streams. Each
+ * working mine adds to the town's wealth (it can support more people). More mines as it grows.
+ */
+function mineStep(world, t, R) {
+  const N = world.N, H = world.height, LU = world.landUse, OW = world.civOwner, sea = seaOf(world);
+  if (!t.mines) t.mines = [];
+  let worked = 0;
+  for (const m of t.mines) {
+    if (!m.pit.some((j) => LU[j] === 11)) continue; // (bulldozed, flooded or abandoned)
+    worked++;
+    // Deepen the pit a little; the rock goes onto the heap
+    let spoil = 0;
+    for (const j of m.pit) {
+      if (LU[j] !== 11 || H[j] < m.floor) continue;
+      const cut = Math.min(0.15 * Math.max(0.3, civParams.destruction), H[j] - m.floor);
+      H[j] -= cut; world.prevHeight[j] = H[j]; spoil += cut;
+    }
+    const heap = m.heap.filter((j) => LU[j] === 12);
+    for (const j of heap) { const put = spoil / Math.max(1, heap.length); H[j] += put; world.prevHeight[j] = H[j]; }
+    // The heap poisons the ground around it: nothing grows on it, little near it
+    for (const j of heap) {
+      world.vegetation[j] = 0;
+      world.farmSoil[j] = 0;
+      if (world.humus) world.humus[j] = 0;
+      for (const k of [j - 1, j + 1, j - N, j + N, j - N - 1, j - N + 1, j + N - 1, j + N + 1]) {
+        if (k < 0 || k >= N * N || LU[k]) continue;
+        world.vegetation[k] = Math.min(world.vegetation[k], 0.25);
+        world.farmSoil[k] = Math.min(world.farmSoil[k], 0.3);
+      }
+    }
+    // …and its drainage runs foul down the streams (acid, metal-laden)
+    if (heap.length && !zoneHas(world, heap[0], Z.earthworks)) traceDown(world, heap[0], 0.02 * civParams.destruction);
+  }
+  t.mines = t.mines.filter((m) => m.pit.some((j) => LU[j] === 11));
+  t.mineCount = worked;
+  // A new mine
+  if (t.pop < 400 || civParams.destruction <= 0 || worked >= 1 + Math.floor(t.pop / 3000) || Math.random() > 0.012 * civParams.growth * Math.min(1.5, civParams.destruction)) return;
+  let best = -1, bs = 0;
+  for (let k = 0; k < 50; k++) {
+    const a = Math.random() * Math.PI * 2, d = 8 + Math.random() * R * 2;
+    const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
+    if (x < 6 || z < 6 || x > N - 7 || z > N - 7) continue;
+    const i = z * N + x;
+    if (LU[i] || H[i] < sea + 2 || world.water[i] > 0.1 || zoneHas(world, i, Z.earthworks | Z.towns)) continue;
+    if (!ORE_ROCKS.has(world.rockAt(H[i] - 1.5, i))) continue; // (ore-bearing rock just beneath)
+    const score = world.hardnessAt(H[i] - 1.5, i) + 0.2 * slopeAt(world, i) - d * 0.004;
+    if (score > bs) { bs = score; best = i; }
+  }
+  if (best < 0) return;
+  const bx = best % N, bz = (best / N) | 0, pit = [], heap = [];
+  // The pit (about 5 across) and, downhill of it, the spoil heap
+  let dx = 0, dz = 0, lo = H[best];
+  for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const j = (bz + az * 4) * N + bx + ax * 4; if (H[j] < lo) { lo = H[j]; dx = ax; dz = az; } }
+  if (!dx && !dz) dx = 1;
+  for (let oz = -2; oz <= 2; oz++) for (let ox = -2; ox <= 2; ox++) {
+    if (ox * ox + oz * oz > 5) continue;
+    const j = (bz + oz) * N + bx + ox;
+    if (LU[j]) continue;
+    LU[j] = 11; OW[j] = t.num; world.vegetation[j] = 0; pit.push(j);
+  }
+  for (let oz = -1; oz <= 1; oz++) for (let ox = -1; ox <= 1; ox++) {
+    const j = (bz + dz * 4 + oz) * N + bx + dx * 4 + ox;
+    if (LU[j] || H[j] < sea + 0.5) continue;
+    LU[j] = 12; OW[j] = t.num; world.vegetation[j] = 0; heap.push(j);
+  }
+  if (!pit.length) return;
+  t.mines.push({ i: best, pit, heap, floor: Math.max(sea + 1, H[best] - 14) });
+  // (the haul road runs up to the pit's edge, on the town's side, not into it)
+  const ang = Math.atan2(t.z - bz, t.x - bx);
+  const path = routeRoad(world, t, { x: Math.round(bx + Math.cos(ang) * 3.5), z: Math.round(bz + Math.sin(ang) * 3.5) });
+  if (path && path.length > 1) buildRoad(world, path);
+  world.dirty = true;
+}
+
+/** Foul water running off cell `start`: down the steepest way to the streams and on to the sea. */
+function traceDown(world, start, load) {
+  const N = world.N, H = world.height, D = world.water, RP = world.riverPollution, sea = seaOf(world);
+  let c = start;
+  for (let k = 0; k < 200; k++) {
+    if (H[c] < sea) { if (world.pollution) world.pollution[c] = Math.min(4, world.pollution[c] + load * 1.5); return; }
+    if (D[c] > 0.1) RP[c] += load;
+    const cx = c % N, cz = (c / N) | 0;
+    if (cx < 1 || cz < 1 || cx > N - 2 || cz > N - 2) return;
+    let low = c, lh = H[c] + D[c];
+    for (const j of [c - 1, c + 1, c - N, c + N, c - N - 1, c - N + 1, c + N - 1, c + N + 1]) { const hj = H[j] + D[j]; if (hj < lh) { lh = hj; low = j; } }
+    if (low === c) return;
+    c = low;
+  }
+}
+
+// --- People on the move, and disease ----------------------------------------------------------
+
+/**
+ * Migration: people move along the roads and sea routes between linked towns, from the more crowded
+ * or struggling town (nearer, or past, what its land can support) to the more prosperous one. Booming
+ * towns draw people in; failing ones empty, sometimes to ghost towns.
+ */
+function migrationStep(world, towns) {
+  const byId = new Map(towns.map((t) => [t.id, t]));
+  for (const t of towns) {
+    t.migrants = (t.migrants || 0) * 0.9;
+    for (const id of t.links) {
+      const u = byId.get(id);
+      if (!u || u.id < t.id) continue; // (each pair once)
+      const ct = t.pop / Math.max(20, t.capacity || t.pop), cu = u.pop / Math.max(20, u.capacity || u.pop);
+      const diff = ct - cu;
+      if (Math.abs(diff) < 0.08) continue;
+      const from = diff > 0 ? t : u, to = from === t ? u : t;
+      // (more of them move the bigger the gap, a little faster with good roads)
+      const move = Math.min(from.pop * 0.025, Math.abs(diff) * 0.02 * from.pop) * civParams.growth;
+      if (move < 0.5) continue;
+      from.pop -= move; to.pop += move;
+      to.migrants = (to.migrants || 0) + move; from.migrants = (from.migrants || 0) - move;
+    }
+  }
+}
+
+/**
+ * Epidemics: now and then disease breaks out in a crowded town, more readily where its water is
+ * dirty. It spreads through the town (killing some of those it strikes) and along its roads and sea
+ * routes to the towns it trades with, then burns out, leaving the survivors immune for a while.
+ */
+function epidemicStep(world, towns) {
+  const N = world.N, RP = world.riverPollution, byId = new Map(towns.map((t) => [t.id, t]));
+  for (const t of towns) {
+    t.immune = Math.max(0, (t.immune || 0) - 0.0025);
+    if (!(t.sick > 0)) {
+      const crowd = t.pop / Math.max(20, t.capacity || t.pop);
+      const dirty = Math.min(1, (RP[t.z * N + t.x] || 0) + (world.pollution ? (world.pollution[t.seaOutfall] || 0) * 0.1 : 0));
+      if (t.pop > 300 && Math.random() < 0.0012 * crowd * crowd * (1 + 3 * dirty) * (1 - t.immune)) { t.sick = 0.02; t.outbreaks = (t.outbreaks || 0) + 1; t.lastOutbreak = seasonParams.year || 1; }
+      continue;
+    }
+    // Spreads through the town, kills some, the rest recover immune
+    const deaths = t.pop * t.sick * 0.06;
+    t.pop -= deaths;
+    t.died = (t.died || 0) + deaths;
+    t.sick += t.sick * 0.5 * Math.max(0, 1 - t.sick * 4 - t.immune);
+    const recovered = t.sick * 0.2;
+    t.sick -= recovered; t.immune = Math.min(1, t.immune + recovered * 6 + 0.01);
+    // (an outbreak runs its course: burns out within about 40 steps)
+    t.sickSteps = (t.sickSteps || 0) + 1;
+    if (t.sickSteps > 40) t.sick *= 0.7;
+    // …and along its links
+    for (const id of t.links) {
+      const u = byId.get(id);
+      if (u && !(u.sick > 0) && (u.immune || 0) < 0.5 && Math.random() < t.sick * 1.5 * (1 - (u.immune || 0))) { u.sick = 0.01; u.outbreaks = (u.outbreaks || 0) + 1; u.lastOutbreak = seasonParams.year || 1; }
+    }
+    if (t.sick < 0.004) { t.sick = 0; t.sickSteps = 0; t.immune = Math.max(t.immune, 0.8); }
+  }
+}
+
+// --- Smoke and acid rain ----------------------------------------------------------------------
+
+/**
+ * Air pollution: smoke from industry (heavily), towns and mines drifts downwind with the prevailing
+ * wind, spreading and thinning as it goes. Where it settles, acid rain falls: forests sicken (their
+ * health drops and, where it's thick, the trees die back) and the soil of fields turns sour.
+ */
+function airPollutionStep(world) {
+  const N = world.N, n = N * N, LU = world.landUse;
+  if (!world.airPollution || world.airPollution.length !== n) world.airPollution = new Float32Array(n);
+  const A = world.airPollution, k = civParams.destruction;
+  for (let i = 0; i < n; i++) {
+    const lu = LU[i];
+    if (lu === 4) A[i] += 0.05 * k;
+    else if (lu === 2) A[i] += 0.006 * k;
+    else if (lu === 11 || lu === 12) A[i] += 0.015 * k;
+  }
+  // Drift downwind (about 2 cells a step) and spread
+  const a = ((climateParams.windAngle || 0) * Math.PI) / 180, ux = Math.cos(a) * 2, uz = Math.sin(a) * 2;
+  const B = new Float32Array(n);
+  for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+    const sx = Math.round(x - ux), sz = Math.round(z - uz);
+    if (sx < 0 || sz < 0 || sx >= N || sz >= N) continue;
+    B[z * N + x] = A[sz * N + sx];
+  }
+  const C = boxBlur(B, N, 1);
+  for (let i = 0; i < n; i++) A[i] = C[i] * 0.9 < 1e-4 ? 0 : Math.min(3, C[i] * 0.9);
+  // Acid rain where it settles
+  const FH = world.forestHealth, V = world.vegetation, FS = world.farmSoil;
+  for (let i = 0; i < n; i++) {
+    const s = A[i];
+    if (s < 0.03) continue;
+    if (FH) FH[i] = Math.max(0, FH[i] - 0.01 * s);
+    if (V[i] > 0.66 && s > 0.25) V[i] -= 0.004 * s; // (trees dying back)
+    if (LU[i] === 1 && FS) FS[i] = Math.max(0, FS[i] - 0.0006 * s);
+  }
+}
+
+// --- Overgrazing ------------------------------------------------------------------------------
+
+/**
+ * Desertification: in dry country the farms' livestock strip the grass and scrub around the fields
+ * down to the soil, which blows and washes away: the land degrades toward desert (world.degraded,
+ * 0…1), plants can't grow back there, and the bare ground creeps outward. Taken off grazing (or with
+ * more rain) it slowly recovers.
+ */
+function desertStep(world) {
+  const N = world.N, n = N * N, G = world.grazing, SM = world.soil, V = world.vegetation, HU = world.humus;
+  if (!G || !SM) return;
+  if (!world.degraded || world.degraded.length !== n) world.degraded = new Float32Array(n);
+  const DG = world.degraded, k = Math.max(0.2, civParams.destruction);
+  for (let i = 0; i < n; i++) {
+    const dry = Math.max(0, (0.45 - SM[i]) / 0.45);
+    let d = DG[i];
+    if (G[i] > 0.15 && dry > 0) {
+      d += 0.004 * G[i] * dry * k;
+      if (HU) HU[i] *= 1 - 0.003 * G[i] * dry;
+    } else d -= 0.0012 * (1 - dry * 0.7); // (resting: slow recovery, slower when dry)
+    // (bare ground creeps outward from badly degraded land, where it's dry)
+    if (d < 0.5 && dry > 0.3) {
+      const x = i % N, z = (i / N) | 0;
+      if (x > 0 && z > 0 && x < N - 1 && z < N - 1 && Math.max(DG[i - 1], DG[i + 1], DG[i - N], DG[i + N]) > 0.7) d += 0.0015 * dry * k;
+    }
+    DG[i] = d < 0 ? 0 : d > 1 ? 1 : d;
+    if (DG[i] > 0.2) V[i] = Math.min(V[i], 1 - DG[i] * 0.9);
+  }
 }
 
 /**
