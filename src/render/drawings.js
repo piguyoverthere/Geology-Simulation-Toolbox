@@ -274,6 +274,7 @@ export class Drawings {
     else parts.push(`↑${m.up.toFixed(1)} ↓${m.down.toFixed(1)}`);
     parts.push(`elev ${m.lo.toFixed(0)}–${m.hi.toFixed(0)}`);
     if (s.protected) parts.push('🛡 protected');
+    if (s.limited) parts.push('🪓 limited harvest');
     return parts.join(' · ');
   }
 

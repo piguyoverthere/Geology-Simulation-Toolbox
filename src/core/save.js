@@ -55,7 +55,7 @@ export function snapshot(app) {
     scalars, json, params,
     view: { colorMode: r.colorMode, showVegetation: r.showVegetation, showClouds: r.showClouds, showWater: r.showWater },
     camera: { position: app.camera.position.toArray(), target: app.controls.target.toArray() },
-    drawings: app.drawings.shapes.map((s) => ({ name: s.name, points: s.points, closed: s.closed, color: s.color, protected: !!s.protected })),
+    drawings: app.drawings.shapes.map((s) => ({ name: s.name, points: s.points, closed: s.closed, color: s.color, protected: !!s.protected, limited: !!s.limited })),
     drawNextId: app.drawings.nextId,
   };
   return { meta, arrays };
@@ -96,7 +96,7 @@ export function applySnapshot(app, snap) {
   }
   app.drawings.clear();
   for (const d of meta.drawings || []) {
-    const s = { id: app.drawings.nextId++, name: d.name, points: d.points, closed: d.closed, color: d.color, protected: !!d.protected, obj: null, label: null };
+    const s = { id: app.drawings.nextId++, name: d.name, points: d.points, closed: d.closed, color: d.color, protected: !!d.protected, limited: !!d.limited, obj: null, label: null };
     app.drawings.shapes.push(s);
     app.drawings.build(s);
   }

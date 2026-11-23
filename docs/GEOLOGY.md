@@ -1135,6 +1135,13 @@ is kept wild. No town is founded or built inside it, no farmland is cleared, no 
 and roads between towns go around it (unless there is truly no other way). What was there already
 stays.
 
+**Limited-harvest zones.** Any polygon can also be made a limited-harvest zone (🪓 in the Drawings
+list), with or without protection. Timber plantations inside are kept small: a quarter of the
+Plantation plot size, and a felling can't spread past that into the forest beside it. A plot inside
+is cut only when it has grown back fully (95% near full cover), and once cut it's left alone for a
+long while (about 90 civilization steps) before it may be cut again, so harvesting goes much
+slower there.
+
 
 **The Land use overlay.** *Land use (clear view)* in the Overlay list shows what every cell is
 used for in flat colours: fields (greener where irrigated), timber plantations (outlined, so you can

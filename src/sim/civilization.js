@@ -101,10 +101,11 @@ function nearestWater(world) {
 export function updateProtectedZones(world, shapes) {
   const N = world.N, n = N * N;
   if (!world.protectedZone || world.protectedZone.length !== n) world.protectedZone = new Uint8Array(n);
-  const PZ = world.protectedZone;
-  PZ.fill(0);
+  if (!world.limitedZone || world.limitedZone.length !== n) world.limitedZone = new Uint8Array(n);
+  const PZ = world.protectedZone, LZ = world.limitedZone;
+  PZ.fill(0); LZ.fill(0);
   for (const s of shapes || []) {
-    if (!s.protected || !s.closed || !s.points || s.points.length < 3) continue;
+    if (!(s.protected || s.limited) || !s.closed || !s.points || s.points.length < 3) continue;
     const pts = s.points;
     let x0 = N, x1 = 0, z0 = N, z1 = 0;
     for (const p of pts) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
@@ -116,12 +117,14 @@ export function updateProtectedZones(world, shapes) {
           const pa = pts[a], pb = pts[b];
           if ((pa.z > z) !== (pb.z > z) && x < ((pb.x - pa.x) * (z - pa.z)) / (pb.z - pa.z) + pa.x) inside = !inside;
         }
-        if (inside) PZ[z * N + x] = 1;
+        if (inside) { if (s.protected) PZ[z * N + x] = 1; if (s.limited) LZ[z * N + x] = 1; }
       }
     }
   }
 }
 const isProtected = (world, i) => world.protectedZone && world.protectedZone[i] === 1;
+// (a limited-harvest zone: plantations inside are small and cut seldom)
+const isLimited = (world, i) => world.limitedZone && world.limitedZone[i] === 1;
 
 /** Which landmass each cell is on (islands and the mainland numbered apart; 0 = sea). */
 function landComponents(world) {
@@ -686,11 +689,15 @@ function timberStep(world, t, farmCells, R) {
     }
     // (a town-made plot far bigger than the plot size, e.g. one that took in a whole forest, is cut
     // back to the plot nearest its centre; the rest goes back to the wild)
-    if (!pl.painted && pl.cells.length > civParams.plotSize * 1.5) {
+    const plLimited = isLimited(world, Math.max(0, Math.min(N - 1, pl.z)) * N + Math.max(0, Math.min(N - 1, pl.x)));
+    pl.limited = plLimited;
+    if (pl.cool > 0) pl.cool--;
+    const plotCap = plLimited ? Math.max(10, Math.round(civParams.plotSize * 0.25)) : civParams.plotSize;
+    if (!pl.painted && pl.cells.length > plotCap * 1.5) {
       const keep = pl.cells.filter((i) => LU[i] === 10 && OW[i] === t.num)
         .sort((a, b) => Math.hypot((a % N) - pl.x, ((a / N) | 0) - pl.z) - Math.hypot((b % N) - pl.x, ((b / N) | 0) - pl.z));
-      for (const i of keep.slice(civParams.plotSize)) { LU[i] = 0; OW[i] = 0; REST[i] = 0; }
-      pl.cells = keep.slice(0, civParams.plotSize);
+      for (const i of keep.slice(plotCap)) { LU[i] = 0; OW[i] = 0; REST[i] = 0; }
+      pl.cells = keep.slice(0, plotCap);
     }
     for (const i of pl.cells) {
       if (LU[i] !== 10 || OW[i] !== t.num) continue;
@@ -701,7 +708,8 @@ function timberStep(world, t, farmCells, R) {
     }
     // (ready to fell once its trees have grown back almost all over; the town picks which below)
     if (!pl.id) pl.id = Math.random().toString(36).slice(2, 8);
-    if (alive && grown >= 0.8 * alive) ready.push(pl);
+    // (in a limited-harvest zone: only when it has grown back fully, and long after the last cut)
+    if (alive && grown >= (pl.limited ? 0.95 : 0.8) * alive && !(pl.cool > 0)) ready.push(pl);
     // Worn out: once a plantation's soil is exhausted it is abandoned to recover (left to the wild,
     // its soil slowly coming back), and a new plantation is started on fresh land elsewhere
     if (alive) {
@@ -742,7 +750,8 @@ function timberStep(world, t, farmCells, R) {
       cut += live.length;
       // (and the forest around it, all of it that joins on)
       // (no bigger than the plot size, or than you painted it)
-      const capF = Math.max(civParams.plotSize, pl.painted ? live.length : 0);
+      const capF = pl.limited ? Math.max(Math.round(civParams.plotSize * 0.25), pl.painted ? live.length : 0) : Math.max(civParams.plotSize, pl.painted ? live.length : 0);
+      if (pl.limited) pl.cool = 90; // (left a long while before it may be cut again)
       const seen = new Uint8Array(N2), q = [];
       for (const i of live) seen[i] = 1;
       for (const i of live) for (const k of [i - 1, i + 1, i - N, i + N]) if (k >= 0 && k < N2 && !seen[k]) { seen[k] = 1; q.push(k); }
@@ -801,7 +810,7 @@ function timberStep(world, t, farmCells, R) {
   const free = (j) => !LU[j] && H[j] >= sea + 0.5 && world.water[j] < 0.1 && !isProtected(world, j) && FS[j] >= 0.5 && (!HU || HU[j] >= 0.06);
   if (V[c0] > 0.6 && free(c0)) {
     // (a compact block of the forest there, grown out from the site to the plot size)
-    const seen = new Uint8Array(N * N), q = [c0], cap = Math.max(10, civParams.plotSize);
+    const seen = new Uint8Array(N * N), q = [c0], cap = Math.max(10, isLimited(world, c0) ? civParams.plotSize * 0.25 : civParams.plotSize);
     seen[c0] = 1;
     for (let h = 0; h < q.length && claimed.length < cap; h++) {
       const j = q[h], x = j % N, z = (j / N) | 0;
@@ -810,7 +819,7 @@ function timberStep(world, t, farmCells, R) {
       for (const k of [j - 1, j + 1, j - N, j + N]) if (!seen[k]) { seen[k] = 1; if (V[k] > 0.6 && free(k)) q.push(k); }
     }
   } else {
-    const r = Math.max(2, Math.round(Math.sqrt(Math.max(10, civParams.plotSize) / Math.PI)));
+    const r = Math.max(2, Math.round(Math.sqrt(Math.max(10, isLimited(world, c0) ? civParams.plotSize * 0.25 : civParams.plotSize) / Math.PI)));
     for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
       if (dx * dx + dz * dz > r * r + 1) continue;
       const x = best.x + dx, z = best.z + dz;
