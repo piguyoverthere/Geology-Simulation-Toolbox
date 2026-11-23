@@ -413,7 +413,7 @@ export class TerrainRenderer {
           if (this.showVegetation && w.deadWood) {
             const dw = w.deadWood[i], tk = w.treeKill ? w.treeKill[i] : 0;
             if (tk > 0.05) mix(col, BEETLE_RED, Math.min(0.55, tk * 0.8), col);
-            if (dw > 0.04) mix(col, DEAD_WOOD, Math.min(0.7, dw * 1.3), col);
+            if (dw > 0.06) mix(col, DEAD_WOOD, Math.min(0.45, (dw - 0.06) * 1.0), col); // (fallen timber: fades as it rots)
           }
         }
         // Palette is authored in sRGB; vertex colours are linear, so square to approximate the conversion

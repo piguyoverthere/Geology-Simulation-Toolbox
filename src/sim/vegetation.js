@@ -352,7 +352,9 @@ export function vegetationStep(world) {
     // Dead wood (windthrow, trees killed by pests) rots away over the years, feeding the soil as it
     // goes; seedlings come up in the gaps it leaves (they're held back only a little by it)
     if (world.deadWood && world.deadWood[i] > 0) {
-      const rot = Math.min(world.deadWood[i], 0.003);
+      // (a few years to rot down; faster where it's warm and damp, slower where cold or dry)
+      const warm = Math.min(1, Math.max(0.2, (world.temperature[i] + 2) / 16));
+      const rot = Math.min(world.deadWood[i], (0.006 + 0.014 * Math.min(1, S[i] * 1.6) * warm));
       world.deadWood[i] -= rot;
       SO[i] = Math.min(1, SO[i] + rot * 0.3);
     }
