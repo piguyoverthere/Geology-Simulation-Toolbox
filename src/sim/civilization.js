@@ -1830,10 +1830,26 @@ export function addFootpath(world, a, b) {
     pts = [];
     for (let k = 0; k <= len; k++) pts.push({ x: Math.round(a.x + ((b.x - a.x) * k) / len), z: Math.round(a.z + ((b.z - a.z) * k) / len) });
   }
+  pts = pts.map((p) => ({ x: Math.round(p.x), z: Math.round(p.z) }));
+  // Starting at the end (or the start) of a footpath carries that footpath on: one continuous path,
+  // laid a stretch at a time
+  let joined = null, atEnd = true, bd = 4;
+  for (const fp of world.footpaths) {
+    const e = fp.pts[fp.pts.length - 1], s0 = fp.pts[0];
+    const de = Math.hypot(e.x - a.x, e.z - a.z), ds = Math.hypot(s0.x - a.x, s0.z - a.z);
+    if (de < bd) { bd = de; joined = fp; atEnd = true; }
+    if (ds < bd) { bd = ds; joined = fp; atEnd = false; }
+  }
+  if (joined) {
+    if (atEnd) joined.pts.push(...pts.slice(1));
+    else joined.pts.unshift(...pts.slice(1).reverse());
+    markFootpaths(world);
+    return joined;
+  }
   const used = new Set(world.footpaths.map((p) => p.num));
   let num = 1;
   while (used.has(num)) num++;
-  const fp = { id: 'f' + Math.random().toString(36).slice(2, 8), num, name: `Footpath ${num}`, pts: pts.map((p) => ({ x: Math.round(p.x), z: Math.round(p.z) })) };
+  const fp = { id: 'f' + Math.random().toString(36).slice(2, 8), num, name: `Footpath ${num}`, pts };
   world.footpaths.push(fp);
   markFootpaths(world);
   return fp;
