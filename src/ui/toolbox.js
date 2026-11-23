@@ -222,6 +222,7 @@ export class Toolbox {
         'What the Draw tool (✎, key D) makes. A path is an open line; a polygon closes back to its first point and is filled. You can also close a path into a polygon by clicking its first point.', this, () => app.setTool('draw')),
       select('Colour', DRAW_COLORS, app.drawSettings, 'color', 'Colour for new shapes. Click a shape\'s dot in the list below to cycle its colour.', this),
       toggle('Show labels', app.drawSettings, 'labels', 'Show each shape\'s name and measurements on the map.', this),
+      slider('Polygon opacity', app.drawSettings, 'fill', 0, 1, 0.02, 'How solid a polygon\'s fill is drawn over the map: 0 shows only its outline, 1 is a solid colour. Its outline and label are always shown.', this, () => app.drawings.applyFill()),
     );
     this.drawList = el('div', 'draw-list');
     dr.append(this.drawList);

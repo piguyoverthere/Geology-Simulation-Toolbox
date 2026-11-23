@@ -13,6 +13,7 @@ export const drawSettings = {
   shape: 'path',      // 'path' | 'polygon'
   color: '#ffd24a',
   labels: true,
+  fill: 0.12,         // how opaque a polygon's fill is (0 = see-through, 1 = solid)
 };
 
 export const DRAW_COLORS = { '#ffd24a': 'Yellow', '#ff5a4f': 'Red', '#4fc3ff': 'Blue', '#7dff6a': 'Green', '#ffffff': 'White', '#c77dff': 'Purple' };
@@ -233,7 +234,9 @@ export class Drawings {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setIndex(idx);
-    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide }));
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: drawSettings.fill, depthWrite: false, side: THREE.DoubleSide }));
+    m.userData.isFill = true;
+    m.visible = drawSettings.fill > 0.001;
     m.renderOrder = 5;
     return m;
   }
@@ -295,6 +298,13 @@ export class Drawings {
   // --- Per frame -------------------------------------------------------------------------------
 
   /** Keep lines draped on the changing terrain, move labels, draw the rubber band. */
+  /** Apply the polygon transparency setting to every polygon's fill. */
+  applyFill() {
+    for (const s of this.shapes) if (s.obj) s.obj.traverse((o) => {
+      if (o.userData && o.userData.isFill) { o.material.opacity = drawSettings.fill; o.visible = drawSettings.fill > 0.001; }
+    });
+  }
+
   update(dt, camera, hover, drawing) {
     this.refreshTimer -= dt;
     if (this.refreshTimer <= 0 && this.world.dirty !== undefined) {
