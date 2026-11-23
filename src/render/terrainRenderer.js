@@ -53,6 +53,7 @@ export const OVERLAYS = {
   wildlife: 'Wildlife',
   landuse: 'Land use (clear view)',
   air: 'Air pollution',
+  invasive: 'Invasive trees',
   decid: 'Deciduous trees',
   rock: 'Rock type',
   hardness: 'Rock hardness',
@@ -336,6 +337,11 @@ export class TerrainRenderer {
         } else if (mode === 'slope') {
           const t = Math.min(1, slope / 0.35);
           col = mix(SLOPE_LO, SLOPE_HI, t, S3);
+        } else if (mode === 'invasive') {
+          // How much of the forest is the invasive pine: native forest green, invaded purple-red
+          const iv = w.invasive ? w.invasive[i] : 0, v = w.vegetation[i];
+          col = v < 0.4 ? INV_OPEN.slice() : mix(INV_NATIVE, INV_FULL, Math.min(1, iv), S3);
+          shade(col, 0.72 + 0.28 * ny, col);
         } else if (mode === 'air') {
           // Smoke and acid rain: clean air pale, thick smoke dark brown-grey
           const ap = w.airPollution ? Math.min(1, Math.sqrt(w.airPollution[i]) * 0.9) : 0;
@@ -366,6 +372,8 @@ export class TerrainRenderer {
           col = this.naturalColor(h, slope, tan, h - BASE[i], D[i], i);
           // Stained, fouled banks along polluted rivers
           if (w.riverPollution && w.riverPollution[i] > 0.05 && D[i] < 0.1) mix(col, POLLUTED_BANK, Math.min(0.5, Math.sqrt(w.riverPollution[i]) * 0.45), col);
+          // Forest taken over by the invasive pine: a darker, bluer, uniform green
+          if (w.invasive && w.invasive[i] > 0.05 && w.vegetation[i] > 0.5 && !(w.landUse && w.landUse[i])) mix(col, INVASIVE, Math.min(0.6, w.invasive[i] * 0.6), col);
           // Land worn out by overgrazing: bare, sandy, desert-like
           if (w.degraded && w.degraded[i] > 0.1) mix(col, DEGRADED, Math.min(0.75, w.degraded[i] * 0.8), col);
           // Footpaths: a narrow, pale trodden trail
@@ -772,7 +780,7 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
-const FOOTPATH = [0.80, 0.68, 0.48], MINE_A = [0.30, 0.27, 0.25], MINE_B = [0.38, 0.33, 0.29], SPOIL = [0.70, 0.48, 0.26], DEGRADED = [0.82, 0.72, 0.52], AIR_CLEAN = [0.86, 0.90, 0.92], AIR_DIRTY = [0.35, 0.28, 0.22];
+const FOOTPATH = [0.80, 0.68, 0.48], INVASIVE = [0.10, 0.26, 0.28], INV_OPEN = [0.86, 0.85, 0.80], INV_NATIVE = [0.30, 0.62, 0.30], INV_FULL = [0.66, 0.16, 0.38], MINE_A = [0.30, 0.27, 0.25], MINE_B = [0.38, 0.33, 0.29], SPOIL = [0.70, 0.48, 0.26], DEGRADED = [0.82, 0.72, 0.52], AIR_CLEAN = [0.86, 0.90, 0.92], AIR_DIRTY = [0.35, 0.28, 0.22];
 const LU_OPEN = [0.86, 0.85, 0.80], LU_WILD = [0.62, 0.70, 0.56], LU_IRRIGATED = [0.55, 0.80, 0.45], LU_FELLED = [0.70, 0.60, 0.36], LU_EDGE = [0.02, 0.18, 0.06], LU_RESTING = [0.56, 0.80, 0.56];
 const LU_COLORS = { 11: [0.30, 0.27, 0.25], 12: [0.85, 0.50, 0.20], 1: [0.95, 0.80, 0.30], 2: [0.86, 0.28, 0.22], 3: [0.30, 0.30, 0.34], 4: [0.58, 0.36, 0.74], 5: [0.98, 0.55, 0.15], 6: [0.70, 0.70, 0.72], 7: [0.95, 0.95, 0.95], 8: [0.25, 0.80, 0.90], 9: [0.35, 0.25, 0.15], 10: [0.09, 0.48, 0.20] };
 const FIELD_A = [0.78, 0.70, 0.38], FIELD_B = [0.52, 0.62, 0.30], TOWN_PAVE = [0.62, 0.60, 0.57], TOWN_ROOF = [0.66, 0.40, 0.32], ROAD = [0.30, 0.30, 0.32], ROAD_WORN = [0.55, 0.52, 0.46], INDUSTRY = [0.50, 0.53, 0.57], HARBOR_A = [0.46, 0.34, 0.22], QUAY = [0.66, 0.65, 0.61], DAM = [0.78, 0.77, 0.74], CANAL = [0.56, 0.52, 0.44], SEWER = [0.30, 0.26, 0.20], PLANTATION = [0.16, 0.30, 0.15], PLANTATION_ROW = [0.11, 0.22, 0.11], CLEARCUT = [0.47, 0.39, 0.27], BRIDGE = [0.36, 0.34, 0.33], QUAY_DARK = [0.46, 0.45, 0.43], HARBOR_B = [0.60, 0.58, 0.55], INDUSTRY_DARK = [0.24, 0.25, 0.28], DIRTY_RIVER = [0.58, 0.47, 0.16], POLLUTED_BANK = [0.42, 0.36, 0.20];

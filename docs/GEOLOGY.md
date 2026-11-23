@@ -1276,3 +1276,23 @@ around the fields down to bare soil, which blows and washes away. The land degra
 little grows back there, the soil thins, and the bare ground creeps outward where it's dry. Taken off
 grazing, it slowly recovers, more slowly the drier it is. Degraded land shows sandy on the map and in
 the inspector.
+
+**Replanting.** Every plantation is replanted with saplings straight after it's felled, so it
+never lies bare. Plantation land that used to be fields (fields a town turned over to timber, or
+fields you painted with the Plantation brush) is planted out with nursery stock: it starts further
+along and grows back about three times as fast.
+
+**An invasive pine.** The plantations are planted with a fast-growing exotic pine, and it escapes.
+Every plantation is all pine. From the plantations, and from wild forest it has already taken, its
+seed spreads slowly into the native forest around: tree by tree, a few cells a decade, and now and
+then a long jump on the wind or with birds. Seed also travels along the roads, on boots, wheels and
+timber carts. A road that passes a plantation or invaded forest picks it up, carries it along the
+road network, and the forest beside the road is invaded too, far from where it started. Where the
+pine takes hold, the native trees' seedlings can't establish under it, so forest health falls. It
+supports no wildlife: an animal can live in an invaded forest only as far as the native trees
+remain. It doesn't grow on open ground, and dies back where the forest is cleared or burnt.
+
+It shows as a darker, bluer green in the forest, in the *Invasive trees* overlay and in the
+inspector. The **Invasive trees** brush (🌿, under Wildlife) paints it into forest, and Shift cuts it
+out, though it will creep back from invaded forest nearby. The **Invasive plantation pine** switch
+(Civilization) plants the plantations with native trees instead, and then nothing new escapes.

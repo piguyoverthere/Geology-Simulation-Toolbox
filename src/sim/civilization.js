@@ -36,6 +36,7 @@ export const civParams = {
   extraPlantations: false, // towns keep starting plantations even when they have all the timber they need
   plotSize: 120,  // largest plantation plot a town lays out (cells): smaller plots rotate faster
   epidemics: true, // crowded towns with dirty water suffer outbreaks of disease, spreading along their links
+  invasive: true,  // plantations are planted with an invasive exotic pine that escapes into the wild forest
 };
 
 const FARMS_PER_TOWN_CELL = 3; // every cell of town needs at least this many cells of farmland
@@ -689,7 +690,7 @@ function timberStep(world, t, farmCells, R) {
   // replanted with it)
   const FS = world.farmSoil;
   const N2 = N * N, fell = (i) => {
-    V[i] = 0.12; if (TD) TD[i] *= 0.08; world.forestAge[i] = 0;
+    V[i] = world.plantedField && world.plantedField[i] ? 0.3 : 0.2; if (TD) TD[i] *= 0.08; world.forestAge[i] = 0; // (felled, and replanted with saplings at once)
     if (world.soil) world.soil[i] *= 0.92; // (the bare ground washing a little soil away)
     FS[i] = Math.max(0, FS[i] - 0.18); // (each crop of timber takes nutrients out with it)
     if (world.humus) world.humus[i] *= 0.7; // (and the clear-fell strips the soil: hauled, rutted, washed off)
@@ -735,7 +736,7 @@ function timberStep(world, t, farmCells, R) {
       alive++;
       REST[i] = 0;
       if (V[i] > 0.82) grown++;
-      else { const g = (0.3 + 0.7 * FS[i]) * (HU ? 0.35 + 0.65 * Math.min(1, HU[i] * 2.5) : 1); V[i] = Math.min(0.88, V[i] + 0.015 * g); if (TD) TD[i] = Math.min(1, TD[i] + 0.012 * g); } // (replanted fast-growing stock, tended: slower on worn soil)
+      else { const g = (0.3 + 0.7 * FS[i]) * (HU ? 0.35 + 0.65 * Math.min(1, HU[i] * 2.5) : 1) * (world.plantedField && world.plantedField[i] ? 3 : 1) /* (old fields, planted out: three times as fast) */; V[i] = Math.min(0.88, V[i] + 0.015 * g); if (TD) TD[i] = Math.min(1, TD[i] + 0.012 * g); } // (replanted fast-growing stock, tended: slower on worn soil)
     }
     // (ready to fell once its trees have grown back almost all over; the town picks which below)
     if (!pl.id) pl.id = Math.random().toString(36).slice(2, 8);
@@ -894,6 +895,7 @@ function convertFieldsToTimber(world, t) {
     if (!ownField && (LU[j] || zoneHas(world, j, Z.timber) || world.water[j] > 0.1 || world.height[j] < seaOf(world) + 0.5)) continue;
     LU[j] = 10; OW[j] = t.num; world.irrigated[j] = 0;
     if (V[j] < 0.35) V[j] = 0.35; // (planted with saplings)
+    if (ownField) { if (!world.plantedField) world.plantedField = new Uint8Array(N * N); world.plantedField[j] = 1; } // (ploughed field: planted out with nursery stock)
     claimed.push(j);
   }
   if (!claimed.length) return false;
@@ -1552,6 +1554,7 @@ export function civStep(world) {
   if (civParams.epidemics) epidemicStep(world, world.towns);
   airPollutionStep(world);
   desertStep(world);
+  invasiveStep(world);
   world.dirty = true;
 }
 
@@ -1750,6 +1753,74 @@ function airPollutionStep(world) {
     if (V[i] > 0.66 && s > 0.25) V[i] -= 0.004 * s; // (trees dying back)
     if (LU[i] === 1 && FS) FS[i] = Math.max(0, FS[i] - 0.0006 * s);
   }
+}
+
+// --- An invasive tree ------------------------------------------------------------------------
+
+/**
+ * The plantations are planted with a fast-growing exotic pine, and it escapes. world.invasive (0…1)
+ * is the share of the trees that are this pine. Every plantation is all pine; from them, and from
+ * wild forest it has already taken, its seed spreads slowly into the native forest around (tree by
+ * tree, a few cells a decade, and now and then a long jump on the wind or with birds), and it
+ * crowds the native trees out as it goes: their seedlings can't establish under it, so forest health
+ * falls. It supports no wildlife: an animal can live in an invaded forest only as far as the native
+ * trees remain (sim/ecology.js). It doesn't grow on open ground, and dies back where the forest is
+ * cleared or burnt (though a plantation is replanted with it).
+ */
+function invasiveStep(world) {
+  const N = world.N, n = N * N, LU = world.landUse, V = world.vegetation;
+  if (!civParams.invasive) return;
+  if (!world.invasive || world.invasive.length !== n) world.invasive = new Float32Array(n);
+  const I = world.invasive, FH = world.forestHealth;
+  let any = false;
+  for (let i = 0; i < n; i++) if (LU[i] === 10) { I[i] = 1; any = true; } else if (I[i] > 0) any = true;
+  if (!any) return;
+  const next = I.slice();
+  for (let z = 1; z < N - 1; z++) for (let x = 1; x < N - 1; x++) {
+    const i = z * N + x;
+    if (LU[i] === 10) continue;
+    if (V[i] < 0.5 || LU[i]) { next[i] = I[i] * 0.97; continue; } // (no forest: it dies back)
+    const s = (I[i - 1] + I[i + 1] + I[i - N] + I[i + N]) * 0.25;
+    if (s <= 0.001 && I[i] <= 0) continue;
+    // (seedlings from its neighbours take hold under the native trees, and it shades them out)
+    next[i] = Math.min(1, I[i] + 0.006 * Math.max(s, I[i]) * (1 - I[i]) * (0.5 + V[i]));
+    if (FH && next[i] > 0.1) FH[i] = Math.max(0, FH[i] - 0.006 * next[i]);
+  }
+  // Seed carried along the roads (on boots, wheels and timber carts): a road passing invaded forest
+  // or a plantation picks it up, it travels along the road network, and the forest beside a seed-
+  // carrying road gets invaded too, far from where it started
+  if (!world.roadSeed || world.roadSeed.length !== n) world.roadSeed = new Float32Array(n);
+  const RS = world.roadSeed;
+  for (let pass = 0; pass < 3; pass++) {
+    for (let z = 1; z < N - 1; z++) for (let x = 1; x < N - 1; x++) {
+      const i = z * N + x;
+      if (LU[i] !== 3) { RS[i] = 0; continue; }
+      let s = RS[i] * 0.985;
+      for (const j of [i - 1, i + 1, i - N, i + N]) {
+        if (LU[j] === 3) s = Math.max(s, RS[j] * 0.97);
+        else if (I[j] > 0.5) s = 1; // (picks it up from invaded forest or a plantation beside it)
+      }
+      RS[i] = s;
+    }
+  }
+  for (let z = 1; z < N - 1; z++) for (let x = 1; x < N - 1; x++) {
+    const i = z * N + x;
+    if (LU[i] || V[i] < 0.5) continue;
+    let s = 0;
+    for (const j of [i - 1, i + 1, i - N, i + N]) if (LU[j] === 3 && RS[j] > s) s = RS[j];
+    if (s > 0.15 && Math.random() < 0.04 * s) next[i] = Math.max(next[i], 0.06);
+  }
+  // (now and then a long jump: seed carried far on the wind or by birds)
+  for (let k = 0; k < 6; k++) {
+    const i = (Math.random() * n) | 0;
+    if (I[i] < 0.5) continue;
+    const a = Math.random() * Math.PI * 2, d = 6 + Math.random() * 18;
+    const x = Math.round((i % N) + Math.cos(a) * d), z = Math.round(((i / N) | 0) + Math.sin(a) * d);
+    if (x < 1 || z < 1 || x > N - 2 || z > N - 2) continue;
+    const j = z * N + x;
+    if (!LU[j] && V[j] > 0.55) next[j] = Math.max(next[j], 0.05);
+  }
+  I.set(next);
 }
 
 // --- Overgrazing ------------------------------------------------------------------------------
@@ -2087,6 +2158,7 @@ export function paintPlantation(world, x, z, radius, remove) {
     if (!(LU[i] === 0 || ownField || (LU[i] === 10 && OW[i] !== t.num)) || H[i] < sea + 0.3 || world.water[i] > 0.2 || isProtected(world, i)) continue;
     LU[i] = 10; OW[i] = t.num; world.irrigated[i] = 0;
     if (world.vegetation[i] < 0.35) world.vegetation[i] = 0.35; // (saplings)
+    if (ownField) { if (!world.plantedField) world.plantedField = new Uint8Array(N * N); world.plantedField[i] = 1; } // (ploughed field: planted out with nursery stock)
     if (!have.has(i)) { pl.cells.push(i); have.add(i); }
   }
   pl.alive = pl.cells.length;

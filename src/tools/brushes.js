@@ -549,6 +549,22 @@ TOOLS.animal = {
   },
 };
 
+TOOLS.invasive = {
+  label: 'Invasive trees', group: 'Wildlife', icon: '🌿', editsTerrain: false,
+  help: 'Paint the invasive exotic pine into the forest (the one the plantations are planted with): it takes over the native trees where you paint, supports no wildlife, crowds out native seedlings, and spreads on into the forest around it (and along the roads). Only forest takes it. Hold Shift to cut it out and let the native forest come back.',
+  apply({ world, x, z, radius, strength, dt, invert }) {
+    const N = world.N, n = N * N;
+    if (!world.invasive || world.invasive.length !== n) world.invasive = new Float32Array(n);
+    const I = world.invasive, V = world.vegetation, k = Math.min(1, strength * 3 * dt);
+    forEachCell(world, x, z, radius, (i, w) => {
+      if (world.landUse && world.landUse[i] === 10) return; // (plantations are pine anyway)
+      if (invert) { I[i] *= 1 - Math.min(1, k * w * 2); if (I[i] < 0.01) I[i] = 0; }
+      else if (V[i] > 0.4) I[i] = Math.min(1, I[i] + k * w);
+    });
+    world.dirty = true;
+  },
+};
+
 TOOLS.removeAnimal = {
   label: 'Remove animal', group: 'Wildlife', icon: '🚫', editsTerrain: false,
   help: 'Paint over the map to remove the animal chosen in the Wildlife panel (Life tab) from there: hunted out, trapped or driven off. Brush strength sets how fast. Hold Shift to remove every kind of animal there instead.',

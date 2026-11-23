@@ -344,6 +344,7 @@ export class Toolbox {
       slider('Max farm slope °', app.civParams, 'farmSlope', 2, 40, 1, 'The steepest ground that can be farmed (degrees). Steeper land has to be cut into flat terraces first (the towns\' earthworks do that); a field that later turns too steep for this is given up.', this),
       slider('Destruction', app.civParams, 'destruction', 0, 10, 0.05, 'How hard the towns are on the land: how much forest they burn off to clear fields, how much pollution their streets, works, farms and sewers put into the rivers and sea, and how much they cut hills into terraces. 0: careful, 1: normal, 10: strip the land bare.', this),
       slider('Plantation plot size', app.civParams, 'plotSize', 20, 2000, 10, 'The largest plot (cells) a town lays out as one plantation, and how far a felling may spread into the forest beside it. Small plots are felled and regrown faster and rotate more often, leaving more wild forest between them; big ones take in whole forests. Plots you paint keep the size you paint them.', this),
+      toggle('Invasive plantation pine', app.civParams, 'invasive', 'Plantations are planted with a fast-growing exotic pine that escapes into the wild forest around them (and spreads along the roads): it crowds out the native trees and supports no wildlife. Off: plantations are planted with native trees and nothing escapes.', this),
       toggle('Epidemics', app.civParams, 'epidemics', 'Now and then disease breaks out in a crowded town, more readily where its water is dirty; it kills some of its people and spreads along roads and sea routes to the towns it trades with, then burns out, leaving the survivors immune for a while.', this),
       toggle('Extra plantations', app.civParams, 'extraPlantations', 'Towns keep starting new timber plantations even when they already have all they need (normally they stop at about twice their farmland). Every village plants, however small, and the plantations spread on over the forests around.', this),
       toggle('Quarrying', app.civParams, 'quarrying', 'Whether big towns quarry hills and mountains away (one pit per town, well out beyond it) for rock to build their breakwaters and new land. Off: no quarrying (terracing and other earthworks go on).', this),
@@ -857,6 +858,7 @@ export class Toolbox {
         }
       }
     }
+    else if (mode === 'invasive') ramp('Invasive pine (share of the trees)', 'native forest', 'all pine', [[0.30, 0.62, 0.30], [0.66, 0.16, 0.38]]);
     else if (mode === 'air') ramp('Air pollution (smoke, acid rain)', 'clean', 'thick smoke', [[0.86, 0.90, 0.92], [0.35, 0.28, 0.22]]);
     else if (mode === 'landuse') items('Land use', [
       { label: 'Fields', color: [0.95, 0.80, 0.30], help: 'Farmland (greener where irrigated).' },

@@ -114,10 +114,18 @@ let masks = null;
 
 /** How well cell i suits an animal of this habitat (0..1). */
 function habitatAt(world, a, i, M, sea) {
-  const H = world.height, V = world.vegetation;
   // (a timber plantation is a monoculture of even-aged trees, felled and replanted: no understory,
   // no old or dead trees, no food: nothing lives there)
   if (world.landUse && world.landUse[i] === 10 && a.habitat !== 'sea' && a.habitat !== 'coast') return 0;
+  // (an invaded forest supports only as much life as its native trees: the exotic pine feeds and
+  // shelters nothing)
+  const inv = world.invasive && a.habitat !== 'sea' && a.habitat !== 'coast' ? world.invasive[i] : 0;
+  if (inv >= 0.95) return 0;
+  return habitatBase(world, a, i, M, sea) * (1 - inv);
+}
+
+function habitatBase(world, a, i, M, sea) {
+  const H = world.height, V = world.vegetation;
   switch (a.habitat) {
     case 'sea': return M.seaM[i];
     case 'coast': return M.seaM[i] && sea - H[i] < 12 ? 1 : 0;
