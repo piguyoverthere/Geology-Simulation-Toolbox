@@ -236,7 +236,7 @@ export function waterStep(world) {
       const shallow = D[i] < 1.5 ? 1 : D[i] > 4 ? 0 : (4 - D[i]) / 2.5;
       er *= 1 + (p.stagnantEvap - 1) * still * shallow;
     }
-    D[i] *= 1 - Math.min(0.5, evapK * er);
+    D[i] *= 1 - Math.min(0.9, evapK * er); // (at most 90% of it in one step, however high the setting)
     if (D[i] > 0 && B[i] >= sea && SM) {
       const x = i % N, z = (i / N) | 0;
       const gx = x > 0 && x < N - 1 ? (B[i + 1] - B[i - 1]) * 0.5 : 0, gz = z > 0 && z < N - 1 ? (B[i + N] - B[i - N]) * 0.5 : 0;
