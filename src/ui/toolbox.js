@@ -453,7 +453,7 @@ export class Toolbox {
         prot.title = s.protected ? 'Protected zone: no towns, farms, industry or new roads inside. Click to unprotect.' : 'Make this a protected zone: towns, farms and industry can\'t expand into it, and roads between towns go round it.';
         prot.addEventListener('click', () => { s.protected = !s.protected; d.onChange(); });
         const lim = el('button', 'draw-protect' + (s.limited ? ' on' : ''), '🪓');
-        lim.title = s.limited ? 'Limited harvest: plantations inside are small and cut seldom. Click to lift the limit.' : 'Limit the harvest here: timber plantations inside are kept small (a quarter of the plot size) and are cut only when fully grown back, and then left a long while.';
+        lim.title = s.limited ? 'Limited harvest: plantations inside are small and cut seldom. Click to lift the limit.' : 'Limit the harvest here: no new fields are cleared inside, and timber plantations inside are kept small (a quarter of the plot size) and are cut only when fully grown back, and then left a long while.';
         lim.addEventListener('click', () => { s.limited = !s.limited; d.onChange(); });
         row.append(prot, lim);
         if (s.protected) row.classList.add('protected');

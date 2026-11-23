@@ -1645,6 +1645,7 @@ function expand(world, t, use, count, R, fields, NWexp = null) {
     const i = z * N + x;
     if (LU[i] !== 0 && !(use === 2 && LU[i] === 1 && OW[i] === t.num) && !(LU[i] === 10 && OW[i] === t.num)) continue; // (towns grow over their own fields and plantations)
     if (isProtected(world, i)) continue; // (a protected zone)
+    if (use === 1 && isLimited(world, i)) continue; // (a limited-harvest zone is kept as woodland: never cleared for fields)
     if (H[i] < sea + 0.8 || world.water[i] > 0.1 || (world.ice && world.ice[i] > 0.05)) continue;
     const d = Math.hypot(x - t.x, z - t.z);
     if (d > R) continue;
