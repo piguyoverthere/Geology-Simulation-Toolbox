@@ -149,6 +149,8 @@ export class Toolbox {
         'Rainfall over the whole map, fed into the shallow-water flow model. Rivers form where runoff converges.', this),
       slider('Evaporation', app.waterParams, 'evaporate', 0, 0.3, 0.005,
         'Overall evaporation rate. Each spot evaporates faster in warm air, in sun and on bare ground, and slower in shaded valleys and under forest (see Inspect → Evaporation). Lakes and ponds high up evaporate much faster (thin, dry, windy air and strong sun), so high basins hold only small tarns. Dry lakes leave their sediment behind as flat lake beds.', this),
+      slider('Stagnant water evaporation ×', app.waterParams, 'stagnantEvap', 1, 20, 0.5,
+        'How many times faster still, shallow standing water on land evaporates: puddles, ponds and swampy sheets on flat ground. Flowing rivers, deep lakes and the sea aren\'t affected, and the soil isn\'t dried out (only the standing water itself goes), so the forests keep their moisture. Turn it up to stop water pooling over the land.', this),
       slider('Soaking in', app.waterParams, 'infiltration', 0, 0.5, 0.01,
         'How fast standing water on land soaks into the ground: on flat ground and in still ponds most, on slopes and in fast rivers and deep lakes hardly at all. What soaks in wets the soil (the plants drink it) and drains on down into the groundwater, even through soil that\'s already wet, so water doesn\'t pool over the land. Higher: drier ground with fewer puddles and sheets of water, without drying the forests out the way more evaporation does.', this),
       slider('Summer evaporation ×', app.waterParams, 'summerEvap', 1, 5, 0.1,

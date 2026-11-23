@@ -29,6 +29,7 @@ export const waterParams = {
   deposit: 0.2,        // Kd: settling rate
   evaporate: 0.02,     // Ke
   summerEvap: 2,       // evaporation from open water is multiplied by up to this in midsummer
+  stagnantEvap: 1,     // still, shallow standing water on land (puddles, ponds, swampy sheets) evaporates this many times faster
   infiltration: 0.12,  // depth per second shallow water on land soaks into the soil (dry soil, plants: faster)
   minTilt: 0.02,       // keeps a little erosion going on near-flat river beds
   critSpeed: 0.4,      // flow slower than this can't lift grains off the bed (Hjulström/Shields threshold)
@@ -227,7 +228,15 @@ export function waterStep(world) {
       const vx = world.velX[i], vz = world.velZ[i], flow = Math.min(1, Math.sqrt(vx * vx + vz * vz) / 0.6);
       er = er + (world.evapSoil[i] - er) * flow;
     }
-    D[i] *= 1 - evapK * er;
+    // (stagnant water: still and shallow, on land, evaporates faster with the Stagnant water setting;
+    // only the standing water itself, never the soil, so the plants don't dry out)
+    if (p.stagnantEvap !== 1 && D[i] > 0.02 && B[i] >= sea) {
+      const vx = world.velX[i], vz = world.velZ[i];
+      const still = 1 - Math.min(1, Math.sqrt(vx * vx + vz * vz) / 0.5);
+      const shallow = D[i] < 1.5 ? 1 : D[i] > 4 ? 0 : (4 - D[i]) / 2.5;
+      er *= 1 + (p.stagnantEvap - 1) * still * shallow;
+    }
+    D[i] *= 1 - Math.min(0.5, evapK * er);
     if (D[i] > 0 && B[i] >= sea && SM) {
       const x = i % N, z = (i / N) | 0;
       const gx = x > 0 && x < N - 1 ? (B[i + 1] - B[i - 1]) * 0.5 : 0, gz = z > 0 && z < N - 1 ? (B[i + N] - B[i - N]) * 0.5 : 0;

@@ -447,6 +447,11 @@ away too; only fast-flowing rivers and deep lakes hold on to their water. The wa
 wets the soil, so the plants keep it: unlike turning up evaporation, faster soaking doesn't dry the
 forests out. The **Soaking in** slider (Climate tab, next to Evaporation) sets how fast. The
 Forested plains preset uses a high setting, for its deep, spongy forest soils.
+The **Stagnant water evaporation ×** slider (next to it) makes still, shallow standing water on
+land evaporate faster: puddles, ponds and swampy sheets on flat ground. Flowing rivers, deep lakes
+and the sea aren't affected. Only the standing water itself goes, not the moisture in the soil, so
+turning it up stops water pooling without turning the forests into desert, unlike raising
+Evaporation itself.
 
 **The wet season.** From late October to mid-March the winter storm track sits over the region and
 storms are practically constant: on the Cascades map there was a storm on the map 100% of the time
