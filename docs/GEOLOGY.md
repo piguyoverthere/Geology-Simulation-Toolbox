@@ -1311,3 +1311,22 @@ evaporation of still water go by how still the water has been over the last few 
 that instant, and take at most a few percent of it per step. So a pool shrinks steadily instead of
 vanishing and refilling. On screen, water fades in and out, appears above 0.1 deep and disappears
 only below 0.06, and the damp ground under it darkens gradually.
+
+## Windstorms
+
+Now and then a gale sweeps across the map with the prevailing wind, fast and wide. It throws trees:
+patches of forest go down (windthrow), worst on exposed ridges and coasts, in old tall stands, and
+on wet ground where the roots don't hold. The fallen trees become dead wood, fuel for later fires,
+and their litter goes into the soil. A stand thins out, or in a bad storm it's flattened outright,
+one tree taking the next down with it. In autumn the gale strips the broadleaf trees' leaves early,
+and they stay off until spring. About one year in ten (with Seasons on) is a **windstorm year**
+(💨 on the calendar bar), with gales far more often and fierce enough to clear whole forests. The
+**Windstorms** slider (Climate tab) sets how often they come; 0 = none.
+
+## Fire resiliency
+
+The **Fire resiliency** setting (Wildfires) makes big fires harder for rain to put out. Once a fire
+is large (more than about 80 cells burning, fully by about 500), its heat and the updraft over it
+dry the air and drive the rain off, so rain puts it out far more slowly: about three times as
+slowly at 0.5, five times at 1, and nine times at 2, where a big fire burns on through the rain.
+Small fires, standing water and snow put fires out as before. 0 = rain puts out any fire alike.

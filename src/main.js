@@ -665,7 +665,7 @@ class App {
       // Weather runs every other frame with the time of both (half the cost; storms move slowly)
       this.weatherDt = (this.weatherDt || 0) + done * this.waterParams.dt;
       if (this.frame % 2 === 0) {
-        if (this.climateParams.storms > 0 || this.world.storms?.length || this.world.holdovers?.length) weatherStep(this.world, this.weatherDt);
+        if (this.climateParams.storms > 0 || this.climateParams.windstorms > 0 || this.world.storms?.length || this.world.holdovers?.length || this.world.gales?.length) weatherStep(this.world, this.weatherDt);
         this.weatherDt = 0;
       }
       if (this.sim.dropletsPerFrame > 0) runDroplets(this.world, this.sim.dropletsPerFrame);

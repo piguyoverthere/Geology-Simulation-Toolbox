@@ -133,6 +133,7 @@ export class Toolbox {
       el('div', 'tb-group-label', 'Wildfire'),
       toggle('Wildfires', app.fireParams, 'enabled',
         'Lava sets touching vegetation alight. Fire races through forest, creeps through grass, runs faster uphill and is stopped by bare ground, water and rain. Burnt land turns to ash and regrows slowly.', this),
+      slider('Fire resiliency', app.fireParams, 'resiliency', 0, 3, 0.05, 'How much a big fire shrugs off the rain. Once a fire is large (a few hundred cells burning), its heat and updraft dry the air and drive the rain off, so rain puts it out far more slowly: at 1 about three times as slowly, at 3 more than ten times. Small fires, standing water and snow still put fires out as before. 0 = rain puts out any fire alike.', this),
       slider('Fire spread', app.fireParams, 'spread', 0.5, 6, 0.1,
         'How readily fire jumps to neighbouring plants.', this),
     );
@@ -203,6 +204,8 @@ export class Toolbox {
     // --- Weather -------------------------------------------------------------------------------
     const wx = this.section('Weather', false);
     wx.append(
+      slider('Windstorms', app.climateParams, 'windstorms', 0, 5, 0.1,
+        'How often gales sweep across the map with the prevailing wind. They throw trees (worst on exposed ridges and coasts, in old tall stands and on wet ground): forests thin out or, in a bad storm, are flattened, the fallen wood rotting into the soil. In autumn they strip the leaves early. A windstorm year (with Seasons on) brings them often and fierce. 0 = none.', this),
       slider('Storms', app.climateParams, 'storms', 0, 4, 0.1,
         'How often storms blow in from upwind. Each is a ragged cluster of rain cells drifting with the wind, heaviest on windward slopes. Storms carry a limited supply of moisture and rain it out fastest climbing over mountains, so they die out beyond a range (rain shadow). Rain raises the rivers; snow builds the snowpack. Warm weather brings thunderstorms. 0 = no storms.', this),
       slider('Snowstorms', app.climateParams, 'snowstorms', 0, 3, 0.05,

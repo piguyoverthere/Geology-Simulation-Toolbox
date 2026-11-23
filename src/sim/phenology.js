@@ -61,6 +61,8 @@ export function phenologyStep(world) {
     const dormant = smooth(14, 4, Tl - seasonParams.swing);
     leafT = 1 - dormant * (1 - leafT);
     autT *= dormant;
+    // (leaves a gale stripped early stay off: till the spring, when the stripping is forgotten)
+    if (world.stripped) { if (u >= bud && u < turn) world.stripped[i] = 0; else leafT = Math.min(leafT, 1 - world.stripped[i]); }
     const before = L[i];
     L[i] += (leafT - before) * k;
     A[i] += (autT - A[i]) * (autT > A[i] ? kc : k);

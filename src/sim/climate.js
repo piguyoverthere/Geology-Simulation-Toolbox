@@ -26,6 +26,7 @@ export const climateParams = {
   snowSlope: 47,      // steepest slope (degrees) snow accumulates on; steeper faces shed it unless the pack around is deep
   deepSnow: 2,        // snowpack depth around a slope at which steep faces start holding snow
   storms: 1,          // how often storms sweep across the map (0 = none; see sim/weather.js)
+  windstorms: 1,      // how often gales sweep across the map, felling trees (0 = none; see sim/weather.js)
   snowstorms: 1,      // how many mountain snowstorms come each year (× the default; 0 = none)
   meltRunoff: 0.05,   // runoff per unit of snow melted (snow is mostly air, and much of the melt soaks in)
   summerDry: 0,       // 0 = rain all year; 1 = almost all of it from autumn to spring, dry summers
@@ -60,11 +61,12 @@ export const YEAR_KINDS = {
   normal: { label: 'Normal year', short: '' },
   hot: { label: 'Drought & heat wave year', short: '🔥 Drought year' },
   mild: { label: 'Mild, cool summer', short: '🌦 Mild summer' },
+  windy: { label: 'Windstorm year', short: '💨 Windstorm year' },
 };
 /** Draw the kind of year at a new year. */
 export function rollYear() {
   const v = seasonParams.variability, r = Math.random();
-  seasonParams.yearKind = r < 0.16 * v ? 'hot' : r < 0.34 * v ? 'mild' : 'normal';
+  seasonParams.yearKind = r < 0.16 * v ? 'hot' : r < 0.34 * v ? 'mild' : r < 0.44 * v && climateParams.windstorms > 0 ? 'windy' : 'normal';
   seasonParams.yearStrength = 0.6 + Math.random() * 0.6;
   seasonParams.year = (seasonParams.year || 1) + 1;
 }
@@ -75,7 +77,7 @@ function summerWeight(ph = seasonParams.phase) {
 }
 /** This year's summer anomaly: +1 drought and heat, −1 mild, scaled by how far into summer. */
 export function yearAnomaly() {
-  if (!seasonParams.enabled || seasonParams.yearKind === 'normal') return 0;
+  if (!seasonParams.enabled || seasonParams.yearKind === 'normal' || seasonParams.yearKind === 'windy') return 0;
   return (seasonParams.yearKind === 'hot' ? 1 : -1) * seasonParams.yearStrength * summerWeight();
 }
 

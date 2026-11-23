@@ -22,6 +22,7 @@ export const fireParams = {
   spread: 1.6,      // chance per step to ignite a fully fuelled neighbour (× intensity × dt)
   burnRate: 0.4,    // fuel (plant cover) consumed per second at full intensity
   minFuel: 0.12,    // cover below this can't carry fire
+  resiliency: 0,    // how much a big fire shrugs off rain (0 = rain puts any fire out as well; 1+ = big fires burn on through it)
 };
 
 /**
@@ -56,6 +57,10 @@ export function fireStep(world, dt) {
   const resist = (i) => (0.6 + 1.6 * (1 - (SO ? SO[i] : 0.5))) * (1 + 1.5 * (PS ? PS[i] : 0)) * (1 + 3 * drought);
   const rainingAt = (i) => globalRain || now - LW[i] < 0.5;
   const cells = world.fireCells;
+  // Fire resiliency: once a fire is big (hundreds of cells burning, as of the last step), its heat
+  // and the updraft over it dry the air and drive the rain off, so rain puts it out far more slowly.
+  // (Standing water and snow still put it out.)
+  const bigFire = 1 + p.resiliency * 4 * Math.min(1, Math.max(0, (cells.length - 80) / 400));
   cells.length = 0;
   let any = false;
 
@@ -72,7 +77,7 @@ export function fireStep(world, dt) {
         // Standing water puts fire out quickly, rain more slowly; otherwise intensity builds up to
         // what the fuel can sustain (a grass fire never gets as hot as a crown fire)
         if (D[i] > 0.05) F[i] -= (dt * 6) / resist(i);
-        else if (rainingAt(i)) F[i] -= (dt * 1.2) / resist(i);
+        else if (rainingAt(i)) F[i] -= (dt * 1.2) / (resist(i) * bigFire); // (a big fire makes its own weather: rain hardly reaches it)
         else F[i] = Math.min(Math.min(1, 0.2 + V[i] * 1.2), F[i] + dt * 2);
         V[i] -= p.burnRate * dt * F[i];
         if (V[i] <= 0.03 || F[i] < 0.05) {

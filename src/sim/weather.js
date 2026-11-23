@@ -52,6 +52,7 @@ export function weatherStep(world, simDt) {
   if (!world.strikes) world.strikes = [];
   if (!world.holdovers) world.holdovers = [];
   holdovers(world, simDt);
+  galeStep(world, simDt);
   const list = world.storms;
   // New storms arrive from upwind: more often in winter, and hardly at all in a dry summer
   // (fewer than before, since each one covers so much more ground)
@@ -476,4 +477,70 @@ function newStorm(world, force = null) {
 function smooth(e0, e1, x) {
   const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1);
   return t * t * (3 - 2 * t);
+}
+
+// --- Windstorms ---------------------------------------------------------------------------------
+
+/**
+ * Gales: now and then a windstorm sweeps across the map with the prevailing wind, fast and wide. It
+ * throws trees: in forest, patches go down (windthrow), worst on exposed ground (ridges, coasts:
+ * see sim/wind.js), in old, tall stands, and on wet ground where the roots don't hold. The fallen
+ * trees are dead wood and their litter goes into the soil; a stand thins out, or in a bad storm is
+ * flattened outright. In autumn the gale strips the leaves off the broadleaf trees early (they stay
+ * off till spring). A windstorm year (one year in ten or so) brings them often, and fierce enough to
+ * clear whole forests.
+ */
+function galeStep(world, simDt) {
+  const N = world.N, n = N * N;
+  if (!world.gales) world.gales = [];
+  const windy = seasonParams.enabled && seasonParams.yearKind === 'windy';
+  // A new gale comes in from upwind (much more often, and stronger, in a windstorm year)
+  if (climateParams.windstorms > 0 && Math.random() < (windy ? 0.02 : 0.0015) * climateParams.windstorms * simDt * (0.6 + 0.8 * seasonalRain())) {
+    const a = ((climateParams.windAngle || 0) * Math.PI) / 180 + (Math.random() - 0.5) * 0.5;
+    const r = N * (0.12 + Math.random() * 0.12), speed = 5 + Math.random() * 3;
+    const off = (Math.random() - 0.5) * N * 0.8; // (across the wind)
+    const cx = N / 2 - Math.cos(a) * (N * 0.6 + r) - Math.sin(a) * off, cz = N / 2 - Math.sin(a) * (N * 0.6 + r) + Math.cos(a) * off;
+    world.gales.push({ x: cx, z: cz, vx: Math.cos(a) * speed, vz: Math.sin(a) * speed, r, strength: (windy ? 0.9 : 0.5) + Math.random() * (windy ? 0.8 : 0.5), age: 0 });
+  }
+  if (!world.gales.length) return;
+  const V = world.vegetation, W = world.wind, FA = world.forestAge, TD = world.treeDensity, SO = world.soil;
+  const HU = world.humus, L = world.leafOn, DC = world.decid;
+  if (!world.deadWood || world.deadWood.length !== n) world.deadWood = new Float32Array(n);
+  if (!world.stripped || world.stripped.length !== n) world.stripped = new Float32Array(n);
+  const DW = world.deadWood, ST = world.stripped;
+  // (autumn: from late September to the end of November)
+  const ph = seasonParams.phase, autumn = seasonParams.enabled && ph > 0.5 && ph < 0.75;
+  for (let g = world.gales.length - 1; g >= 0; g--) {
+    const gl = world.gales[g];
+    gl.x += gl.vx * simDt; gl.z += gl.vz * simDt; gl.age += simDt;
+    if (gl.age > 4 * N / Math.hypot(gl.vx, gl.vz)) { world.gales.splice(g, 1); continue; }
+    const x0 = Math.max(1, Math.floor(gl.x - gl.r)), x1 = Math.min(N - 2, Math.ceil(gl.x + gl.r));
+    const z0 = Math.max(1, Math.floor(gl.z - gl.r)), z1 = Math.min(N - 2, Math.ceil(gl.z + gl.r));
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const d = Math.hypot(x - gl.x, z - gl.z);
+      if (d > gl.r) continue;
+      const i = z * N + x;
+      const gust = gl.strength * (1 - d / gl.r) * (0.4 + 0.6 * Math.min(1.5, W ? W[i] : 1));
+      // Autumn leaves stripped early
+      if (autumn && DC && DC[i] > 0.05 && L) { ST[i] = Math.max(ST[i], Math.min(1, gust)); L[i] = Math.min(L[i], 1 - ST[i]); }
+      // Windthrow in the forest
+      const v = V[i];
+      if (v < 0.55) continue;
+      const sus = 0.4 + 0.5 * (FA ? FA[i] : 0.5) + 0.4 * Math.max(0, (SO ? SO[i] : 0.5) - 0.6);
+      if (Math.random() > gust * sus * simDt * 0.25) continue;
+      // (a severe gale flattens the stand; a lesser one thins it)
+      const dmg = Math.min(0.85, (gl.strength > 1.1 ? 0.45 : 0.15) + 0.4 * gust * sus) * v;
+      V[i] = v - dmg;
+      if (TD) TD[i] *= 1 - dmg;
+      if (FA) FA[i] *= 1 - dmg;
+      DW[i] = Math.min(1, DW[i] + dmg * 1.5);
+      if (HU) HU[i] = Math.min(1, HU[i] + dmg * 0.12); // (the litter of the fallen trees: into the soil)
+      // (one tree takes the next down with it)
+      if (gl.strength > 1.1) for (const j of [i - 1, i + 1, i - N, i + N]) if (V[j] > 0.55 && Math.random() < 0.4) {
+        const dj = 0.5 * dmg * V[j];
+        V[j] -= dj; if (TD) TD[j] *= 1 - dj; DW[j] = Math.min(1, DW[j] + dj * 1.5);
+      }
+    }
+  }
+  world.dirty = true;
 }
