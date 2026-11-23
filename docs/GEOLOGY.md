@@ -1191,6 +1191,14 @@ wall is knocked down to the valley floor, letting its reservoir go, and a canal 
 leaves bare, broken ground that plants slowly come back to. Fields and plantations are left alone
 unless you hold Shift. A town whose streets are all gone is abandoned.
 
+**Towns live on timber.** A town burns and builds with wood all the time: it uses about 1.5 loads a
+step for every thousand people. Its stock is filled by felling its plantations (and by the Harvest
+tool). A small village gets by gathering fallen wood from the forest around it, but a town of a few
+hundred or more can't. When the stock runs out and the wood coming in doesn't cover what the town
+uses, it can support far fewer people (down to about a third) and shrinks until timber flows again.
+Its label shows 🪵 while it's short. The town list shows its stock, what it uses, and how short it
+is.
+
 **Harvesting by hand.** The **Harvest** tool (🪵, under Civilization) clear-fells the plantation you
 click, whether or not its trees are grown. It counts as its town's felling: the timber goes to the
 town, the soil is worn (fewer nutrients, thinner), and the plot is replanted with saplings at once

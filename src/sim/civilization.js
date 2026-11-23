@@ -695,8 +695,10 @@ function timberStep(world, t, farmCells, R) {
   // at once, and the natural forest next to it is felled with it (taken into the plantation, to be
   // replanted with it)
   const FS = world.farmSoil;
+  let woodNow = 0;
   const N2 = N * N, fell = (i) => {
     world.woodCut = (world.woodCut || 0) + V[i]; // (the wood it yields: more from grown trees)
+    woodNow += V[i];
     V[i] = world.plantedField && world.plantedField[i] ? 0.3 : 0.2; if (TD) TD[i] *= 0.08; world.forestAge[i] = 0; // (felled, and replanted with saplings at once)
     if (world.soil) world.soil[i] *= 0.92; // (the bare ground washing a little soil away)
     FS[i] = Math.max(0, FS[i] - 0.18); // (each crop of timber takes nutrients out with it)
@@ -817,6 +819,9 @@ function timberStep(world, t, farmCells, R) {
   }
   t.timberCells = cells;
   t.timberCut = (t.timberCut || 0) * 0.9 + cut;
+  // (the felled wood goes into the town's stock; its average income, for when the stock runs dry)
+  t.woodStock = (t.woodStock ?? 40) + woodNow;
+  t.woodIn = (t.woodIn || 0) * 0.95 + woodNow * 0.05;
   // New plantations: about twice the land of its fields. Every village must have one: a village
   // without one looks twice as far afield, and failing that turns some of its own fields over to
   // timber
@@ -1441,6 +1446,20 @@ export function civStep(world) {
     // (and it can only hold so many more than its streets house: it grows as fast as it builds)
     let K = Math.max(20, Math.min(food * waterOK * (1 - 0.4 * dirty), (townCells / 2 + indCells + 4) * PER_TOWN_CELL * 1.3));
     if (t.harbor === undefined && K > 1000) K = 1000; // (no harbour, no trade: it can't grow past a thousand)
+    // Timber: a town burns and builds with wood all the time (more people, more wood). Its stock is
+    // filled by felling its plantations; a small village gets by gathering fallen wood from the forest
+    // around it, but a town can't. When the stock runs out and the wood coming in doesn't cover what
+    // it uses, it can support far fewer people (down to about a third) until timber flows again.
+    {
+      const use = t.pop * 0.0015;
+      const gather = Math.min(0.15 + 0.0004 * t.pop, 0.004 * t.pop) * (0.2 + 0.8 * Math.min(1, (fields.forest ? fields.forest[ci] : 0.5) * 1.5));
+      t.woodStock = Math.max(0, Math.min(use * 80 + 20, (t.woodStock ?? 40) + gather - use));
+      t.woodNeed = use;
+      if (t.woodStock <= 0.001) {
+        t.woodSupply = Math.min(1, ((t.woodIn || 0) + gather) / Math.max(0.01, use));
+        K *= 0.35 + 0.65 * t.woodSupply;
+      } else t.woodSupply = 1;
+    }
     // A soft limit: the bigger a town, the harder it is to feed, house and run (hauling food from
     // ever farther fields, crowding, disease, upkeep), so its growth tails off smoothly toward
     // about 25,000 people (times the Expansion speed) rather than running away
@@ -2288,6 +2307,7 @@ export function harvestPlantationAt(world, x, z) {
     cells++;
     if (V[j] > 0.82) grown++;
     world.woodCut = (world.woodCut || 0) + V[j]; // (the wood it yields)
+    t.woodStock = (t.woodStock ?? 40) + V[j];
     V[j] = world.plantedField && world.plantedField[j] ? 0.3 : 0.2; // (felled, and replanted with saplings)
     if (TD) TD[j] *= 0.08;
     world.forestAge[j] = 0;
