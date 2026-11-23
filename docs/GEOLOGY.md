@@ -441,6 +441,13 @@ and rivers and lakes barely lose any. So the flat Puget-style lowland of the Cas
 floods through the wet season (about 500–1,000 units of water on the map instead of 3,400), while
 its rivers keep running all winter.
 
+Standing water keeps soaking away even through soil that's already wet, slowly draining on down
+into the groundwater, so water doesn't pool over flat land in sheets and lakes. Still ponds soak
+away too; only fast-flowing rivers and deep lakes hold on to their water. The water that soaks in
+wets the soil, so the plants keep it: unlike turning up evaporation, faster soaking doesn't dry the
+forests out. The **Soaking in** slider (Climate tab, next to Evaporation) sets how fast. The
+Forested plains preset uses a high setting, for its deep, spongy forest soils.
+
 **The wet season.** From late October to mid-March the winter storm track sits over the region and
 storms are practically constant: on the Cascades map there was a storm on the map 100% of the time
 from mid-October to the end of March (2–4 travelling storms plus up to a dozen mountain snowstorms),

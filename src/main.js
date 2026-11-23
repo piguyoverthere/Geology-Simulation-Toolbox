@@ -510,6 +510,7 @@ class App {
     set(oceanParams, pr.ocean);
     set(vegetationParams, pr.vegetation);
     set(fireParams, pr.fire);
+    set(this.waterParams, pr.water);
     if (pr.sea) set(this.sim, { seaEnabled: pr.sea.enabled, seaLevel: pr.sea.level });
   }
 

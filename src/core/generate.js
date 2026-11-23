@@ -46,6 +46,7 @@ export const PRESETS = {
     weather: { lightning: 0.3 },
     vegetation: { climate: 1.4, forestShare: 1, growth: 0.05, spread: 0.5, forestWater: 0.2, grassBuffer: 4, adapt: 0.006 },
     fire: { spread: 1.1 },
+    water: { infiltration: 0.22 }, // (deep, spongy forest soils drink up the rain)
   },
   flat: { label: 'Flat plain' },
 };

@@ -29,7 +29,7 @@ export const waterParams = {
   deposit: 0.2,        // Kd: settling rate
   evaporate: 0.02,     // Ke
   summerEvap: 2,       // evaporation from open water is multiplied by up to this in midsummer
-  infiltration: 0.06,  // depth per second shallow water on land soaks into the soil (dry soil, plants: faster)
+  infiltration: 0.12,  // depth per second shallow water on land soaks into the soil (dry soil, plants: faster)
   minTilt: 0.02,       // keeps a little erosion going on near-flat river beds
   critSpeed: 0.4,      // flow slower than this can't lift grains off the bed (Hjulström/Shields threshold)
   maxConcentration: 0.3, // most sediment a unit of water depth can carry
@@ -232,9 +232,17 @@ export function waterStep(world) {
       const x = i % N, z = (i / N) | 0;
       const gx = x > 0 && x < N - 1 ? (B[i + 1] - B[i - 1]) * 0.5 : 0, gz = z > 0 && z < N - 1 ? (B[i + N] - B[i - N]) * 0.5 : 0;
       const flat = 1 - Math.min(1, Math.sqrt(gx * gx + gz * gz) / 0.25);
-      const sink = infK * flat * flat * (1.2 - SM[i]) * (0.6 + 0.6 * V[i]) * (D[i] < 0.6 ? 1 : 0.6 / D[i])
+      // (even saturated ground keeps draining slowly down into the groundwater, so standing water on
+      // flat land doesn't build up into sheets and lakes; still ponds soak away, and only fast or
+      // deep water, rivers and real lakes, holds on)
+      const vx = world.velX[i], vz = world.velZ[i], still = 1 - Math.min(1, Math.sqrt(vx * vx + vz * vz) / 0.8);
+      const level = Math.max(flat * flat, 0.35 * still);
+      const sink = infK * level * (0.45 + 0.75 * (1 - SM[i])) * (0.6 + 0.6 * V[i]) * (D[i] < 1.5 ? 1 : 1.5 / D[i])
         * (world.paved ? 1 - world.paved[i] : 1); // (pavement seals the ground: rain runs straight off)
-      D[i] = Math.max(0, D[i] - sink);
+      const took = Math.min(D[i], sink);
+      D[i] -= took;
+      // The water that soaks in wets the soil (for the plants), the rest drains on down
+      SM[i] = Math.min(1, SM[i] + took * 0.6);
     }
     if (D[i] < 1e-4) {
       D[i] = 0;
