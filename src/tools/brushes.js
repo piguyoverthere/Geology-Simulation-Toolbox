@@ -591,6 +591,39 @@ TOOLS.plantation = {
     if (typeof r === 'string') app.toolbox.setInfo(`<b>Plantation</b> — ${r}.`);
   },
 };
+TOOLS.bulldoze = {
+  label: 'Bulldoze', group: 'Civilization', icon: '🏗', editsTerrain: true,
+  help: 'Paint over anything built to tear it down: town streets and houses, industry, roads and bridges, harbours, quays, dams (the wall knocked down to the valley floor, letting the reservoir go) and canals (filled in). It leaves bare, broken ground; plants come back slowly. Fields and plantations are left alone (use Clear fields, or Shift with the Plantation brush). A town whose streets are all gone is abandoned. Hold Shift to take out fields and plantations too.',
+  apply({ world, x, z, radius, invert }) {
+    ensureCiv(world);
+    const N = world.N, H = world.height, LU = world.landUse;
+    forEachCell(world, x, z, radius, (i) => {
+      const lu = LU[i];
+      if (!lu || ((lu === 1 || lu === 10) && !invert)) return;
+      const cx = i % N, cz = (i / N) | 0;
+      const avg = cx > 0 && cz > 0 && cx < N - 1 && cz < N - 1 ? (H[i - 1] + H[i + 1] + H[i - N] + H[i + N]) * 0.25 : H[i];
+      // (a dam's wall comes down; a canal is filled in)
+      if (lu === 7) { const lo = Math.min(H[i - 1] ?? H[i], H[i + 1] ?? H[i], H[i - N] ?? H[i], H[i + N] ?? H[i]); H[i] = Math.min(H[i], lo); if (world.dam) world.dam[i] = 0; }
+      if (lu === 8 || (world.channel && world.channel[i])) { H[i] = Math.max(H[i], avg); if (world.channel) world.channel[i] = 0; }
+      if (world.prevHeight) world.prevHeight[i] = H[i];
+      LU[i] = 0; world.civOwner[i] = 0; world.paved[i] = 0;
+      if (world.roadCond) world.roadCond[i] = 0;
+      if (world.roadCore) world.roadCore[i] = 0;
+      if (world.bridge) world.bridge[i] = 0;
+      if (world.irrigated) world.irrigated[i] = 0;
+      world.vegetation[i] = Math.min(world.vegetation[i], 0.05); // (bare, broken ground)
+      world.forestAge[i] = 0;
+    });
+    // A town with no streets left is abandoned
+    const near = (world.towns || []).filter((t) => Math.hypot(t.x - x, t.z - z) <= radius + 2);
+    if (near.length) {
+      const built = new Set();
+      for (let i = 0; i < N * N; i++) if (LU[i] === 2 || LU[i] === 4) built.add(world.civOwner[i]);
+      for (const t of near) if (!built.has(t.num)) removeTown(world, t);
+    }
+    world.dirty = true;
+  },
+};
 TOOLS.road = {
   label: 'Road', group: 'Civilization', icon: '🛣', editsTerrain: true, line: true,
   help: 'Drag from one point to another to build a road: the hills along the route are terraced to an even grade (cut and fill), it is paved, and rivers are bridged. Towns grow out along their roads where the land suits. Hold Shift while dragging to tear up the road along the line instead.',

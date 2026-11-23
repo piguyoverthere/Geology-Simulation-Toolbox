@@ -1128,6 +1128,12 @@ about 80 cells. The ground is planted with saplings. The town then tends the pla
 own: it fells it when grown, together with any wild forest joining it, and replants it. Painted cells join a painted plantation of that town nearby, or start a
 new one. A plantation you paint is kept for good: it's felled and replanted as usual, regrowing more slowly as its soil wears thin, but the town never abandons it. Hold Shift to clear plantation back to the wild.
 
+**Bulldozing.** The **Bulldoze** brush (🏗, under Civilization) tears down anything built under it:
+town streets and houses, industry, roads and bridges, harbours, quays, dams and canals. A dam's
+wall is knocked down to the valley floor, letting its reservoir go, and a canal is filled in. It
+leaves bare, broken ground that plants slowly come back to. Fields and plantations are left alone
+unless you hold Shift. A town whose streets are all gone is abandoned.
+
 **Clearing fields.** The **Clear fields** tool (🚜, under Civilization) takes farmland out of
 farming. The fields you paint over are abandoned and left as bare ground with poor, worn-out soil:
 little humus, almost no plants and no irrigation. Plants return only slowly, and no town will farm
