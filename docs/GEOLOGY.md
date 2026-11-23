@@ -1296,3 +1296,18 @@ It shows as a darker, bluer green in the forest, in the *Invasive trees* overlay
 inspector. The **Invasive trees** brush (🌿, under Wildlife) paints it into forest, and Shift cuts it
 out, though it will creep back from invaded forest nearby. The **Invasive plantation pine** switch
 (Civilization) plants the plantations with native trees instead, and then nothing new escapes.
+
+**Old fields go back to forest.** Fields that go out of use are remembered as old fields. That
+includes fields abandoned with their town, left fallow, given up as too steep, or cleared with the
+Clear fields tool. With forest near enough to seed them, they grow back to forest, not grass, and
+about twice as fast as other open ground: scrub and then trees, with no grass sward to hold them
+back. Where the invasive pine is near, or its seed has come down a road, it's quick to colonise
+them as a pioneer on bare, disturbed ground, the one place it grows outside forest. So an old field
+can come back as native forest, pine or a mix. Once it's forest again, it's just forest.
+
+**Water that doesn't blink.** A thin sheet of water drags on the ground (more friction the shallower
+it is), so sheets creep and settle instead of sloshing to and fro. Soaking in and the extra
+evaporation of still water go by how still the water has been over the last few seconds, not at
+that instant, and take at most a few percent of it per step. So a pool shrinks steadily instead of
+vanishing and refilling. On screen, water fades in and out, appears above 0.1 deep and disappears
+only below 0.06, and the damp ground under it darkens gradually.

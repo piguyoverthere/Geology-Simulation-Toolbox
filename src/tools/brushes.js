@@ -9,7 +9,7 @@ import { ensureQuality } from '../sim/waterQuality.js';
 import { ensureOcean, advect } from '../sim/ocean.js';
 import { ensureEcology, animalField, canLive } from '../sim/ecology.js';
 import { addProbe, removeProbesNear } from '../sim/probes.js';
-import { bestSite, foundTown, removeTown, townNear, buildRoad, ensureCiv, placeHarbor, removeHarborNear, paintPlantation, addFootpath, removeFootpathsNear } from '../sim/civilization.js';
+import { bestSite, foundTown, removeTown, townNear, buildRoad, ensureCiv, placeHarbor, removeHarborNear, paintPlantation, addFootpath, removeFootpathsNear, markOldField } from '../sim/civilization.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -606,7 +606,7 @@ TOOLS.clearFields = {
     const LU = world.landUse, FS = world.farmSoil;
     forEachCell(world, x, z, radius, (i) => {
       if (!invert && LU[i] !== 1) return;
-      if (!invert) { LU[i] = 0; world.civOwner[i] = 0; world.irrigated[i] = 0; }
+      if (!invert) { LU[i] = 0; world.civOwner[i] = 0; world.irrigated[i] = 0; markOldField(world, i); }
       FS[i] = Math.min(FS[i], 0.05); // (worn out: the town won't farm it until it recovers)
       world.vegetation[i] = Math.min(world.vegetation[i], 0.08);
       if (world.humus) world.humus[i] = Math.min(world.humus[i], 0.05);

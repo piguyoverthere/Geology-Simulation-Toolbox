@@ -81,6 +81,9 @@ export function waterStep(world) {
       // A dry cell has nothing to send (most of the map, most of the time): skip the 8 pipes
       if (D[i] <= 0) { F[f] = F[f + 1] = F[f + 2] = F[f + 3] = F[f + 4] = F[f + 5] = F[f + 6] = F[f + 7] = 0; continue; }
       const hi = B[i] + D[i];
+      // (a thin sheet of water drags on the ground: more friction the shallower it is, so sheets
+      // creep and settle instead of sloshing to and fro)
+      const dampI = D[i] < 0.2 ? damp * (0.85 + 0.75 * D[i]) : damp;
       let total = 0;
       for (let d = 0; d < 8; d++) {
         const nx = x + DX[d], nz = z + DZ[d];
@@ -88,7 +91,7 @@ export function waterStep(world) {
         const inside = nx >= 0 && nz >= 0 && nx < N && nz < N;
         if (!inside && !drain) { out[d] = 0; continue; }
         const hn = inside ? B[nz * N + nx] + D[nz * N + nx] : B[i];
-        const q = Math.max(0, F[f + d] * damp + k * PIPE[d] * (hi - hn));
+        const q = Math.max(0, F[f + d] * dampI + k * PIPE[d] * (hi - hn));
         out[d] = q; total += q;
       }
       // Never let more water leave than the cell holds
@@ -230,13 +233,17 @@ export function waterStep(world) {
     }
     // (stagnant water: still and shallow, on land, evaporates faster with the Stagnant water setting;
     // only the standing water itself, never the soil, so the plants don't dry out)
+    // (how still the water here has been lately: its flow speed averaged over the last few
+    // seconds, so a pool doesn't switch between "still" and "flowing" from one step to the next)
+    if (!world.flowAvg || world.flowAvg.length !== n) world.flowAvg = new Float32Array(n);
+    const FA = world.flowAvg;
+    { const vx = world.velX[i], vz = world.velZ[i]; FA[i] += (Math.sqrt(vx * vx + vz * vz) - FA[i]) * 0.02; }
     if (p.stagnantEvap !== 1 && D[i] > 0.02 && B[i] >= sea) {
-      const vx = world.velX[i], vz = world.velZ[i];
-      const still = 1 - Math.min(1, Math.sqrt(vx * vx + vz * vz) / 0.5);
+      const still = 1 - Math.min(1, FA[i] / 0.5);
       const shallow = D[i] < 1.5 ? 1 : D[i] > 4 ? 0 : (4 - D[i]) / 2.5;
       er *= 1 + (p.stagnantEvap - 1) * still * shallow;
     }
-    D[i] *= 1 - Math.min(0.9, evapK * er); // (at most 90% of it in one step, however high the setting)
+    D[i] *= 1 - Math.min(0.06, evapK * er); // (at most 6% of it a step, however high the setting: a pool shrinks steadily, it doesn't blink out and refill)
     if (D[i] > 0 && B[i] >= sea && SM) {
       const x = i % N, z = (i / N) | 0;
       const gx = x > 0 && x < N - 1 ? (B[i + 1] - B[i - 1]) * 0.5 : 0, gz = z > 0 && z < N - 1 ? (B[i + N] - B[i - N]) * 0.5 : 0;
@@ -244,11 +251,11 @@ export function waterStep(world) {
       // (even saturated ground keeps draining slowly down into the groundwater, so standing water on
       // flat land doesn't build up into sheets and lakes; still ponds soak away, and only fast or
       // deep water, rivers and real lakes, holds on)
-      const vx = world.velX[i], vz = world.velZ[i], still = 1 - Math.min(1, Math.sqrt(vx * vx + vz * vz) / 0.8);
+      const still = 1 - Math.min(1, world.flowAvg[i] / 0.8); // (averaged over time, as above)
       const level = Math.max(flat * flat, 0.35 * still);
       const sink = infK * level * (0.45 + 0.75 * (1 - SM[i])) * (0.6 + 0.6 * V[i]) * (D[i] < 1.5 ? 1 : 1.5 / D[i])
         * (world.paved ? 1 - world.paved[i] : 1); // (pavement seals the ground: rain runs straight off)
-      const took = Math.min(D[i], sink);
+      const took = Math.min(D[i] * 0.08, sink); // (at most 8% of it a step: no blinking out)
       D[i] -= took;
       // The water that soaks in wets the soil (for the plants), the rest drains on down
       SM[i] = Math.min(1, SM[i] + took * 0.6);

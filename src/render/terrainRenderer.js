@@ -188,7 +188,7 @@ export class TerrainRenderer {
   update(force = false) {
     const w = this.world;
     if (!w.dirty && !force) return;
-    if (force) this.dispD = null; // (a new or reloaded map: draw its water as it is)
+    if (force) { this.dispD = null; this.wVis = null; } // (a new or reloaded map: draw its water as it is)
     w.dirty = false;
     const N = w.N, H = w.height, D = w.water, S = w.sediment, BASE = w.baseline;
     const off = this.offset;
@@ -226,6 +226,12 @@ export class TerrainRenderer {
         const i = z * N + x, i3 = i * 3;
         const h = H[i];
         this.tPos[i3] = x - off;
+        // The water as drawn eases toward the real depth over a few frames, so shallow water that
+        // soaks in and gathers again (or evaporates and is topped up) doesn't flicker on and off,
+        // neither the water itself nor the damp ground under it
+        if (!this.dispD || this.dispD.length !== D.length) this.dispD = D.slice();
+        const DD = this.dispD;
+        DD[i] += (D[i] - DD[i]) * (D[i] > DD[i] ? 0.25 : 0.08);
         // Glacier ice is drawn on top of its bed
         const ice = IC ? IC[i] : 0;
         this.tPos[i3 + 1] = h + ice;
@@ -369,9 +375,9 @@ export class TerrainRenderer {
           if (w.footpath && w.footpath[i]) col = FOOTPATH.slice();
           shade(col, 0.72 + 0.28 * ny, col);
         } else {
-          col = this.naturalColor(h, slope, tan, h - BASE[i], D[i], i);
+          col = this.naturalColor(h, slope, tan, h - BASE[i], DD[i], i);
           // Stained, fouled banks along polluted rivers
-          if (w.riverPollution && w.riverPollution[i] > 0.05 && D[i] < 0.1) mix(col, POLLUTED_BANK, Math.min(0.5, Math.sqrt(w.riverPollution[i]) * 0.45), col);
+          if (w.riverPollution && w.riverPollution[i] > 0.05 && DD[i] < 0.1) mix(col, POLLUTED_BANK, Math.min(0.5, Math.sqrt(w.riverPollution[i]) * 0.45), col);
           // Forest taken over by the invasive pine: a darker, bluer, uniform green
           if (w.invasive && w.invasive[i] > 0.05 && w.vegetation[i] > 0.5 && !(w.landUse && w.landUse[i])) mix(col, INVASIVE, Math.min(0.6, w.invasive[i] * 0.6), col);
           // Land worn out by overgrazing: bare, sandy, desert-like
@@ -443,18 +449,17 @@ export class TerrainRenderer {
         }
 
         // Water surface: hide (sink below ground) where it is too thin to see
-        // The water as drawn eases toward the real depth over a few frames, so shallow water that
-        // soaks in and gathers again (or evaporates and is topped up) doesn't flicker on and off
-        if (!this.dispD || this.dispD.length !== D.length) this.dispD = D.slice();
-        const DD = this.dispD;
-        DD[i] += (D[i] - DD[i]) * (D[i] > DD[i] ? 0.35 : 0.12);
         const d = DD[i];
         const i4 = i * 4;
         this.wPos[i3] = x - off;
         this.wPos[i3 + 2] = z - off;
         // Thin runoff films just darken the ground; draw a water surface only where it's a real stream/lake
         const dirtyStream = mode !== 'landuse' && w.riverPollution && w.riverPollution[i] > 0.05 && d > 0.02;
-        if ((d > 0.1 || dirtyStream) && ice < 0.2 && (this.showSea || !(h < sea))) { // (meltwater under a glacier stays hidden)
+        // (hysteresis: water comes into view above 0.1 deep and only goes again below 0.06, so a
+        // sheet hovering around the line doesn't blink)
+        if (!this.wVis || this.wVis.length !== D.length) this.wVis = new Uint8Array(D.length);
+        this.wVis[i] = d > 0.1 ? 1 : d < 0.06 ? 0 : this.wVis[i];
+        if ((this.wVis[i] || dirtyStream) && ice < 0.2 && (this.showSea || !(h < sea))) { // (meltwater under a glacier stays hidden)
           this.wPos[i3 + 1] = h + d;
           const mud = Math.min(1, (S[i] / Math.max(d, 0.05)) * 4);
           const deep = Math.min(1, d / 6);
@@ -496,7 +501,7 @@ export class TerrainRenderer {
           this.wCol[i4] = wc[0] * wc[0]; this.wCol[i4 + 1] = wc[1] * wc[1]; this.wCol[i4 + 2] = wc[2] * wc[2];
           this.wCol[i4 + 3] = iced ? Math.max(Math.min(0.9, 0.45 + (d - 0.1) * 0.5), Math.min(0.97, 0.5 + si)) : Math.min(isSea ? 0.9 : 0.85, (isSea ? 0.45 : 0.25) + (d - 0.1) * 0.5);
           // (shallow water on land fades in and out rather than popping into view)
-          if (!isSea && !iced) this.wCol[i4 + 3] *= Math.min(1, Math.max(0.15, (d - 0.06) / 0.12));
+          if (!isSea && !iced) this.wCol[i4 + 3] *= Math.min(1, Math.max(0.08, (d - 0.04) / 0.14));
           // A bridge: its deck over the water
           if (w.bridge && w.bridge[i] && w.paved[i] > 0.3) {
             const b = BRIDGE;
@@ -596,7 +601,7 @@ export class TerrainRenderer {
     const col = mix(C.barren, this.rockColor(h, i), 0.55 + 0.45 * smooth(0.05, 0.25, slope), S3);
     if (change > 0.15) mix(col, C.soil, Math.min(0.8, change / 3) * (1 - smooth(0.1, 0.25, slope)), col);
     this.coastColor(w, i, h, 0, col);
-    if (water > 0.005) shade(col, 0.88, col);
+    if (water > 0.002) shade(col, 1 - 0.12 * Math.min(1, (water - 0.002) / 0.05), col); // (damp ground: darker the wetter, no sudden step)
     return col;
   }
 
@@ -663,7 +668,7 @@ export class TerrainRenderer {
     // Snow where it's below freezing, shaped by moisture, steepness, hollows, canopy and sun
     if (w.snow && w.snow[i] > 0.005) mix(col, C.snow, snowAt(w, i, tan), col);
     // Wet ground is darker
-    if (water > 0.005) shade(col, 0.88, col);
+    if (water > 0.002) shade(col, 1 - 0.12 * Math.min(1, (water - 0.002) / 0.05), col); // (damp ground: darker the wetter, no sudden step)
     return col;
   }
 

@@ -128,6 +128,12 @@ export function updateProtectedZones(world, shapes) {
   }
 }
 const isProtected = (world, i) => world.protectedZone && world.protectedZone[i] === 1;
+/** Mark cell i as an old field gone out of use (world.oldField), for the forest to take back. */
+export function markOldField(world, i) {
+  const n = world.N * world.N;
+  if (!world.oldField || world.oldField.length !== n) world.oldField = new Uint8Array(n);
+  world.oldField[i] = 1;
+}
 
 /**
  * Restrictions a drawn polygon can put on its area (each its own switch in the Drawings list; a
@@ -1224,7 +1230,7 @@ export function civStep(world) {
     }
     if (LU[i] !== 1 && LU[i] !== 10 && FS[i] < 1) FS[i] = Math.min(1, FS[i] + 0.0012); // (fallow ground recovers)
     if (LU[i] === 0 || OW[i] || LU[i] === 3) continue;
-    if (LU[i] === 1 || LU[i] === 10) { LU[i] = 0; continue; } // (fields and plantations go back to the wild)
+    if (LU[i] === 1 || LU[i] === 10) { if (LU[i] === 1) markOldField(world, i); LU[i] = 0; continue; } // (fields and plantations go back to the wild)
     P[i] = Math.max(0, P[i] - 0.004);
     if (P[i] <= 0) { LU[i] = 0; world.channel[i] = 0; }
   }
@@ -1294,7 +1300,7 @@ export function civStep(world) {
     P[i] = Math.min(1, RC[i] * 1.6); // (a broken road loses its paving: plants creep back)
     if (RC[i] <= 0.03) { LU[i] = world.channel[i] ? (world.channel[i] === 1 ? 8 : 9) : 0; P[i] = 0; RC[i] = 0; world.roadCore[i] = 0; world.bridge[i] = 0; } // (a fallen bridge leaves its canal)
   }
-  if (!towns.length) { world.civPop = 0; return; }
+  if (!towns.length) { world.civPop = 0; airPollutionStep(world); desertStep(world); invasiveStep(world); return; } // (the smoke, worn land and pine carry on without towns)
   // (the site fields change slowly: refresh them every few steps)
   world.civFieldsAge = (world.civFieldsAge || 0) + 1;
   if (!world._civFields || world._civFields.N !== N || world.civFieldsAge % 6 === 0) { world._civFields = siteFields(world); world._civFields.N = N; world._landComp = landComponents(world); }
@@ -1350,7 +1356,7 @@ export function civStep(world) {
         // (a field too steep to plough, say after a landslide or the river cut into it, is given up)
         const fSlope = fieldSlope(world, i);
         // (a terraced field is level on its benches: only a slope past ~45° undoes it)
-        if (fSlope > (world.terraform[i] === 1 ? Math.max(1, Math.tan((civParams.farmSlope * Math.PI) / 180) * 1.3) : Math.tan((civParams.farmSlope * Math.PI) / 180) * 1.3)) { LU[i] = 0; OW[i] = 0; world.irrigated[i] = 0; continue; }
+        if (fSlope > (world.terraform[i] === 1 ? Math.max(1, Math.tan((civParams.farmSlope * Math.PI) / 180) * 1.3) : Math.tan((civParams.farmSlope * Math.PI) / 180) * 1.3)) { LU[i] = 0; OW[i] = 0; world.irrigated[i] = 0; markOldField(world, i); continue; }
         const f = fertility(world, i, fSlope) * (watered ? 1.2 : 1) * (0.15 + 0.85 * FS[i]);
         // (burnt, flooded or snowbound fields yield little)
         const lost = world.fire[i] > 0 || world.burnt[i] > 0.5 || world.water[i] > 0.4 || (world.snow && world.snow[i] > 0.5 && ph > 0.1 && ph < 0.55) ? 0.2 : 1;
@@ -1464,7 +1470,7 @@ export function civStep(world) {
       let nextToTown = false;
       for (const j of [i - 1, i + 1, i - N, i + N]) if ((LU[j] === 2 || LU[j] === 4) && OW[j] === t.num) nextToTown = true;
       if (nextToTown && !zoneHas(world, i, Z.towns) && slopeAt(world, i) < 0.6 && farmCells - 1 >= FARMS_PER_TOWN_CELL * (townCells + indCells + 1)) { pave(world, i, t.num, 2); housed++; farmCells--; townCells++; }
-      else if (!nextToTown && Math.random() < 0.05) { LU[i] = 0; OW[i] = 0; farmCells--; } // (fallow)
+      else if (!nextToTown && Math.random() < 0.05) { LU[i] = 0; OW[i] = 0; farmCells--; markOldField(world, i); } // (fallow)
     }
     t.exhausted = exhausted.length;
     // Industry: a town past ~400 people builds an industrial area on the water (river, lake or
@@ -1779,6 +1785,18 @@ function invasiveStep(world) {
   for (let z = 1; z < N - 1; z++) for (let x = 1; x < N - 1; x++) {
     const i = z * N + x;
     if (LU[i] === 10) continue;
+    const OF = world.oldField;
+    if (!LU[i] && OF && OF[i]) {
+      // An old field: the pine is a pioneer on bare, disturbed ground, quick to take it over from
+      // nearby (or from seed come down a road), and grows it up into pine forest
+      let s0 = (I[i - 1] + I[i + 1] + I[i - N] + I[i + N]) * 0.25;
+      for (const j of [i - 1, i + 1, i - N, i + N]) if (LU[j] === 3 && world.roadSeed && world.roadSeed[j] > 0.15) s0 = Math.max(s0, 0.3);
+      if (s0 > 0.01 || I[i] > 0) {
+        next[i] = Math.min(1, I[i] + 0.12 * Math.max(s0, I[i]) * (1 - I[i]) + (s0 > 0.05 && I[i] < 0.1 ? 0.1 : 0));
+        V[i] = Math.min(0.85, V[i] + 0.008 * next[i]); // (growing up into pine forest)
+      }
+      continue;
+    }
     if (V[i] < 0.5 || LU[i]) { next[i] = I[i] * 0.97; continue; } // (no forest: it dies back)
     const s = (I[i - 1] + I[i + 1] + I[i - N] + I[i + N]) * 0.25;
     if (s <= 0.001 && I[i] <= 0) continue;

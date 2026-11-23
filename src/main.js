@@ -521,7 +521,7 @@ class App {
     this.toolbox?.refresh();
     generateTerrain(this.world, this.gen.preset, this.gen.seed);
     this.history.push(this.world);
-    this.renderer.dispD = null; // (draw the new map's water as it is)
+    this.renderer.dispD = null; this.renderer.wVis = null; // (draw the new map's water as it is)
     this.applySea();
     updateWind(this.world, true);
     this.effects.deck.ready = false; // rebuild the cloud deck for the new terrain
