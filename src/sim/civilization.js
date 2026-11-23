@@ -694,7 +694,9 @@ function timberStep(world, t, farmCells, R) {
       pl.soil = soil / alive;
       pl.depth = depth / alive;
       // (worn out: its nutrients gone, or its soil stripped too thin to grow another crop)
-      if ((pl.soil < 0.3 || pl.depth < 0.1) && (pl.felled || 0) >= 1) { // (after at least one crop)
+      // (a plantation you painted is kept for good: felled and replanted, regrowing more slowly as its
+      // soil wears, but never given up)
+      if (!pl.painted && (pl.soil < 0.3 || pl.depth < 0.1) && (pl.felled || 0) >= 1) { // (after at least one crop)
         for (const i of pl.cells) if (LU[i] === 10 && OW[i] === t.num) { LU[i] = 0; OW[i] = 0; }
         t.platsRetired = (t.platsRetired || 0) + 1;
         alive = 0;

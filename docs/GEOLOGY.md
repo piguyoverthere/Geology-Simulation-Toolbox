@@ -1115,9 +1115,8 @@ stays.
 **Painting plantations.** The **Plantation** brush (🌲, under Civilization) paints timber
 plantation onto open land, and onto the nearest town's own fields, for the nearest town within
 about 80 cells. The ground is planted with saplings. The town then tends the plantation like its
-own: it fells it when grown, together with any wild forest joining it, replants it, and gives it up
-when the soil wears out. Painted cells join a painted plantation of that town nearby, or start a
-new one. Hold Shift to clear plantation back to the wild.
+own: it fells it when grown, together with any wild forest joining it, and replants it. Painted cells join a painted plantation of that town nearby, or start a
+new one. A plantation you paint is kept for good: it's felled and replanted as usual, regrowing more slowly as its soil wears thin, but the town never abandons it. Hold Shift to clear plantation back to the wild.
 
 **Clearing fields.** The **Clear fields** tool (🚜, under Civilization) takes farmland out of
 farming. The fields you paint over are abandoned and left as bare ground with poor, worn-out soil:
