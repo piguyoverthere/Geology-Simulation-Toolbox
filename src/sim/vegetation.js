@@ -349,6 +349,13 @@ export function vegetationStep(world) {
         F[i] = Math.max(0, fresh - p.weathering * (0.4 + S[i]) * (1 + 3 * v + 4 * f.standCover[i]));
       }
     }
+    // Dead wood (windthrow, trees killed by pests) rots away over the years, feeding the soil as it
+    // goes; seedlings come up in the gaps it leaves (they're held back only a little by it)
+    if (world.deadWood && world.deadWood[i] > 0) {
+      const rot = Math.min(world.deadWood[i], 0.003);
+      world.deadWood[i] -= rot;
+      SO[i] = Math.min(1, SO[i] + rot * 0.3);
+    }
     // Forest health: are young trees coming up to replace the old ones as they die? Seedlings need
     // seed trees nearby, a climate and soil that suit trees, and moisture; browsing animals eat
     // them, dead wood and fire set them back. A forest whose old trees die without replacement
@@ -364,7 +371,7 @@ export function vegetationStep(world) {
         const dead = world.deadWood ? world.deadWood[i] : 0;
         // (livestock from nearby farms graze the understory: seedlings eaten, trampled)
         const graze = world.grazing ? world.grazing[i] : 0;
-        const rec = suit * seed * (1 - 0.85 * browse) * (1 - 0.75 * graze) * (1 - 0.6 * dead) * (1 - 0.5 * burnt) * (0.5 + 0.5 * Math.min(1, S[i] * 2));
+        const rec = suit * seed * (1 - 0.85 * browse) * (1 - 0.75 * graze) * (1 - 0.2 * dead) * (1 - 0.5 * burnt) * (0.5 + 0.5 * Math.min(1, S[i] * 2));
         FH[i] += (rec - FH[i]) * 0.05;
         // Without young trees, the old stand thins as trees die (most in old forest)
         if (FH[i] < 0.35 && v > 0.6) target -= 0.4 * (0.35 - FH[i]) * age;
@@ -375,6 +382,13 @@ export function vegetationStep(world) {
     // Open ground that could grow forest: next to (healthy) forest the seeds rain in and it fills
     // with trees fast; on plains far from any forest only a few stray seeds arrive, so it's slow
     if (target > v && target > 0.62 && v < 0.66 && salt === 0) rate *= 0.15 + 4 * Math.min(1, f.forestSeed[i] * 1.6);
+    // A forest gap the wind cleared (sim/weather.js) grows back to forest: the seedlings and saplings
+    // that were growing under the old trees come up in the light, even where new forest couldn't
+    // start from scratch
+    if (world.regrow && world.regrow[i]) {
+      if ((world.landUse && world.landUse[i]) || v > 0.72) world.regrow[i] = 0;
+      else if (salt === 0) { target = Math.max(target, 0.8); rate *= 1.5; }
+    }
     // Old fields gone out of use (sim/civilization.js) grow back fast, scrub then trees, with no
     // grass sward to hold them back; once they're forest again they're just forest
     if (world.oldField && world.oldField[i]) {

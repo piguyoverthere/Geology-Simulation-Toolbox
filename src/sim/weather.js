@@ -535,10 +535,13 @@ function galeStep(world, simDt) {
       if (FA) FA[i] *= 1 - dmg;
       DW[i] = Math.min(1, DW[i] + dmg * 1.5);
       if (HU) HU[i] = Math.min(1, HU[i] + dmg * 0.12); // (the litter of the fallen trees: into the soil)
+      // (the young trees already growing under the old ones survive: the gap grows back to forest)
+      if (!world.regrow || world.regrow.length !== n) world.regrow = new Uint8Array(n);
+      world.regrow[i] = 1;
       // (one tree takes the next down with it)
       if (gl.strength > 1.1) for (const j of [i - 1, i + 1, i - N, i + N]) if (V[j] > 0.55 && Math.random() < 0.4) {
         const dj = 0.5 * dmg * V[j];
-        V[j] -= dj; if (TD) TD[j] *= 1 - dj; DW[j] = Math.min(1, DW[j] + dj * 1.5);
+        V[j] -= dj; if (TD) TD[j] *= 1 - dj; DW[j] = Math.min(1, DW[j] + dj * 1.5); if (world.regrow) world.regrow[j] = 1;
       }
     }
   }

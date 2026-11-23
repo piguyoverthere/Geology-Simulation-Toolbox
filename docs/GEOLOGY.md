@@ -1318,7 +1318,7 @@ Now and then a gale sweeps across the map with the prevailing wind, fast and wid
 patches of forest go down (windthrow), worst on exposed ridges and coasts, in old tall stands, and
 on wet ground where the roots don't hold. The fallen trees become dead wood, fuel for later fires,
 and their litter goes into the soil. A stand thins out, or in a bad storm it's flattened outright,
-one tree taking the next down with it. In autumn the gale strips the broadleaf trees' leaves early,
+one tree taking the next down with it. The gaps grow back to forest: the seedlings and saplings already growing under the old trees come up in the light, even on ground where new forest couldn't start from scratch. Dead wood rots away over the years, feeding the soil as it goes, and only mildly slows the seedlings. In autumn the gale strips the broadleaf trees' leaves early,
 and they stay off until spring. About one year in ten (with Seasons on) is a **windstorm year**
 (💨 on the calendar bar), with gales far more often and fierce enough to clear whole forests. The
 **Windstorms** slider (Climate tab) sets how often they come; 0 = none.

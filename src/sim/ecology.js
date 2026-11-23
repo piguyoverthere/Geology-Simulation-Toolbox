@@ -189,7 +189,7 @@ function ecologyPart(world, part, mult) {
     for (let i = 0; i < n; i++) {
       if (TK[i] > 0) TK[i] *= 0.9;
       if (SN[i] > 0) SN[i] = Math.max(0, SN[i] - 0.0015 * mult);
-      if (DW[i] > 0) DW[i] = world.fire[i] > 0 ? 0 : Math.max(0, DW[i] - 0.0015 * mult);
+      if (DW[i] > 0 && world.fire[i] > 0) DW[i] = 0; // (burnt up; otherwise it rots: see vegetation.js)
     }
   }
   world.animals.forEach((a, idx) => { if (idx % 3 === part) stepAnimal(world, a, masks, sea, ecoParams.speed * mult); });
