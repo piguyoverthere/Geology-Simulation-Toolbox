@@ -340,3 +340,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .tb-path-row { display: flex; gap: 4px; align-items: center; margin: 2px 0; }
 .tb-path-row input { flex: 1; min-width: 0; background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
   border-radius: 4px; padding: 3px 6px; font: inherit; font-size: 12px; }
+
+/* A drawing's restrictions panel (under its row in the Drawings list) */
+.draw-restrict { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; margin: 0 0 6px 18px; padding: 6px 8px;
+  border-left: 2px solid var(--line); background: var(--panel-2); border-radius: 0 4px 4px 0; font-size: 11.5px; }
+.draw-restrict-item { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text); }
+.draw-restrict-item input:disabled + span { color: var(--muted); }

@@ -1144,6 +1144,19 @@ is cut only when it has grown back fully (95% near full cover), and once cut it'
 long while (about 90 civilization steps) before it may be cut again, so harvesting goes much
 slower there.
 
+**Restrictions.** Each polygon also has its own set of restrictions (⚙ in the Drawings list opens
+them under the shape, and the button shows how many are on). Each one is a separate switch:
+- **No new towns:** no towns are founded inside, and towns don't spread their streets, industry or harbours into it.
+- **No fields:** no land inside is cleared for fields.
+- **No timber plantations:** towns don't plant timber inside or fell their plots there. Plantations you paint are still allowed.
+- **No roads:** roads between towns, forest tracks and road widening keep out, going round it unless there's truly no other way. Footpaths are still allowed.
+- **No earthworks:** no terracing, quarrying, quays, breakwaters, dams, or dumped spoil.
+- **No hunting:** towns don't hunt your animals inside.
+- **No fishing:** boats don't fish or trawl the sea inside, making it a marine reserve.
+- **No fires set:** towns don't burn land inside to clear it, and no fires get away from them there. Lightning still can.
+
+A protected zone (🛡) has the first five on, and a limited-harvest zone (🪓) has No fields on.
+
 
 **The Land use overlay.** *Land use (clear view)* in the Overlay list shows what every cell is
 used for in flat colours: fields (greener where irrigated), timber plantations (outlined, so you can

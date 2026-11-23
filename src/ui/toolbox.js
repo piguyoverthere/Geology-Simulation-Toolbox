@@ -15,7 +15,7 @@ import { SPECIES, OPEN } from '../sim/species.js';
 import { BIOMES } from '../render/biomes.js';
 import { STATS } from '../sim/stats.js';
 import { PROBE_STATS } from '../sim/probes.js';
-import { bestSite, foundTown, ensureCiv, updateProtectedZones } from '../sim/civilization.js';
+import { bestSite, foundTown, ensureCiv, updateProtectedZones, RESTRICTIONS } from '../sim/civilization.js';
 import { YEAR_KINDS } from '../sim/climate.js';
 import { HABITATS, PLANT_FOODS, HABITS, MIGRATION, newAnimal, removeAnimal, describeAnimal } from '../sim/ecology.js';
 
@@ -439,6 +439,7 @@ export class Toolbox {
     const colors = Object.keys(DRAW_COLORS);
     for (const s of all) {
       const row = el('div', 'draw-item');
+      let after = null; // (the restrictions panel, shown under the row)
       const dot = el('span', 'dot');
       dot.style.background = s.color;
       dot.title = 'Change colour';
@@ -455,8 +456,28 @@ export class Toolbox {
         const lim = el('button', 'draw-protect' + (s.limited ? ' on' : ''), '🪓');
         lim.title = s.limited ? 'Limited harvest: plantations inside are small and cut seldom. Click to lift the limit.' : 'Limit the harvest here: no new fields are cleared inside, and timber plantations inside are kept small (a quarter of the plot size) and are cut only when fully grown back, and then left a long while.';
         lim.addEventListener('click', () => { s.limited = !s.limited; d.onChange(); });
-        row.append(prot, lim);
+        // (and any of the separate restrictions, in a panel under the shape)
+        const nOn = RESTRICTIONS.filter((r) => s.restrict && s.restrict[r.key]).length;
+        const gear = el('button', 'draw-protect' + (nOn ? ' on' : ''), nOn ? `⚙${nOn}` : '⚙');
+        gear.title = 'Restrictions on this area: choose what towns may and may not do inside it.';
+        gear.addEventListener('click', () => { s.showRestrict = !s.showRestrict; this.updateDrawList(); });
+        row.append(prot, lim, gear);
         if (s.protected) row.classList.add('protected');
+        if (s.showRestrict) {
+          after = el('div', 'draw-restrict');
+          if (!s.restrict) s.restrict = {};
+          for (const r of RESTRICTIONS) {
+            const lab = el('label', 'draw-restrict-item');
+            const cb = el('input');
+            cb.type = 'checkbox';
+            cb.checked = !!s.restrict[r.key] || (s.protected && ['towns', 'fields', 'timber', 'roads', 'earthworks'].includes(r.key));
+            cb.disabled = s.protected && ['towns', 'fields', 'timber', 'roads', 'earthworks'].includes(r.key);
+            cb.addEventListener('change', () => { s.restrict[r.key] = cb.checked; d.onChange(); });
+            lab.append(cb, el('span', '', `${r.icon} ${r.label}`));
+            this.helpOn(lab, `<b>${r.label}</b> — ${r.help}${cb.disabled ? ' (on: this is a protected zone)' : ''}`);
+            after.append(lab);
+          }
+        }
       }
       if (s !== d.current) {
         const del = el('button', '', '✕');
@@ -465,6 +486,7 @@ export class Toolbox {
         row.append(del);
       }
       L.append(row);
+      if (after) L.append(after);
     }
   }
 

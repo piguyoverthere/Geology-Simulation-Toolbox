@@ -278,6 +278,8 @@ export class Drawings {
     parts.push(`elev ${m.lo.toFixed(0)}–${m.hi.toFixed(0)}`);
     if (s.protected) parts.push('🛡 protected');
     if (s.limited) parts.push('🪓 limited harvest');
+    const on = Object.entries(s.restrict || {}).filter(([, v]) => v).length;
+    if (on) parts.push(`${on} restriction${on > 1 ? 's' : ''}`);
     return parts.join(' · ');
   }
 
