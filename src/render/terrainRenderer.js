@@ -187,6 +187,7 @@ export class TerrainRenderer {
   update(force = false) {
     const w = this.world;
     if (!w.dirty && !force) return;
+    if (force) this.dispD = null; // (a new or reloaded map: draw its water as it is)
     w.dirty = false;
     const N = w.N, H = w.height, D = w.water, S = w.sediment, BASE = w.baseline;
     const off = this.offset;
@@ -434,7 +435,12 @@ export class TerrainRenderer {
         }
 
         // Water surface: hide (sink below ground) where it is too thin to see
-        const d = D[i];
+        // The water as drawn eases toward the real depth over a few frames, so shallow water that
+        // soaks in and gathers again (or evaporates and is topped up) doesn't flicker on and off
+        if (!this.dispD || this.dispD.length !== D.length) this.dispD = D.slice();
+        const DD = this.dispD;
+        DD[i] += (D[i] - DD[i]) * (D[i] > DD[i] ? 0.35 : 0.12);
+        const d = DD[i];
         const i4 = i * 4;
         this.wPos[i3] = x - off;
         this.wPos[i3 + 2] = z - off;
@@ -481,6 +487,8 @@ export class TerrainRenderer {
           if (iced) wc = mix(wc, ICE_SEA, Math.min(1, si * 1.6), S4);
           this.wCol[i4] = wc[0] * wc[0]; this.wCol[i4 + 1] = wc[1] * wc[1]; this.wCol[i4 + 2] = wc[2] * wc[2];
           this.wCol[i4 + 3] = iced ? Math.max(Math.min(0.9, 0.45 + (d - 0.1) * 0.5), Math.min(0.97, 0.5 + si)) : Math.min(isSea ? 0.9 : 0.85, (isSea ? 0.45 : 0.25) + (d - 0.1) * 0.5);
+          // (shallow water on land fades in and out rather than popping into view)
+          if (!isSea && !iced) this.wCol[i4 + 3] *= Math.min(1, Math.max(0.15, (d - 0.06) / 0.12));
           // A bridge: its deck over the water
           if (w.bridge && w.bridge[i] && w.paved[i] > 0.3) {
             const b = BRIDGE;
