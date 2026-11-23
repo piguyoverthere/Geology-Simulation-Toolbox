@@ -194,7 +194,11 @@ seasons, weather), **Sea** (ocean and coast) and **Life** (wildlife).
   basins between and straight beaches below steep bluffs. The **Showcase (demo)** preset packs in a
   bit of everything, west to east: open ocean with island clusters, a sheltered tidal bay, a forested
   coastal plain, a snowy range with a volcano (glaciers, lava), and a dry, wind-worn sandstone plateau
-  in its rain shadow, with real seasons, storms, big tides and a sea right at coral's limit. Presets
+  in its rain shadow, with real seasons, storms, big tides and a sea right at coral's limit. The
+  **Forested plains** preset is low, gently rolling plains cut by slow rivers, under a mild, wet
+  climate with rain all year, few droughts and little lightning. It's tuned for dense, continuous
+  forest: wetter vegetation, forest allowed on nearly all the land, faster growth and seed spread, and
+  slower fire. Within a few dozen steps nearly all the land is closed-canopy forest. Presets
   bring their own settings and put back the previous preset's when you switch.
 - **Graphs** window (bottom left of the map, click to open): how the whole map changes over time,
   sampled every couple of seconds while the simulation runs and saved with the level: forest cover,

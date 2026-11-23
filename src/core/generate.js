@@ -36,6 +36,17 @@ export const PRESETS = {
     coast: { tideRange: 3, waveErosion: 0.005, coral: 1.5 },
     ocean: { currents: 1, surge: 1.2, blooms: 1.2 },
   },
+  forest: {
+    label: 'Forested plains',
+    // Low, gently rolling plains cut by slow rivers, under a mild, wet climate with rain all year
+    // and few droughts or lightning storms: tuned for dense, continuous forest (the trees close
+    // over almost everything; grassland only by the water and on the odd dry knoll)
+    climate: { seaTemp: 15, humidity: 1.4, summerDry: 0, storms: 0.7, oceanFog: 0.2 },
+    seasons: { enabled: true, swing: 9, variability: 0.4 },
+    weather: { lightning: 0.3 },
+    vegetation: { climate: 1.4, forestShare: 1, growth: 0.05, spread: 0.5, forestWater: 0.2, grassBuffer: 4, adapt: 0.006 },
+    fire: { spread: 1.1 },
+  },
   flat: { label: 'Flat plain' },
 };
 
@@ -57,6 +68,7 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   const show = preset === 'showcase' ? showcaseLayout(seed) : null;
   if (show) { world.moistureBias = new Float32Array(N * N); world.cones = [{ x: show.vx * N, z: show.vz * N, r: 0.11 * N }]; }
   if (puget) world.moistureBias = new Float32Array(N * N);
+  if (preset === 'forest') world.moistureBias = new Float32Array(N * N);
 
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
@@ -102,6 +114,11 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
           y = showcaseHeight(show, noise, x * layout, z * layout, u, v);
           world.moistureBias[z * N + x] = 0.35 - 0.8 * smoothstep(0.58, 0.8, x * layout); // wet coast, dry lee
           break;
+        case 'forest':
+          // Low plains, gently rolling: broad swells and shallow valleys, a little texture
+          y = 10 + 4 * fbm(noise, u * 2.5, v * 2.5, 5) + 0.8 * fbm(noise, u * 9, v * 9, 3);
+          world.moistureBias[z * N + x] = 0.35; // (wet ground everywhere: forest country)
+          break;
         case 'flat':
         default:
           y = 10 + 0.6 * fbm(noise, u * 6, v * 6, 3);
@@ -131,7 +148,7 @@ export function generateTerrain(world, preset = 'mountains', seed = 1) {
   if (preset !== 'flat') {
     // The Cascades have a few big rivers (Skagit, Snoqualmie, Yakima…) in broad valleys, not a
     // channel in every hollow, and the lowland and plateau are mostly flat
-    carveRivers(h, N, preset === 'cascades' || preset === 'pugetsound' || preset === 'showcase' ? { threshold: 2500 * (N / 256) ** 2, depth: 1.2, perDoubling: 0.7, maxDepth: 4 } : undefined);
+    carveRivers(h, N, preset === 'cascades' || preset === 'pugetsound' || preset === 'showcase' || preset === 'forest' ? { threshold: 2500 * (N / 256) ** 2, depth: 1.2, perDoubling: 0.7, maxDepth: 4 } : undefined);
     breachDepressions(h, N, 0.02, crater);
   }
 
