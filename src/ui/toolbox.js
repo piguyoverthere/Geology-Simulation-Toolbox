@@ -336,6 +336,7 @@ export class Toolbox {
     // --- Civilization ------------------------------------------------------------------------
     const civ = this.section('Civilization');
     this.townList = el('div', 'tb-animals');
+    this.pathList = el('div', 'tb-animals');
     civ.append(
       toggle('Civilization', app.civParams, 'enabled', 'Towns that grow on the land. Found them with the Settle tool (or the button below): each clears farmland, grows toward what its land can feed, paves its streets (flat, sealed, nothing grows) and pollutes, lightly into water beside it and heavily down every river below it. Roads (Road tool, or built between big neighbouring towns) are terraced through the hills and let towns spread along them. Drought years cut harvests; floods, fires, lava and storm surges cost people; big towns found daughter villages; dwindling towns are abandoned.', this),
       slider('Population increase', app.civParams, 'popRate', 0.2, 4, 0.1, 'How fast the towns\' populations increase toward what their food supports.', this),
@@ -354,6 +355,8 @@ export class Toolbox {
       this.townList,
     );
     this.renderTowns();
+    civ.append(el('div', 'tb-legend-sub', 'Footpaths'), this.pathList);
+    this.renderFootpaths();
     const view = this.section('View', false);
     view.append(
       toggle('Show clouds', app.renderer, 'showClouds', 'Show the clouds that form where moist air is pushed up over terrain.', this),
@@ -522,6 +525,30 @@ export class Toolbox {
     }
     const explored = Object.entries(g.cells).filter(([k, c]) => c.frozenAt !== undefined && k !== `${cx},${cz}`).length + 1;
     this.gridNote.textContent = app.travelling ? 'Travelling…' : `Cell ${cx}, ${cz} · ${explored} explored`;
+  }
+
+  /** The footpaths: rename each (its label on the map follows), or remove it. */
+  renderFootpaths() {
+    if (!this.pathList) return;
+    const w = this.app.world, L = this.pathList;
+    L.innerHTML = '';
+    const paths = w.footpaths || [];
+    if (!paths.length) { L.append(el('div', 'tb-note', 'No footpaths yet: drag with the Footpath tool (🥾) to lay one.')); return; }
+    for (const fp of paths) {
+      const row = el('div', 'tb-path-row');
+      const name = el('input');
+      name.value = fp.name;
+      name.maxLength = 40;
+      name.oninput = () => { fp.name = name.value || 'Footpath'; };
+      const del = button('✕', async () => {
+        const { markFootpaths } = await import('../sim/civilization.js');
+        w.footpaths = w.footpaths.filter((p) => p !== fp);
+        markFootpaths(w);
+        this.renderFootpaths();
+      }, 'tb-small', `Remove ${fp.name}.`, this);
+      row.append(el('span', '', '🥾'), name, del);
+      L.append(row);
+    }
   }
 
   renderTowns() {

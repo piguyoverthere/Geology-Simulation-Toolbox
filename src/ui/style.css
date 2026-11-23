@@ -331,3 +331,12 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .tb-grid-cell:not(.known):not(.near) { opacity: 0.25; }
 .tb-grid-cell.near:not(:disabled):hover, .tb-grid-cell.known:not(:disabled):hover { border-color: var(--accent-2); }
 .tb-grid-cell.here { border-color: var(--accent-2); color: var(--accent-2); opacity: 1; }
+
+/* Footpath names, written small along the paths */
+.path-label { position: absolute; white-space: nowrap; pointer-events: none; font-size: 10px; font-style: italic;
+  font-weight: 600; color: #fff6e6; letter-spacing: 0.02em;
+  text-shadow: 0 0 3px rgba(40, 25, 10, 0.95), 0 0 1px rgba(40, 25, 10, 1); }
+.path-label[hidden] { display: none; }
+.tb-path-row { display: flex; gap: 4px; align-items: center; margin: 2px 0; }
+.tb-path-row input { flex: 1; min-width: 0; background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 4px; padding: 3px 6px; font: inherit; font-size: 12px; }

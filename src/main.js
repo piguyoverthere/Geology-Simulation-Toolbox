@@ -25,6 +25,7 @@ import { recordStats } from './sim/stats.js';
 import { recordProbes } from './sim/probes.js';
 import { civParams, civStep } from './sim/civilization.js';
 import { TownLabels } from './render/townLabels.js';
+import { PathLabels } from './render/pathLabels.js';
 import { Boats } from './render/boats.js';
 import { Toolbox } from './ui/toolbox.js';
 import { Inspector } from './ui/inspector.js';
@@ -94,6 +95,7 @@ class App {
     this.currentPaths = new CurrentPaths(this.scene, this.world, this.renderer);
     this.wildlife = new WildlifeMarkers(this.scene, this.world, this.renderer);
     this.townLabels = new TownLabels(document.getElementById('labels'), this);
+    this.pathLabels = new PathLabels(document.getElementById('labels'), this);
     this.boats = new Boats(this.scene, this);
     this.effects.climateParams = climateParams;
     this.setupCursor();
@@ -705,6 +707,7 @@ class App {
     this.currentPaths.update(dt);
     this.wildlife.update(dt);
     this.townLabels.update();
+    this.pathLabels.update();
     this.boats.update(dt);
     if (this.frame % 30 === 0) { this.toolbox.drawGraphs(); this.toolbox.drawStats(); } // (population and map graphs)
     if (this.sim.running && this.frame % 120 === 60) { recordStats(this.world); recordProbes(this.world); } // (whole-map statistics and probes, every couple of seconds)

@@ -9,7 +9,7 @@ import { ensureQuality } from '../sim/waterQuality.js';
 import { ensureOcean, advect } from '../sim/ocean.js';
 import { ensureEcology, animalField, canLive } from '../sim/ecology.js';
 import { addProbe, removeProbesNear } from '../sim/probes.js';
-import { bestSite, foundTown, removeTown, townNear, buildRoad, ensureCiv, placeHarbor, removeHarborNear, paintPlantation } from '../sim/civilization.js';
+import { bestSite, foundTown, removeTown, townNear, buildRoad, ensureCiv, placeHarbor, removeHarborNear, paintPlantation, addFootpath, removeFootpathsNear } from '../sim/civilization.js';
 import { createNoise2D } from '../core/noise.js';
 import { runDroplets } from '../sim/droplet.js';
 import { thermalStep } from '../sim/thermal.js';
@@ -622,6 +622,15 @@ TOOLS.bulldoze = {
       for (const t of near) if (!built.has(t.num)) removeTown(world, t);
     }
     world.dirty = true;
+  },
+};
+TOOLS.footpath = {
+  label: 'Footpath', group: 'Civilization', icon: '🥾', editsTerrain: false, line: true,
+  help: 'Drag from one point to another to lay a footpath: a track that follows the lie of the land (around the steepest ground, along valleys) between them. Unlike a road it isn\'t built, so it needs no upkeep and never wears out; it\'s drawn as a narrow trail with its name written along it. Name or remove footpaths in the Footpaths list (Life tab, Civilization). Hold Shift while dragging to remove the footpaths along the line.',
+  place({ world, app, invert }, a, b) {
+    if (invert) removeFootpathsNear(world, a, b);
+    else addFootpath(world, a, b);
+    app.toolbox.renderFootpaths?.();
   },
 };
 TOOLS.road = {

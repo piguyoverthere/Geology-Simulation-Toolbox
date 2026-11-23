@@ -302,7 +302,7 @@ function freshen(app) {
     else if (k.startsWith('_')) delete w[k];
   }
   w.resetEvents();
-  for (const k of ['sources', 'faults', 'landslides', 'storms', 'holdovers', 'cones', 'towns', 'probes', 'pollSources', 'currentPaths', 'portalsOut']) w[k] = [];
+  for (const k of ['sources', 'faults', 'landslides', 'storms', 'holdovers', 'cones', 'towns', 'probes', 'pollSources', 'currentPaths', 'portalsOut', 'footpaths']) w[k] = [];
   for (const k of ['moisture', 'soil', 'nearWater', 'standSlope', 'moistureBias', 'gapCold']) w[k] = null;
   w.popHistory = {}; w.statHistory = {};
   w.coastInit = false;

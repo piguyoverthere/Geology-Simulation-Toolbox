@@ -1066,6 +1066,8 @@ export function buildRoad(world, pts) {
 
 /** One civilization step (a couple of times a second). */
 export function civStep(world) {
+  // (footpaths stay trodden: plants don't close over them, though nothing maintains them)
+  if (world.footpaths && world.footpaths.length) markFootpaths(world);
   if (!civParams.enabled) return;
   ensureCiv(world);
   const towns = world.towns;
@@ -1810,6 +1812,65 @@ export function paintPlantation(world, x, z, radius, remove) {
   pl.alive = pl.cells.length;
   world.dirty = true;
   return t;
+}
+
+/**
+ * Footpaths: tracks you draw across the land (the Footpath tool), following the lie of the land like
+ * a road but not built: no grading, no paving, and no upkeep (they never wear out or need repair).
+ * Feet keep the ground a little worn along them. world.footpaths = [{ id, name, pts }]; the cells
+ * they cross are marked in world.footpath (for drawing).
+ */
+export function addFootpath(world, a, b) {
+  ensureCiv(world);
+  const N = world.N;
+  if (!world.footpaths) world.footpaths = [];
+  let pts = routeRoad(world, a, b);
+  if (!pts || pts.length < 2) {
+    const len = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z)));
+    pts = [];
+    for (let k = 0; k <= len; k++) pts.push({ x: Math.round(a.x + ((b.x - a.x) * k) / len), z: Math.round(a.z + ((b.z - a.z) * k) / len) });
+  }
+  const used = new Set(world.footpaths.map((p) => p.num));
+  let num = 1;
+  while (used.has(num)) num++;
+  const fp = { id: 'f' + Math.random().toString(36).slice(2, 8), num, name: `Footpath ${num}`, pts: pts.map((p) => ({ x: Math.round(p.x), z: Math.round(p.z) })) };
+  world.footpaths.push(fp);
+  markFootpaths(world);
+  return fp;
+}
+
+/** Remove footpaths passing within `r` cells of the line a–b. Returns how many were removed. */
+export function removeFootpathsNear(world, a, b, r = 3) {
+  const before = (world.footpaths || []).length;
+  const dist = (p) => {
+    const dx = b.x - a.x, dz = b.z - a.z, L = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / L));
+    return Math.hypot(p.x - (a.x + t * dx), p.z - (a.z + t * dz));
+  };
+  world.footpaths = (world.footpaths || []).filter((fp) => !fp.pts.some((p) => dist(p) <= r));
+  markFootpaths(world);
+  return before - world.footpaths.length;
+}
+
+/** Mark the cells the footpaths cross (world.footpath) and wear the ground along them a little. */
+export function markFootpaths(world) {
+  const N = world.N, n = N * N;
+  if (!world.footpath || world.footpath.length !== n) world.footpath = new Uint8Array(n);
+  world.footpath.fill(0);
+  const tread = (x, z) => {
+    if (x < 0 || z < 0 || x >= N || z >= N) return;
+    const i = z * N + x;
+    world.footpath[i] = 1;
+    world.vegetation[i] = Math.min(world.vegetation[i], 0.4); // (trodden: no trees on the path itself)
+  };
+  for (const fp of world.footpaths || []) for (let k = 0; k < fp.pts.length; k++) {
+    const p = fp.pts[k];
+    tread(p.x, p.z);
+    // (a diagonal step: the corner between is trodden too, so the trail is continuous)
+    const q = fp.pts[k + 1];
+    if (q && q.x !== p.x && q.z !== p.z) tread(q.x, p.z);
+  }
+  world.dirty = true;
 }
 
 /** Shift with the Harbour tool: close the harbour nearest (x, z) (within 8 cells). */

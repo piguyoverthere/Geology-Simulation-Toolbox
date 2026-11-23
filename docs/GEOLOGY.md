@@ -1155,6 +1155,14 @@ others rest, in turn. Resting plantations show in the inspector and, paler, in t
 overlay. Painted cells join a painted plantation of that town nearby, or start a new one. Hold
 Shift to clear plantation back to the wild.
 
+**Footpaths.** The **Footpath** tool (🥾, under Civilization) lays a footpath where you drag. It
+follows the lie of the land between the two ends like a road does (around the steepest ground,
+along valleys), but it isn't built: no grading, no paving, and no upkeep, so it never wears out or
+needs repair. It's drawn as a narrow, pale trodden trail. Feet keep plants from closing over it,
+though there are no trees on the path itself. Each footpath's name is written small along the path
+at its middle, turned to follow it. Name or remove footpaths in the **Footpaths** list (Life tab,
+Civilization); hold Shift while dragging to remove the footpaths along a line.
+
 **Bulldozing.** The **Bulldoze** brush (🏗, under Civilization) tears down anything built under it:
 town streets and houses, industry, roads and bridges, harbours, quays, dams and canals. A dam's
 wall is knocked down to the valley floor, letting its reservoir go, and a canal is filled in. It
