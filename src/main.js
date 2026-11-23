@@ -473,7 +473,7 @@ class App {
     const ph = seasonParams.phase;
     const season = seasonParams.enabled ? smoothstep(0.49, 0.57, ph) * (1 - smoothstep(0.96, 0.995, ph)) : 0;
     const storms = this.world.storms ? Math.min(1, this.world.storms.length / 6) : 0;
-    const o = Math.min(1, season * 0.85 + storms * 0.35 * (this.renderer.showClouds ? 1 : 0.5));
+    const o = Math.min(1, season * 0.85 + storms * 0.35 * (this.renderer.cloudsOn ? 1 : 0.5));
     this.overcast = o;
     this.sun.intensity = 2.6 * (1 - 0.55 * o);
     this.hemi.intensity = 1.1 * (1 - 0.15 * o);

@@ -536,7 +536,7 @@ export class Toolbox {
       const big = el('canvas', 'tb-popchart');
       big.width = 270; big.height = 120; big.hidden = !this.openTowns.has(t.id);
       row.addEventListener('click', () => { if (this.openTowns.has(t.id)) this.openTowns.delete(t.id); else this.openTowns.add(t.id); big.hidden = !this.openTowns.has(t.id); this.drawGraphs(); });
-      this.helpOn(row, `<b>${escapeHtml(t.name)}</b> — founded in year ${t.founded}. Population ${Math.round(t.pop)} of the ${Math.round(t.capacity || 0)} its land can feed; ${t.cells || 0} cells of town, ${t.industry || 0} of industry, ${t.farm || 0} of farmland${t.hunted > 0.01 ? '; still hunting much of its food' : ''}${t.boats ? `; a harbour with ${t.boats} fishing boat${t.boats > 1 ? 's' : ''}` : ''}${t.byBoat ? '; settled by boat' : ''}${t.dam >= 0 ? '; has dammed a river for a reservoir' : ''}${t.canals ? `; ${t.canals} irrigation canal${t.canals > 1 ? 's' : ''}` : ''}${t.seaOutfall >= 0 && t.pop >= 150 ? '; its sewage piped out to the nearest sea' : ''}${t.timberCells ? `; ${t.timberCells} cells of timber plantation` : ''}${t.lastFire ? `; a fire got away from it in year ${t.lastFire}` : ''}${t.links && t.links.length ? `; roads to ${t.links.length} town${t.links.length > 1 ? 's' : ''} (${Math.round((t.roadsWorking ?? 1) * 100)}% in working order)` : ''}. Click for its population chart.`);
+      this.helpOn(row, `<b>${escapeHtml(t.name)}</b> — founded in year ${t.founded}. Population ${Math.round(t.pop)} of the ${Math.round(t.capacity || 0)} its land can feed; ${t.cells || 0} cells of town, ${t.industry || 0} of industry, ${t.farm || 0} of farmland${t.hunted > 0.01 ? '; still hunting much of its food' : ''}${t.boats ? `; a harbour with ${t.boats} fishing boat${t.boats > 1 ? 's' : ''}` : ''}${t.byBoat ? '; settled by boat' : ''}${t.dam >= 0 ? '; has dammed a river for a reservoir' : ''}${t.canals ? `; ${t.canals} irrigation canal${t.canals > 1 ? 's' : ''}` : ''}${t.seaOutfall >= 0 ? '; its sewage piped out to the nearest sea' : ''}${t.timberCells ? `; ${t.timberCells} cells of timber plantation` : ''}${t.lastFire ? `; a fire got away from it in year ${t.lastFire}` : ''}${t.links && t.links.length ? `; roads to ${t.links.length} town${t.links.length > 1 ? 's' : ''} (${Math.round((t.roadsWorking ?? 1) * 100)}% in working order)` : ''}. Click for its population chart.`);
       L.append(row, big);
       this.townGraphs.push({ t, val, spark, big });
     }
@@ -797,6 +797,18 @@ export class Toolbox {
         }
       }
     }
+    else if (mode === 'landuse') items('Land use', [
+      { label: 'Fields', color: [0.95, 0.80, 0.30], help: 'Farmland (greener where irrigated).' },
+      { label: 'Timber plantation', color: [0.09, 0.48, 0.20], help: 'Outlined in dark green; brown-green where it has just been felled and is regrowing.' },
+      { label: 'Town', color: [0.86, 0.28, 0.22], help: 'Streets and houses.' },
+      { label: 'Industry', color: [0.58, 0.36, 0.74], help: 'Mass-paved industrial areas.' },
+      { label: 'Road', color: [0.30, 0.30, 0.34], help: 'Roads and bridges.' },
+      { label: 'Harbour', color: [0.98, 0.55, 0.15], help: 'Harbours.' },
+      { label: 'Quay / breakwater', color: [0.70, 0.70, 0.72], help: 'Sea walls and breakwaters.' },
+      { label: 'Dam', color: [0.95, 0.95, 0.95], help: 'Dams.' },
+      { label: 'Canal', color: [0.25, 0.80, 0.90], help: 'Irrigation canals.' },
+      { label: 'Wild land', color: [0.62, 0.70, 0.56], help: 'Not used by any town (paler where bare). This view leaves out pollution, murky water, clouds and fog.' },
+    ]);
     else if (mode === 'precip') ramp('Precipitation', 'dry (rain shadow)', 'wet (windward)', [[0.86, 0.74, 0.52], [0.12, 0.35, 0.75]]);
     else if (mode === 'snowDepth') ramp('Snow depth (grey = none)', 'thin', 'deep', [[0.88, 0.92, 0.98], [0.55, 0.72, 0.95], [0.18, 0.30, 0.75]]);
     else if (mode === 'coast') items('Shores, dunes and ocean biomes', [...SHORES, { label: 'Coastal dunes', color: [0.86, 0.82, 0.62], help: 'Wind-blown sand behind sand beaches.' }, { label: 'Mangrove forest', color: [0.12, 0.30, 0.16], help: 'Forest standing in the tide on warm, sheltered mudflats.' }, ...MARINE]);

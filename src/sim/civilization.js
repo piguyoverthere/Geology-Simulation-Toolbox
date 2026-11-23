@@ -1009,11 +1009,10 @@ export function civStep(world) {
   // --- Pollution: light near pavement, heavy downstream (always) ---------------------------
   for (let i = 0; i < n; i++) if (RP[i] > 0) RP[i] = RP[i] < 1e-3 ? 0 : RP[i] * 0.85;
   let anyPaved = false;
-  // Sewage: a town of more than about 150 people pipes its streets' and works' waste straight out
+  // Sewage: every town, however small, pipes its streets' and works' waste straight out
   // to the nearest open sea, where it all pours out at one spot (the outfall)
   const outfallOf = {}, seaLoad = {};
   for (const t of towns) {
-    if (t.pop < 150) continue;
     if (t.seaOutfall === undefined || !(H[t.seaOutfall] < sea)) t.seaOutfall = nearestSea(world, t.x, t.z);
     if (t.seaOutfall >= 0) outfallOf[t.num] = t.seaOutfall;
   }
@@ -1042,13 +1041,14 @@ export function civStep(world) {
       if (LU[i] === 6) for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] < sea && world.marineHealth) world.marineHealth[j] = Math.max(0, world.marineHealth[j] - 0.002);
       for (const j of [i - 1, i + 1, i - N, i + N]) {
         if (H[j] < sea) { if (world.pollution) world.pollution[j] = Math.min(4, world.pollution[j] + 0.006 * ind); }
-        else if (world.water[j] > 0.05) RP[j] += 0.006 * ind;
+        else if (world.water[j] > 0.05 && !(OW[i] && outfallOf[OW[i]] !== undefined)) RP[j] += 0.006 * ind; // (a sewered town's drains carry it off to sea)
       }
       // Heavy: down the drainage to the rivers and on to the sea (or, where the town has dug a
       // sewer, all of it out through the sewer's outfall)
       // (roads are not drained into sewers, but shed much less than streets and works)
       const load = 0.018 * (LU[i] === 4 ? 6 : 1) * (LU[i] === 3 ? 0.3 : 1) * civParams.destruction;
       if (OW[i] && outfallOf[OW[i]] !== undefined) { seaLoad[OW[i]] = (seaLoad[OW[i]] || 0) + load; continue; } // (down the sewers, out to sea)
+      if (LU[i] === 3) continue; // (a road's runoff stays by the road: no foul stream down the valley)
       let c = i;
       for (let k = 0; k < 160; k++) {
         if (H[c] < sea) { if (world.pollution) world.pollution[c] = Math.min(4, world.pollution[c] + load * 1.6); break; }
@@ -1216,7 +1216,11 @@ export function civStep(world) {
         }
         world.irrigated[i] = watered ? 1 : 0;
         if (src >= 0) {
-          if (H[src] < sea) { if (world.pollution) world.pollution[src] = Math.min(4, world.pollution[src] + 0.0012 * civParams.destruction); }
+          // (the fields' runoff goes into the town's drains and out to sea with the rest, where it has
+          // an outfall; otherwise into the water they draw on)
+          const out = t.seaOutfall !== undefined && t.seaOutfall >= 0 ? t.seaOutfall : -1;
+          if (out >= 0) { if (world.pollution) world.pollution[out] = Math.min(4, world.pollution[out] + 0.0012 * civParams.destruction); }
+          else if (H[src] < sea) { if (world.pollution) world.pollution[src] = Math.min(4, world.pollution[src] + 0.0012 * civParams.destruction); }
           else RP[src] += 0.003 * civParams.destruction;
         }
         // Cropping wears the soil out (faster when irrigated, cropped harder); a worn-out field

@@ -114,7 +114,7 @@ export class Effects {
     const d = this.deck, w = this.world, N = w.N;
     const target = this.overcast * 0.2;
     d.points.material.opacity += (target - d.points.material.opacity) * Math.min(1, dt * 0.5);
-    d.points.visible = this.renderer.showClouds && d.points.material.opacity > 0.01;
+    d.points.visible = this.renderer.cloudsOn && d.points.material.opacity > 0.01;
     if (!d.points.visible) return;
     const pos = d.points.geometry.attributes.position;
     if (!d.ready || d.N !== N) {
@@ -143,7 +143,7 @@ export class Effects {
 
   /** Storms (sim/weather.js): a dark cloud deck over each, with rain or snow falling beneath it. */
   updateStorms(dt) {
-    const w = this.world, show = this.renderer.showClouds;
+    const w = this.world, show = this.renderer.cloudsOn;
     this.time += dt;
     this.updateLightning(dt);
     const layers = [this.stormCloud, this.thunderCloud, this.snowCloud, this.rain, this.snowfall];
@@ -222,7 +222,7 @@ export class Effects {
 
   updateClouds(dt) {
     const c = this.clouds, w = this.world;
-    c.points.visible = this.renderer.showClouds;
+    c.points.visible = this.renderer.cloudsOn;
     if (!c.points.visible || !w.cloud) return;
     const pos = c.points.geometry.attributes.position;
     // Re-seed the puffs every couple of seconds from where clouds are forming now
@@ -268,7 +268,7 @@ export class Effects {
   /** Fog pooled in damp, cool valley bottoms, hugging the ground. */
   updateFog(dt) {
     const f = this.fog, w = this.world;
-    f.points.visible = this.renderer.showClouds;
+    f.points.visible = this.renderer.cloudsOn;
     if (!f.points.visible || !w.fog) return;
     const pos = f.points.geometry.attributes.position;
     f.refresh -= dt;
@@ -293,7 +293,7 @@ export class Effects {
   /** High, thin cloud far above the terrain, drifting faster than the low cloud. */
   updateCirrus(dt) {
     const c = this.cirrus, w = this.world;
-    c.points.visible = this.renderer.showClouds;
+    c.points.visible = this.renderer.cloudsOn;
     if (!c.points.visible) return;
     const pos = c.points.geometry.attributes.position;
     const N = w.N, half = N / 2;
@@ -394,6 +394,8 @@ export class Effects {
 
   updateSmoke(dt) {
     const s = this.smoke, w = this.world, cells = w.fireCells;
+    // (the Land use overlay is a clear view: no smoke over it)
+    s.points.visible = this.renderer.colorMode !== 'landuse';
     const pos = s.points.geometry.attributes.position;
     const a = ((this.climateParams ? this.climateParams.windAngle : 20) * Math.PI) / 180;
     const wx = Math.cos(a), wz = Math.sin(a);

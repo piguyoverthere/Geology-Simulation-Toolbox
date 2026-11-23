@@ -667,8 +667,11 @@ only very slowly. The dead coral's skeletons are left as **rubble**, which piles
 building the reef flat up until it emerges as a wider beach (or a little coral-sand island, a cay),
 and which the waves break up into white coral sand much faster than a living reef makes it.
 
-**Cold-water coral.** Below the sunlit shallows, in cool (about 3–14 °C), full-strength seawater, deep
-reefs of cold-water corals (like Lophelia) grow in patches across wide stretches of the sea floor.
+**Shelf reefs and cold-water coral.** The sea floor below the sunlit shallows is reef by default,
+wherever the water is full-strength sea. In warm seas (above about 20 °C), coral reefs carry on
+down to about 25 deep. Elsewhere, and deeper (down to about 40), reefs of cold-water corals (like
+Lophelia) cover almost all of it, with only a few gaps. Only below about 40 is the sea floor bare.
+Reefs die back where pollution, silt or low oxygen build up.
 They are the most sensitive sea bed of all: silt, pollutants, low oxygen and brackish water damage
 them quickly, trawling, dredging and dumping wreck them, and they grow back only very slowly.
 
@@ -1012,11 +1015,12 @@ thins the forest either side, and lets the town spread out along it. Towns pollu
 from their shores, outfalls and drains. A town can only grow about a third beyond what its streets
 house, so it grows as fast as it builds and doesn't boom and crash.
 
-**Sewage.** A town of more than about 150 people pipes everything its streets, works and harbours
-shed straight out to the nearest open sea, wherever that is on the map. It all pours out at one spot,
-the outfall, and spreads through the sea from there. No channels are dug for it; sewer channels
-from older levels are filled in. Roads, and towns on a map with no sea, still drain downhill into
-their streams.
+**Sewage.** Every town, however small, pipes what its streets, works and harbours shed straight
+out to the nearest open sea, wherever that is on the map, and its fields' runoff goes the same way.
+It all pours out at one spot, the outfall, and spreads through the sea from there. No channels are
+dug for it; sewer channels from older levels are filled in. A road's runoff stays beside the road,
+with no foul stream down the valley. Only towns on a map with no sea still drain into their
+streams.
 
 **Kept ground and growth limits.** Ground people keep up doesn't erode: farmland, towns, roads,
 industry, harbours, quays, dams, canals, plantations, anything paved, and ground that's been cut,
@@ -1111,6 +1115,12 @@ is kept wild. No town is founded or built inside it, no farmland is cleared, no 
 and roads between towns go around it (unless there is truly no other way). What was there already
 stays.
 
+
+**The Land use overlay.** *Land use (clear view)* in the Overlay list shows what every cell is
+used for in flat colours: fields (greener where irrigated), timber plantations (outlined, so you can
+see where each one ends; brownish where just felled), towns, industry, roads, harbours, quays,
+dams, canals, and wild land. Nothing is drawn over it: no pollution stains, no murky or silty
+water, no clouds, fog or smoke.
 
 **Painting plantations.** The **Plantation** brush (🌲, under Civilization) paints timber
 plantation onto open land, and onto the nearest town's own fields, for the nearest town within

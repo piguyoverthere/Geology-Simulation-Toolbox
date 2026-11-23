@@ -207,12 +207,18 @@ export function coastStep(world) {
         const salt = world.salinity[i];
         // Cold-water coral: patches of deep reef in cool, salty water below the sunlit shallows
         const patch = 0.5 + 0.5 * Math.sin(x * 0.17 + z * 0.11) * Math.cos(z * 0.13 - x * 0.07) + 0.25 * ((((i * 2654435761) >>> 0) / 4294967296) - 0.5);
-        if (depth > 7 && depth < 40 && T > 3 && T < 14 && salt > 0.85 && patch > 0.55) m = MARINE_ID.deepcoral;
-        else if (depth > 14) m = MARINE_ID.deep;
+        // The shelf below the shallows is reef by default wherever the water is full-strength sea:
+        // warm seas grow coral reefs down to ~25 deep; cooler ones (and deeper water, to ~40) cold-
+        // water coral, almost everywhere (a few gaps). Pollution, silt and low oxygen kill them back
+        // (see waterQuality.js); only below ~40 is it bare deep sea floor.
+        if (depth > 40) m = MARINE_ID.deep;
         else if (salt < 0.65 && depth < 8) m = MARINE_ID.estuary; // (too brackish for most sea beds)
         else if (depth < 6 && T > 20 && salt > 0.85) m = MARINE_ID.coral;
         else if (depth < 6 && T > 4 && T < 19 && rocky && salt > 0.8) m = MARINE_ID.kelp;
         else if (depth < 4) m = MARINE_ID.seagrass;
+        else if (depth < 25 && T > 20 && salt > 0.85) m = MARINE_ID.coral; // (shelf reefs)
+        else if (T > 2 && salt > 0.85 && patch > 0.15) m = MARINE_ID.deepcoral;
+        else if (depth > 14) m = MARINE_ID.deep;
         else m = MARINE_ID.shelf;
         const cur = M[i];
         if (cur < 0) {

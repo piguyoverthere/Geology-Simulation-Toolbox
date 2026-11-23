@@ -51,6 +51,7 @@ export const OVERLAYS = {
   quality: 'Water quality',
   wind: 'Wind speed',
   wildlife: 'Wildlife',
+  landuse: 'Land use (clear view)',
   decid: 'Deciduous trees',
   rock: 'Rock type',
   hardness: 'Rock hardness',
@@ -67,6 +68,8 @@ export class TerrainRenderer {
     this.colorMode = 'natural'; // key of OVERLAYS
     this.showVegetation = true; // off: natural view shows bare ground and bedrock
     this.showClouds = true;
+    // (the Land use overlay is a clear view: no clouds or fog over it)
+    Object.defineProperty(this, 'cloudsOn', { get: () => this.showClouds && this.colorMode !== 'landuse' });
     this.showWater = true;
     this.showSea = true;    // off: hide the sea's surface to see the sea bed (its biomes, sand, reefs)
 
@@ -331,6 +334,25 @@ export class TerrainRenderer {
         } else if (mode === 'slope') {
           const t = Math.min(1, slope / 0.35);
           col = mix(SLOPE_LO, SLOPE_HI, t, S3);
+        } else if (mode === 'landuse') {
+          // Land use, plainly: what each cell is used for in flat colours, with nothing drawn over it
+          // (no pollution stains, murky water, clouds or fog), and plantations outlined
+          const lu = w.landUse ? w.landUse[i] : 0;
+          if (!lu) {
+            const v = w.vegetation[i];
+            col = mix(LU_OPEN, LU_WILD, Math.min(1, v * 1.3), S3);
+          } else {
+            col = (LU_COLORS[lu] || LU_OPEN).slice();
+            if (lu === 1 && w.irrigated && w.irrigated[i]) mix(col, LU_IRRIGATED, 0.35, col);
+            if (lu === 10) {
+              if (w.vegetation[i] < 0.5) mix(col, LU_FELLED, 0.6, col); // (felled, regrowing)
+              // (the plantation's edge: a dark line where it meets anything else)
+              const o = w.civOwner[i];
+              const edge = (j) => w.landUse[j] !== 10 || w.civOwner[j] !== o;
+              if ((x > 0 && edge(i - 1)) || (x < N - 1 && edge(i + 1)) || (z > 0 && edge(i - N)) || (z < N - 1 && edge(i + N))) col = LU_EDGE.slice();
+            }
+          }
+          shade(col, 0.72 + 0.28 * ny, col);
         } else {
           col = this.naturalColor(h, slope, tan, h - BASE[i], D[i], i);
           // Stained, fouled banks along polluted rivers
@@ -403,7 +425,7 @@ export class TerrainRenderer {
         this.wPos[i3] = x - off;
         this.wPos[i3 + 2] = z - off;
         // Thin runoff films just darken the ground; draw a water surface only where it's a real stream/lake
-        const dirtyStream = w.riverPollution && w.riverPollution[i] > 0.05 && d > 0.02;
+        const dirtyStream = mode !== 'landuse' && w.riverPollution && w.riverPollution[i] > 0.05 && d > 0.02;
         if ((d > 0.1 || dirtyStream) && ice < 0.2 && (this.showSea || !(h < sea))) { // (meltwater under a glacier stays hidden)
           this.wPos[i3 + 1] = h + d;
           const mud = Math.min(1, (S[i] / Math.max(d, 0.05)) * 4);
@@ -419,10 +441,10 @@ export class TerrainRenderer {
             // A run of fish up the river (salmon and the like) turns it red
             if (w.runners && w.runners[i] > 0.1) base = mix(base, SALMON_RUN, Math.min(0.6, w.runners[i] * 0.5), S4);
             // Polluted rivers below towns run murky grey-brown
-            if (w.riverPollution && w.riverPollution[i] > 0.02) base = mix(base, DIRTY_RIVER, Math.min(0.92, Math.sqrt(w.riverPollution[i]) * 0.95), S4);
+            if (mode !== 'landuse' && w.riverPollution && w.riverPollution[i] > 0.02) base = mix(base, DIRTY_RIVER, Math.min(0.92, Math.sqrt(w.riverPollution[i]) * 0.95), S4);
           }
           let wc = mix(base, MUD, mud * 0.8, S4);
-          if (isSea && w.silt) {
+          if (isSea && w.silt && mode !== 'landuse') {
             // Dirty seawater: silt turns it brown, pollutants a murky olive (overlay: by quality)
             if (mode === 'quality') wc = qualityColor(waterQuality(w, i), S4);
             else {
@@ -451,7 +473,7 @@ export class TerrainRenderer {
             this.wCol[i4] = b[0] * b[0]; this.wCol[i4 + 1] = b[1] * b[1]; this.wCol[i4 + 2] = b[2] * b[2]; this.wCol[i4 + 3] = 0.97;
           }
           // (polluted river water is murky: opaque even in a thin stream, so it shows)
-          if (!isSea && w.riverPollution && w.riverPollution[i] > 0.05) this.wCol[i4 + 3] = Math.max(this.wCol[i4 + 3], Math.min(0.92, 0.55 + Math.sqrt(w.riverPollution[i]) * 0.5));
+          if (mode !== 'landuse' && !isSea && w.riverPollution && w.riverPollution[i] > 0.05) this.wCol[i4 + 3] = Math.max(this.wCol[i4 + 3], Math.min(0.92, 0.55 + Math.sqrt(w.riverPollution[i]) * 0.5));
           // (the mangrove canopy stands above the tide)
           if (w.mangrove && w.mangrove[i] > 0.05) this.wCol[i4 + 3] *= 1 - 0.85 * Math.min(1, w.mangrove[i] * 1.2);
           // (the temperature map colours the sea by its water temperature: let it show through)
@@ -728,6 +750,8 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
+const LU_OPEN = [0.86, 0.85, 0.80], LU_WILD = [0.62, 0.70, 0.56], LU_IRRIGATED = [0.55, 0.80, 0.45], LU_FELLED = [0.70, 0.60, 0.36], LU_EDGE = [0.02, 0.18, 0.06];
+const LU_COLORS = { 1: [0.95, 0.80, 0.30], 2: [0.86, 0.28, 0.22], 3: [0.30, 0.30, 0.34], 4: [0.58, 0.36, 0.74], 5: [0.98, 0.55, 0.15], 6: [0.70, 0.70, 0.72], 7: [0.95, 0.95, 0.95], 8: [0.25, 0.80, 0.90], 9: [0.35, 0.25, 0.15], 10: [0.09, 0.48, 0.20] };
 const FIELD_A = [0.78, 0.70, 0.38], FIELD_B = [0.52, 0.62, 0.30], TOWN_PAVE = [0.62, 0.60, 0.57], TOWN_ROOF = [0.66, 0.40, 0.32], ROAD = [0.30, 0.30, 0.32], ROAD_WORN = [0.55, 0.52, 0.46], INDUSTRY = [0.50, 0.53, 0.57], HARBOR_A = [0.46, 0.34, 0.22], QUAY = [0.66, 0.65, 0.61], DAM = [0.78, 0.77, 0.74], CANAL = [0.56, 0.52, 0.44], SEWER = [0.30, 0.26, 0.20], PLANTATION = [0.16, 0.30, 0.15], PLANTATION_ROW = [0.11, 0.22, 0.11], CLEARCUT = [0.47, 0.39, 0.27], BRIDGE = [0.36, 0.34, 0.33], QUAY_DARK = [0.46, 0.45, 0.43], HARBOR_B = [0.60, 0.58, 0.55], INDUSTRY_DARK = [0.24, 0.25, 0.28], DIRTY_RIVER = [0.58, 0.47, 0.16], POLLUTED_BANK = [0.42, 0.36, 0.20];
 const TREES_NONE = [0.86, 0.84, 0.78], TREES_SPARSE = [0.78, 0.84, 0.58], TREES_MID = [0.36, 0.62, 0.30], TREES_DENSE = [0.06, 0.26, 0.12];
 const HEALTH_BAD = [0.80, 0.25, 0.18], HEALTH_MID = [0.92, 0.78, 0.30], HEALTH_GOOD = [0.18, 0.60, 0.28];
