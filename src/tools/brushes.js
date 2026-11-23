@@ -549,6 +549,23 @@ TOOLS.animal = {
   },
 };
 
+TOOLS.removeAnimal = {
+  label: 'Remove animal', group: 'Wildlife', icon: '🚫', editsTerrain: false,
+  help: 'Paint over the map to remove the animal chosen in the Wildlife panel (Life tab) from there: hunted out, trapped or driven off. Brush strength sets how fast. Hold Shift to remove every kind of animal there instead.',
+  apply({ world, app, x, z, radius, strength, dt, invert }) {
+    ensureEcology(world);
+    const all = world.animals || [];
+    const list = invert ? all : all.filter((b) => b.id === app.animalChoice);
+    if (!list.length) { app.toolbox.setInfo('<b>Remove animal</b> — choose an animal in the Wildlife panel (Life tab) first, or hold Shift to remove all of them.'); return; }
+    const k = Math.min(1, strength * 4 * dt);
+    for (const a of list) {
+      const F = animalField(world, a);
+      forEachCell(world, x, z, radius, (i, w) => { F[i] *= 1 - Math.min(1, k * w * 2); if (F[i] < 0.002) F[i] = 0; });
+    }
+    world.dirty = true;
+  },
+};
+
 // --- Civilization tools -------------------------------------------------------------------
 TOOLS.settle = {
   label: 'Settle', group: 'Civilization', icon: '🏘', editsTerrain: true, click: true,

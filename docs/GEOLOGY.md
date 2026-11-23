@@ -877,6 +877,8 @@ You design the animals (Wildlife → Add animal): a name and colour, where it li
 its habits. Each is a population density that grows where there is food, starves where there is
 none and moves toward better feeding over its roaming range, and each links to the rest:
 
+The **Remove animal** brush (🚫, under Wildlife) clears the animal chosen in the Wildlife panel from wherever you paint, as if it were hunted out, trapped or driven off. Brush strength sets how fast. Hold Shift to remove every kind of animal there.
+
 - **Food.** An animal can live only where there is something it eats: grass and meadow plants,
   shrubs and young trees, deciduous trees, conifers (all buried by deep snow), plankton, seaweed
   (kelp and seagrass) or other animals. Predators are fed by the prey within their range, thin
