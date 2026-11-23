@@ -33,6 +33,7 @@ export const civParams = {
   destruction: 1, // how hard towns are on the land: burning to clear it, pollution, terracing
   quarrying: true, // whether big towns quarry hills away
   extraPlantations: false, // towns keep starting plantations even when they have all the timber they need
+  plotSize: 120,  // largest plantation plot a town lays out (cells): smaller plots rotate faster
 };
 
 const FARMS_PER_TOWN_CELL = 3; // every cell of town needs at least this many cells of farmland
@@ -660,7 +661,8 @@ function timberStep(world, t, farmCells, R) {
     if (world.humus) world.humus[i] *= 0.7; // (and the clear-fell strips the soil: hauled, rutted, washed off)
   };
   const HU = world.humus;
-  let cells = 0, cut = 0, felledNow = false;
+  let cells = 0, cut = 0;
+  const ready = [];
   if (t.fellRest > 0) t.fellRest--;
   if (!world.timberRest || world.timberRest.length !== N2) world.timberRest = new Uint8Array(N2);
   const REST = world.timberRest;
@@ -682,6 +684,14 @@ function timberStep(world, t, farmCells, R) {
       pl.alive = alive; cells += alive;
       continue;
     }
+    // (a town-made plot far bigger than the plot size, e.g. one that took in a whole forest, is cut
+    // back to the plot nearest its centre; the rest goes back to the wild)
+    if (!pl.painted && pl.cells.length > civParams.plotSize * 1.5) {
+      const keep = pl.cells.filter((i) => LU[i] === 10 && OW[i] === t.num)
+        .sort((a, b) => Math.hypot((a % N) - pl.x, ((a / N) | 0) - pl.z) - Math.hypot((b % N) - pl.x, ((b / N) | 0) - pl.z));
+      for (const i of keep.slice(civParams.plotSize)) { LU[i] = 0; OW[i] = 0; REST[i] = 0; }
+      pl.cells = keep.slice(0, civParams.plotSize);
+    }
     for (const i of pl.cells) {
       if (LU[i] !== 10 || OW[i] !== t.num) continue;
       alive++;
@@ -689,29 +699,9 @@ function timberStep(world, t, farmCells, R) {
       if (V[i] > 0.82) grown++;
       else { const g = (0.3 + 0.7 * FS[i]) * (HU ? 0.35 + 0.65 * Math.min(1, HU[i] * 2.5) : 1); V[i] = Math.min(0.88, V[i] + 0.015 * g); if (TD) TD[i] = Math.min(1, TD[i] + 0.012 * g); } // (replanted fast-growing stock, tended: slower on worn soil)
     }
-    // Felled only when its trees have grown back almost all over, and one plot at a time: the town
-    // works its plantations in rotation, cutting one while the others grow back (a short rest after
-    // each felling before the next plot is cut)
-    if (alive && grown >= 0.8 * alive && !felledNow && (t.fellRest || 0) <= 0) {
-      felledNow = true;
-      t.fellRest = Math.max(6, Math.round(24 / Math.max(1, t.plantations.filter((q) => !q.resting).length)));
-      const live = pl.cells.filter((i) => LU[i] === 10 && OW[i] === t.num);
-      for (const i of live) fell(i);
-      cut += live.length;
-      // (and the forest around it, all of it that joins on)
-      const seen = new Uint8Array(N2), q = [];
-      for (const i of live) seen[i] = 1;
-      for (const i of live) for (const k of [i - 1, i + 1, i - N, i + N]) if (k >= 0 && k < N2 && !seen[k]) { seen[k] = 1; q.push(k); }
-      while (q.length) {
-        const j = q.pop(), x = j % N, z = (j / N) | 0;
-        if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
-        if (LU[j] || V[j] <= 0.6 || FS[j] < 0.5 || (HU && HU[j] < 0.15) || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j)) continue;
-        fell(j); LU[j] = 10; OW[j] = t.num; pl.cells.push(j); cut++; alive++;
-        for (const k of [j - 1, j + 1, j - N, j + N]) if (!seen[k]) { seen[k] = 1; q.push(k); }
-      }
-      pl.felled = (pl.felled || 0) + 1;
-      world.dirty = true;
-    }
+    // (ready to fell once its trees have grown back almost all over; the town picks which below)
+    if (!pl.id) pl.id = Math.random().toString(36).slice(2, 8);
+    if (alive && grown >= 0.8 * alive) ready.push(pl);
     // Worn out: once a plantation's soil is exhausted it is abandoned to recover (left to the wild,
     // its soil slowly coming back), and a new plantation is started on fresh land elsewhere
     if (alive) {
@@ -733,6 +723,39 @@ function timberStep(world, t, farmCells, R) {
     }
     pl.alive = alive;
     cells += alive;
+  }
+  // Felling, one plot at a time in rotation: the town cuts one plot, then waits, and the next plot it
+  // cuts is a different one (never the same plot twice running while it has another), the one that
+  // has gone longest since it was last felled. The others grow back meanwhile.
+  const working = t.plantations.filter((pl) => !pl.resting && pl.alive > 0);
+  if (ready.length && (t.fellRest || 0) <= 0) {
+    const choices = working.length > 1 ? ready.filter((pl) => pl.id !== t.lastPlot) : ready;
+    let pl = null;
+    for (const c of choices) if (!pl || (c.lastFell ?? -1) < (pl.lastFell ?? -1)) pl = c;
+    if (pl) {
+      t.fellCount = (t.fellCount || 0) + 1;
+      pl.lastFell = t.fellCount;
+      t.lastPlot = pl.id;
+      t.fellRest = Math.max(8, Math.round(30 / Math.max(1, working.length)));
+      const live = pl.cells.filter((i) => LU[i] === 10 && OW[i] === t.num);
+      for (const i of live) fell(i);
+      cut += live.length;
+      // (and the forest around it, all of it that joins on)
+      // (no bigger than the plot size, or than you painted it)
+      const capF = Math.max(civParams.plotSize, pl.painted ? live.length : 0);
+      const seen = new Uint8Array(N2), q = [];
+      for (const i of live) seen[i] = 1;
+      for (const i of live) for (const k of [i - 1, i + 1, i - N, i + N]) if (k >= 0 && k < N2 && !seen[k]) { seen[k] = 1; q.push(k); }
+      for (let h = 0; h < q.length && pl.alive < capF; h++) {
+        const j = q[h], x = j % N, z = (j / N) | 0;
+        if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
+        if (LU[j] || V[j] <= 0.6 || FS[j] < 0.5 || (HU && HU[j] < 0.15) || H[j] < sea + 0.5 || world.water[j] > 0.1 || isProtected(world, j)) continue;
+        fell(j); LU[j] = 10; OW[j] = t.num; pl.cells.push(j); cut++; pl.alive++; cells++;
+        for (const k of [j - 1, j + 1, j - N, j + N]) if (!seen[k]) { seen[k] = 1; q.push(k); }
+      }
+      pl.felled = (pl.felled || 0) + 1;
+      world.dirty = true;
+    }
   }
   t.plantations = t.plantations.filter((pl) => pl.alive > 0);
   // Rotation among the painted plantations: while none is being worked, the rested one whose soil
@@ -777,16 +800,17 @@ function timberStep(world, t, farmCells, R) {
   const claimed = [], c0 = best.z * N + best.x;
   const free = (j) => !LU[j] && H[j] >= sea + 0.5 && world.water[j] < 0.1 && !isProtected(world, j) && FS[j] >= 0.5 && (!HU || HU[j] >= 0.06);
   if (V[c0] > 0.6 && free(c0)) {
-    const seen = new Uint8Array(N * N), q = [c0];
+    // (a compact block of the forest there, grown out from the site to the plot size)
+    const seen = new Uint8Array(N * N), q = [c0], cap = Math.max(10, civParams.plotSize);
     seen[c0] = 1;
-    while (q.length) {
-      const j = q.pop(), x = j % N, z = (j / N) | 0;
+    for (let h = 0; h < q.length && claimed.length < cap; h++) {
+      const j = q[h], x = j % N, z = (j / N) | 0;
       if (x < 2 || z < 2 || x > N - 3 || z > N - 3) continue;
       LU[j] = 10; OW[j] = t.num; claimed.push(j);
       for (const k of [j - 1, j + 1, j - N, j + N]) if (!seen[k]) { seen[k] = 1; if (V[k] > 0.6 && free(k)) q.push(k); }
     }
   } else {
-    const r = 6;
+    const r = Math.max(2, Math.round(Math.sqrt(Math.max(10, civParams.plotSize) / Math.PI)));
     for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
       if (dx * dx + dz * dz > r * r + 1) continue;
       const x = best.x + dx, z = best.z + dz;

@@ -1052,8 +1052,12 @@ runaway city. The steady clearing of new fields also slows as a town's farmland 
 
 **Timber plantations.** Each town keeps about twice as much land under timber as under fields.
 It picks the land where forest grows best, out to three times its town's reach, preferring an
-existing forest. A plantation takes in that entire forest: every connected forest cell, however big
-it is. On open ground that suits trees, it plants a block about 12 cells across instead. Each town
+existing forest. A plantation takes a compact block of that forest, grown out from the site up to
+the **Plantation plot size** (120 cells by default; the slider goes from 20 to 2,000). On open
+ground that suits trees, it plants a round block of that size instead. Small plots are felled and
+regrown faster and rotate more often, and leave wild forest between them. A town-made plot far
+bigger than the plot size, from an older level, is cut back to the part nearest its centre, and the
+rest returns to the wild. Each town
 keeps 2 to 4 plots to rotate among: it always starts a second, and goes on to up to four while its
 timber land is less than twice its farmland. With the **Extra plantations** setting on, it keeps
 starting more without limit, small villages included, wherever it finds land. Every
@@ -1063,10 +1067,11 @@ would grow trees best, the outer ones first. In dry country these become watered
 that still grow. A plantation is only abandoned for worn soil after it has given at least one
 crop. Plantations are planted with fast-growing stock and tended. A plantation is only cut once its
 trees have grown back almost everywhere (80% of it near full cover). The town fells one plot at a
-time, with a short pause after each felling, so the others grow back meanwhile. Then the whole plot
+time, with a pause after each felling. The next plot it fells is always a different one (never the
+same plot twice running while it has another): the one that has gone longest since it was last
+cut. So it clears one plot, waits, moves on to another, and so on, while the others grow back. Then the whole plot
 is clear-felled at once, leaving bare brown ground with slash
-and the soil a little thinner. All the natural forest that joins onto it is felled with it and
-taken into the plantation. Then the plot is replanted to grow again. Each crop of timber takes nutrients out of the soil (the
+and the soil a little thinner. Natural forest joining onto it is felled with it and taken into the plantation, up to the plot size. Then the plot is replanted to grow again. Each crop of timber takes nutrients out of the soil (the
 plantation's soil falls by about a fifth with every felling), and trees regrow more slowly on worn
 soil. Each clear-fell also strips the soil itself: hauling, ruts and bare ground washing off take
 about 30% of its depth. A plantation builds almost none back, since it's a young crop of one kind
