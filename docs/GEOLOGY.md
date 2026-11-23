@@ -1309,7 +1309,9 @@ remain. It doesn't grow on open ground, and dies back where the forest is cleare
 It shows as a darker, bluer green in the forest, in the *Invasive trees* overlay and in the
 inspector. The **Invasive trees** brush (🌿, under Wildlife) paints it into forest, and Shift cuts it
 out, though it will creep back from invaded forest nearby. The **Invasive plantation pine** switch
-(Civilization) plants the plantations with native trees instead, and then nothing new escapes.
+(Civilization) plants the plantations with native trees instead. Pine already loose in the wild
+keeps spreading, though, into those native plantations too, and wild pine felled with a native
+plantation is no use as timber.
 
 **Old fields go back to forest.** Fields that go out of use are remembered as old fields. That
 includes fields abandoned with their town, left fallow, given up as too steep, or cleared with the
@@ -1344,3 +1346,9 @@ is large (more than about 80 cells burning, fully by about 500), its heat and th
 dry the air and drive the rain off, so rain puts it out far more slowly: about three times as
 slowly at 0.5, five times at 1, and nine times at 2, where a big fire burns on through the rain.
 Small fires, standing water and snow put fires out as before. 0 = rain puts out any fire alike.
+
+**Towns clearing the pine.** A town clears the invasive pine only where it must: where it presses on
+its own fields, streets and works, or where it has got into the town's plantations (when they're
+native). Work gangs cut it out there, the worst first. The work costs the town people, about one for
+every 0.4 of a cell's worth of pine cleared, and the cut pine is worthless as timber, so it isn't
+added to the town's wood. The **Towns clear invasive pine** switch (Civilization) turns it off.

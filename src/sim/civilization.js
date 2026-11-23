@@ -37,6 +37,7 @@ export const civParams = {
   plotSize: 120,  // largest plantation plot a town lays out (cells): smaller plots rotate faster
   epidemics: true, // crowded towns with dirty water suffer outbreaks of disease, spreading along their links
   invasive: true,  // plantations are planted with an invasive exotic pine that escapes into the wild forest
+  clearInvasive: true, // towns cut the invasive pine out of the wild forest around them (at a cost in people)
 };
 
 const FARMS_PER_TOWN_CELL = 3; // every cell of town needs at least this many cells of farmland
@@ -697,8 +698,10 @@ function timberStep(world, t, farmCells, R) {
   const FS = world.farmSoil;
   let woodNow = 0;
   const N2 = N * N, fell = (i) => {
-    world.woodCut = (world.woodCut || 0) + V[i]; // (the wood it yields: more from grown trees)
-    woodNow += V[i];
+    // (the wood it yields: more from grown trees; in a native plantation, wild pine that got in is no timber)
+    const yieldWood = V[i] * (civParams.invasive || !world.invasive ? 1 : 1 - world.invasive[i]);
+    world.woodCut = (world.woodCut || 0) + yieldWood;
+    woodNow += yieldWood;
     V[i] = world.plantedField && world.plantedField[i] ? 0.3 : 0.2; if (TD) TD[i] *= 0.08; world.forestAge[i] = 0; // (felled, and replanted with saplings at once)
     if (world.soil) world.soil[i] *= 0.92; // (the bare ground washing a little soil away)
     FS[i] = Math.max(0, FS[i] - 0.18); // (each crop of timber takes nutrients out with it)
@@ -1507,6 +1510,8 @@ export function civStep(world) {
     timberStep(world, t, farmCells, R);
     // Mines into the hard rock nearby
     mineStep(world, t, R);
+    // Clearing the invasive pine out of the forest around it
+    if (civParams.clearInvasive) clearInvasives(world, t, R);
     // A big town sends people out to found a daughter village (linked by road)
     // (when the town is crowded: near what its land can feed)
     // (a town with boats can send them across the water, farther afield; without, only overland)
@@ -1795,16 +1800,19 @@ function airPollutionStep(world) {
  */
 function invasiveStep(world) {
   const N = world.N, n = N * N, LU = world.landUse, V = world.vegetation;
-  if (!civParams.invasive) return;
+  // (with Invasive plantation pine on, every plantation is pine; off, plantations are native trees,
+  // but the pine already loose in the wild keeps spreading, into native plantations too)
+  const pinePlant = civParams.invasive;
+  if (!pinePlant && !world.invasive) return;
   if (!world.invasive || world.invasive.length !== n) world.invasive = new Float32Array(n);
   const I = world.invasive, FH = world.forestHealth;
   let any = false;
-  for (let i = 0; i < n; i++) if (LU[i] === 10) { I[i] = 1; any = true; } else if (I[i] > 0) any = true;
+  for (let i = 0; i < n; i++) if (LU[i] === 10 && pinePlant) { I[i] = 1; any = true; } else if (I[i] > 0) any = true;
   if (!any) return;
   const next = I.slice();
   for (let z = 1; z < N - 1; z++) for (let x = 1; x < N - 1; x++) {
     const i = z * N + x;
-    if (LU[i] === 10) continue;
+    if (LU[i] === 10 && pinePlant) continue;
     const OF = world.oldField;
     if (!LU[i] && OF && OF[i]) {
       // An old field: the pine is a pioneer on bare, disturbed ground, quick to take it over from
@@ -1817,7 +1825,7 @@ function invasiveStep(world) {
       }
       continue;
     }
-    if (V[i] < 0.5 || LU[i]) { next[i] = I[i] * 0.97; continue; } // (no forest: it dies back)
+    if (V[i] < 0.5 || (LU[i] && LU[i] !== 10)) { next[i] = I[i] * 0.97; continue; } // (no forest: it dies back; a native plantation it can invade)
     const s = (I[i - 1] + I[i + 1] + I[i - N] + I[i + N]) * 0.25;
     if (s <= 0.001 && I[i] <= 0) continue;
     // (seedlings from its neighbours take hold under the native trees, and it shades them out)
@@ -1859,6 +1867,47 @@ function invasiveStep(world) {
     if (!LU[j] && V[j] > 0.55) next[j] = Math.max(next[j], 0.05);
   }
   I.set(next);
+}
+
+/**
+ * A town clears the invasive pine only where it must: where it presses on the town's own land, its
+ * fields, streets and works, or has got into its plantations (when they're planted with native
+ * trees). Work gangs cut it out there, the worst first. The work is hard and takes people away
+ * (some leave, some are lost to accidents, the rest are kept from the fields): the town loses about
+ * one person for every 0.4 of a cell's worth of pine it clears. The cut pine is worthless as timber
+ * (it isn't added to the town's wood).
+ */
+function clearInvasives(world, t, R) {
+  const I = world.invasive, LU = world.landUse, OW = world.civOwner, N = world.N;
+  if (!I || t.pop < 150 || Math.random() > 0.25) return;
+  const pinePlant = civParams.invasive;
+  const reach = Math.ceil(R * 2);
+  const budget = Math.min(6, t.pop * 0.003); // (cells' worth of pine the gangs can clear this step)
+  // (its own land: fields, streets, works, and native plantations)
+  const own = (j) => OW[j] === t.num && (LU[j] === 1 || LU[j] === 2 || LU[j] === 4 || (LU[j] === 10 && !pinePlant));
+  const cands = [];
+  for (let z = Math.max(2, t.z - reach); z <= Math.min(N - 3, t.z + reach); z += 1) for (let x = Math.max(2, t.x - reach); x <= Math.min(N - 3, t.x + reach); x += 1) {
+    const i = z * N + x;
+    if (I[i] < 0.1) continue;
+    // (in its native plantation, or pressing right up against its land)
+    let pressing = LU[i] === 10 && !pinePlant && OW[i] === t.num;
+    if (!pressing && !LU[i]) for (const j of [i - 1, i + 1, i - N, i + N, i - 2, i + 2, i - 2 * N, i + 2 * N]) if (own(j)) { pressing = true; break; }
+    if (pressing) cands.push(i);
+  }
+  if (!cands.length) return;
+  cands.sort((a, b) => I[b] - I[a]);
+  let cleared = 0;
+  for (const i of cands) {
+    if (cleared >= budget) break;
+    cleared += I[i];
+    I[i] = 0;
+    if (!LU[i]) world.vegetation[i] = Math.min(world.vegetation[i], 0.55); // (a gap where the pines were: the natives fill it)
+  }
+  if (!cleared) return;
+  const lost = cleared / 0.4;
+  t.pop = Math.max(20, t.pop - lost);
+  t.invCleared = (t.invCleared || 0) + cleared;
+  t.invLost = (t.invLost || 0) + lost;
 }
 
 // --- Overgrazing ------------------------------------------------------------------------------
@@ -2306,8 +2355,9 @@ export function harvestPlantationAt(world, x, z) {
     if (LU[j] !== 10 || OW[j] !== t.num) continue;
     cells++;
     if (V[j] > 0.82) grown++;
-    world.woodCut = (world.woodCut || 0) + V[j]; // (the wood it yields)
-    t.woodStock = (t.woodStock ?? 40) + V[j];
+    const yieldWood = V[j] * (civParams.invasive || !world.invasive ? 1 : 1 - world.invasive[j]); // (wild pine in a native plantation: no timber)
+    world.woodCut = (world.woodCut || 0) + yieldWood;
+    t.woodStock = (t.woodStock ?? 40) + yieldWood;
     V[j] = world.plantedField && world.plantedField[j] ? 0.3 : 0.2; // (felled, and replanted with saplings)
     if (TD) TD[j] *= 0.08;
     world.forestAge[j] = 0;
