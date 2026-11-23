@@ -29,6 +29,7 @@ export const STATS = [
   { id: 'industry', label: 'Industrial land', group: 'Civilization', unit: '%', help: 'Share of the land given over to industry.' },
   { id: 'farmland', label: 'Farmland', group: 'Civilization', unit: '%', help: 'Share of the land cleared for farming.' },
   { id: 'timber', label: 'Timber plantations', group: 'Civilization', unit: '%', help: 'Share of the land the towns grow timber on.' },
+  { id: 'wood', label: 'Wood harvested', group: 'Civilization', unit: 'loads', help: 'Timber felled in the plantations since the last sample (by the towns, and with the Harvest tool): each felled cell yields as much as its trees had grown, so felling young trees gives little.' },
   { id: 'dirtyRivers', label: 'Polluted rivers', group: 'Civilization', unit: '%', help: 'Share of the rivers and streams carrying pollution from the towns upstream.' },
   { id: 'sea', label: 'Sea', group: 'Sea', unit: '%', help: 'Share of the map that is sea.' },
   { id: 'clean', label: 'Clean water', group: 'Sea', unit: '%', help: 'Share of the sea whose water is clear (not muddy or polluted).' },
@@ -88,13 +89,16 @@ export function computeStats(world) {
     sea: pct(seaN, seaN + land), clean: pct(clean, seaN), lowOxygen: pct(lowOx, seaN), beds: pct(bedsOK, beds),
     coral: pct(coral, seaN), seaIce: pct(seaIce, seaN),
     people: (world.towns || []).reduce((t, x) => t + x.pop, 0), towns: (world.towns || []).length, boats: (world.towns || []).reduce((t, x) => t + (x.boats || 0), 0),
-    paved: pct(paved, land), farmland: pct(farmland, land), timber: pct(timber, land), industry: pct(industry, land), dirtyRivers: pct(dirtyStreams, streams),
+    paved: pct(paved, land), farmland: pct(farmland, land), timber: pct(timber, land), wood: world.woodRate ?? 0, industry: pct(industry, land), dirtyRivers: pct(dirtyStreams, streams),
   };
 }
 
 /** Record a sample of every statistic. */
 export function recordStats(world) {
   if (!world.statHistory) world.statHistory = {};
+  // (wood harvested since the last sample)
+  world.woodRate = Math.round(((world.woodCut || 0) - (world.woodCutLast ?? (world.woodCut || 0))) * 10) / 10;
+  world.woodCutLast = world.woodCut || 0;
   const now = computeStats(world);
   for (const s of STATS) {
     if (now[s.id] === null) continue; // (not computed yet)

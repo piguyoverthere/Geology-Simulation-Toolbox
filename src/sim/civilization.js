@@ -696,6 +696,7 @@ function timberStep(world, t, farmCells, R) {
   // replanted with it)
   const FS = world.farmSoil;
   const N2 = N * N, fell = (i) => {
+    world.woodCut = (world.woodCut || 0) + V[i]; // (the wood it yields: more from grown trees)
     V[i] = world.plantedField && world.plantedField[i] ? 0.3 : 0.2; if (TD) TD[i] *= 0.08; world.forestAge[i] = 0; // (felled, and replanted with saplings at once)
     if (world.soil) world.soil[i] *= 0.92; // (the bare ground washing a little soil away)
     FS[i] = Math.max(0, FS[i] - 0.18); // (each crop of timber takes nutrients out with it)
@@ -2286,6 +2287,7 @@ export function harvestPlantationAt(world, x, z) {
     if (LU[j] !== 10 || OW[j] !== t.num) continue;
     cells++;
     if (V[j] > 0.82) grown++;
+    world.woodCut = (world.woodCut || 0) + V[j]; // (the wood it yields)
     V[j] = world.plantedField && world.plantedField[j] ? 0.3 : 0.2; // (felled, and replanted with saplings)
     if (TD) TD[j] *= 0.08;
     world.forestAge[j] = 0;

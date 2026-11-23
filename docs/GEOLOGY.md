@@ -1195,7 +1195,7 @@ unless you hold Shift. A town whose streets are all gone is abandoned.
 click, whether or not its trees are grown. It counts as its town's felling: the timber goes to the
 town, the soil is worn (fewer nutrients, thinner), and the plot is replanted with saplings at once
 and takes its turn in the town's rotation. Felling young trees gives little wood but wears the soil
-just the same.
+just the same. The **Wood harvested** graph (Graphs window, Civilization) shows the timber felled between samples, by the towns and with the Harvest tool; each felled cell yields as much as its trees had grown.
 
 **Clearing fields.** The **Clear fields** tool (🚜, under Civilization) takes farmland out of
 farming. The fields you paint over are abandoned and left as bare ground with poor, worn-out soil:
