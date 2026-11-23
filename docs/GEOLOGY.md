@@ -1131,9 +1131,16 @@ water, no clouds, fog or smoke.
 
 **Painting plantations.** The **Plantation** brush (🌲, under Civilization) paints timber
 plantation onto open land, and onto the nearest town's own fields, for the nearest town within
-about 80 cells. The ground is planted with saplings. The town then tends the plantation like its
-own: it fells it when grown, together with any wild forest joining it, and replants it. Painted cells join a painted plantation of that town nearby, or start a
-new one. A plantation you paint is kept for good: it's felled and replanted as usual, regrowing more slowly as its soil wears thin, but the town never abandons it. Hold Shift to clear plantation back to the wild.
+about 80 cells. The ground is planted with saplings, and the town tends it, fells it when grown
+(together with any wild forest joining it), and replants it. Painted plantations are never given
+up; the town rotates among them instead. When one's soil is worn out (nutrients below 30% or soil
+depth below 10%), the town stops working it and lets it rest. A resting plantation is neither
+tended nor felled: its trees grow back wild and its soil recovers. While none of a town's painted
+plantations is being worked, it takes up the rested one whose soil has come back best (nutrients
+60%, some depth of soil). So with two or more painted plantations, the town works one while the
+others rest, in turn. Resting plantations show in the inspector and, paler, in the Land use
+overlay. Painted cells join a painted plantation of that town nearby, or start a new one. Hold
+Shift to clear plantation back to the wild.
 
 **Bulldozing.** The **Bulldoze** brush (🏗, under Civilization) tears down anything built under it:
 town streets and houses, industry, roads and bridges, harbours, quays, dams and canals. A dam's

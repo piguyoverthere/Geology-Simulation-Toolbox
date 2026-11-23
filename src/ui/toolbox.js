@@ -802,6 +802,7 @@ export class Toolbox {
     else if (mode === 'landuse') items('Land use', [
       { label: 'Fields', color: [0.95, 0.80, 0.30], help: 'Farmland (greener where irrigated).' },
       { label: 'Timber plantation', color: [0.09, 0.48, 0.20], help: 'Outlined in dark green; brown-green where it has just been felled and is regrowing.' },
+      { label: 'Plantation resting', color: [0.40, 0.70, 0.43], help: 'A painted plantation the town has stopped working while its worn soil recovers; it takes it up again once the soil is good.' },
       { label: 'Town', color: [0.86, 0.28, 0.22], help: 'Streets and houses.' },
       { label: 'Industry', color: [0.58, 0.36, 0.74], help: 'Mass-paved industrial areas.' },
       { label: 'Road', color: [0.30, 0.30, 0.34], help: 'Roads and bridges.' },

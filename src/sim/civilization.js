@@ -660,11 +660,30 @@ function timberStep(world, t, farmCells, R) {
   };
   const HU = world.humus;
   let cells = 0, cut = 0;
+  if (!world.timberRest || world.timberRest.length !== N2) world.timberRest = new Uint8Array(N2);
+  const REST = world.timberRest;
   for (const pl of t.plantations) {
     let alive = 0, grown = 0;
+    // A painted plantation resting (its soil worn out): left alone, neither tended nor felled, the
+    // trees growing back wild and the soil slowly recovering, until the town takes it up again
+    if (pl.resting) {
+      let soil = 0, depth = 0;
+      for (const i of pl.cells) {
+        if (LU[i] !== 10 || OW[i] !== t.num) continue;
+        alive++;
+        REST[i] = 1;
+        FS[i] = Math.min(1, FS[i] + 0.0025);
+        if (HU) HU[i] = Math.min(1, HU[i] + 0.002 * (1 - HU[i]) * (0.3 + V[i]));
+        soil += FS[i]; depth += HU ? HU[i] : 1;
+      }
+      pl.soil = alive ? soil / alive : 0; pl.depth = alive ? depth / alive : 0;
+      pl.alive = alive; cells += alive;
+      continue;
+    }
     for (const i of pl.cells) {
       if (LU[i] !== 10 || OW[i] !== t.num) continue;
       alive++;
+      REST[i] = 0;
       if (V[i] > 0.7) grown++;
       else { const g = (0.3 + 0.7 * FS[i]) * (HU ? 0.35 + 0.65 * Math.min(1, HU[i] * 2.5) : 1); V[i] = Math.min(0.72, V[i] + 0.02 * g); if (TD) TD[i] = Math.min(1, TD[i] + 0.015 * g); } // (replanted fast-growing stock, tended: slower on worn soil)
     }
@@ -696,16 +715,27 @@ function timberStep(world, t, farmCells, R) {
       // (worn out: its nutrients gone, or its soil stripped too thin to grow another crop)
       // (a plantation you painted is kept for good: felled and replanted, regrowing more slowly as its
       // soil wears, but never given up)
-      if (!pl.painted && (pl.soil < 0.3 || pl.depth < 0.1) && (pl.felled || 0) >= 1) { // (after at least one crop)
-        for (const i of pl.cells) if (LU[i] === 10 && OW[i] === t.num) { LU[i] = 0; OW[i] = 0; }
-        t.platsRetired = (t.platsRetired || 0) + 1;
-        alive = 0;
+      if ((pl.soil < 0.3 || pl.depth < 0.1) && (pl.felled || 0) >= 1) { // (after at least one crop)
+        if (pl.painted) { pl.resting = true; pl.felled = 0; } // (a painted one is rested, not given up)
+        else {
+          for (const i of pl.cells) if (LU[i] === 10 && OW[i] === t.num) { LU[i] = 0; OW[i] = 0; }
+          t.platsRetired = (t.platsRetired || 0) + 1;
+          alive = 0;
+        }
       }
     }
     pl.alive = alive;
     cells += alive;
   }
   t.plantations = t.plantations.filter((pl) => pl.alive > 0);
+  // Rotation among the painted plantations: while none is being worked, the rested one whose soil
+  // has come back best (nutrients 60%, some depth of soil) is taken up again
+  const painted = t.plantations.filter((pl) => pl.painted);
+  if (painted.length && !painted.some((pl) => !pl.resting)) {
+    let best = null;
+    for (const pl of painted) if (pl.soil >= 0.6 && pl.depth >= 0.2 && (!best || pl.soil + pl.depth > best.soil + best.depth)) best = pl;
+    if (best) { best.resting = false; for (const i of best.cells) REST[i] = 0; world.dirty = true; }
+  }
   t.timberCells = cells;
   t.timberCut = (t.timberCut || 0) * 0.9 + cut;
   // New plantations: about twice the land of its fields. Every village must have one: a village
