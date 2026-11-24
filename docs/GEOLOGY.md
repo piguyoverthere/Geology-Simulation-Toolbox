@@ -1274,6 +1274,14 @@ rain falls: forest health drops, and where the smoke is thick, the trees die bac
 fields turns sour and loses fertility. The *Air pollution* overlay shows it, and so does the
 inspector.
 
+**Wildfire smoke.** Every burning cell pours smoke into the air, far more than any town. It is kept
+apart from the towns' smoke (world.fireSmoke) because it is soot and ash rather than the sulphur
+that makes acid rain, so it doesn't sour the soil or kill trees. It drifts downwind the same way, and a
+big fire's plume can cover a large part of the map. It clears faster than the towns' haze, and much
+faster while it rains. A town under thick smoke has a few of its people die each step (😷 on its
+label). The *Air pollution* overlay draws both kinds of smoke, the inspector shows *Wildfire smoke*
+separately, and the *Smoky air* graph tracks how much of the map is under smoke.
+
 **Migration.** People move along the roads and sea routes between linked towns. They leave the
 town that is more crowded, nearer to or past what its land can support, for the more prosperous
 one, faster the bigger the difference. Booming towns draw people in, and failing ones empty, some to

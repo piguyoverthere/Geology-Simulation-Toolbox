@@ -350,7 +350,7 @@ export class TerrainRenderer {
           shade(col, 0.72 + 0.28 * ny, col);
         } else if (mode === 'air') {
           // Smoke and acid rain: clean air pale, thick smoke dark brown-grey
-          const ap = w.airPollution ? Math.min(1, Math.sqrt(w.airPollution[i]) * 0.9) : 0;
+          const ap = Math.min(1, Math.sqrt((w.airPollution ? w.airPollution[i] : 0) + (w.fireSmoke ? w.fireSmoke[i] : 0)) * 0.9);
           col = mix(AIR_CLEAN, AIR_DIRTY, ap, S3);
           shade(col, 0.72 + 0.28 * ny, col);
         } else if (mode === 'landuse') {

@@ -25,6 +25,7 @@ import { boxBlur, MinHeap } from '../core/grid.js';
 import { seasonParams, seasonalAt, drySeason, climateParams } from './climate.js';
 import { ROCK_INDEX } from '../core/rocks.js';
 import { coastParams, isLivingBed, MARINE_ID } from './coast.js';
+import { waterParams } from './water.js';
 
 export const civParams = {
   enabled: true,
@@ -1758,24 +1759,35 @@ function epidemicStep(world, towns) {
 function airPollutionStep(world) {
   const N = world.N, n = N * N, LU = world.landUse;
   if (!world.airPollution || world.airPollution.length !== n) world.airPollution = new Float32Array(n);
-  const A = world.airPollution, k = civParams.destruction;
+  if (!world.fireSmoke || world.fireSmoke.length !== n) world.fireSmoke = new Float32Array(n);
+  const A = world.airPollution, S = world.fireSmoke, F = world.fire, k = civParams.destruction;
   for (let i = 0; i < n; i++) {
     const lu = LU[i];
     if (lu === 4) A[i] += 0.05 * k;
     else if (lu === 2) A[i] += 0.006 * k;
     else if (lu === 11 || lu === 12) A[i] += 0.015 * k;
+    // Wildfires pour out smoke, far more than any town (but soot and ash, not the sulphur that
+    // makes acid rain): kept apart in world.fireSmoke
+    if (F && F[i] > 0) S[i] += 0.5 * Math.min(1, F[i]) + 0.15;
   }
   // Drift downwind (about 2 cells a step) and spread
   const a = ((climateParams.windAngle || 0) * Math.PI) / 180, ux = Math.cos(a) * 2, uz = Math.sin(a) * 2;
-  const B = new Float32Array(n);
-  for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
-    const sx = Math.round(x - ux), sz = Math.round(z - uz);
-    if (sx < 0 || sz < 0 || sx >= N || sz >= N) continue;
-    B[z * N + x] = A[sz * N + sx];
-  }
-  const C = boxBlur(B, N, 1);
-  for (let i = 0; i < n; i++) A[i] = C[i] * 0.9 < 1e-4 ? 0 : Math.min(3, C[i] * 0.9);
-  // Acid rain where it settles
+  const drift = (A, keep) => {
+    const B = new Float32Array(n);
+    let any = false;
+    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+      const sx = Math.round(x - ux), sz = Math.round(z - uz);
+      if (sx < 0 || sz < 0 || sx >= N || sz >= N) continue;
+      const v = A[sz * N + sx];
+      if (v) { B[z * N + x] = v; any = true; }
+    }
+    if (!any) { A.fill(0); return; }
+    const C = boxBlur(B, N, 1);
+    for (let i = 0; i < n; i++) A[i] = C[i] * keep < 1e-4 ? 0 : Math.min(3, C[i] * keep);
+  };
+  drift(A, 0.9);
+  drift(S, waterParams.rain > 0.01 ? 0.75 : 0.88); // (smoke clears faster than the towns' haze, and rain washes it down)
+  // Acid rain where the towns' smoke settles
   const FH = world.forestHealth, V = world.vegetation, FS = world.farmSoil;
   for (let i = 0; i < n; i++) {
     const s = A[i];
@@ -1783,6 +1795,12 @@ function airPollutionStep(world) {
     if (FH) FH[i] = Math.max(0, FH[i] - 0.01 * s);
     if (V[i] > 0.66 && s > 0.25) V[i] -= 0.004 * s; // (trees dying back)
     if (LU[i] === 1 && FS) FS[i] = Math.max(0, FS[i] - 0.0006 * s);
+  }
+  // Smoke over a town makes people ill: a few of the old and the weak die in a smoky spell
+  for (const t of world.towns || []) {
+    const i = t.z * N + t.x, s = S[i] || 0;
+    t.smoky = s > 0.1;
+    if (s > 0.1) t.pop = Math.max(20, t.pop * (1 - 0.004 * Math.min(2, s)));
   }
 }
 

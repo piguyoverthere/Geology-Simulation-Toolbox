@@ -32,7 +32,7 @@ export class TownLabels {
       el.style.left = `${((this.v.x + 1) / 2) * rect.width}px`;
       el.style.top = `${((1 - this.v.y) / 2) * rect.height}px`;
       const pop = Math.round(t.pop);
-      const text = `${t.name} · ${pop >= 1000 ? (pop / 1000).toFixed(1) + 'k' : pop}${t.sick > 0.01 ? ' 🤒' : ''}${t.woodSupply < 0.9 ? ' 🪵' : ''}`;
+      const text = `${t.name} · ${pop >= 1000 ? (pop / 1000).toFixed(1) + 'k' : pop}${t.sick > 0.01 ? ' 🤒' : ''}${t.woodSupply < 0.9 ? ' 🪵' : ''}${t.smoky ? ' 😷' : ''}`;
       if (el.textContent !== text) el.textContent = text;
     }
     for (const [id, el] of this.labels) if (!seen.has(id)) { el.remove(); this.labels.delete(id); }
