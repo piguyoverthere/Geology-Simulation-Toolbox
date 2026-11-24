@@ -12,6 +12,7 @@ import { ROCKS } from '../core/rocks.js';
 import { ERUPTION_TYPES, INTRUSION_TYPES } from '../sim/volcanism.js';
 import { FAULT_TYPES } from '../sim/tectonics.js';
 import { SPECIES, OPEN } from '../sim/species.js';
+import { DISEASES, DISEASE_BY_ID } from '../sim/disease.js';
 import { BIOMES } from '../render/biomes.js';
 import { STATS } from '../sim/stats.js';
 import { PROBE_STATS } from '../sim/probes.js';
@@ -335,8 +336,12 @@ export class Toolbox {
       this.animalList,
       button('+ Add animal', () => this.editAnimal(null), 'tb-add-animal', 'Design a new animal: its name, colour, where it lives, what it eats and its habits.', this),
       this.animalForm,
+      el('div', 'tb-form-title', 'Tree diseases'),
+      el('div', 'tb-note', 'Pathogens that each attack certain native trees, worst on young ones (killing or stunting them). None is here until you introduce one with the Tree disease brush (🦠; Shift cures). Overlay: Tree disease.'),
+      (this.diseaseList = el('div', 'tb-animals')),
     );
     this.renderAnimals();
+    this.renderDiseases();
     // --- Civilization ------------------------------------------------------------------------
     const civ = this.section('Civilization');
     this.townList = el('div', 'tb-animals');
@@ -347,8 +352,8 @@ export class Toolbox {
       slider('Max farm slope °', app.civParams, 'farmSlope', 2, 40, 1, 'The steepest ground that can be farmed (degrees). Steeper land has to be cut into flat terraces first (the towns\' earthworks do that); a field that later turns too steep for this is given up.', this),
       slider('Destruction', app.civParams, 'destruction', 0, 10, 0.05, 'How hard the towns are on the land: how much forest they burn off to clear fields, how much pollution their streets, works, farms and sewers put into the rivers and sea, and how much they cut hills into terraces. 0: careful, 1: normal, 10: strip the land bare.', this),
       slider('Plantation plot size', app.civParams, 'plotSize', 20, 2000, 10, 'The largest plot (cells) a town lays out as one plantation, and how far a felling may spread into the forest beside it. Small plots are felled and regrown faster and rotate more often, leaving more wild forest between them; big ones take in whole forests. Plots you paint keep the size you paint them.', this),
-      toggle('Invasive plantation pine', app.civParams, 'invasive', 'Plantations are planted with a fast-growing exotic pine that escapes into the wild forest around them (and spreads along the roads): it crowds out the native trees and supports no wildlife. Off: plantations are planted with native trees; pine already loose in the wild keeps spreading, into those native plantations too.', this),
-      toggle('Towns clear invasive pine', app.civParams, 'clearInvasive', 'Towns cut the invasive pine out only where they must: where it presses on their own fields, streets and works, or has got into their plantations (when those are planted with native trees, i.e. with Invasive plantation pine off). It costs them people (about one for every 0.4 of a cell of pine cleared), and the cut pine is worthless as timber.', this),
+      toggle('Invasive plantation pine', app.civParams, 'invasive', 'Plantations are planted with a fast-growing exotic pine that escapes into the wild forest around them (and spreads along the roads): it crowds out the native trees and supports no wildlife. Off: every plantation is replanted with native trees at once and kept weeded of pine; the pine already loose in the wild keeps spreading through the wild forest.', this),
+      toggle('Towns clear invasive pine', app.civParams, 'clearInvasive', 'Towns cut the invasive pine out only where they must: where it presses on their own fields, streets and works,. It costs them people (about one for every 0.4 of a cell of pine cleared), and the cut pine is worthless as timber.', this),
       toggle('Epidemics', app.civParams, 'epidemics', 'Now and then disease breaks out in a crowded town, more readily where its water is dirty; it kills some of its people and spreads along roads and sea routes to the towns it trades with, then burns out, leaving the survivors immune for a while.', this),
       toggle('Extra plantations', app.civParams, 'extraPlantations', 'Towns keep starting new timber plantations even when they already have all they need (normally they stop at about twice their farmland). Every village plants, however small, and the plantations spread on over the forests around.', this),
       toggle('Quarrying', app.civParams, 'quarrying', 'Whether big towns quarry hills and mountains away (one pit per town, well out beyond it) for rock to build their breakwaters and new land. Off: no quarrying (terracing and other earthworks go on).', this),
@@ -497,6 +502,38 @@ export class Toolbox {
   }
 
   /** Legend for the current overlay: swatches for categories, a ramp for continuous values. */
+  /** The tree diseases in the Wildlife panel: pick one to introduce, see how far each has spread. */
+  renderDiseases() {
+    const app = this.app, L = this.diseaseList;
+    L.innerHTML = '';
+    this.diseaseCounts = [];
+    for (const d of DISEASES) {
+      const row = el('div', 'tb-disease' + ((app.diseaseChoice || 1) === d.id && app.tool === 'disease' ? ' chosen' : ''));
+      const sw = el('span', 'tb-swatch');
+      sw.style.background = rgb(d.color);
+      const name = el('span', 'tb-animal-name', d.label);
+      const status = el('span', 'tb-animal-status');
+      const intro = button('Introduce', () => { app.diseaseChoice = d.id; app.setTool('disease'); this.renderDiseases(); }, 'tb-small', `Paint ${d.label} into the forest with the Tree disease brush (Shift cures).`, this);
+      const cureAll = button('Cure', () => { const D = app.world.treeDisease; if (!D) return; for (let i = 0; i < D.length; i++) if (D[i] === d.id) { D[i] = 0; app.world.diseaseLoad[i] = 0; } app.world.dirty = true; this.updateDiseaseCounts(); }, 'tb-small', `Wipe ${d.label} off the map.`, this);
+      row.append(sw, name, status, intro, cureAll);
+      this.helpOn(row, `<b>${d.label}</b> — ${d.help} Hosts: ${d.hosts.map((h) => SPECIES.find((s) => s.id === h).label).join(', ')}.`);
+      L.append(row);
+      this.diseaseCounts.push({ d, status });
+    }
+    this.updateDiseaseCounts();
+  }
+
+  updateDiseaseCounts() {
+    const w = this.app.world, D = w.treeDisease;
+    const counts = new Array(DISEASES.length + 1).fill(0);
+    if (D) for (let i = 0; i < D.length; i++) if (D[i]) counts[D[i]]++;
+    for (const { d, status } of this.diseaseCounts || []) {
+      const c = counts[d.id], land = Math.max(1, w.N * w.N);
+      status.textContent = c ? `${(100 * c / land).toFixed(1)}% of map` : 'not present';
+      status.className = 'tb-animal-status' + (c ? ' bad' : '');
+    }
+  }
+
   /** The list of animals in the Wildlife panel. */
   renderAnimals() {
     const app = this.app, w = app.world, L = this.animalList;
@@ -610,6 +647,7 @@ export class Toolbox {
   /** Redraw the population graphs (sparklines, and the expanded charts that are open). */
   drawGraphs() {
     const w = this.app.world, hist = w.popHistory || {};
+    this.updateDiseaseCounts();
     // Towns (rebuild the list when towns come and go)
     if ((w.towns || []).map((t) => t.id).join(',') !== this.townKey) this.renderTowns();
     for (const g of this.townGraphs || []) {
@@ -863,6 +901,7 @@ export class Toolbox {
       }
     }
     else if (mode === 'invasive') ramp('Invasive pine (share of the trees)', 'native forest', 'all pine', [[0.30, 0.62, 0.30], [0.66, 0.16, 0.38]]);
+    else if (mode === 'disease') items('Tree diseases (stronger colour = heavier infection)', [{ label: 'Healthy forest', color: [0.55, 0.70, 0.52], help: 'Forest with no disease.' }, ...DISEASES]);
     else if (mode === 'air') ramp('Air pollution (town smoke, acid rain, wildfire smoke)', 'clean', 'thick smoke', [[0.86, 0.90, 0.92], [0.35, 0.28, 0.22]]);
     else if (mode === 'landuse') items('Land use', [
       { label: 'Fields', color: [0.95, 0.80, 0.30], help: 'Farmland (greener where irrigated).' },

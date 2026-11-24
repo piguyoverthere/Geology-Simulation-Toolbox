@@ -1,6 +1,7 @@
 // Sculpting and simulation brushes. Each tool's `apply` is called every frame while the mouse is
 // held down over the terrain, with the brush centre in grid coordinates.
 
+import { infect, cure } from '../sim/disease.js';
 import { strike, spawnStormAt } from '../sim/weather.js';
 import { addIce } from '../sim/glacier.js';
 import { MinHeap } from '../core/grid.js';
@@ -544,6 +545,19 @@ TOOLS.animal = {
     forEachCell(world, x, z, radius, (i, w) => {
       if (invert) F[i] *= 1 - Math.min(1, k * w * 2);
       else if (canLive(world, a, i)) F[i] = Math.min(1, F[i] + k * w);
+    });
+    world.dirty = true;
+  },
+};
+
+TOOLS.disease = {
+  label: 'Tree disease', group: 'Wildlife', icon: '🦠', editsTerrain: false,
+  help: 'Introduce the tree disease chosen under Wildlife → Tree diseases where you paint (it only takes where its host trees grow). Each disease attacks only certain native trees, and is worst on young ones: it kills or stunts them, then spreads to its hosts nearby. Hold Shift to cure it.',
+  apply({ world, app, x, z, radius, strength, dt, invert }) {
+    const k = Math.min(1, strength * 3 * dt), id = app.diseaseChoice || 1;
+    forEachCell(world, x, z, radius, (i, w) => {
+      if (invert) cure(world, i, Math.min(1, k * w * 2));
+      else infect(world, i, id, k * w);
     });
     world.dirty = true;
   },

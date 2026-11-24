@@ -21,6 +21,7 @@ export const STATS = [
   { id: 'ice', label: 'Glacier ice', group: 'Land', unit: '%', help: 'Share of the land under glacier ice.' },
   { id: 'burnt', label: 'Burnt or burning', group: 'Land', unit: '%', help: 'Share of the land on fire or freshly burnt.' },
   { id: 'deadWood', label: 'Dead forest', group: 'Land', unit: '%', help: 'Share of the land with standing dead trees (killed by tree-killing animals), which burn fiercely.' },
+  { id: 'diseased', label: 'Diseased forest', group: 'Land', unit: '%', help: 'Share of the forest infected with one of the tree diseases you have introduced.' },
   { id: 'temp', label: 'Average temperature', group: 'Climate', unit: '°C', help: 'Average temperature over the land today (with the season).' },
   { id: 'smoky', label: 'Smoky air', group: 'Climate', unit: '%', help: 'Share of the map under smoke: wildfire smoke drifting downwind, and the towns\' smoke.' },
   { id: 'people', label: 'Population', group: 'Civilization', unit: 'people', help: 'Everyone living in the towns.' },
@@ -46,7 +47,7 @@ export function computeStats(world) {
   const sea = world.meanSea !== undefined && world.meanSea > -999 ? world.meanSea : -1e9;
   let land = 0, tempN = 0, forest = 0, grass = 0, bare = 0, old = 0, healthSum = 0, densSum = 0, snow = 0, ice = 0, burnt = 0, dead = 0, temp = 0;
   let paved = 0, farmland = 0, timber = 0, industry = 0, streams = 0, dirtyStreams = 0;
-  let smoky = 0, all = 0;
+  let smoky = 0, all = 0, diseased = 0;
   let seaN = 0, clean = 0, lowOx = 0, beds = 0, bedsOK = 0, coral = 0, seaIce = 0;
   const st = world.seasonT || 0;
   for (let i = 0; i < n; i += 2) { // (every other cell: plenty for a map-wide share)
@@ -74,6 +75,7 @@ export function computeStats(world) {
       if (world.forestAge[i] > 0.75) old++;
       if (world.forestHealth) healthSum += world.forestHealth[i];
       if (world.treeDensity) densSum += world.treeDensity[i];
+      if (world.treeDisease && world.treeDisease[i]) diseased++;
     } else if (v > 0.25) grass++;
     else bare++;
     if (world.snow && world.snow[i] > 0.1) snow++;
@@ -85,7 +87,7 @@ export function computeStats(world) {
   const pct = (a, b) => (b > 0 ? (100 * a) / b : 0);
   return {
     forest: pct(forest, land), grass: pct(grass, land), bare: pct(bare, land),
-    oldGrowth: pct(old, forest),
+    oldGrowth: pct(old, forest), diseased: pct(diseased, forest),
     health: world.forestHealth && forest ? (100 * healthSum) / forest : null,
     density: world.treeDensity && forest ? (100 * densSum) / forest : null,
     snow: pct(snow, land), ice: pct(ice, land), burnt: pct(burnt, land), deadWood: pct(dead, land),

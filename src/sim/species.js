@@ -219,3 +219,14 @@ function smooth(e0, e1, x) {
   const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1);
   return t * t * (3 - 2 * t);
 }
+
+/** Species index by id. */
+export const SPECIES_INDEX = Object.fromEntries(SPECIES.map((s, k) => [s.id, k]));
+
+/** Each species' share of the trees at cell i (summing to 1 where any suit), written into `out`. */
+export function treeShares(world, i, out) {
+  const total = suitability(world, i, out);
+  if (total > 1e-6) for (let k = 0; k < K; k++) out[k] /= total;
+  else out.fill(0);
+  return out;
+}

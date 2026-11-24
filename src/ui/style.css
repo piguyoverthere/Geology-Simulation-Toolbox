@@ -362,3 +362,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .biome-bar span { display: block; height: 100%; }
 .biome-pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
 .biome-note { margin-top: 4px; font-size: 10.5px; color: var(--muted); }
+
+/* Tree diseases (Wildlife panel) */
+.tb-disease { display: grid; grid-template-columns: 14px 1fr auto auto auto; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
+.tb-disease.chosen { border-color: var(--accent); }

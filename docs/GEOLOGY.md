@@ -1363,3 +1363,32 @@ its own fields, streets and works, or where it has got into the town's plantatio
 native). Work gangs cut it out there, the worst first. The work costs the town people, about one for
 every 0.4 of a cell's worth of pine cleared, and the cut pine is worthless as timber, so it isn't
 added to the town's wood. The **Towns clear invasive pine** switch (Civilization) turns it off.
+
+## Tree diseases (`src/sim/disease.js`)
+
+Introduced pathogens, each attacking only certain native trees. None is present until you introduce
+one: pick it under **Life → Wildlife → Tree diseases** (Introduce) and paint it in with the **🦠 Tree
+disease** brush (Shift cures; *Cure* wipes one off the map).
+
+| Disease | Hosts |
+|---|---|
+| Pine blister rust | pine, shore pine |
+| Sudden oak death | oak, beech, maple, larch |
+| Alder root rot | alder & willow |
+| Needle blight | spruce, fir, Sitka spruce |
+| Birch & aspen canker | birch, aspen |
+| Cedar leaf blight | wetland cedar |
+
+Each cell holds at most one disease (world.treeDisease) and how heavily it is infected
+(world.diseaseLoad). The infection builds up in proportion to the hosts' share of the trees, and it
+is worst on young trees: saplings are killed (cover thins, dead wood builds up), forest health
+collapses because no young trees come through, and young stands are stunted (they stop maturing).
+Old trees mostly survive, so the disease smoulders on in old forest. It spreads to neighbouring
+cells where its hosts grow (more readily downwind) and occasionally jumps 5–20 cells, and it dies out
+where its hosts are gone. The invasive pine is host to none of them. In a test, needle blight
+dropped forest health by 0.55 in young stands and by 0.05 in old ones. The *Tree disease* overlay
+colours each disease, the inspector names it, and the *Diseased forest* graph tracks its share of
+the forest.
+
+With **Invasive plantation pine** off, every plantation is replanted with native trees at once and
+kept weeded of pine; the pine already loose in the wild keeps spreading through wild forest.

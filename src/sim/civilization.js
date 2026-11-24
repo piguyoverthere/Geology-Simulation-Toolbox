@@ -1818,19 +1818,20 @@ function airPollutionStep(world) {
  */
 function invasiveStep(world) {
   const N = world.N, n = N * N, LU = world.landUse, V = world.vegetation;
-  // (with Invasive plantation pine on, every plantation is pine; off, plantations are native trees,
-  // but the pine already loose in the wild keeps spreading, into native plantations too)
+  // (with Invasive plantation pine on, every plantation is pine; off, the plantations are replanted
+  // with native trees at once and kept clear of pine, but the pine already loose in the wild keeps
+  // spreading through the wild forest)
   const pinePlant = civParams.invasive;
   if (!pinePlant && !world.invasive) return;
   if (!world.invasive || world.invasive.length !== n) world.invasive = new Float32Array(n);
   const I = world.invasive, FH = world.forestHealth;
   let any = false;
-  for (let i = 0; i < n; i++) if (LU[i] === 10 && pinePlant) { I[i] = 1; any = true; } else if (I[i] > 0) any = true;
+  for (let i = 0; i < n; i++) if (LU[i] === 10) { I[i] = pinePlant ? 1 : 0; any ||= pinePlant; } else if (I[i] > 0) any = true;
   if (!any) return;
   const next = I.slice();
   for (let z = 1; z < N - 1; z++) for (let x = 1; x < N - 1; x++) {
     const i = z * N + x;
-    if (LU[i] === 10 && pinePlant) continue;
+    if (LU[i] === 10) continue; // (pine, or native and weeded)
     const OF = world.oldField;
     if (!LU[i] && OF && OF[i]) {
       // An old field: the pine is a pioneer on bare, disturbed ground, quick to take it over from
@@ -1843,7 +1844,7 @@ function invasiveStep(world) {
       }
       continue;
     }
-    if (V[i] < 0.5 || (LU[i] && LU[i] !== 10)) { next[i] = I[i] * 0.97; continue; } // (no forest: it dies back; a native plantation it can invade)
+    if (V[i] < 0.5 || LU[i]) { next[i] = I[i] * 0.97; continue; } // (no forest: it dies back)
     const s = (I[i - 1] + I[i + 1] + I[i - N] + I[i + N]) * 0.25;
     if (s <= 0.001 && I[i] <= 0) continue;
     // (seedlings from its neighbours take hold under the native trees, and it shades them out)
