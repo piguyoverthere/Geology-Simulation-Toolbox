@@ -89,7 +89,7 @@ export function trackFires(world) {
       if (!found && world.fireLog.some((g) => g.active)) {
         const x0 = i % N, z0 = (i / N) | 0;
         let bd = 1e9;
-        for (let dz = -10; dz <= 10; dz++) for (let dx = -10; dx <= 10; dx++) {
+        for (let dz = -MERGE_GAP; dz <= MERGE_GAP; dz++) for (let dx = -MERGE_GAP; dx <= MERGE_GAP; dx++) {
           const nx = x0 + dx, nz = z0 + dz;
           if (nx < 0 || nz < 0 || nx >= N || nz >= N) continue;
           const m = nz * N + nx, d = dx * dx + dz * dz;
@@ -110,10 +110,65 @@ export function trackFires(world) {
   // Fires that have gone quiet are out
   let pruned = false;
   for (const f of world.fireLog) if (f.active && tick - f.last > QUIET) { f.active = false; f.endYear = seasonParams.year || 1; pruned = true; }
+  // Fires close together at the same time are one fire (also tidies up logs from before merging)
+  if (pruned || !world.firesMerged || tick % 200 === 0) { mergeFires(world); world.firesMerged = true; }
   if (pruned && world.fireLog.length > KEEP_SMALL + 50) {
     const small = world.fireLog.filter((f) => !f.name && !f.active);
     const drop = new Set(small.slice(0, small.length - KEEP_SMALL).map((f) => f.id));
     world.fireLog = world.fireLog.filter((f) => !drop.has(f.id));
+  }
+}
+
+/** How far apart (cells, edge to edge) two fires burning in the same or the next year can be and still count as one. */
+export const MERGE_GAP = 15;
+
+/**
+ * Merge fires that burnt close together at about the same time (their years overlapping or a year
+ * apart, their burnt areas within MERGE_GAP cells): a fire season's outbreaks in one stretch of
+ * country, its spot fires and flare-ups, are one fire. The merged fire keeps the number and name of
+ * the biggest of them, and is named if together they are big enough.
+ */
+export function mergeFires(world) {
+  ensure(world);
+  const log = world.fireLog;
+  if (log.length < 2) return;
+  const now = seasonParams.year || 1;
+  const remap = new Map();
+  let merged = true;
+  while (merged) {
+    merged = false;
+    log.sort((a, b) => b.cells - a.cells);
+    for (let a = 0; a < log.length; a++) {
+      const A = log[a];
+      if (!A.cells) continue;
+      const ax = A.sx / A.cells, az = A.sz / A.cells, ra = Math.sqrt(A.cells / Math.PI), aEnd = A.active ? now : A.endYear ?? now;
+      for (let b = a + 1; b < log.length; b++) {
+        const B = log[b];
+        if (!B.cells) continue;
+        const bEnd = B.active ? now : B.endYear ?? now;
+        if (A.year > bEnd + 1 || B.year > aEnd + 1) continue;
+        const gap = Math.hypot(B.sx / B.cells - ax, B.sz / B.cells - az) - ra - Math.sqrt(B.cells / Math.PI);
+        if (gap > MERGE_GAP) continue;
+        // B joins A (the bigger)
+        A.cells += B.cells; A.sx += B.sx; A.sz += B.sz;
+        A.year = Math.min(A.year, B.year);
+        A.active = A.active || B.active; A.last = Math.max(A.last || 0, B.last || 0);
+        A.endYear = A.active ? null : Math.max(A.endYear ?? 0, B.endYear ?? 0) || null;
+        if (!A.name && B.name) A.name = B.name;
+        remap.set(B.id, A.id);
+        for (const [k, v] of remap) if (v === B.id) remap.set(k, A.id);
+        log.splice(b, 1); b--;
+        merged = true;
+      }
+      if (!A.name && A.cells >= NAME_AT) A.name = nameFire(world, { ...A, x: Math.round(A.sx / A.cells), z: Math.round(A.sz / A.cells) });
+    }
+  }
+  log.sort((a, b) => a.id - b.id);
+  if (remap.size) {
+    const SC = world.fireScar;
+    for (let i = 0; i < SC.length; i++) { const r = SC[i] && remap.get(SC[i]); if (r) SC[i] = r; }
+    world._fireIndex = null;
+    world.dirty = true;
   }
 }
 
