@@ -2,7 +2,7 @@
 //
 // A forest is a mix of species, each competing where conditions suit it best:
 //   temperature    – spruce and larch take the cold, tropical hardwoods and palms the heat
-//   moisture       – alder and willow need wet ground by water; acacia and juniper tolerate drought
+//   moisture       – alder and willow (young) and cedar (old growth) need wet ground by water; acacia and juniper tolerate drought
 //   the coast      – salt spray and sea wind keep most trees back from the shore; shore pine (on
 //                    dunes) and Sitka spruce (in the sea fog) are the coastal specialists
 //   forest age     – pioneers (aspen in every young forest, plus pine, birch, larch, acacia)
@@ -47,8 +47,8 @@ export const SPECIES = [
     help: 'Shade-tolerant broadleaf that dominates moist old-growth forest on deep, lime-rich or neutral soil.' },
   { id: 'maple', label: 'Maple', autumn: [0.92, 0.12, 0.05], autumn2: [1.00, 0.48, 0.04], color: [0.26, 0.43, 0.12], mapColor: [0.82, 0.18, 0.22], temp: [4, 19], moist: [0.55, 0.95], age: 0.5, ageW: 0.5, soil: 'deep', slope: 0.8, chem: 0.4, chemW: 1.0, flam: 0.8, soilBuild: 1.5,
     help: 'Broadleaf of fertile, base-rich soils (e.g. over basalt or limestone).' },
-  { id: 'alder', label: 'Alder & willow', autumn: [0.66, 0.62, 0.16], color: [0.23, 0.40, 0.24], mapColor: [0.22, 0.72, 0.78], temp: [-2, 24], moist: [0.75, 1.1], age: 0.3, ageW: 0.4, soil: 'any', slope: 0.6, chem: 0, chemW: 2, riparian: true, flam: 0.4, soilBuild: 1.4,
-    help: 'Riverbank trees of waterlogged ground beside streams and lakes.' },
+  { id: 'alder', label: 'Alder & willow', autumn: [0.66, 0.62, 0.16], color: [0.23, 0.40, 0.24], mapColor: [0.22, 0.72, 0.78], temp: [-2, 24], moist: [0.75, 1.1], age: 0.05, ageW: 1.1, youngBoost: 0.5, soil: 'any', slope: 0.6, chem: 0, chemW: 2, riparian: true, flam: 0.4, soilBuild: 1.4,
+    help: 'Fast-growing pioneers of waterlogged ground beside streams, lakes and swamps: the first trees in a young wetland forest, shaded out by cedar as it ages.' },
   { id: 'juniper', label: 'Juniper', color: [0.30, 0.37, 0.24], mapColor: [0.50, 0.56, 0.34], temp: [2, 26], moist: [0.15, 0.55], age: 0.5, ageW: 0.3, soil: 'thin', slope: 1.4, chem: 0.7, chemW: 1.2, flam: 1.4, soilBuild: 0.5,
     help: 'Tough, drought-hardy conifer of dry, rocky and limestone slopes.' },
   { id: 'tropical', label: 'Tropical hardwoods', color: [0.04, 0.38, 0.14], mapColor: [0.02, 0.45, 0.30], temp: [19, 40], moist: [0.8, 1.1], age: 0.85, ageW: 0.8, soil: 'any', slope: 1.0, chem: 0, chemW: 2, flam: 0.3, soilBuild: 1.3,
@@ -63,12 +63,14 @@ export const SPECIES = [
     help: 'Giant spruce of the foggy, salt-sprayed coastal strip (the Pacific coast rainforests); thrives on sea fog and spray that other trees can\'t take.' },
   { id: 'mangrove', label: 'Mangrove', color: [0.10, 0.30, 0.16], mapColor: [0.35, 0.75, 0.20], temp: [18, 40], moist: [0.5, 1.2], age: 0.5, ageW: 0.2, soil: 'any', slope: 1.5, chem: 0, chemW: 3, mangrove: true, flam: 0.2, soilBuild: 1.4,
     help: 'Salt-tolerant trees of warm tidal mudflats, standing in the sea on stilt roots; they trap mud, build land and shelter the coast from waves.' },
+  { id: 'cedar', label: 'Cedar (wetland)', color: [0.09, 0.27, 0.19], mapColor: [0.62, 0.20, 0.45], temp: [-2, 22], moist: [0.7, 1.15], age: 0.9, ageW: 1.0, soil: 'any', slope: 0.7, chem: -0.2, chemW: 2, riparian: true, flam: 0.7, soilBuild: 1.2,
+    help: 'Long-lived, shade-tolerant cedars of old wetland forest (like western red cedar and white cedar swamps): they grow up slowly under the alder and willow and take over as the forest ages.' },
 ];
 export const OPEN = { label: 'Open ground', color: [0.52, 0.66, 0.30], mapColor: [0.80, 0.84, 0.70], help: 'Gaps, meadow and scrub between trees.' };
 
 const K = SPECIES.length;
 const MIXA = [0, 0, 0];
-const CONIFER = SPECIES.map((s) => ['pine', 'fir', 'spruce', 'larch', 'juniper', 'shorepine', 'sitka'].includes(s.id));
+const CONIFER = SPECIES.map((s) => ['pine', 'fir', 'spruce', 'larch', 'juniper', 'shorepine', 'sitka', 'cedar'].includes(s.id));
 // (mangrove counts as broadleaf; it is evergreen and never turns colour)
 // Broadleaf trees give way to conifers with height: their thin leaves and soft wood can't take the
 // short, cold growing season and heavy snow. The change is gradual and patchy (aspect, shelter,

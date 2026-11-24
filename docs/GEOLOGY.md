@@ -333,7 +333,8 @@ each species plus open ground between the trees:
 | Oak | warm lowlands with moderately moist soil |
 | Beech | moist old growth on deep neutral or lime-rich soil |
 | Maple | fertile, base-rich soil (basalt, limestone) |
-| Alder & willow | waterlogged riverbanks |
+| Alder & willow | waterlogged riverbanks, lake shores and swamps, in young forest (pioneers) |
+| Cedar (wetland) | the same wet ground once the forest is old: it grows up under the alder and willow and takes over |
 | Juniper | dry, rocky, limestone slopes |
 | Tropical hardwoods | hot, wet old-growth jungle |
 | Palm | hot, humid ground near water |
