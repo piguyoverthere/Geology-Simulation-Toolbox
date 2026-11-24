@@ -29,6 +29,7 @@ import { PathLabels } from './render/pathLabels.js';
 import { Boats } from './render/boats.js';
 import { Toolbox } from './ui/toolbox.js';
 import { BiomeChart } from './ui/biomeChart.js';
+import { SaveWarning } from './ui/saveWarning.js';
 import { diseaseStep } from './sim/disease.js';
 import { trackFires } from './sim/fireHistory.js';
 import { FireLabels } from './render/fireLabels.js';
@@ -112,6 +113,8 @@ class App {
     this.keepLevel = { on: keep };
     this.toolbox = new Toolbox(document.getElementById('toolbox'), document.getElementById('toolbar'), this);
     this.biomeChart = new BiomeChart(this, document.getElementById('viewport'));
+    this.saveWarning = new SaveWarning(this, document.getElementById('viewport'));
+    if (keep) this.saveWarning.check();
     this.inspector = new Inspector(document.getElementById('inspector'), this);
     this.monthBar = new MonthBar(document.getElementById('monthbar'), this);
     this.section = new CrossSection(document.getElementById('viewport'), this);
@@ -432,8 +435,10 @@ class App {
       await storeLevel(`autosave-${GRID}`, snapshot(this));
       await saveGrid(this);
       this.setSaveStatus(`Autosaved ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+      this.saveWarning?.saved();
     } catch (err) {
       this.setSaveStatus(`Autosave failed: ${err.message}`);
+      this.saveWarning?.saveFailed(err);
     }
   }
 

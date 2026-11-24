@@ -374,3 +374,12 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   font-size: 10.5px; font-weight: 600; color: #fff; padding: 1px 6px; border-radius: 8px;
   background: rgba(110, 35, 15, 0.78); border: 1px solid rgba(255, 180, 120, 0.4); }
 .fire-label[hidden] { display: none; }
+
+/* Warning when the browser blocks saving */
+.save-warning { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); z-index: 8; width: min(620px, calc(100% - 32px));
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; font-size: 12px; line-height: 1.4;
+  background: rgba(120, 40, 20, 0.95); border: 1px solid #ff9a6a; color: #fff; box-shadow: 0 4px 18px rgba(0,0,0,0.45); }
+.save-warning[hidden] { display: none; }
+.save-warning-text { flex: 1; }
+.save-warning button { flex: none; background: #fff; color: #5a1e0e; border: none; border-radius: 6px; padding: 5px 9px; font: inherit; font-weight: 600; cursor: pointer; }
+.save-warning button.save-warning-close { background: none; color: #fff; padding: 2px 4px; }

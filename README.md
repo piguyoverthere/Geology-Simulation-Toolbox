@@ -183,7 +183,9 @@ seasons, weather), **Sea** (ocean and coast) and **Life** (wildlife).
   **Load level** opens one. With **Keep level on reload** (on by default) the level is also
   autosaved to the browser every 30 seconds and when you leave the page, and restored when the page
   reloads, so updates don't cost you your level. Each map size keeps its own; **Generate** starts a
-  new one.
+  new one. If the browser won't let the page save (site data blocked, a private
+  window, a full disk), a red warning appears over the map with a button to save the level to a file,
+  and the browser asks before you reload or close the page.
 - **Terrain**: map size (128–512 cells per side; bigger maps show more land and run slower),
   presets (hills, mountains, plateau, volcano, Cascade Range, Puget Sound, flat), seed, undo/redo, PNG
   heightmap export/import. The **Cascade Range** preset builds a north–south range with a rugged
