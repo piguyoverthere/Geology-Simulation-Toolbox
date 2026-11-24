@@ -1410,7 +1410,9 @@ kept weeded of pine; the pine already loose in the wild keeps spreading through 
 
 ## Town parks (`parkStep` in `src/sim/civilization.js`)
 
-A town of 400 people or more sets aside parks near it, each 10–18 cells across. A park's outline is
+A town of 400 people or more sets aside parks near it, each 10–18 cells across (times the **Park
+size** slider, 0.3–3, under Life → Civilization; Wilderness Areas aren't affected). In a test, new
+parks covered 21–53 cells at 0.5, 117–148 at 1 and 306–662 at 2. A park's outline is
 an irregular blob, often drawn out longer one way than the other (up to about twice as long as it
 is wide), with bays and lobes. It stops short where the wild land ends: at fields, streets, roads,
 the sea, lakes and big rivers (a Commons only at streets, works and water). Most

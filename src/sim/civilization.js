@@ -43,6 +43,7 @@ export const civParams = {
   invasive: true,  // plantations are planted with an invasive exotic pine that escapes into the wild forest
   clearInvasive: true, // towns cut the invasive pine out of the wild forest around them (at a cost in people)
   townParks: true,   // towns set aside small parks around a special feature, with a trail loop through each
+  parkSize: 1,       // how large the towns' parks are made (× the usual 10–18 cells across; not Wilderness Areas)
   trailsSpread: true, // footpaths carry tree diseases and invasive pine seed (on boots), like roads
 };
 
@@ -2747,7 +2748,7 @@ export function parkStep(world, t) {
   if (!best && old && localForest(world, t.x, t.z) < 0.15) { const c = commonsSite(world, t); if (c) best = c; }
   if (!best) return;
   const type = PARK_TYPES[best.kind];
-  const r = 5 + Math.random() * 4; // (10–18 cells across)
+  const r = (5 + Math.random() * 4) * (civParams.parkSize ?? 1); // (10–18 cells across, times the Park size slider)
   const label = best.kind === 'grove' ? `${SPECIES[best.sp].label.replace(/\s*\(.*\)/, '').replace(/ & .*/, '')} Grove`
     : best.kind === 'refuge' ? `${best.animal.name} Refuge`
     : best.kind === 'biome' ? `${BIOMES[best.biome].label.replace(/\s*\(.*\)/, '').replace(/\b\w/g, (ch) => ch.toUpperCase())} Preserve` : type.label;
