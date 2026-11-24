@@ -2323,17 +2323,41 @@ export function addFootpath(world, a, b, join = true) {
   return fp;
 }
 
-/** Remove footpaths passing within `r` cells of the line a–b. Returns how many were removed. */
-export function removeFootpathsNear(world, a, b, r = 3) {
-  const before = (world.footpaths || []).length;
+/**
+ * Cut out the stretches of footpath within `r` cells of the line a–b (Footpath tool, Shift-drag):
+ * only the part dragged across goes; what's left on either side stays as footpaths of their own (the
+ * first keeps the name, the others are numbered after it). Returns how many stretches were cut.
+ */
+export function removeFootpathsNear(world, a, b, r = 2) {
   const dist = (p) => {
     const dx = b.x - a.x, dz = b.z - a.z, L = dx * dx + dz * dz || 1;
     const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / L));
     return Math.hypot(p.x - (a.x + t * dx), p.z - (a.z + t * dz));
   };
-  world.footpaths = (world.footpaths || []).filter((fp) => !fp.pts.some((p) => dist(p) <= r));
+  const out = [];
+  let cut = 0;
+  const used = new Set((world.footpaths || []).map((p) => p.num));
+  for (const fp of world.footpaths || []) {
+    if (!fp.pts.some((p) => dist(p) <= r)) { out.push(fp); continue; }
+    cut++;
+    const runs = [];
+    let run = [];
+    for (const p of fp.pts) {
+      if (dist(p) <= r) { if (run.length) runs.push(run); run = []; } else run.push(p);
+    }
+    if (run.length) runs.push(run);
+    const keep = runs.filter((rn) => rn.length >= 3);
+    keep.forEach((pts, k) => {
+      if (k === 0) { out.push({ ...fp, pts }); return; }
+      let num = 1;
+      while (used.has(num)) num++;
+      used.add(num);
+      out.push({ ...fp, id: 'f' + Math.random().toString(36).slice(2, 8), num, name: `${fp.name} (${k + 1})`, pts });
+    });
+  }
+  world.footpaths = out;
   markFootpaths(world);
-  return before - world.footpaths.length;
+  return cut;
 }
 
 /** Mark the cells the footpaths cross (world.footpath) and wear the ground along them a little. */
@@ -2426,7 +2450,7 @@ export function townNear(world, x, z, r = 10) {
 }
 
 /**
- * Town parks: a town of a few hundred people sets aside a small area (a polygon of 5–9 cells across
+ * Town parks: a town of a few hundred people sets aside a small area (a polygon of 10–18 cells across
  * its middle) of wild forest near it, with nothing built or farmed in it, and lays a trail out to
  * it from the town and round it in a loop for people to walk. What kind of park depends on what is
  * there, and each kind has its own restrictions (all of them: no timber, no fields, no new towns and
@@ -2547,15 +2571,63 @@ function wildlifeAt(world, i) {
   }
   return best ? [best, bs] : null;
 }
-/** Convex hull of points {x, z} (anticlockwise). */
-function hull(pts) {
-  const p = pts.slice().sort((a, b) => a.x - b.x || a.z - b.z);
-  if (p.length < 3) return p;
-  const cross = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
-  const lo = [], hi = [];
-  for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
-  for (let k = p.length - 1; k >= 0; k--) { const q = p[k]; while (hi.length >= 2 && cross(hi[hi.length - 2], hi[hi.length - 1], q) <= 0) hi.pop(); hi.push(q); }
-  return lo.slice(0, -1).concat(hi.slice(0, -1));
+/**
+ * A park's outline around (cx, cz): an irregular blob, often drawn out longer one way than the
+ * other, with bays and lobes (a few random waves around its edge), that stops short where the wild
+ * land does (at fields, streets, roads, the sea, lakes and big rivers). A Commons is cut out of
+ * fields, so only streets and works and water stop it.
+ */
+function parkOutline(world, cx, cz, r, commons) {
+  const N = world.N, LU = world.landUse, H = world.height, sea = seaOf(world), FP = world.footpath;
+  const K = 28, out = [];
+  const stretch = 1 + Math.random() * 1.2, along = Math.random() * Math.PI; // (elongation and its direction)
+  const waves = [];
+  for (let h = 2; h <= 5; h++) waves.push({ h, amp: (Math.random() * 0.22) / Math.sqrt(h - 1), ph: Math.random() * Math.PI * 2 });
+  const stops = (j) => H[j] < sea || world.water[j] > 0.3 || (LU[j] && !(FP && FP[j]) && !(commons && LU[j] === 1));
+  for (let k = 0; k < K; k++) {
+    const a = (k / K) * Math.PI * 2;
+    // (an ellipse, stretched one way, kept to about the same area)
+    const ca = Math.cos(a - along), sa = Math.sin(a - along);
+    let rr = r / Math.sqrt((ca * ca) / stretch + sa * sa * stretch);
+    let wv = 1;
+    for (const w of waves) wv += w.amp * Math.sin(w.h * a + w.ph);
+    rr *= Math.max(0.45, wv);
+    // (out along the ray until the wild land ends)
+    let reach = 0;
+    for (let t = 0.5; t <= rr; t += 0.5) {
+      const x = Math.round(cx + Math.cos(a) * t), z = Math.round(cz + Math.sin(a) * t);
+      if (x < 0 || z < 0 || x >= N || z >= N || stops(z * N + x)) break;
+      reach = t;
+    }
+    rr = Math.max(r * 0.3, reach);
+    out.push({ x: Math.max(0, Math.min(N - 1, cx + Math.cos(a) * rr)), z: Math.max(0, Math.min(N - 1, cz + Math.sin(a) * rr)) });
+  }
+  return out;
+}
+/** The outline around two overlapping or neighbouring outlines (bays kept, the gap between bridged). */
+function unionOutline(A, B) {
+  const all = A.concat(B);
+  let cx = 0, cz = 0;
+  for (const p of all) { cx += p.x; cz += p.z; }
+  cx /= all.length; cz /= all.length;
+  const inside = (P, x, z) => {
+    let o = false;
+    for (let a = 0, b = P.length - 1; a < P.length; b = a++) if ((P[a].z > z) !== (P[b].z > z) && x < ((P[b].x - P[a].x) * (z - P[a].z)) / (P[b].z - P[a].z) + P[a].x) o = !o;
+    return o;
+  };
+  const maxR = Math.max(...all.map((p) => Math.hypot(p.x - cx, p.z - cz))) + 1;
+  const K = 48, out = [];
+  for (let k = 0; k < K; k++) {
+    const a = (k / K) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+    let far = 0;
+    for (let t = 0; t <= maxR; t += 0.4) { const x = cx + c * t, z = cz + s * t; if (inside(A, x, z) || inside(B, x, z)) far = t; }
+    out.push({ x: cx + c * Math.max(1, far), z: cz + s * Math.max(1, far) });
+  }
+  // (drop points that lie on a straight run, to keep the outline light)
+  return out.filter((p, k) => {
+    const a = out[(k + K - 1) % K], b = out[(k + 1) % K];
+    return Math.abs((p.x - a.x) * (b.z - a.z) - (p.z - a.z) * (b.x - a.x)) > 0.05;
+  });
 }
 /** Whether (x, z) lies inside a park's outline. */
 function inPark(p, x, z) {
@@ -2590,19 +2662,19 @@ export function parkStep(world, t) {
   const glob = speciesRarity(world), K = SPECIES.length, sh = new Float32Array(K);
   let best = null, plain = null;
   for (let k = 0; k < 160; k++) {
-    const a = Math.random() * Math.PI * 2, d = 10 + Math.random() * 40;
+    const a = Math.random() * Math.PI * 2, d = 12 + Math.random() * 45;
     const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
-    if (x < 6 || z < 6 || x >= N - 6 || z >= N - 6) continue;
+    if (x < 8 || z < 8 || x >= N - 8 || z >= N - 8) continue;
     const i = z * N + x;
     if (LU[i] || V[i] < 0.25 || H[i] < sea + 0.5 || world.water[i] > 0.1) continue;
     // (not in or on top of another park; your own drawn areas don't stop a park, whatever they restrict)
-    if (sites.some((p) => inPark(p, x, z) || edgeDist(p, x, z) < 3)) continue;
+    if (sites.some((p) => inPark(p, x, z) || edgeDist(p, x, z) < 5)) continue;
     // (wild forest all over: nothing built, farmed or planted in it)
     // (wild all over, nothing built, farmed or planted in it; the last woods of a farmed district may
     // have fields close round them, but not right up against the middle)
     let wild = true, near = false, open = 0;
-    for (let dz = -4; dz <= 4 && !near; dz++) for (let dx = -4; dx <= 4; dx++) {
-      if (dx * dx + dz * dz > 16) continue;
+    for (let dz = -6; dz <= 6 && !near; dz++) for (let dx = -6; dx <= 6; dx++) {
+      if (dx * dx + dz * dz > 36) continue;
       const j = i + dz * N + dx;
       if (LU[j] && !(world.footpath && world.footpath[j])) { wild = false; if (dx * dx + dz * dz <= 4) { near = true; break; } }
       if (V[j] < 0.45) open++;
@@ -2610,7 +2682,7 @@ export function parkStep(world, t) {
     if (near) continue;
     const handy = sites.some((p) => edgeDist(p, x, z) < 9) ? 0.1 : 0;
     // The last woods of the district: forest where little is left within 20 cells
-    if (V[i] >= 0.6 && open <= 8) {
+    if (V[i] >= 0.6 && open <= 20) {
       const lf = localForest(world, x, z);
       if (lf < 0.3) {
         const sc = 0.3 + (0.3 - lf) * 2.5 - d * 0.004 + handy;
@@ -2635,7 +2707,7 @@ export function parkStep(world, t) {
       if (sites.some((p) => edgeDist(p, x, z) < 9)) sc += 0.1;
       if (sc > 0.25 && (!best || sc > best.score)) best = { x, z, score: sc, kind: 'refuge', sp: -1, animal: wl[0] };
     }
-    if (V[i] < 0.6 || open > 8) continue; // (the rest are forest parks)
+    if (V[i] < 0.6 || open > 20) continue; // (the rest are forest parks)
     // Old growth: the stand's age (averaged over its neighbours)
     let age = 0, c = 0;
     for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { const j = i + dz * N + dx; if (!LU[j]) { age += A[j]; c++; } }
@@ -2666,7 +2738,7 @@ export function parkStep(world, t) {
   if (!best || (old && Math.random() < 0.2)) { const c = commonsSite(world, t); if (c) best = c; }
   if (!best) return;
   const type = PARK_TYPES[best.kind];
-  const r = 2.5 + Math.random() * 2;
+  const r = 5 + Math.random() * 4; // (10–18 cells across)
   const label = best.kind === 'grove' ? `${SPECIES[best.sp].label.replace(/\s*\(.*\)/, '').replace(/ & .*/, '')} Grove`
     : best.kind === 'refuge' ? `${best.animal.name} Refuge`
     : best.kind === 'biome' ? `${BIOMES[best.biome].label.replace(/\s*\(.*\)/, '').replace(/\b\w/g, (ch) => ch.toUpperCase())} Preserve` : type.label;
@@ -2674,12 +2746,7 @@ export function parkStep(world, t) {
   for (const k of type.restrict) restrict[k] = true;
   if (best.kind === 'woods' && Math.random() < 0.4) restrict.fires = true;
   if (best.kind === 'grove' && t.pop > 2000) restrict.earthworks = true;
-  const points = [];
-  const a0 = Math.random() * Math.PI;
-  for (let k = 0; k < 8; k++) {
-    const a = a0 + (k / 8) * Math.PI * 2, rr = r * (0.8 + Math.random() * 0.35);
-    points.push({ x: Math.max(0, Math.min(N - 1, best.x + Math.cos(a) * rr)), z: Math.max(0, Math.min(N - 1, best.z + Math.sin(a) * rr)) });
-  }
+  const points = parkOutline(world, best.x, best.z, r, best.kind === 'commons');
   const feature = best.kind === 'grove' ? SPECIES[best.sp].id : best.kind === 'refuge' ? 'wild:' + best.animal.id : best.kind === 'biome' ? 'biome:' + best.biome : best.kind;
   // (a Commons: its fields inside are taken out of farming and left to go wild)
   if (best.kind === 'commons') {
@@ -2695,12 +2762,12 @@ export function parkStep(world, t) {
   }
   const year = seasonParams.year || 1;
   // Next to an existing park (edges within a few cells)? It joins that park
-  let site = null, sd = r + 5;
+  let site = null, sd = r + 4;
   for (const p of sites) { const e = edgeDist(p, best.x, best.z); if (e < sd) { sd = e; site = p; } }
   let from;
   if (site) {
     from = { x: site.x, z: site.z };
-    site.points = hull(site.points.concat(points)).map((p) => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) }));
+    site.points = unionOutline(site.points, points).map((p) => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) }));
     let cx = 0, cz = 0;
     for (const p of site.points) { cx += p.x; cz += p.z; }
     site.x = Math.round(cx / site.points.length); site.z = Math.round(cz / site.points.length);
@@ -2755,21 +2822,21 @@ function commonsSite(world, t) {
   const N = world.N, LU = world.landUse, OW = world.civOwner, sites = world.parkSites || [];
   let best = null;
   for (let k = 0; k < 120; k++) {
-    const a = Math.random() * Math.PI * 2, d = 5 + Math.random() * 25;
+    const a = Math.random() * Math.PI * 2, d = 6 + Math.random() * 30;
     const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
     if (x < 6 || z < 6 || x >= N - 6 || z >= N - 6) continue;
     const i = z * N + x;
     if (LU[i] !== 1 || OW[i] !== t.num) continue;
     if (sites.some((p) => inPark(p, x, z) || edgeDist(p, x, z) < 3)) continue;
     let fields = 0, blocked = false;
-    for (let dz = -3; dz <= 3 && !blocked; dz++) for (let dx = -3; dx <= 3; dx++) {
-      if (dx * dx + dz * dz > 9) continue;
+    for (let dz = -5; dz <= 5 && !blocked; dz++) for (let dx = -5; dx <= 5; dx++) {
+      if (dx * dx + dz * dz > 25) continue;
       const u = LU[i + dz * N + dx];
       if (u === 1) fields++;
       else if (u && u !== 0) { blocked = true; break; } // (streets, works, roads, plantations…)
     }
-    if (blocked || fields < 18) continue;
-    const score = 0.3 + fields * 0.005 - d * 0.004 + (sites.some((p) => edgeDist(p, x, z) < 9) ? 0.1 : 0);
+    if (blocked || fields < 55) continue;
+    const score = 0.3 + fields * 0.002 - d * 0.004 + (sites.some((p) => edgeDist(p, x, z) < 9) ? 0.1 : 0);
     if (!best || score > best.score) best = { x, z, score, kind: 'commons', sp: -1 };
   }
   return best;

@@ -27,8 +27,8 @@ export class TownLabels {
       const p = app.renderer.toWorld(t.x, t.z, Math.max(w.sampleHeight(t.x, t.z), w.seaLevel > -999 ? w.seaLevel : -1e9) + 4);
       this.v.copy(p).project(app.camera);
       const visible = this.v.z < 1 && Math.abs(this.v.x) < 1.1 && Math.abs(this.v.y) < 1.1;
-      el.hidden = !visible;
-      if (!visible) continue;
+      el.hidden = !visible || !app.renderer.showTownLabels;
+      if (el.hidden) continue;
       el.style.left = `${((this.v.x + 1) / 2) * rect.width}px`;
       el.style.top = `${((1 - this.v.y) / 2) * rect.height}px`;
       const pop = Math.round(t.pop);

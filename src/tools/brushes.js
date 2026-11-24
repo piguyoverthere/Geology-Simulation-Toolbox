@@ -673,7 +673,7 @@ TOOLS.bulldoze = {
 };
 TOOLS.footpath = {
   label: 'Footpath', group: 'Civilization', icon: '🥾', editsTerrain: false, line: true,
-  help: 'Drag from one point to another to lay a footpath; start the next drag at the end of a footpath to carry it on (one continuous path, a stretch at a time): a track that follows the lie of the land (around the steepest ground, along valleys) between them. Unlike a road it isn\'t built, so it needs no upkeep and never wears out; it\'s drawn as a narrow trail with its name written along it. Name or remove footpaths in the Footpaths list (Life tab, Civilization). Hold Shift while dragging to remove the footpaths along the line.',
+  help: 'Drag from one point to another to lay a footpath; start the next drag at the end of a footpath to carry it on (one continuous path, a stretch at a time): a track that follows the lie of the land (around the steepest ground, along valleys) between them. Unlike a road it isn\'t built, so it needs no upkeep and never wears out; it\'s drawn as a narrow trail with its name written along it. Name or remove footpaths in the Footpaths list (Life tab, Civilization). Hold Shift and drag across a footpath to cut out the stretch you drag over (the rest stays as separate footpaths); the ✕ in the Footpaths list removes a whole one, and Remove all footpaths clears them all.',
   place({ world, app, invert }, a, b) {
     if (invert) removeFootpathsNear(world, a, b);
     else addFootpath(world, a, b);

@@ -378,6 +378,7 @@ export class Toolbox {
     const view = this.section('View', false);
     view.append(
       toggle('Show clouds', app.renderer, 'showClouds', 'Show the clouds that form where moist air is pushed up over terrain.', this),
+      toggle('Show town labels', app.renderer, 'showTownLabels', 'Show the names of the towns (with their population and news) over the map. Off: every town label is hidden; the towns themselves carry on.', this),
       toggle('Show water', app.renderer, 'showWater', 'Show or hide surface water.', this, () => app.world.dirty = true),
       toggle('Show sea', app.renderer, 'showSea', 'Turn off to hide the sea\'s surface and look at the sea bed: kelp, seagrass, coral reefs, die-offs, sand and the shape of the bottom. The sea is still there (tides, coasts, sea life and everything else carry on).', this, () => { app.world.dirty = true; app.renderer.update(true); }),
       toggle('Wireframe', app.renderer.terrainMat, 'wireframe', 'Show the terrain grid.', this),
@@ -632,6 +633,12 @@ export class Toolbox {
     L.innerHTML = '';
     const paths = w.footpaths || [];
     if (!paths.length) { L.append(el('div', 'tb-note', 'No footpaths yet: drag with the Footpath tool (🥾) to lay one.')); return; }
+    L.append(button('Remove all footpaths', async () => {
+      const { markFootpaths } = await import('../sim/civilization.js');
+      w.footpaths = [];
+      markFootpaths(w);
+      this.renderFootpaths();
+    }, 'tb-small', 'Remove every footpath on the map (yours and the towns\' park trails). To take out just a stretch, Shift-drag across it with the Footpath tool.', this));
     for (const fp of paths) {
       const row = el('div', 'tb-path-row');
       const name = el('input');

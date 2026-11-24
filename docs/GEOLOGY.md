@@ -1180,7 +1180,7 @@ others rest, in turn. Resting plantations show in the inspector and, paler, in t
 overlay. Painted cells join a painted plantation of that town nearby, or start a new one. Hold
 Shift to clear plantation back to the wild.
 
-**Footpaths.** The **Footpath** tool (🥾, under Civilization) lays a footpath where you drag. It
+**Footpaths.** The **Footpath** tool (🥾, under Civilization) lays a footpath where you drag. Shift-drag across one to cut out just that stretch (the rest stays, as separate footpaths); the ✕ in the **Footpaths** list removes a whole one, and **Remove all footpaths** clears them all. It
 follows the lie of the land between the two ends like a road does (around the steepest ground,
 along valleys), but it isn't built: no grading, no paving, and no upkeep, so it never wears out or
 needs repair. Start the next drag at either end of a footpath (within about 4 cells) to carry the same path on, so a long winding path is laid a stretch at a time as one footpath with one name. It's drawn as a narrow, pale trodden trail. Feet keep plants from closing over it,
@@ -1406,9 +1406,14 @@ the forest.
 With **Invasive plantation pine** off, every plantation is replanted with native trees at once and
 kept weeded of pine; the pine already loose in the wild keeps spreading through wild forest.
 
+**Town labels.** *Show town labels* (View) hides every town's name label over the map.
+
 ## Town parks (`parkStep` in `src/sim/civilization.js`)
 
-A town of 400 people or more sets aside small parks near it, each a polygon 5–9 cells across. Most
+A town of 400 people or more sets aside parks near it, each 10–18 cells across. A park's outline is
+an irregular blob, often drawn out longer one way than the other (up to about twice as long as it
+is wide), with bays and lobes. It stops short where the wild land ends: at fields, streets, roads,
+the sea, lakes and big rivers (a Commons only at streets, works and water). Most
 parks go in wild land within 10–50 cells of the town, with nothing built, farmed or planted there. The town lays a trail out to each park and round it in a loop for people to walk. The kind
 of park depends on what the forest holds, and each kind has its own restrictions. Every park bans
 timber, fields, new towns and roads (footpaths are still allowed).
@@ -1433,10 +1438,10 @@ something different. A town may have about one park piece for every 1,500 people
 
 **Merging.** A new park whose centre is within a few cells of an existing park's edge joins it,
 and ground next to a park scores a little higher, so parks tend to grow together. The merged park's
-outline is drawn around both, it keeps the restrictions of both, and its name becomes *… Park*
+outline follows both parks' edges (keeping their bays, bridging the gap between them), it keeps the restrictions of both, and its name becomes *… Park*
 (for example *Tordale Beech Grove Park*). The new ground's trail loop is linked from the middle of
 the park it joins, and the park's trails are numbered. In a test, 11 park pieces formed 6 parks:
-three merged parks of 2–3 pieces, 15–28 cells across, and three single ones. In other tests, a town ringed by its own fields made Commons
+three merged parks of 2–3 pieces, 15–28 cells across, and three single ones. With the larger outlines, single parks covered 140–210 cells (for example 10×20 and 23×14 cells) and a park merged from three pieces about 400. In other tests, a town ringed by its own fields made Commons
 (some of which merged), and a herd of deer packed into one patch got a *Deer Refuge* 3 cells from its
 centre. A town whose district was farmed all round but for one wood made that wood its *Last
 Woods*, and a big town found a *Tundra Preserve* and a *Coastal Dunes Preserve*.

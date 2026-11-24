@@ -53,7 +53,7 @@ export function snapshot(app) {
   const meta = {
     magic: MAGIC, savedAt: new Date().toISOString(), N: w.N, paramDiffs: true,
     scalars, json, params,
-    view: { colorMode: r.colorMode, showVegetation: r.showVegetation, showClouds: r.showClouds, showWater: r.showWater },
+    view: { colorMode: r.colorMode, showVegetation: r.showVegetation, showClouds: r.showClouds, showWater: r.showWater, showTownLabels: r.showTownLabels },
     camera: { position: app.camera.position.toArray(), target: app.controls.target.toArray() },
     drawings: app.drawings.shapes.map((s) => ({ name: s.name, points: s.points, closed: s.closed, color: s.color, protected: !!s.protected, limited: !!s.limited, restrict: s.restrict ? { ...s.restrict } : undefined, park: s.park || undefined })),
     drawNextId: app.drawings.nextId,
@@ -88,7 +88,7 @@ export function applySnapshot(app, snap) {
   w.keepBasin = app.gen.preset === 'volcano' ? (i) => Math.hypot(i % N - N / 2, ((i / N) | 0) - N / 2) < N * 0.06 : null;
   w.events = []; w.flows = []; w.debris = []; w.fireCells = []; w.slideAreas = [];
   const r = app.renderer, v = meta.view || {};
-  for (const k of ['colorMode', 'showVegetation', 'showClouds', 'showWater']) if (v[k] !== undefined) r[k] = v[k];
+  for (const k of ['colorMode', 'showVegetation', 'showClouds', 'showWater', 'showTownLabels']) if (v[k] !== undefined) r[k] = v[k];
   if (meta.camera) {
     app.camera.position.fromArray(meta.camera.position);
     app.controls.target.fromArray(meta.camera.target);

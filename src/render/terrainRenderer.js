@@ -74,6 +74,7 @@ export class TerrainRenderer {
     this.colorMode = 'natural'; // key of OVERLAYS
     this.showVegetation = true; // off: natural view shows bare ground and bedrock
     this.showClouds = true;
+    this.showTownLabels = true; // (the town names over the map)
     // (the Land use overlay is a clear view: no clouds or fog over it)
     Object.defineProperty(this, 'cloudsOn', { get: () => this.showClouds && this.colorMode !== 'landuse' });
     this.showWater = true;
