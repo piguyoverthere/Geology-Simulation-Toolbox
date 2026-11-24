@@ -1420,11 +1420,15 @@ timber, fields, new towns and roads (footpaths are still allowed).
 | Woods | ordinary forest, when nothing special is near | sometimes no fires; hunting allowed |
 | Game Woods | ordinary forest, for towns over 1,200 | no earthworks; hunting allowed |
 | Refuge (*Deer Refuge*…) | an animal living at least several times more thickly than its average over the land; forest or open country | no hunting, no earthworks |
+| Preserve (*Wetland Preserve*, *Tundra Preserve*…) | a stretch of a wild biome (forest types, wetland, grassland, shrubland, tundra, mangrove, dunes, mesa, desert) covering most of the ground and making up only a small share of the map's land | no earthworks; hunting allowed |
+| Last Woods | forest where less than 30% of the land within 20 cells is still wild forest (the woods may have fields close round them, but not within 2 cells of the middle) | no fires, no earthworks; hunting allowed |
 | Commons | a block of the town's own fields, when no wild land is left nearby (and now and then for a town over 10 years old) | no fires, no hunting |
 
 A Commons lets a town hemmed in by its own development still make parks: the fields inside are taken
 out of farming and marked as old fields, so they go back to the wild (and the restriction keeps them
-from being farmed again). Something the map's parks already protect counts for less, so each new park tends to protect
+from being farmed again). Parks go anywhere outside other parks: polygons you've drawn yourself, whatever they restrict, never
+keep a park out (in a test, a polygon over the whole map with every restriction on still got seven
+parks). Something the map's parks already protect counts for less, so each new park tends to protect
 something different. A town may have about one park piece for every 1,500 people, plus one.
 
 **Merging.** A new park whose centre is within a few cells of an existing park's edge joins it,
@@ -1434,7 +1438,8 @@ outline is drawn around both, it keeps the restrictions of both, and its name be
 the park it joins, and the park's trails are numbered. In a test, 11 park pieces formed 6 parks:
 three merged parks of 2–3 pieces, 15–28 cells across, and three single ones. In other tests, a town ringed by its own fields made Commons
 (some of which merged), and a herd of deer packed into one patch got a *Deer Refuge* 3 cells from its
-centre.
+centre. A town whose district was farmed all round but for one wood made that wood its *Last
+Woods*, and a big town found a *Tundra Preserve* and a *Coastal Dunes Preserve*.
 
 The parks appear in the **Drawings** list as green polygons, where you can change their
 restrictions or delete them; world.parkSites remembers each park. Turn them off with **Town parks**

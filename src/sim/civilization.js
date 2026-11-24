@@ -27,6 +27,8 @@ import { ROCK_INDEX } from '../core/rocks.js';
 import { coastParams, isLivingBed, MARINE_ID } from './coast.js';
 import { waterParams } from './water.js';
 import { SPECIES, treeShares } from './species.js';
+import { FOREST_TYPES } from './forests.js';
+import { BIOMES, classifyBiome } from '../render/biomes.js';
 
 export const civParams = {
   enabled: true,
@@ -2453,7 +2455,44 @@ export const PARK_TYPES = {
   game: { label: 'Game Woods', restrict: ['timber', 'fields', 'towns', 'roads', 'earthworks'] },
   refuge: { label: 'Refuge', restrict: ['timber', 'fields', 'towns', 'roads', 'hunting', 'earthworks'] },
   commons: { label: 'Commons', restrict: ['timber', 'fields', 'towns', 'roads', 'fires', 'hunting'] },
+  biome: { label: 'Preserve', restrict: ['timber', 'fields', 'towns', 'roads', 'earthworks'] },
+  remnant: { label: 'Last Woods', restrict: ['timber', 'fields', 'towns', 'roads', 'fires', 'earthworks'] },
 };
+// (the wild biomes a Preserve can be made for)
+const WILD_BIOMES = new Set([...FOREST_TYPES.map((f) => f.id), 'wetland', 'grassland', 'shrubland', 'tundra', 'mangrove', 'dunes', 'mesa', 'desert']);
+let biomeMean = {};
+function slopeAtCell(world, i) {
+  const N = world.N, H = world.height, x = i % N, z = (i / N) | 0;
+  const gx = (H[x < N - 1 ? i + 1 : i] - H[x > 0 ? i - 1 : i]) * 0.5, gz = (H[z < N - 1 ? i + N : i] - H[z > 0 ? i - N : i]) * 0.5;
+  return Math.sqrt(gx * gx + gz * gz);
+}
+/** A wild biome covering most of the ground around cell i that is rare on the map: [id, how rare] or null. */
+function rareBiomeAt(world, i) {
+  const N = world.N, cnt = {};
+  for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+    const j = i + dz * N + dx, b = classifyBiome(world, j, slopeAtCell(world, j));
+    cnt[b] = (cnt[b] || 0) + 1;
+  }
+  let id = null, c = 0;
+  for (const [b, k] of Object.entries(cnt)) if (k > c) { c = k; id = b; }
+  if (c < 15 || !WILD_BIOMES.has(id)) return null;
+  return [id, Math.min(1, 0.05 / ((biomeMean[id] || 0) + 0.01)) * 0.9];
+}
+/** Share of the land within 20 cells of (x, z) that is wild forest. */
+function localForest(world, x, z) {
+  const N = world.N, V = world.vegetation, LU = world.landUse, H = world.height, sea = seaOf(world);
+  let f = 0, c = 0;
+  for (let dz = -20; dz <= 20; dz += 3) for (let dx = -20; dx <= 20; dx += 3) {
+    if (dx * dx + dz * dz > 400) continue;
+    const xx = x + dx, zz = z + dz;
+    if (xx < 0 || zz < 0 || xx >= N || zz >= N) continue;
+    const j = zz * N + xx;
+    if (H[j] < sea) continue;
+    c++;
+    if (V[j] > 0.6 && !LU[j]) f++;
+  }
+  return c ? f / c : 1;
+}
 let rarity = null, rarityAt = -99, rarityCalls = 0;
 function speciesRarity(world) {
   // (each species' share of the map's forest, sampled; refreshed now and then)
@@ -2469,6 +2508,15 @@ function speciesRarity(world) {
   }
   for (let k = 0; k < K; k++) sum[k] /= Math.max(1, c);
   rarity = sum; rarityAt = step;
+  // (each wild biome's share of the land)
+  biomeMean = {};
+  let land = 0;
+  for (let i = N * 2 + 2; i < N * N - N * 2; i += 17) {
+    if (world.height[i] < seaOf(world)) continue;
+    const b = classifyBiome(world, i, slopeAtCell(world, i));
+    biomeMean[b] = (biomeMean[b] || 0) + 1; land++;
+  }
+  for (const b of Object.keys(biomeMean)) biomeMean[b] /= Math.max(1, land);
   // (and each land animal's average density over the land)
   animalMean = {};
   for (const an of world.animals || []) {
@@ -2509,6 +2557,16 @@ function hull(pts) {
   for (let k = p.length - 1; k >= 0; k--) { const q = p[k]; while (hi.length >= 2 && cross(hi[hi.length - 2], hi[hi.length - 1], q) <= 0) hi.pop(); hi.push(q); }
   return lo.slice(0, -1).concat(hi.slice(0, -1));
 }
+/** Whether (x, z) lies inside a park's outline. */
+function inPark(p, x, z) {
+  const P = p.points;
+  if (!P || P.length < 3) return Math.hypot(p.x - x, p.z - z) < p.r;
+  let inside = false;
+  for (let a = 0, b = P.length - 1; a < P.length; b = a++) {
+    if ((P[a].z > z) !== (P[b].z > z) && x < ((P[b].x - P[a].x) * (z - P[a].z)) / (P[b].z - P[a].z) + P[a].x) inside = !inside;
+  }
+  return inside;
+}
 /** Distance from (x, z) to the edge of a park's outline. */
 function edgeDist(p, x, z) {
   const P = p.points;
@@ -2528,7 +2586,7 @@ export function parkStep(world, t) {
   for (const p of world.parkSites || []) if (p.town === t.num || (p.towns && p.towns.includes(t.num))) mine += p.parts || 1;
   if (mine >= 1 + Math.floor(t.pop / 1500) || Math.random() > 0.02 * Math.max(0.5, civParams.growth)) return;
   const N = world.N, LU = world.landUse, V = world.vegetation, A = world.forestAge, H = world.height, sea = seaOf(world);
-  const ZF = world.zoneFlags, sites = (world.parkSites ||= []);
+  const sites = (world.parkSites ||= []);
   const glob = speciesRarity(world), K = SPECIES.length, sh = new Float32Array(K);
   let best = null, plain = null;
   for (let k = 0; k < 160; k++) {
@@ -2536,17 +2594,38 @@ export function parkStep(world, t) {
     const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
     if (x < 6 || z < 6 || x >= N - 6 || z >= N - 6) continue;
     const i = z * N + x;
-    if (LU[i] || V[i] < 0.25 || H[i] < sea + 0.5 || world.water[i] > 0.1 || (ZF && ZF[i])) continue;
-    if (sites.some((p) => edgeDist(p, x, z) < 3)) continue; // (not on top of a park)
+    if (LU[i] || V[i] < 0.25 || H[i] < sea + 0.5 || world.water[i] > 0.1) continue;
+    // (not in or on top of another park; your own drawn areas don't stop a park, whatever they restrict)
+    if (sites.some((p) => inPark(p, x, z) || edgeDist(p, x, z) < 3)) continue;
     // (wild forest all over: nothing built, farmed or planted in it)
-    let wild = true, open = 0;
-    for (let dz = -4; dz <= 4 && wild; dz++) for (let dx = -4; dx <= 4; dx++) {
+    // (wild all over, nothing built, farmed or planted in it; the last woods of a farmed district may
+    // have fields close round them, but not right up against the middle)
+    let wild = true, near = false, open = 0;
+    for (let dz = -4; dz <= 4 && !near; dz++) for (let dx = -4; dx <= 4; dx++) {
       if (dx * dx + dz * dz > 16) continue;
       const j = i + dz * N + dx;
-      if (LU[j] && !(world.footpath && world.footpath[j])) { wild = false; break; }
+      if (LU[j] && !(world.footpath && world.footpath[j])) { wild = false; if (dx * dx + dz * dz <= 4) { near = true; break; } }
       if (V[j] < 0.45) open++;
     }
+    if (near) continue;
+    const handy = sites.some((p) => edgeDist(p, x, z) < 9) ? 0.1 : 0;
+    // The last woods of the district: forest where little is left within 20 cells
+    if (V[i] >= 0.6 && open <= 8) {
+      const lf = localForest(world, x, z);
+      if (lf < 0.3) {
+        const sc = 0.3 + (0.3 - lf) * 2.5 - d * 0.004 + handy;
+        if (!best || sc > best.score) best = { x, z, score: sc, kind: 'remnant', sp: -1 };
+      }
+    }
     if (!wild) continue;
+    // A preserve: a stretch of a wild biome that's rare on the map (wetland, tundra, dunes…)
+    const rb = rareBiomeAt(world, i);
+    if (rb) {
+      let sc = rb[1];
+      for (const p of sites) for (const f of p.features || []) if (f === 'biome:' + rb[0]) sc *= 0.55;
+      sc += handy - d * 0.004;
+      if (sc > 0.25 && (!best || sc > best.score)) best = { x, z, score: sc, kind: 'biome', sp: -1, biome: rb[0] };
+    }
     // A refuge: where some wild animal lives much more thickly than across the map (forest or open)
     const wl = wildlifeAt(world, i);
     if (wl) {
@@ -2589,7 +2668,8 @@ export function parkStep(world, t) {
   const type = PARK_TYPES[best.kind];
   const r = 2.5 + Math.random() * 2;
   const label = best.kind === 'grove' ? `${SPECIES[best.sp].label.replace(/\s*\(.*\)/, '').replace(/ & .*/, '')} Grove`
-    : best.kind === 'refuge' ? `${best.animal.name} Refuge` : type.label;
+    : best.kind === 'refuge' ? `${best.animal.name} Refuge`
+    : best.kind === 'biome' ? `${BIOMES[best.biome].label.replace(/\s*\(.*\)/, '').replace(/\b\w/g, (ch) => ch.toUpperCase())} Preserve` : type.label;
   const restrict = {};
   for (const k of type.restrict) restrict[k] = true;
   if (best.kind === 'woods' && Math.random() < 0.4) restrict.fires = true;
@@ -2600,7 +2680,7 @@ export function parkStep(world, t) {
     const a = a0 + (k / 8) * Math.PI * 2, rr = r * (0.8 + Math.random() * 0.35);
     points.push({ x: Math.max(0, Math.min(N - 1, best.x + Math.cos(a) * rr)), z: Math.max(0, Math.min(N - 1, best.z + Math.sin(a) * rr)) });
   }
-  const feature = best.kind === 'grove' ? SPECIES[best.sp].id : best.kind === 'refuge' ? 'wild:' + best.animal.id : best.kind;
+  const feature = best.kind === 'grove' ? SPECIES[best.sp].id : best.kind === 'refuge' ? 'wild:' + best.animal.id : best.kind === 'biome' ? 'biome:' + best.biome : best.kind;
   // (a Commons: its fields inside are taken out of farming and left to go wild)
   if (best.kind === 'commons') {
     const rc = r * 1.15;
@@ -2672,15 +2752,15 @@ export function parkStep(world, t) {
  * (mostly fields: no streets, works or roads inside), a little way out from the middle of town.
  */
 function commonsSite(world, t) {
-  const N = world.N, LU = world.landUse, OW = world.civOwner, ZF = world.zoneFlags, sites = world.parkSites || [];
+  const N = world.N, LU = world.landUse, OW = world.civOwner, sites = world.parkSites || [];
   let best = null;
   for (let k = 0; k < 120; k++) {
     const a = Math.random() * Math.PI * 2, d = 5 + Math.random() * 25;
     const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
     if (x < 6 || z < 6 || x >= N - 6 || z >= N - 6) continue;
     const i = z * N + x;
-    if (LU[i] !== 1 || OW[i] !== t.num || (ZF && ZF[i])) continue;
-    if (sites.some((p) => edgeDist(p, x, z) < 3)) continue;
+    if (LU[i] !== 1 || OW[i] !== t.num) continue;
+    if (sites.some((p) => inPark(p, x, z) || edgeDist(p, x, z) < 3)) continue;
     let fields = 0, blocked = false;
     for (let dz = -3; dz <= 3 && !blocked; dz++) for (let dx = -3; dx <= 3; dx++) {
       if (dx * dx + dz * dz > 9) continue;
