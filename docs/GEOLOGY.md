@@ -1418,16 +1418,28 @@ parks go in wild land within 10–50 cells of the town, with nothing built, farm
 of park depends on what the forest holds, and each kind has its own restrictions. Every park bans
 timber, fields, new towns and roads (footpaths are still allowed).
 
+Parks protect only what is hard to find; where nothing rare is near a town, it makes no park.
+
 | Park | Chosen for | Also restricted |
 |---|---|---|
-| Old Growth Reserve | the oldest stand of trees (age above 0.7) | no fires, no hunting, no earthworks |
-| Grove (*Cedar Grove*, *Beech Grove*…) | a tree that makes up far more of the trees here than of the map's forest | no hunting (no earthworks for towns over 2,000) |
-| Woods | ordinary forest, when nothing special is near | sometimes no fires; hunting allowed |
-| Game Woods | ordinary forest, for towns over 1,200 | no earthworks; hunting allowed |
-| Refuge (*Deer Refuge*…) | an animal living at least several times more thickly than its average over the land; forest or open country | no hunting, no earthworks |
-| Preserve (*Wetland Preserve*, *Tundra Preserve*…) | a stretch of a wild biome (forest types, wetland, grassland, shrubland, tundra, mangrove, dunes, mesa, desert) covering most of the ground and making up only a small share of the map's land | no earthworks; hunting allowed |
-| Last Woods | forest where less than 30% of the land within 20 cells is still wild forest (the woods may have fields close round them, but not within 2 cells of the middle) | no fires, no earthworks; hunting allowed |
-| Commons | a block of the town's own fields, when no wild land is left nearby (and now and then for a town over 10 years old) | no fires, no hunting |
+| Old Growth Reserve | the oldest stands (age above 0.8), worth less where old forest is common on the map | no fires, no hunting, no earthworks |
+| Grove (*Fir Grove*, *Cedar Grove*…) | a tree under 8% of the map's forest that makes up at least 40% of the trees there | no hunting (no earthworks for towns over 2,000) |
+| Preserve (*Wetland Preserve*, *Tundra Preserve*…) | a wild biome under 6% of the map's land (forest types, wetland, grassland, shrubland, tundra, mangrove, dunes, mesa, desert) covering most of the ground | no earthworks; hunting allowed |
+| Refuge (*Deer Refuge*…) | an animal living several times more thickly than its average over the land | no hunting, no earthworks |
+| Last Woods | forest where less than 30% of the land within 20 cells is still wild forest | no fires, no earthworks; hunting allowed |
+| Commons | a block of the town's own fields, only for a town over 10 years old with less than 15% wild forest left within 20 cells | no fires, no hunting |
+| Wilderness | see below | no fires, no earthworks; hunting allowed |
+
+Woods and Game Woods (ordinary forest) are no longer made; any already on a map stay.
+
+**Wilderness Areas.** A town of 1,500 people or more now and then sets aside a very large tract,
+36–70 cells across, of the remotest wild land it can find 40–130 cells away. It picks the point
+farthest from any town, field, road, works or park centre, with mostly living land around it.
+Its outline stops at the sea, lakes and anything built, and a long trail leads out to it from
+the town, ending in a loop through its heart. Each town makes one; it doesn't merge with other
+parks and doesn't count toward the town's other parks. In a test, a town's Wilderness covered
+3,666 cells, 127 cells away, and finding it took 125 ms (once).
+
 
 A Commons lets a town hemmed in by its own development still make parks: the fields inside are taken
 out of farming and marked as old fields, so they go back to the wild (and the restriction keeps them
