@@ -1408,9 +1408,8 @@ kept weeded of pine; the pine already loose in the wild keeps spreading through 
 
 ## Town parks (`parkStep` in `src/sim/civilization.js`)
 
-A town of 400 people or more sets aside small parks near it, each a polygon 5–9 cells across. A
-park goes in wild forest within 10–50 cells of the town, with nothing built, farmed or planted
-there. The town lays a trail out to each park and round it in a loop for people to walk. The kind
+A town of 400 people or more sets aside small parks near it, each a polygon 5–9 cells across. Most
+parks go in wild land within 10–50 cells of the town, with nothing built, farmed or planted there. The town lays a trail out to each park and round it in a loop for people to walk. The kind
 of park depends on what the forest holds, and each kind has its own restrictions. Every park bans
 timber, fields, new towns and roads (footpaths are still allowed).
 
@@ -1420,8 +1419,12 @@ timber, fields, new towns and roads (footpaths are still allowed).
 | Grove (*Cedar Grove*, *Beech Grove*…) | a tree that makes up far more of the trees here than of the map's forest | no hunting (no earthworks for towns over 2,000) |
 | Woods | ordinary forest, when nothing special is near | sometimes no fires; hunting allowed |
 | Game Woods | ordinary forest, for towns over 1,200 | no earthworks; hunting allowed |
+| Refuge (*Deer Refuge*…) | an animal living at least several times more thickly than its average over the land; forest or open country | no hunting, no earthworks |
+| Commons | a block of the town's own fields, when no wild land is left nearby (and now and then for a town over 10 years old) | no fires, no hunting |
 
-Something the map's parks already protect counts for less, so each new park tends to protect
+A Commons lets a town hemmed in by its own development still make parks: the fields inside are taken
+out of farming and marked as old fields, so they go back to the wild (and the restriction keeps them
+from being farmed again). Something the map's parks already protect counts for less, so each new park tends to protect
 something different. A town may have about one park piece for every 1,500 people, plus one.
 
 **Merging.** A new park whose centre is within a few cells of an existing park's edge joins it,
@@ -1429,7 +1432,9 @@ and ground next to a park scores a little higher, so parks tend to grow together
 outline is drawn around both, it keeps the restrictions of both, and its name becomes *… Park*
 (for example *Tordale Beech Grove Park*). The new ground's trail loop is linked from the middle of
 the park it joins, and the park's trails are numbered. In a test, 11 park pieces formed 6 parks:
-three merged parks of 2–3 pieces, 15–28 cells across, and three single ones.
+three merged parks of 2–3 pieces, 15–28 cells across, and three single ones. In other tests, a town ringed by its own fields made Commons
+(some of which merged), and a herd of deer packed into one patch got a *Deer Refuge* 3 cells from its
+centre.
 
 The parks appear in the **Drawings** list as green polygons, where you can change their
 restrictions or delete them; world.parkSites remembers each park. Turn them off with **Town parks**

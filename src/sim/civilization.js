@@ -2435,6 +2435,11 @@ export function townNear(world, x, z, r = 10) {
  *     hunting
  *   • Woods, ordinary forest kept for walking: hunting allowed, sometimes no fires
  *   • Game Woods, kept for hunting (bigger towns): hunting allowed, no earthworks
+ *   • a Refuge (Deer Refuge, Wolf Refuge…) where wild animals are much thicker than they are across
+ *     the map, in forest or open country: no hunting, no earthworks
+ *   • Commons, for a town hemmed in by its own development (no wild land left nearby, or now and then
+ *     for a town over ten years old): a block of its own fields taken out of farming and left to go
+ *     back to the wild (old field), no fires, no hunting
  * Bigger towns keep adding parks (about one more for every 1,500 people). A new park next to an
  * existing one (its edge within a few cells) joins it into one larger park (the outline around
  * both, the restrictions of both, its trail linked in). New and grown parks wait in world.newParks
@@ -2446,6 +2451,8 @@ export const PARK_TYPES = {
   grove: { label: 'Grove', restrict: ['timber', 'fields', 'towns', 'roads', 'hunting'] },
   woods: { label: 'Woods', restrict: ['timber', 'fields', 'towns', 'roads'] },
   game: { label: 'Game Woods', restrict: ['timber', 'fields', 'towns', 'roads', 'earthworks'] },
+  refuge: { label: 'Refuge', restrict: ['timber', 'fields', 'towns', 'roads', 'hunting', 'earthworks'] },
+  commons: { label: 'Commons', restrict: ['timber', 'fields', 'towns', 'roads', 'fires', 'hunting'] },
 };
 let rarity = null, rarityAt = -99, rarityCalls = 0;
 function speciesRarity(world) {
@@ -2462,7 +2469,35 @@ function speciesRarity(world) {
   }
   for (let k = 0; k < K; k++) sum[k] /= Math.max(1, c);
   rarity = sum; rarityAt = step;
+  // (and each land animal's average density over the land)
+  animalMean = {};
+  for (const an of world.animals || []) {
+    if (an.habitat === 'sea' || an.habitat === 'coast') continue;
+    const f = world['animal_' + an.id];
+    if (!f) continue;
+    let tot = 0, cc = 0;
+    for (let i = 0; i < N * N; i += 13) if (world.height[i] > seaOf(world)) { tot += f[i]; cc++; }
+    animalMean[an.id] = tot / Math.max(1, cc);
+  }
   return rarity;
+}
+let animalMean = {};
+/** The land animal living much more thickly at cell i than across the map: [animal, how much] or null. */
+function wildlifeAt(world, i) {
+  const N = world.N;
+  let best = null, bs = 0;
+  for (const an of world.animals || []) {
+    const mean = animalMean[an.id];
+    if (mean === undefined) continue;
+    const f = world['animal_' + an.id];
+    let v = 0;
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) v += f[i + dz * N + dx] || 0;
+    v /= 25;
+    if (v < 0.12) continue;
+    const r = Math.min(1, v / (mean + 0.03) / 5);
+    if (r > bs) { bs = r; best = an; }
+  }
+  return best ? [best, bs] : null;
 }
 /** Convex hull of points {x, z} (anticlockwise). */
 function hull(pts) {
@@ -2501,7 +2536,7 @@ export function parkStep(world, t) {
     const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
     if (x < 6 || z < 6 || x >= N - 6 || z >= N - 6) continue;
     const i = z * N + x;
-    if (LU[i] || V[i] < 0.6 || H[i] < sea + 0.5 || world.water[i] > 0.1 || (ZF && ZF[i])) continue;
+    if (LU[i] || V[i] < 0.25 || H[i] < sea + 0.5 || world.water[i] > 0.1 || (ZF && ZF[i])) continue;
     if (sites.some((p) => edgeDist(p, x, z) < 3)) continue; // (not on top of a park)
     // (wild forest all over: nothing built, farmed or planted in it)
     let wild = true, open = 0;
@@ -2511,7 +2546,17 @@ export function parkStep(world, t) {
       if (LU[j] && !(world.footpath && world.footpath[j])) { wild = false; break; }
       if (V[j] < 0.45) open++;
     }
-    if (!wild || open > 8) continue;
+    if (!wild) continue;
+    // A refuge: where some wild animal lives much more thickly than across the map (forest or open)
+    const wl = wildlifeAt(world, i);
+    if (wl) {
+      let sc = wl[1];
+      for (const p of sites) for (const f of p.features || []) if (f === 'wild:' + wl[0].id) sc *= 0.55;
+      sc -= d * 0.004;
+      if (sites.some((p) => edgeDist(p, x, z) < 9)) sc += 0.1;
+      if (sc > 0.25 && (!best || sc > best.score)) best = { x, z, score: sc, kind: 'refuge', sp: -1, animal: wl[0] };
+    }
+    if (V[i] < 0.6 || open > 8) continue; // (the rest are forest parks)
     // Old growth: the stand's age (averaged over its neighbours)
     let age = 0, c = 0;
     for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { const j = i + dz * N + dx; if (!LU[j]) { age += A[j]; c++; } }
@@ -2536,10 +2581,15 @@ export function parkStep(world, t) {
     if (score > 0.25 && (!best || score > best.score)) best = { x, z, score, kind, sp };
   }
   if (!best && plain) best = { ...plain, kind: t.pop > 1200 && Math.random() < 0.45 ? 'game' : 'woods', sp: -1 };
+  // A town hemmed in by its own development (or, now and then, an old town): a Commons, out of its
+  // own fields
+  const old = (seasonParams.year || 1) - (t.founded || 1) >= 10;
+  if (!best || (old && Math.random() < 0.2)) { const c = commonsSite(world, t); if (c) best = c; }
   if (!best) return;
   const type = PARK_TYPES[best.kind];
   const r = 2.5 + Math.random() * 2;
-  const label = best.kind === 'grove' ? `${SPECIES[best.sp].label.replace(/\s*\(.*\)/, '').replace(/ & .*/, '')} Grove` : type.label;
+  const label = best.kind === 'grove' ? `${SPECIES[best.sp].label.replace(/\s*\(.*\)/, '').replace(/ & .*/, '')} Grove`
+    : best.kind === 'refuge' ? `${best.animal.name} Refuge` : type.label;
   const restrict = {};
   for (const k of type.restrict) restrict[k] = true;
   if (best.kind === 'woods' && Math.random() < 0.4) restrict.fires = true;
@@ -2550,7 +2600,19 @@ export function parkStep(world, t) {
     const a = a0 + (k / 8) * Math.PI * 2, rr = r * (0.8 + Math.random() * 0.35);
     points.push({ x: Math.max(0, Math.min(N - 1, best.x + Math.cos(a) * rr)), z: Math.max(0, Math.min(N - 1, best.z + Math.sin(a) * rr)) });
   }
-  const feature = best.kind === 'grove' ? SPECIES[best.sp].id : best.kind;
+  const feature = best.kind === 'grove' ? SPECIES[best.sp].id : best.kind === 'refuge' ? 'wild:' + best.animal.id : best.kind;
+  // (a Commons: its fields inside are taken out of farming and left to go wild)
+  if (best.kind === 'commons') {
+    const rc = r * 1.15;
+    for (let dz = -Math.ceil(rc); dz <= Math.ceil(rc); dz++) for (let dx = -Math.ceil(rc); dx <= Math.ceil(rc); dx++) {
+      if (dx * dx + dz * dz > rc * rc) continue;
+      const j = (best.z + dz) * N + best.x + dx;
+      if (j < 0 || j >= N * N || LU[j] !== 1) continue;
+      LU[j] = 0; world.civOwner[j] = 0; world.paved[j] = 0;
+      if (world.irrigated) world.irrigated[j] = 0;
+      markOldField(world, j);
+    }
+  }
   const year = seasonParams.year || 1;
   // Next to an existing park (edges within a few cells)? It joins that park
   let site = null, sd = r + 5;
@@ -2568,7 +2630,13 @@ export function parkStep(world, t) {
     site.kinds = [...new Set([...(site.kinds || []), best.kind])];
     if (site.town !== t.num) site.towns = [...new Set([...(site.towns || []), t.num])];
     site.parts = (site.parts || 1) + 1;
-    if (!site.name.endsWith(' Park')) site.name = `${site.name.replace(/ Reserve$/, '')} Park`;
+    if (!/ Park( \d+)?$/.test(site.name)) {
+      // (Elford Old Growth Reserve → Elford Old Growth Park; a numbered name keeps its number last)
+      const base = `${site.name.replace(/ \d+$/, '').replace(/ Reserve$/, '')} Park`;
+      let nm = base;
+      for (let k = 2; sites.some((p) => p !== site && p.name === nm); k++) nm = `${base} ${k}`;
+      site.name = nm;
+    }
   } else {
     // (a name of its own: a second Cedar Grove of the same town is named by where it lies)
     let name = `${t.name} ${label}`;
@@ -2597,4 +2665,32 @@ export function parkStep(world, t) {
   const trails = (world.footpaths || []).filter((f) => f.park === site.id);
   trails.forEach((f, k) => { f.name = `${site.name} Trail${trails.length > 1 ? ` ${k + 1}` : ''}`; });
   t.lastPark = year;
+}
+
+/**
+ * Where an old town hemmed in by its own development makes a Commons: a block of its own fields
+ * (mostly fields: no streets, works or roads inside), a little way out from the middle of town.
+ */
+function commonsSite(world, t) {
+  const N = world.N, LU = world.landUse, OW = world.civOwner, ZF = world.zoneFlags, sites = world.parkSites || [];
+  let best = null;
+  for (let k = 0; k < 120; k++) {
+    const a = Math.random() * Math.PI * 2, d = 5 + Math.random() * 25;
+    const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
+    if (x < 6 || z < 6 || x >= N - 6 || z >= N - 6) continue;
+    const i = z * N + x;
+    if (LU[i] !== 1 || OW[i] !== t.num || (ZF && ZF[i])) continue;
+    if (sites.some((p) => edgeDist(p, x, z) < 3)) continue;
+    let fields = 0, blocked = false;
+    for (let dz = -3; dz <= 3 && !blocked; dz++) for (let dx = -3; dx <= 3; dx++) {
+      if (dx * dx + dz * dz > 9) continue;
+      const u = LU[i + dz * N + dx];
+      if (u === 1) fields++;
+      else if (u && u !== 0) { blocked = true; break; } // (streets, works, roads, plantations…)
+    }
+    if (blocked || fields < 18) continue;
+    const score = 0.3 + fields * 0.005 - d * 0.004 + (sites.some((p) => edgeDist(p, x, z) < 9) ? 0.1 : 0);
+    if (!best || score > best.score) best = { x, z, score, kind: 'commons', sp: -1 };
+  }
+  return best;
 }
