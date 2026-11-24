@@ -5,9 +5,13 @@
 //
 // A disease is worst on young trees: seedlings and saplings of its hosts are killed outright or
 // stunted (they stop maturing), so an infected stand loses its young growth and its forest health
-// falls; old, established trees mostly survive, so the disease smoulders on in old forest. It spreads
-// from tree to tree to neighbouring cells where its hosts grow, and now and then jumps further on the
-// wind (spores) or with animals and people. Where its hosts are gone it dies out.
+// falls; now and then it kills a whole clump of trees, old ones too. It spreads from tree to tree to
+// neighbouring cells where its hosts grow, and jumps on the wind (spores) or with animals, people and
+// timber, mostly a few cells but sometimes clear across the map. Outbreaks don't last: the trees that
+// survive an outbreak are the resistant ones (world.diseaseResist builds up while a cell is infected),
+// so the infection burns out behind its spreading front, and patches clear up on their own in a good
+// year. Resistance fades again over the years, so a disease can come back in waves. Where its hosts
+// are gone it dies out.
 
 import { SPECIES, SPECIES_INDEX, treeShares } from './species.js';
 import { climateParams } from './climate.js';
@@ -49,6 +53,14 @@ function youth(world, i) { const a = 1 - world.forestAge[i]; return Math.max(0.0
 function ensure(world) {
   const n = world.N * world.N;
   if (!world.treeDisease || world.treeDisease.length !== n) { world.treeDisease = new Uint8Array(n); world.diseaseLoad = new Float32Array(n); }
+  if (!world.diseaseResist || world.diseaseResist.length !== n) world.diseaseResist = new Float32Array(n);
+}
+
+/** A place for a spore to land, `r` cells from (x, z) mostly downwind. */
+function jumpTarget(N, x, z, wa, r) {
+  const a = Math.random() < 0.65 ? wa + (Math.random() - 0.5) * 1.2 : Math.random() * Math.PI * 2;
+  const jx = Math.round(x + Math.cos(a) * r), jz = Math.round(z + Math.sin(a) * r);
+  return jx >= 0 && jz >= 0 && jx < N && jz < N ? jz * N + jx : -1;
 }
 
 /** Introduce disease `id` at cell i (brush), where its hosts grow. Returns true if it took. */
@@ -73,10 +85,14 @@ export function cure(world, i, k) {
 /** One step of every disease on the map. */
 export function diseaseStep(world) {
   if (!world.treeDisease) return;
-  const N = world.N, n = N * N, D = world.treeDisease, L = world.diseaseLoad;
+  ensure(world);
+  const N = world.N, n = N * N, D = world.treeDisease, L = world.diseaseLoad, R = world.diseaseResist;
   const V = world.vegetation, A = world.forestAge, FH = world.forestHealth, TD = world.treeDensity, DW = world.deadWood;
   const active = [];
-  for (let i = 0; i < n; i++) if (D[i]) active.push(i);
+  for (let i = 0; i < n; i++) {
+    if (D[i]) active.push(i);
+    else if (R[i] > 0) R[i] = R[i] < 0.005 ? 0 : R[i] * 0.997; // (resistance fades over the years)
+  }
   if (!active.length) return;
   // (host shares change slowly: each cell's is remembered for a few steps)
   if (!memo || memo.h.length !== n) memo = { h: new Float32Array(n), id: new Uint8Array(n), at: new Int32Array(n).fill(-99), step: 0 };
@@ -85,6 +101,7 @@ export function diseaseStep(world) {
     if (memo.id[i] !== id || step - memo.at[i] > 6) { memo.h[i] = hostShare(world, i, id); memo.id[i] = id; memo.at[i] = step + ((i * 7) % 3); }
     return memo.h[i];
   };
+  const seed = (j, id) => { D[j] = id; L[j] = 0.05; };
   const counts = new Array(DISEASES.length + 1).fill(0);
   const wa = ((climateParams.windAngle || 0) * Math.PI) / 180;
   for (const i of active) {
@@ -93,15 +110,27 @@ export function diseaseStep(world) {
     let l = L[i];
     if (h < 0.03) { l *= 0.8; } // (no hosts left: it dies out)
     else {
-      const y = youth(world, i);
-      l += 0.1 * h * y * (1 - l) - 0.004 * l;
+      const y = youth(world, i), r = R[i];
+      // Builds up on susceptible trees; the survivors are resistant, so it burns out behind the front
+      l += 0.12 * h * y * (1 - l) * (1 - r) - (0.004 + 0.05 * r * r) * l;
+      R[i] = Math.min(1, r + 0.002 + 0.004 * l);
+      if (Math.random() < 0.0015) l *= 0.25; // (a patch clears up on its own: a dry spell, a good year)
       // Damage, mostly to the young trees: some killed outright, the rest stunted
       const e = l * h * y;
-      if (V[i] > 0.35) V[i] -= 0.005 * e;                        // (dying saplings thin the cover)
+      if (V[i] > 0.35) V[i] -= 0.006 * e;                        // (dying saplings thin the cover)
       if (DW) DW[i] = Math.min(1, DW[i] + 0.006 * e);            // (and stand dead)
       if (FH) FH[i] = Math.max(0, FH[i] - 0.02 * e);             // (no young trees coming through)
       if (TD) TD[i] = Math.max(0, TD[i] - 0.004 * e);
       if (A[i] < 0.6) A[i] = Math.max(0, A[i] - 0.0012 * e);     // (stunted: a young stand stops maturing)
+      // Now and then a whole clump of host trees dies, old ones too
+      if (Math.random() < 0.04 * l * h * (0.4 + y)) {
+        const k = h * (0.5 + 0.5 * Math.random());
+        V[i] = Math.max(0.25, V[i] - 0.1 * k);
+        if (TD) TD[i] = Math.max(0, TD[i] - 0.1 * k);
+        if (DW) DW[i] = Math.min(1, DW[i] + 0.12 * k);
+        if (FH) FH[i] = Math.max(0, FH[i] - 0.1 * k);
+        A[i] = Math.max(0, A[i] - 0.04 * k);                       // (the gap fills with young trees)
+      }
       // Spread to the neighbours where its hosts grow (more readily downwind)
       const x = i % N, z = (i / N) | 0;
       for (let d = 0; d < 8; d++) {
@@ -112,19 +141,18 @@ export function diseaseStep(world) {
         if (D[j] === id) continue;
         if (D[j] && L[j] > 0.1) continue; // (another disease already holds it)
         const down = 1 + 0.8 * (dx * Math.cos(wa) + dz * Math.sin(wa)) / Math.hypot(dx, dz);
-        if (Math.random() > 0.05 * l * down) continue;
+        if (Math.random() > 0.05 * l * down * (1 - R[j])) continue;
         const hj = host(j, id);
         if (hj < 0.03 || Math.random() > hj * 2) continue;
-        D[j] = id; L[j] = 0.05;
+        seed(j, id);
       }
-      // Now and then a long jump (spores on the wind, carried on animals, boots and timber)
-      if (l > 0.4 && Math.random() < 0.004) {
-        const a = Math.random() < 0.6 ? wa + (Math.random() - 0.5) : Math.random() * Math.PI * 2, r = 5 + Math.random() * 15;
-        const jx = Math.round(x + Math.cos(a) * r), jz = Math.round(z + Math.sin(a) * r);
-        if (jx >= 0 && jz >= 0 && jx < N && jz < N) {
-          const j = jz * N + jx;
-          if (!D[j] && host(j, id) > 0.1) { D[j] = id; L[j] = 0.05; }
-        }
+      // Jumps (spores on the wind, carried on animals, boots and timber): mostly a few cells, now and
+      // then far across the map
+      if (l > 0.2 && Math.random() < 0.012 * l) {
+        const u = Math.random();
+        const dist = u < 0.9 ? 4 + u * u * 40 : 30 + Math.random() * N * 0.6;
+        const j = jumpTarget(N, x, z, wa, dist);
+        if (j >= 0 && !D[j] && Math.random() > R[j] && host(j, id) > 0.08) seed(j, id);
       }
     }
     if (l < 0.01) { D[i] = 0; L[i] = 0; } else { L[i] = l; counts[id]++; }

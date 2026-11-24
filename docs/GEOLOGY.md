@@ -1383,9 +1383,17 @@ Each cell holds at most one disease (world.treeDisease) and how heavily it is in
 (world.diseaseLoad). The infection builds up in proportion to the hosts' share of the trees, and it
 is worst on young trees: saplings are killed (cover thins, dead wood builds up), forest health
 collapses because no young trees come through, and young stands are stunted (they stop maturing).
-Old trees mostly survive, so the disease smoulders on in old forest. It spreads to neighbouring
-cells where its hosts grow (more readily downwind) and occasionally jumps 5–20 cells, and it dies out
-where its hosts are gone. The invasive pine is host to none of them. In a test, needle blight
+Now and then a whole clump of host trees dies at once, old ones too (cover and
+tree density drop, dead wood piles up, and the gap fills with young trees). It spreads to
+neighbouring cells where its hosts grow (more readily downwind) and jumps on spores, animals, boots
+and timber: mostly 4–45 cells, mostly downwind, and one jump in ten lands 30 cells to over half the
+map away. Outbreaks burn out: the trees that survive are resistant (world.diseaseResist builds up
+while a cell is infected and slows both the infection and its spread into that cell), so the load
+collapses behind the spreading front, and an infected patch sometimes clears up on its own in a good
+year. Resistance fades again over the years, so the disease comes back in waves. In a test, a canker
+introduced in one spot reached across the map within 200 steps, infected 8,500 cells at its peak,
+fell to about 850 by step 1,000 as the stands became resistant, then rose and fell in smaller waves
+(1,000–2,200 cells). It dies out where its hosts are gone. The invasive pine is host to none of them. In a test, needle blight
 dropped forest health by 0.55 in young stands and by 0.05 in old ones. The *Tree disease* overlay
 colours each disease, the inspector names it, and the *Diseased forest* graph tracks its share of
 the forest.
