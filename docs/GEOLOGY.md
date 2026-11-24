@@ -1387,7 +1387,12 @@ Now and then a whole clump of host trees dies at once, old ones too (cover and
 tree density drop, dead wood piles up, and the gap fills with young trees). It spreads to
 neighbouring cells where its hosts grow (more readily downwind) and jumps on spores, animals, boots
 and timber: mostly 4–45 cells, mostly downwind, and one jump in ten lands 30 cells to over half the
-map away. Outbreaks burn out: the trees that survive are resistant (world.diseaseResist builds up
+map away. Roads carry it too: a road passing a heavily infected stand picks it up on wheels, boots
+and logs (world.roadDisease, world.roadSpores, fading about 4% a cell along the road), and the host
+trees beside a road carrying it catch it now and then, far from where it started. The *Tree disease*
+overlay tints those roads in the disease's colour and the inspector shows *Carrying disease*. In a
+test with a road through birch forest, a canker reached 227 cells in 40 steps (17 without the road),
+43 of them beside the road more than 30 cells from where it began (none without it). Outbreaks burn out: the trees that survive are resistant (world.diseaseResist builds up
 while a cell is infected and slows both the infection and its spread into that cell), so the load
 collapses behind the spreading front, and an infected patch sometimes clears up on its own in a good
 year. Resistance fades again over the years, so the disease comes back in waves. In a test, a canker

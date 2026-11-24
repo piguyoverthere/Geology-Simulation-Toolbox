@@ -364,6 +364,9 @@ export class TerrainRenderer {
           const dd = w.treeDisease ? w.treeDisease[i] : 0, v = w.vegetation[i];
           col = v < 0.4 ? INV_OPEN.slice() : DIS_HEALTHY.slice();
           if (dd && DISEASE_BY_ID[dd]) mix(col, DISEASE_BY_ID[dd].color, 0.35 + 0.65 * Math.min(1, w.diseaseLoad[i]), col);
+          else if (w.roadDisease && w.roadDisease[i] && DISEASE_BY_ID[w.roadDisease[i]]) { // (a road carrying its spores: greyed)
+            col = [0.55, 0.55, 0.52]; mix(col, DISEASE_BY_ID[w.roadDisease[i]].color, 0.25 + 0.5 * Math.min(1, w.roadSpores[i]), col);
+          }
           shade(col, 0.72 + 0.28 * ny, col);
         } else if (mode === 'air') {
           // Smoke and acid rain: clean air pale, thick smoke dark brown-grey

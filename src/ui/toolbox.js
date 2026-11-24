@@ -929,7 +929,7 @@ export class Toolbox {
     }
     else if (mode === 'invasive') ramp('Invasive pine (share of the trees)', 'native forest', 'all pine', [[0.30, 0.62, 0.30], [0.66, 0.16, 0.38]]);
     else if (mode === 'fires') items('Historic wildfires (the last fire to burn each place)', [{ label: 'Burning now', color: [1.0, 0.35, 0.08], help: 'A fire still going.' }, { label: 'Small fire', color: [0.66, 0.58, 0.50], help: `A fire that burnt fewer than ${NAME_AT} cells: numbered, not named.` }, ...(this.app.world.fireLog || []).filter((f) => f.name).slice(-10).reverse().map((f) => ({ label: `${f.name} (#${f.id}, year ${f.year})`, color: fireColor(this.app.world, f.id, [0, 0, 0]), help: `${f.cells} cells burnt.` })), { label: 'Never burnt', color: [0.78, 0.81, 0.74], help: 'No fire on record here.' }]);
-    else if (mode === 'disease') items('Tree diseases (stronger colour = heavier infection)', [{ label: 'Healthy forest', color: [0.55, 0.70, 0.52], help: 'Forest with no disease.' }, ...DISEASES]);
+    else if (mode === 'disease') items('Tree diseases (stronger colour = heavier infection)', [{ label: 'Healthy forest', color: [0.55, 0.70, 0.52], help: 'Forest with no disease.' }, ...DISEASES, { label: 'Road carrying spores', color: [0.62, 0.58, 0.48], help: 'A road whose traffic carries a disease (tinted in its colour): the host trees beside it catch it.' }]);
     else if (mode === 'air') ramp('Air pollution (town smoke, acid rain, wildfire smoke)', 'clean', 'thick smoke', [[0.86, 0.90, 0.92], [0.35, 0.28, 0.22]]);
     else if (mode === 'landuse') items('Land use', [
       { label: 'Fields', color: [0.95, 0.80, 0.30], help: 'Farmland (greener where irrigated).' },

@@ -7,7 +7,9 @@
 // stunted (they stop maturing), so an infected stand loses its young growth and its forest health
 // falls; now and then it kills a whole clump of trees, old ones too. It spreads from tree to tree to
 // neighbouring cells where its hosts grow, and jumps on the wind (spores) or with animals, people and
-// timber, mostly a few cells but sometimes clear across the map. Outbreaks don't last: the trees that
+// timber, mostly a few cells but sometimes clear across the map. Roads carry it too: traffic past an
+// infected stand picks it up on wheels, boots and logs and carries it along the road network, and it
+// gets into the host trees beside the road far from where it started. Outbreaks don't last: the trees that
 // survive an outbreak are the resistant ones (world.diseaseResist builds up while a cell is infected),
 // so the infection burns out behind its spreading front, and patches clear up on their own in a good
 // year. Resistance fades again over the years, so a disease can come back in waves. Where its hosts
@@ -157,6 +159,51 @@ export function diseaseStep(world) {
     }
     if (l < 0.01) { D[i] = 0; L[i] = 0; } else { L[i] = l; counts[id]++; }
   }
+  roadSpread(world, host, seed);
   world.diseaseCells = counts;
   world.dirty = true;
+}
+
+/**
+ * Spores carried along the roads: a road beside a heavily infected stand picks the disease up
+ * (world.roadDisease: which one, world.roadSpores: how much, fading with distance along the road),
+ * and the host trees beside a road carrying it catch it now and then.
+ */
+function roadSpread(world, host, seed) {
+  const LU = world.landUse;
+  if (!LU) return;
+  const N = world.N, n = N * N, D = world.treeDisease, L = world.diseaseLoad, R = world.diseaseResist;
+  if (!world.roadSpores || world.roadSpores.length !== n) { world.roadSpores = new Float32Array(n); world.roadDisease = new Uint8Array(n); }
+  const S = world.roadSpores, RD = world.roadDisease;
+  const nb = [-1, 1, -N, N];
+  const roads = [];
+  for (let pass = 0; pass < 2; pass++) {
+    // (alternate directions so it travels both ways along the road in a step)
+    for (let k = 0; k < n; k++) {
+      const i = pass ? n - 1 - k : k;
+      if (LU[i] !== 3) { if (S[i]) { S[i] = 0; RD[i] = 0; } continue; }
+      if (!pass) roads.push(i);
+      const x = i % N;
+      let s = S[i] * (pass ? 1 : 0.97), id = RD[i];
+      for (const o of nb) {
+        const j = i + o;
+        if (j < 0 || j >= n || (o === -1 && x === 0) || (o === 1 && x === N - 1)) continue;
+        if (LU[j] === 3) { if (S[j] * 0.96 > s) { s = S[j] * 0.96; id = RD[j]; } }
+        else if (D[j] && L[j] > 0.3 && L[j] > s) { s = L[j]; id = D[j]; } // (picked up from an infected stand)
+      }
+      S[i] = s < 0.02 ? 0 : s; RD[i] = S[i] ? id : 0;
+    }
+  }
+  // The host trees beside a spore-carrying road catch it
+  for (const i of roads) {
+    const s = S[i];
+    if (s < 0.1) continue;
+    const id = RD[i], x = i % N;
+    for (const o of nb) {
+      const j = i + o;
+      if (j < 0 || j >= n || (o === -1 && x === 0) || (o === 1 && x === N - 1)) continue;
+      if (LU[j] === 3 || D[j] || Math.random() > 0.02 * s * (1 - R[j])) continue;
+      if (host(j, id) > 0.05) seed(j, id);
+    }
+  }
 }
