@@ -1398,13 +1398,12 @@ kept weeded of pine; the pine already loose in the wild keeps spreading through 
 Every wildfire is tracked as one event and numbered in order (#1, #2, …). After each fire step,
 newly burning cells are grouped: a patch that catches next to a fire still going joins that fire,
 and so does a spot fire started by embers within 10 cells of one; any other spark starts a new fire.
-A fire is out once nothing of it has burnt for 40 fire steps. Fires that burnt close together at about the same time are
-then merged into one: if their years overlap or are a year apart and their burnt areas (taken as
-circles of the same size around each fire's middle) come within 15 cells of each other, the smaller
-joins the bigger, keeping the bigger one's number and name (and is named if together they pass the
-size for a name). A spark within 15 cells of a fire still burning joins it straight away. This runs
-whenever a fire goes out, so a fire season's outbreaks in one stretch of country show as one fire.
-On the overlay, a smaller fire's label is hidden where it would overlap a bigger one's. Small fires are only numbered. Once a
+A fire is out once nothing of it has burnt for 40 fire steps. Fires burning at the same time (within a few dozen fire steps
+of each other) whose burnt ground comes within **Merge fires within** cells (Climate → Wildfire →
+Fire history; 4 by default, 0 = never) are merged into one: the smaller joins the bigger, keeping the
+bigger one's number and name (and is named if together they pass the size for a name). Fires at
+different times are never merged, however close. A spark within 10 cells of a fire still burning
+joins it straight away (embers blown ahead). On the overlay, a smaller fire's label is hidden where it would overlap a bigger one's. Small fires are only numbered. Once a
 fire has burnt 150 cells it is given a name, as real wildfires are: after a town within 40 cells
 ("Redwick Fire"), else after the land where it started ("Bear Ridge Fire", "Lost Creek Fire",
 "Cedar Flats Fire"), never reusing a name.

@@ -139,6 +139,7 @@ export class Toolbox {
       slider('Fire spread', app.fireParams, 'spread', 0.5, 6, 0.1,
         'How readily fire jumps to neighbouring plants.', this),
       el('div', 'tb-group-label', 'Fire history'),
+      slider('Merge fires within', app.fireParams, 'mergeGap', 0, 15, 1, 'Two fires burning at the same time whose burnt ground comes within this many cells of each other count as one fire (a front that split around a lake and joined up again, two outbreaks side by side). Fires at different times are never merged. 0 = never merge. Merges already made stay merged.', this),
       (this.fireList = el('div', 'tb-fire-list')),
     );
     const vtBtns = el('div', 'tb-row');

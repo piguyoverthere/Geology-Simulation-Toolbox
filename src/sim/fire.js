@@ -22,7 +22,8 @@ export const fireParams = {
   spread: 1.6,      // chance per step to ignite a fully fuelled neighbour (× intensity × dt)
   burnRate: 0.4,    // fuel (plant cover) consumed per second at full intensity
   minFuel: 0.12,    // cover below this can't carry fire
-  resiliency: 0,    // how much a big fire shrugs off rain (0 = rain puts any fire out as well; 1+ = big fires burn on through it)
+  resiliency: 0,
+  mergeGap: 4,      // fires burning at the same time this close (cells) count as one (Fire history)    // how much a big fire shrugs off rain (0 = rain puts any fire out as well; 1+ = big fires burn on through it)
 };
 
 /**

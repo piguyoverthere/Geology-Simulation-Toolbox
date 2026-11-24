@@ -9,6 +9,7 @@
 // wildfires* overlay, with labels on the named fires, and listed under Climate → Wildfire.
 
 import { seasonParams } from './climate.js';
+import { fireParams } from './fire.js';
 
 /** Cells a fire must burn before it is given a name. */
 export const NAME_AT = 150;
@@ -89,7 +90,7 @@ export function trackFires(world) {
       if (!found && world.fireLog.some((g) => g.active)) {
         const x0 = i % N, z0 = (i / N) | 0;
         let bd = 1e9;
-        for (let dz = -MERGE_GAP; dz <= MERGE_GAP; dz++) for (let dx = -MERGE_GAP; dx <= MERGE_GAP; dx++) {
+        for (let dz = -SPOT; dz <= SPOT; dz++) for (let dx = -SPOT; dx <= SPOT; dx++) {
           const nx = x0 + dx, nz = z0 + dz;
           if (nx < 0 || nz < 0 || nx >= N || nz >= N) continue;
           const m = nz * N + nx, d = dx * dx + dz * dz;
@@ -99,7 +100,7 @@ export function trackFires(world) {
       let f = found;
       if (!f) {
         world.fireCount++;
-        f = { id: world.fireCount, name: null, year: seasonParams.year || 1, endYear: null, cells: 0, sx: 0, sz: 0, x: i % N, z: (i / N) | 0, active: true, last: tick };
+        f = { id: world.fireCount, name: null, year: seasonParams.year || 1, endYear: null, cells: 0, sx: 0, sz: 0, x: i % N, z: (i / N) | 0, active: true, t0: tick, last: tick };
         world.fireLog.push(f);
       }
       for (const j of group) { SC[j] = f.id; f.cells++; f.sx += j % N; f.sz += (j / N) | 0; }
@@ -119,57 +120,87 @@ export function trackFires(world) {
   }
 }
 
-/** How far apart (cells, edge to edge) two fires burning in the same or the next year can be and still count as one. */
-export const MERGE_GAP = 15;
+/** Embers blown this far (cells) from a fire still burning start a spot fire that belongs to it. */
+const SPOT = 10;
+/** Fire steps of slack when deciding whether two fires were burning at the same time. */
+const SAME_TIME = QUIET * 3;
 
 /**
- * Merge fires that burnt close together at about the same time (their years overlapping or a year
- * apart, their burnt areas within MERGE_GAP cells): a fire season's outbreaks in one stretch of
- * country, its spot fires and flare-ups, are one fire. The merged fire keeps the number and name of
- * the biggest of them, and is named if together they are big enough.
+ * Merge fires that were burning at the same time and whose burnt ground comes within
+ * fireParams.mergeGap cells (default 4; 0 = never merge): a front that split around a lake or
+ * a ridge and joined up again, or two outbreaks side by side, are one fire. Fires at different
+ * times are never merged, however close. The merged fire keeps the number and name of the
+ * bigger, and is named if together they are big enough.
  */
 export function mergeFires(world) {
   ensure(world);
-  const log = world.fireLog;
-  if (log.length < 2) return;
-  const now = seasonParams.year || 1;
+  const log = world.fireLog, gap = Math.round(fireParams.mergeGap ?? 4);
+  if (log.length < 2 || gap <= 0) return;
+  const N = world.N, SC = world.fireScar;
+  // Where each fire's burnt ground is (as last burnt) and its bounding box
+  const cells = new Map(), box = new Map();
+  for (let i = 0; i < SC.length; i++) {
+    const id = SC[i];
+    if (!id) continue;
+    let c = cells.get(id);
+    if (!c) { c = []; cells.set(id, c); box.set(id, [1e9, 1e9, -1, -1]); }
+    c.push(i);
+    const b = box.get(id), x = i % N, z = (i / N) | 0;
+    if (x < b[0]) b[0] = x; if (z < b[1]) b[1] = z; if (x > b[2]) b[2] = x; if (z > b[3]) b[3] = z;
+  }
+  const sameTime = (A, B) => (A.t0 !== undefined && B.t0 !== undefined
+    ? A.t0 <= (B.last || 0) + SAME_TIME && B.t0 <= (A.last || 0) + SAME_TIME
+    : A.year === B.year && (A.endYear ?? A.year) === (B.endYear ?? B.year)); // (fires logged before times were kept)
+  const touches = (A, B) => {
+    const ba = box.get(A.id), bb = box.get(B.id);
+    if (!ba || !bb) return false;
+    if (bb[0] > ba[2] + gap || ba[0] > bb[2] + gap || bb[1] > ba[3] + gap || ba[1] > bb[3] + gap) return false;
+    const small = cells.get(A.id).length < cells.get(B.id).length ? A : B, other = small === A ? B : A;
+    for (const i of cells.get(small.id)) {
+      const x = i % N, z = (i / N) | 0;
+      for (let dz = -gap; dz <= gap; dz++) for (let dx = -gap; dx <= gap; dx++) {
+        const nx = x + dx, nz = z + dz;
+        if (nx >= 0 && nz >= 0 && nx < N && nz < N && SC[nz * N + nx] === other.id) return true;
+      }
+    }
+    return false;
+  };
   const remap = new Map();
   let merged = true;
   while (merged) {
     merged = false;
     log.sort((a, b) => b.cells - a.cells);
-    for (let a = 0; a < log.length; a++) {
+    for (let a = 0; a < log.length && !merged; a++) {
       const A = log[a];
-      if (!A.cells) continue;
-      const ax = A.sx / A.cells, az = A.sz / A.cells, ra = Math.sqrt(A.cells / Math.PI), aEnd = A.active ? now : A.endYear ?? now;
       for (let b = a + 1; b < log.length; b++) {
         const B = log[b];
-        if (!B.cells) continue;
-        const bEnd = B.active ? now : B.endYear ?? now;
-        if (A.year > bEnd + 1 || B.year > aEnd + 1) continue;
-        const gap = Math.hypot(B.sx / B.cells - ax, B.sz / B.cells - az) - ra - Math.sqrt(B.cells / Math.PI);
-        if (gap > MERGE_GAP) continue;
+        if (!sameTime(A, B) || !touches(A, B)) continue;
         // B joins A (the bigger)
         A.cells += B.cells; A.sx += B.sx; A.sz += B.sz;
         A.year = Math.min(A.year, B.year);
+        if (A.t0 !== undefined && B.t0 !== undefined) A.t0 = Math.min(A.t0, B.t0);
         A.active = A.active || B.active; A.last = Math.max(A.last || 0, B.last || 0);
         A.endYear = A.active ? null : Math.max(A.endYear ?? 0, B.endYear ?? 0) || null;
         if (!A.name && B.name) A.name = B.name;
         remap.set(B.id, A.id);
         for (const [k, v] of remap) if (v === B.id) remap.set(k, A.id);
-        log.splice(b, 1); b--;
+        // (its ground is now A's)
+        const cb = cells.get(B.id) || [];
+        for (const i of cb) SC[i] = A.id;
+        cells.set(A.id, (cells.get(A.id) || []).concat(cb)); cells.delete(B.id);
+        const ba = box.get(A.id), bb = box.get(B.id);
+        if (ba && bb) { ba[0] = Math.min(ba[0], bb[0]); ba[1] = Math.min(ba[1], bb[1]); ba[2] = Math.max(ba[2], bb[2]); ba[3] = Math.max(ba[3], bb[3]); }
+        else if (bb) box.set(A.id, bb);
+        box.delete(B.id);
+        log.splice(b, 1);
+        if (!A.name && A.cells >= NAME_AT) A.name = nameFire(world, { ...A, x: Math.round(A.sx / A.cells), z: Math.round(A.sz / A.cells) });
         merged = true;
+        break;
       }
-      if (!A.name && A.cells >= NAME_AT) A.name = nameFire(world, { ...A, x: Math.round(A.sx / A.cells), z: Math.round(A.sz / A.cells) });
     }
   }
   log.sort((a, b) => a.id - b.id);
-  if (remap.size) {
-    const SC = world.fireScar;
-    for (let i = 0; i < SC.length; i++) { const r = SC[i] && remap.get(SC[i]); if (r) SC[i] = r; }
-    world._fireIndex = null;
-    world.dirty = true;
-  }
+  if (remap.size) { world._fireIndex = null; world.dirty = true; }
 }
 
 /** Colour for fire `id` on the Historic wildfires overlay. */
