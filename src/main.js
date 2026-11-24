@@ -28,6 +28,7 @@ import { TownLabels } from './render/townLabels.js';
 import { PathLabels } from './render/pathLabels.js';
 import { Boats } from './render/boats.js';
 import { Toolbox } from './ui/toolbox.js';
+import { BiomeChart } from './ui/biomeChart.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
 import { CrossSection } from './ui/section.js';
@@ -106,6 +107,7 @@ class App {
     try { keep = localStorage.getItem('geo.keepLevel') !== '0'; } catch { /* storage blocked */ }
     this.keepLevel = { on: keep };
     this.toolbox = new Toolbox(document.getElementById('toolbox'), document.getElementById('toolbar'), this);
+    this.biomeChart = new BiomeChart(this, document.getElementById('viewport'));
     this.inspector = new Inspector(document.getElementById('inspector'), this);
     this.monthBar = new MonthBar(document.getElementById('monthbar'), this);
     this.section = new CrossSection(document.getElementById('viewport'), this);
@@ -711,6 +713,7 @@ class App {
     this.pathLabels.update();
     this.boats.update(dt);
     if (this.frame % 30 === 0) { this.toolbox.drawGraphs(); this.toolbox.drawStats(); } // (population and map graphs)
+    if (this.frame % 120 === 90) this.biomeChart.update(); // (biome shares, while that window is open)
     if (this.sim.running && this.frame % 120 === 60) { recordStats(this.world); recordProbes(this.world); } // (whole-map statistics and probes, every couple of seconds)
     this.controls.update();
     this.effects.applyShake(this.camera, dt);

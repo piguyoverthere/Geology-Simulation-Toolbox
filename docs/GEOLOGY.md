@@ -792,7 +792,9 @@ the map's typical slope, so each forms whole regions.
 Bare biomes (desert, mesa, barren) erode fastest, which is why arid landscapes are so sharply
 carved: there are no roots to hold the ground when the rare storms come. Turn **Climate wetness**
 down and watch forest give way to shrubland and then desert, while mesas emerge on the dry
-slopes. **Overlays → Biomes** shows the categories; hover the legend for descriptions.
+slopes. **Overlays → Biomes** shows the categories; hover the legend for descriptions. The **🌍 Biomes**
+window at the top right of the map gives each biome's share of the land, as a stacked bar and a
+sorted list (counted on every fourth cell, refreshed every couple of seconds while it is open).
 
 ---
 
