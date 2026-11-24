@@ -13,6 +13,7 @@ import { ERUPTION_TYPES, INTRUSION_TYPES } from '../sim/volcanism.js';
 import { FAULT_TYPES } from '../sim/tectonics.js';
 import { SPECIES, OPEN } from '../sim/species.js';
 import { DISEASES, DISEASE_BY_ID } from '../sim/disease.js';
+import { NAME_AT, fireColor } from '../sim/fireHistory.js';
 import { BIOMES } from '../render/biomes.js';
 import { STATS } from '../sim/stats.js';
 import { PROBE_STATS } from '../sim/probes.js';
@@ -137,6 +138,8 @@ export class Toolbox {
       slider('Fire resiliency', app.fireParams, 'resiliency', 0, 3, 0.05, 'How much a big fire shrugs off the rain. Once a fire is large (a few hundred cells burning), its heat and updraft dry the air and drive the rain off, so rain puts it out far more slowly: at 1 about three times as slowly, at 3 more than ten times. Small fires, standing water and snow still put fires out as before. 0 = rain puts out any fire alike.', this),
       slider('Fire spread', app.fireParams, 'spread', 0.5, 6, 0.1,
         'How readily fire jumps to neighbouring plants.', this),
+      el('div', 'tb-group-label', 'Fire history'),
+      (this.fireList = el('div', 'tb-fire-list')),
     );
     const vtBtns = el('div', 'tb-row');
     vtBtns.append(button('Stop all events', () => { app.world.events.length = 0; app.world.flows.length = 0; }, '', 'End all running eruptions, intrusions, faults and pyroclastic flows. Lava already out keeps flowing until it cools.', this));
@@ -521,6 +524,29 @@ export class Toolbox {
       this.diseaseCounts.push({ d, status });
     }
     this.updateDiseaseCounts();
+    this.renderFires();
+  }
+
+  /** The fire history list (Climate → Wildfire): how many fires, and the named ones, newest first. */
+  renderFires() {
+    const w = this.app.world, L = this.fireList;
+    if (!L) return;
+    const log = w.fireLog || [];
+    const named = log.filter((f) => f.name);
+    const key = `${w.fireCount || 0}|${named.map((f) => `${f.id}:${f.cells}:${f.active ? 1 : 0}`).join(',')}`;
+    if (key === this.fireKey) return;
+    this.fireKey = key;
+    L.innerHTML = '';
+    const burning = log.filter((f) => f.active).length;
+    L.append(el('div', 'tb-note', w.fireCount ? `${w.fireCount} fire${w.fireCount > 1 ? 's' : ''} so far${burning ? `, ${burning} burning now` : ''}; ${named.length} grew big enough (${NAME_AT}+ cells) to be named. Overlay: Historic wildfires.` : 'No fires yet. Every fire is numbered; those that grow big enough are named. Overlay: Historic wildfires.'));
+    for (const f of named.slice(-12).reverse()) {
+      const row = el('div', 'tb-fire');
+      const sw = el('span', 'tb-swatch');
+      sw.style.background = rgb(fireColor(w, f.id, [0, 0, 0]));
+      row.append(sw, el('span', 'tb-animal-name', `${f.active ? '🔥 ' : ''}${f.name}`), el('span', 'tb-animal-status', `#${f.id} · yr ${f.year} · ${f.cells} cells`));
+      row.title = `Fire #${f.id}: started in year ${f.year}${f.active ? ', still burning' : f.endYear ? `, out in year ${f.endYear}` : ''}; ${f.cells} cells burnt.`;
+      L.append(row);
+    }
   }
 
   updateDiseaseCounts() {
@@ -901,6 +927,7 @@ export class Toolbox {
       }
     }
     else if (mode === 'invasive') ramp('Invasive pine (share of the trees)', 'native forest', 'all pine', [[0.30, 0.62, 0.30], [0.66, 0.16, 0.38]]);
+    else if (mode === 'fires') items('Historic wildfires (the last fire to burn each place)', [{ label: 'Burning now', color: [1.0, 0.35, 0.08], help: 'A fire still going.' }, { label: 'Small fire', color: [0.66, 0.58, 0.50], help: `A fire that burnt fewer than ${NAME_AT} cells: numbered, not named.` }, ...(this.app.world.fireLog || []).filter((f) => f.name).slice(-10).reverse().map((f) => ({ label: `${f.name} (#${f.id}, year ${f.year})`, color: fireColor(this.app.world, f.id, [0, 0, 0]), help: `${f.cells} cells burnt.` })), { label: 'Never burnt', color: [0.78, 0.81, 0.74], help: 'No fire on record here.' }]);
     else if (mode === 'disease') items('Tree diseases (stronger colour = heavier infection)', [{ label: 'Healthy forest', color: [0.55, 0.70, 0.52], help: 'Forest with no disease.' }, ...DISEASES]);
     else if (mode === 'air') ramp('Air pollution (town smoke, acid rain, wildfire smoke)', 'clean', 'thick smoke', [[0.86, 0.90, 0.92], [0.35, 0.28, 0.22]]);
     else if (mode === 'landuse') items('Land use', [

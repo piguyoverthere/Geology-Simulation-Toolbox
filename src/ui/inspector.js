@@ -2,6 +2,7 @@
 
 import { BIOMES, classifyBiome } from '../render/biomes.js';
 import { DISEASE_BY_ID } from '../sim/disease.js';
+import { fireById } from '../sim/fireHistory.js';
 import { waterParams } from '../sim/water.js';
 import { ROCKS, PROVINCES, ROCK_INDEX } from '../core/rocks.js';
 import { saturation, stableSlope } from '../sim/landslides.js';
@@ -108,6 +109,7 @@ export class Inspector {
         w.leafOn && w.decid && w.decid[i] > 0.02 && w.seasonT !== undefined && w.flush ? ['Leaves', leafLabel(w, i)] : null,
         w.deadWood && w.deadWood[i] > 0.05 ? ['Dead wood', `${bar(w.deadWood[i], '#8a7f75')} ${dim('burns fiercely')}`] : null,
         w.fire[i] > 0 ? ['Fire', `<span style="color:#ff8a4a">burning · ${Math.round(w.fire[i] * 100)}%</span>`] : null,
+        w.fireScar && w.fireScar[i] ? ['Last fire', (() => { const f = fireById(w, w.fireScar[i]); return f ? `${f.name || 'a small fire'} ${dim(`#${f.id} · year ${f.year}${f.active ? ' · burning' : ''} · ${f.cells} cells`)}` : dim(`#${w.fireScar[i]} (a small fire, long ago)`); })()] : null,
         w.burnt[i] > 0.01 ? ['Burnt', `${bar(w.burnt[i], '#777')} ${dim('ash')}`] : null,
       ]);
 

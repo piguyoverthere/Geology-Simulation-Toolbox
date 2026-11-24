@@ -1392,3 +1392,20 @@ the forest.
 
 With **Invasive plantation pine** off, every plantation is replanted with native trees at once and
 kept weeded of pine; the pine already loose in the wild keeps spreading through wild forest.
+
+## Wildfire history (`src/sim/fireHistory.js`)
+
+Every wildfire is tracked as one event and numbered in order (#1, #2, …). After each fire step,
+newly burning cells are grouped: a patch that catches next to a fire still going joins that fire,
+and so does a spot fire started by embers within 10 cells of one; any other spark starts a new fire.
+A fire is out once nothing of it has burnt for 40 fire steps. Small fires are only numbered. Once a
+fire has burnt 150 cells it is given a name, as real wildfires are: after a town within 40 cells
+("Redwick Fire"), else after the land where it started ("Bear Ridge Fire", "Lost Creek Fire",
+"Cedar Flats Fire"), never reusing a name.
+
+world.fireScar remembers the number of the last fire to burn each cell, and world.fireLog the fires
+themselves: year started and ended, cells burnt, and where. Named fires are kept for good; only the
+last 300 small ones are kept. The **Historic wildfires** overlay colours the ground by the last fire to
+burn it: each named fire its own colour with its name, number, year and size written over it, small
+fires a dull brown, and fires still burning orange. **Climate → Wildfire → Fire history** counts the
+fires and lists the named ones, newest first, and the inspector shows the last fire at each spot.

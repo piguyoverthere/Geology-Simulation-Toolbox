@@ -30,6 +30,8 @@ import { Boats } from './render/boats.js';
 import { Toolbox } from './ui/toolbox.js';
 import { BiomeChart } from './ui/biomeChart.js';
 import { diseaseStep } from './sim/disease.js';
+import { trackFires } from './sim/fireHistory.js';
+import { FireLabels } from './render/fireLabels.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
 import { CrossSection } from './ui/section.js';
@@ -98,6 +100,7 @@ class App {
     this.wildlife = new WildlifeMarkers(this.scene, this.world, this.renderer);
     this.townLabels = new TownLabels(document.getElementById('labels'), this);
     this.pathLabels = new PathLabels(document.getElementById('labels'), this);
+    this.fireLabels = new FireLabels(document.getElementById('labels'), this);
     this.boats = new Boats(this.scene, this);
     this.effects.climateParams = climateParams;
     this.setupCursor();
@@ -703,6 +706,7 @@ class App {
         flowStep(w, 0.05);
         debrisStep(w, 0.05);
         fireStep(w, 0.05);
+        trackFires(w);
       }
     }
 
@@ -712,6 +716,7 @@ class App {
     this.currentPaths.update(dt);
     this.wildlife.update(dt);
     this.townLabels.update();
+    this.fireLabels.update();
     this.pathLabels.update();
     this.boats.update(dt);
     if (this.frame % 30 === 0) { this.toolbox.drawGraphs(); this.toolbox.drawStats(); } // (population and map graphs)

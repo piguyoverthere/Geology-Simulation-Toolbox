@@ -366,3 +366,11 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 /* Tree diseases (Wildlife panel) */
 .tb-disease { display: grid; grid-template-columns: 14px 1fr auto auto auto; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
 .tb-disease.chosen { border-color: var(--accent); }
+
+/* Fire history (Climate → Wildfire) and the names of big fires on the map */
+.tb-fire-list { display: flex; flex-direction: column; gap: 3px; margin: 2px 0 6px; }
+.tb-fire { display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 6px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
+.fire-label { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; pointer-events: none;
+  font-size: 10.5px; font-weight: 600; color: #fff; padding: 1px 6px; border-radius: 8px;
+  background: rgba(110, 35, 15, 0.78); border: 1px solid rgba(255, 180, 120, 0.4); }
+.fire-label[hidden] { display: none; }
