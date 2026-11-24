@@ -14,7 +14,7 @@ const MAGIC = 'GEOLEVEL1';
 // Transient or derived state that isn't worth saving (rebuilt on the fly)
 const SKIP_ARRAYS = new Set(['flux', 'strataWarp0', 'pathU', 'pathV']);
 // Plain-data lists and objects on the world that are saved as JSON
-const WORLD_JSON = ['sources', 'pollSources', 'currentPaths', 'animals', 'popHistory', 'statHistory', 'probes', 'towns', 'cones', 'geoRange', 'storms', 'holdovers', 'faults', 'landslides', 'portalsOut', 'settlersOut', 'footpaths', 'fireLog', 'fireCount'];
+const WORLD_JSON = ['sources', 'pollSources', 'currentPaths', 'animals', 'popHistory', 'statHistory', 'probes', 'towns', 'cones', 'geoRange', 'storms', 'holdovers', 'faults', 'landslides', 'portalsOut', 'settlersOut', 'footpaths', 'fireLog', 'fireCount', 'parkSites'];
 // Settings objects on the app (all plain values)
 const PARAMS = ['waterParams', 'thermalParams', 'vegetationParams', 'climateParams', 'seasonParams', 'weatherParams',
   'volcanoSettings', 'faultSettings', 'fireParams', 'landslideParams', 'coastParams', 'qualityParams', 'oceanParams', 'windParams', 'ecoParams', 'civParams', 'glacierParams', 'sim', 'gen', 'brush', 'drawSettings'];
@@ -55,7 +55,7 @@ export function snapshot(app) {
     scalars, json, params,
     view: { colorMode: r.colorMode, showVegetation: r.showVegetation, showClouds: r.showClouds, showWater: r.showWater },
     camera: { position: app.camera.position.toArray(), target: app.controls.target.toArray() },
-    drawings: app.drawings.shapes.map((s) => ({ name: s.name, points: s.points, closed: s.closed, color: s.color, protected: !!s.protected, limited: !!s.limited, restrict: s.restrict ? { ...s.restrict } : undefined })),
+    drawings: app.drawings.shapes.map((s) => ({ name: s.name, points: s.points, closed: s.closed, color: s.color, protected: !!s.protected, limited: !!s.limited, restrict: s.restrict ? { ...s.restrict } : undefined, park: s.park || undefined })),
     drawNextId: app.drawings.nextId,
   };
   return { meta, arrays };
@@ -96,7 +96,7 @@ export function applySnapshot(app, snap) {
   }
   app.drawings.clear();
   for (const d of meta.drawings || []) {
-    const s = { id: app.drawings.nextId++, name: d.name, points: d.points, closed: d.closed, color: d.color, protected: !!d.protected, limited: !!d.limited, restrict: d.restrict ? { ...d.restrict } : {}, obj: null, label: null };
+    const s = { id: app.drawings.nextId++, name: d.name, points: d.points, closed: d.closed, color: d.color, protected: !!d.protected, limited: !!d.limited, restrict: d.restrict ? { ...d.restrict } : {}, park: d.park, obj: null, label: null };
     app.drawings.shapes.push(s);
     app.drawings.build(s);
   }

@@ -26,6 +26,7 @@ import { seasonParams, seasonalAt, drySeason, climateParams } from './climate.js
 import { ROCK_INDEX } from '../core/rocks.js';
 import { coastParams, isLivingBed, MARINE_ID } from './coast.js';
 import { waterParams } from './water.js';
+import { SPECIES, treeShares } from './species.js';
 
 export const civParams = {
   enabled: true,
@@ -39,6 +40,8 @@ export const civParams = {
   epidemics: true, // crowded towns with dirty water suffer outbreaks of disease, spreading along their links
   invasive: true,  // plantations are planted with an invasive exotic pine that escapes into the wild forest
   clearInvasive: true, // towns cut the invasive pine out of the wild forest around them (at a cost in people)
+  townParks: true,   // towns set aside small parks around a special feature, with a trail loop through each
+  trailsSpread: true, // footpaths carry tree diseases and invasive pine seed (on boots), like roads
 };
 
 const FARMS_PER_TOWN_CELL = 3; // every cell of town needs at least this many cells of farmland
@@ -1513,6 +1516,8 @@ export function civStep(world) {
     mineStep(world, t, R);
     // Clearing the invasive pine out of the forest around it
     if (civParams.clearInvasive) clearInvasives(world, t, R);
+    // Parks: a growing town sets aside small areas around something special in the forest near it
+    if (civParams.townParks) parkStep(world, t);
     // A big town sends people out to found a daughter village (linked by road)
     // (when the town is crowded: near what its land can feed)
     // (a town with boats can send them across the water, farther afield; without, only overland)
@@ -1837,7 +1842,7 @@ function invasiveStep(world) {
       // An old field: the pine is a pioneer on bare, disturbed ground, quick to take it over from
       // nearby (or from seed come down a road), and grows it up into pine forest
       let s0 = (I[i - 1] + I[i + 1] + I[i - N] + I[i + N]) * 0.25;
-      for (const j of [i - 1, i + 1, i - N, i + N]) if (LU[j] === 3 && world.roadSeed && world.roadSeed[j] > 0.15) s0 = Math.max(s0, 0.3);
+      for (const j of [i - 1, i + 1, i - N, i + N]) if (world.roadSeed && world.roadSeed[j] > 0.15) s0 = Math.max(s0, 0.3);
       if (s0 > 0.01 || I[i] > 0) {
         next[i] = Math.min(1, I[i] + 0.12 * Math.max(s0, I[i]) * (1 - I[i]) + (s0 > 0.05 && I[i] < 0.1 ? 0.1 : 0));
         V[i] = Math.min(0.85, V[i] + 0.008 * next[i]); // (growing up into pine forest)
@@ -1856,13 +1861,16 @@ function invasiveStep(world) {
   // carrying road gets invaded too, far from where it started
   if (!world.roadSeed || world.roadSeed.length !== n) world.roadSeed = new Float32Array(n);
   const RS = world.roadSeed;
+  // (footpaths too, with the Trails spread setting on: fewer feet, so it fades sooner along them)
+  const FP = civParams.trailsSpread && world.footpath && world.footpath.length === n ? world.footpath : null;
+  const way = (i) => LU[i] === 3 || (FP && FP[i] === 1);
   for (let pass = 0; pass < 3; pass++) {
     for (let z = 1; z < N - 1; z++) for (let x = 1; x < N - 1; x++) {
       const i = z * N + x;
-      if (LU[i] !== 3) { RS[i] = 0; continue; }
+      if (!way(i)) { RS[i] = 0; continue; }
       let s = RS[i] * 0.985;
       for (const j of [i - 1, i + 1, i - N, i + N]) {
-        if (LU[j] === 3) s = Math.max(s, RS[j] * 0.97);
+        if (way(j)) s = Math.max(s, RS[j] * (LU[j] === 3 ? 0.97 : 0.95));
         else if (I[j] > 0.5) s = 1; // (picks it up from invaded forest or a plantation beside it)
       }
       RS[i] = s;
@@ -1872,7 +1880,7 @@ function invasiveStep(world) {
     const i = z * N + x;
     if (LU[i] || V[i] < 0.5) continue;
     let s = 0;
-    for (const j of [i - 1, i + 1, i - N, i + N]) if (LU[j] === 3 && RS[j] > s) s = RS[j];
+    for (const j of [i - 1, i + 1, i - N, i + N]) if (way(j) && RS[j] > s) s = RS[j];
     if (s > 0.15 && Math.random() < 0.04 * s) next[i] = Math.max(next[i], 0.06);
   }
   // (now and then a long jump: seed carried far on the wind or by birds)
@@ -2278,7 +2286,7 @@ export function paintPlantation(world, x, z, radius, remove) {
  * Feet keep the ground a little worn along them. world.footpaths = [{ id, name, pts }]; the cells
  * they cross are marked in world.footpath (for drawing).
  */
-export function addFootpath(world, a, b) {
+export function addFootpath(world, a, b, join = true) {
   ensureCiv(world);
   const N = world.N;
   if (!world.footpaths) world.footpaths = [];
@@ -2292,7 +2300,7 @@ export function addFootpath(world, a, b) {
   // Starting at the end (or the start) of a footpath carries that footpath on: one continuous path,
   // laid a stretch at a time
   let joined = null, atEnd = true, bd = 4;
-  for (const fp of world.footpaths) {
+  if (join) for (const fp of world.footpaths) {
     const e = fp.pts[fp.pts.length - 1], s0 = fp.pts[0];
     const de = Math.hypot(e.x - a.x, e.z - a.z), ds = Math.hypot(s0.x - a.x, s0.z - a.z);
     if (de < bd) { bd = de; joined = fp; atEnd = true; }
@@ -2413,4 +2421,180 @@ export function townNear(world, x, z, r = 10) {
   let best = null, bd = r;
   for (const t of world.towns || []) { const d = Math.hypot(t.x - x, t.z - z); if (d < bd) { bd = d; best = t; } }
   return best;
+}
+
+/**
+ * Town parks: a town of a few hundred people sets aside a small area (a polygon of 5–9 cells across
+ * its middle) of wild forest near it, with nothing built or farmed in it, and lays a trail out to
+ * it from the town and round it in a loop for people to walk. What kind of park depends on what is
+ * there, and each kind has its own restrictions (all of them: no timber, no fields, no new towns and
+ * no roads; footpaths are still allowed):
+ *   • Old Growth Reserve, around the oldest stand of trees: strictest, also no fires, no hunting and
+ *     no earthworks
+ *   • a Grove (Cedar Grove, Beech Grove…) of a tree that's rare on the map: a nature reserve, also no
+ *     hunting
+ *   • Woods, ordinary forest kept for walking: hunting allowed, sometimes no fires
+ *   • Game Woods, kept for hunting (bigger towns): hunting allowed, no earthworks
+ * Bigger towns keep adding parks (about one more for every 1,500 people). A new park next to an
+ * existing one (its edge within a few cells) joins it into one larger park (the outline around
+ * both, the restrictions of both, its trail linked in). New and grown parks wait in world.newParks
+ * for the app to add or reshape them as drawn polygons (Drawings list, where their restrictions can
+ * be changed); world.parkSites remembers each park.
+ */
+export const PARK_TYPES = {
+  old: { label: 'Old Growth Reserve', restrict: ['timber', 'fields', 'towns', 'roads', 'fires', 'hunting', 'earthworks'] },
+  grove: { label: 'Grove', restrict: ['timber', 'fields', 'towns', 'roads', 'hunting'] },
+  woods: { label: 'Woods', restrict: ['timber', 'fields', 'towns', 'roads'] },
+  game: { label: 'Game Woods', restrict: ['timber', 'fields', 'towns', 'roads', 'earthworks'] },
+};
+let rarity = null, rarityAt = -99, rarityCalls = 0;
+function speciesRarity(world) {
+  // (each species' share of the map's forest, sampled; refreshed now and then)
+  const step = ++rarityCalls;
+  if (rarity && rarity.length === SPECIES.length && step - rarityAt < 20) return rarity;
+  const N = world.N, K = SPECIES.length, sum = new Float32Array(K), sh = new Float32Array(K);
+  let c = 0;
+  for (let i = 0; i < N * N; i += 13) {
+    if (world.vegetation[i] < 0.5 || world.landUse[i]) continue;
+    treeShares(world, i, sh);
+    for (let k = 0; k < K; k++) sum[k] += sh[k];
+    c++;
+  }
+  for (let k = 0; k < K; k++) sum[k] /= Math.max(1, c);
+  rarity = sum; rarityAt = step;
+  return rarity;
+}
+/** Convex hull of points {x, z} (anticlockwise). */
+function hull(pts) {
+  const p = pts.slice().sort((a, b) => a.x - b.x || a.z - b.z);
+  if (p.length < 3) return p;
+  const cross = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+  const lo = [], hi = [];
+  for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (let k = p.length - 1; k >= 0; k--) { const q = p[k]; while (hi.length >= 2 && cross(hi[hi.length - 2], hi[hi.length - 1], q) <= 0) hi.pop(); hi.push(q); }
+  return lo.slice(0, -1).concat(hi.slice(0, -1));
+}
+/** Distance from (x, z) to the edge of a park's outline. */
+function edgeDist(p, x, z) {
+  const P = p.points;
+  if (!P || P.length < 2) return Math.hypot(p.x - x, p.z - z) - p.r;
+  let d = Infinity;
+  for (let a = 0, b = P.length - 1; a < P.length; b = a++) {
+    const ax = P[b].x, az = P[b].z, dx = P[a].x - ax, dz = P[a].z - az, L = dx * dx + dz * dz || 1;
+    const u = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L));
+    d = Math.min(d, Math.hypot(x - ax - u * dx, z - az - u * dz));
+  }
+  return d;
+}
+export function parkStep(world, t) {
+  if (t.pop < 400) return;
+  // (every piece of park counts, merged or not)
+  let mine = 0;
+  for (const p of world.parkSites || []) if (p.town === t.num || (p.towns && p.towns.includes(t.num))) mine += p.parts || 1;
+  if (mine >= 1 + Math.floor(t.pop / 1500) || Math.random() > 0.02 * Math.max(0.5, civParams.growth)) return;
+  const N = world.N, LU = world.landUse, V = world.vegetation, A = world.forestAge, H = world.height, sea = seaOf(world);
+  const ZF = world.zoneFlags, sites = (world.parkSites ||= []);
+  const glob = speciesRarity(world), K = SPECIES.length, sh = new Float32Array(K);
+  let best = null, plain = null;
+  for (let k = 0; k < 160; k++) {
+    const a = Math.random() * Math.PI * 2, d = 10 + Math.random() * 40;
+    const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
+    if (x < 6 || z < 6 || x >= N - 6 || z >= N - 6) continue;
+    const i = z * N + x;
+    if (LU[i] || V[i] < 0.6 || H[i] < sea + 0.5 || world.water[i] > 0.1 || (ZF && ZF[i])) continue;
+    if (sites.some((p) => edgeDist(p, x, z) < 3)) continue; // (not on top of a park)
+    // (wild forest all over: nothing built, farmed or planted in it)
+    let wild = true, open = 0;
+    for (let dz = -4; dz <= 4 && wild; dz++) for (let dx = -4; dx <= 4; dx++) {
+      if (dx * dx + dz * dz > 16) continue;
+      const j = i + dz * N + dx;
+      if (LU[j] && !(world.footpath && world.footpath[j])) { wild = false; break; }
+      if (V[j] < 0.45) open++;
+    }
+    if (!wild || open > 8) continue;
+    // Old growth: the stand's age (averaged over its neighbours)
+    let age = 0, c = 0;
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { const j = i + dz * N + dx; if (!LU[j]) { age += A[j]; c++; } }
+    age /= Math.max(1, c);
+    // (ordinary forest, for Woods or Game Woods if nothing special turns up: older, nearer is better)
+    const ps = age - d * 0.004 + (sites.some((p) => edgeDist(p, x, z) < 9) ? 0.1 : 0);
+    if (!plain || ps > plain.score) plain = { x, z, score: ps };
+    let score = age > 0.7 ? (age - 0.6) * 2.5 : 0, kind = 'old', sp = -1;
+    // A rare tree: one making up much more of the trees here than of the map's forest
+    treeShares(world, i, sh);
+    for (let s = 0; s < K; s++) {
+      if (sh[s] < 0.3) continue;
+      const r = Math.min(1, (sh[s] / (glob[s] + 0.02)) / 8);
+      if (r > score) { score = r; kind = 'grove'; sp = s; }
+    }
+    // (something the map's parks already protect counts for less: each new park something different)
+    const key = kind === 'old' ? 'old' : SPECIES[sp].id;
+    for (const p of sites) for (const f of p.features || [p.kind === 'old' ? 'old' : p.species]) if (f === key) score *= 0.55;
+    score -= d * 0.004; // (nearer is handier)
+    // (ground next to a park the town already has is handier still: parks tend to grow together)
+    if (sites.some((p) => edgeDist(p, x, z) < 9)) score += 0.1;
+    if (score > 0.25 && (!best || score > best.score)) best = { x, z, score, kind, sp };
+  }
+  if (!best && plain) best = { ...plain, kind: t.pop > 1200 && Math.random() < 0.45 ? 'game' : 'woods', sp: -1 };
+  if (!best) return;
+  const type = PARK_TYPES[best.kind];
+  const r = 2.5 + Math.random() * 2;
+  const label = best.kind === 'grove' ? `${SPECIES[best.sp].label.replace(/\s*\(.*\)/, '').replace(/ & .*/, '')} Grove` : type.label;
+  const restrict = {};
+  for (const k of type.restrict) restrict[k] = true;
+  if (best.kind === 'woods' && Math.random() < 0.4) restrict.fires = true;
+  if (best.kind === 'grove' && t.pop > 2000) restrict.earthworks = true;
+  const points = [];
+  const a0 = Math.random() * Math.PI;
+  for (let k = 0; k < 8; k++) {
+    const a = a0 + (k / 8) * Math.PI * 2, rr = r * (0.8 + Math.random() * 0.35);
+    points.push({ x: Math.max(0, Math.min(N - 1, best.x + Math.cos(a) * rr)), z: Math.max(0, Math.min(N - 1, best.z + Math.sin(a) * rr)) });
+  }
+  const feature = best.kind === 'grove' ? SPECIES[best.sp].id : best.kind;
+  const year = seasonParams.year || 1;
+  // Next to an existing park (edges within a few cells)? It joins that park
+  let site = null, sd = r + 5;
+  for (const p of sites) { const e = edgeDist(p, best.x, best.z); if (e < sd) { sd = e; site = p; } }
+  let from;
+  if (site) {
+    from = { x: site.x, z: site.z };
+    site.points = hull(site.points.concat(points)).map((p) => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) }));
+    let cx = 0, cz = 0;
+    for (const p of site.points) { cx += p.x; cz += p.z; }
+    site.x = Math.round(cx / site.points.length); site.z = Math.round(cz / site.points.length);
+    site.r = Math.max(...site.points.map((p) => Math.hypot(p.x - site.x, p.z - site.z)));
+    for (const k of Object.keys(restrict)) site.restrict[k] = true;
+    site.features = [...new Set([...(site.features || []), feature])];
+    site.kinds = [...new Set([...(site.kinds || []), best.kind])];
+    if (site.town !== t.num) site.towns = [...new Set([...(site.towns || []), t.num])];
+    site.parts = (site.parts || 1) + 1;
+    if (!site.name.endsWith(' Park')) site.name = `${site.name.replace(/ Reserve$/, '')} Park`;
+  } else {
+    // (a name of its own: a second Cedar Grove of the same town is named by where it lies)
+    let name = `${t.name} ${label}`;
+    if (sites.some((p) => p.name === name || p.name === `${name.replace(/ Reserve$/, '')} Park`)) {
+      const ang = Math.atan2(best.z - t.z, best.x - t.x);
+      const dir = ['East', 'South', 'West', 'North'][((Math.round(ang / (Math.PI / 2)) % 4) + 4) % 4]; // (+z is south on the map)
+      name = `${t.name} ${dir} ${label}`;
+      for (let k = 2; sites.some((p) => p.name === name); k++) name = `${t.name} ${dir} ${label} ${k}`;
+    }
+    site = { id: 'pk' + Math.random().toString(36).slice(2, 8), town: t.num, name, kind: best.kind, kinds: [best.kind], species: best.sp >= 0 ? SPECIES[best.sp].id : null,
+      features: [feature], x: best.x, z: best.z, r, year, parts: 1, points, restrict };
+    sites.push(site);
+    from = { x: t.x, z: t.z };
+  }
+  (world.newParks ||= []).push({ id: site.id, name: site.name, points: site.points, restrict: { ...site.restrict } });
+  // A trail loop through the new ground, from the side nearest the town, walked out to from the town
+  // (or, for ground joining a park, from the middle of the park it joins)
+  const ta = Math.atan2(from.z - best.z, from.x - best.x), rl = r * 0.7;
+  const at = (a) => ({ x: Math.round(best.x + Math.cos(a) * rl), z: Math.round(best.z + Math.sin(a) * rl) });
+  const loop = [at(ta), at(ta + 2.1), at(ta + 4.2), at(ta)];
+  const before = new Set((world.footpaths || []).map((f) => f.id));
+  let fp = addFootpath(world, from, loop[0], false);
+  for (let k = 0; k < 3; k++) fp = addFootpath(world, loop[k], loop[k + 1]) || fp;
+  if (fp && !before.has(fp.id)) { fp.park = site.id; (site.trails ||= []).push(fp.id); }
+  // (the park's trails are named after it, numbered if there are several)
+  const trails = (world.footpaths || []).filter((f) => f.park === site.id);
+  trails.forEach((f, k) => { f.name = `${site.name} Trail${trails.length > 1 ? ` ${k + 1}` : ''}`; });
+  t.lastPark = year;
 }

@@ -373,6 +373,30 @@ class App {
   // --- Saving levels -----------------------------------------------------------------------------
 
   /** Rebuild everything derived from the saved fields after a level is loaded. */
+  /** Parks the towns have just set aside: added as drawn polygons with their restrictions. */
+  addTownParks() {
+    const w = this.world, d = this.drawings;
+    if (!w.newParks || !w.newParks.length) return;
+    for (const p of w.newParks) {
+      let s = d.shapes.find((sh) => sh.park === p.id);
+      if (s) {
+        // (a park that has grown: new outline and name, and the new ground's restrictions added to
+        // whatever is set on it now)
+        s.points = p.points.map((q) => ({ ...q }));
+        s.name = p.name;
+        s.restrict ||= {};
+        for (const [k, v] of Object.entries(p.restrict)) if (v) s.restrict[k] = true;
+      } else {
+        s = { id: d.nextId++, name: p.name, points: p.points.map((q) => ({ ...q })), closed: true, color: '#7dff6a', protected: false, limited: false, restrict: { ...p.restrict }, park: p.id, obj: null, label: null };
+        d.shapes.push(s);
+      }
+      d.build(s);
+    }
+    w.newParks = [];
+    d.onChange(); // (rasterises their restrictions)
+    this.toolbox.renderFootpaths?.();
+  }
+
   afterLoad() {
     const w = this.world;
     updateTemperature(w);
@@ -695,7 +719,7 @@ class App {
       if (this.frame % 10 === 5 && this.sim.vegetation) compositionStep(this.world);
       if (this.frame % 10 === 3) seaStep(this.world);
       // Wind (recomputed only when the wind, sea or land changes) and its very slow erosion
-      if (this.frame % 30 === 15) { civStep(this.world); gridTick(this); } // (towns, farms, roads and their pollution)
+      if (this.frame % 30 === 15) { civStep(this.world); this.addTownParks(); gridTick(this); } // (towns, farms, roads and their pollution)
       if (this.frame % 30 === 25) diseaseStep(this.world); // (tree diseases you have introduced)
       if (this.frame % 10 === 9) { this.ecoPart = ((this.ecoPart ?? -1) + 1) % 3; ecologyStep(this.world, this.ecoPart); }
       if (this.frame % 10 === 7) { updateWind(this.world); if (this.world.erosionEnabled) windErosion(this.world); }

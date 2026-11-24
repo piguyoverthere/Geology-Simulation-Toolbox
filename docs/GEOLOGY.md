@@ -1406,6 +1406,41 @@ the forest.
 With **Invasive plantation pine** off, every plantation is replanted with native trees at once and
 kept weeded of pine; the pine already loose in the wild keeps spreading through wild forest.
 
+## Town parks (`parkStep` in `src/sim/civilization.js`)
+
+A town of 400 people or more sets aside small parks near it, each a polygon 5–9 cells across. A
+park goes in wild forest within 10–50 cells of the town, with nothing built, farmed or planted
+there. The town lays a trail out to each park and round it in a loop for people to walk. The kind
+of park depends on what the forest holds, and each kind has its own restrictions. Every park bans
+timber, fields, new towns and roads (footpaths are still allowed).
+
+| Park | Chosen for | Also restricted |
+|---|---|---|
+| Old Growth Reserve | the oldest stand of trees (age above 0.7) | no fires, no hunting, no earthworks |
+| Grove (*Cedar Grove*, *Beech Grove*…) | a tree that makes up far more of the trees here than of the map's forest | no hunting (no earthworks for towns over 2,000) |
+| Woods | ordinary forest, when nothing special is near | sometimes no fires; hunting allowed |
+| Game Woods | ordinary forest, for towns over 1,200 | no earthworks; hunting allowed |
+
+Something the map's parks already protect counts for less, so each new park tends to protect
+something different. A town may have about one park piece for every 1,500 people, plus one.
+
+**Merging.** A new park whose centre is within a few cells of an existing park's edge joins it,
+and ground next to a park scores a little higher, so parks tend to grow together. The merged park's
+outline is drawn around both, it keeps the restrictions of both, and its name becomes *… Park*
+(for example *Tordale Beech Grove Park*). The new ground's trail loop is linked from the middle of
+the park it joins, and the park's trails are numbered. In a test, 11 park pieces formed 6 parks:
+three merged parks of 2–3 pieces, 15–28 cells across, and three single ones.
+
+The parks appear in the **Drawings** list as green polygons, where you can change their
+restrictions or delete them; world.parkSites remembers each park. Turn them off with **Town parks**
+(Life → Civilization).
+
+**Trails spread disease and pine.** With **Trails spread disease & pine** on, footpaths (park trails
+and your own) carry tree diseases and invasive pine seed on hikers' boots, the same way roads do.
+They fade sooner along a trail than along a road (5% a cell rather than 3–4%). The host trees
+beside a trail catch the disease far from where it started. In a test, spores fell from 0.83 to
+0.05 over about 45 cells of trail.
+
 ## Wildfire history (`src/sim/fireHistory.js`)
 
 Every wildfire is tracked as one event and numbered in order (#1, #2, …). After each fire step,

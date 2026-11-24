@@ -9,7 +9,8 @@
 // neighbouring cells where its hosts grow, and jumps on the wind (spores) or with animals, people and
 // timber, mostly a few cells but sometimes clear across the map. Roads carry it too: traffic past an
 // infected stand picks it up on wheels, boots and logs and carries it along the road network, and it
-// gets into the host trees beside the road far from where it started. Outbreaks don't last: the trees that
+// gets into the host trees beside the road far from where it started. Footpaths carry it the same
+// way on hikers' boots (fewer feet, so it fades sooner along them), with Trails spread on. Outbreaks don't last: the trees that
 // survive an outbreak are the resistant ones (world.diseaseResist builds up while a cell is infected),
 // so the infection burns out behind its spreading front, and patches clear up on their own in a good
 // year. Resistance fades again over the years, so a disease can come back in waves. Where its hosts
@@ -17,6 +18,7 @@
 
 import { SPECIES, SPECIES_INDEX, treeShares } from './species.js';
 import { climateParams } from './climate.js';
+import { civParams } from './civilization.js';
 
 export const DISEASES = [
   { id: 1, label: 'Pine blister rust', hosts: ['pine', 'shorepine'], color: [0.95, 0.60, 0.10],
@@ -177,18 +179,20 @@ function roadSpread(world, host, seed) {
   const S = world.roadSpores, RD = world.roadDisease;
   const nb = [-1, 1, -N, N];
   const roads = [];
+  const FP = civParams.trailsSpread && world.footpath && world.footpath.length === n ? world.footpath : null;
+  const way = (i) => LU[i] === 3 || (FP && FP[i] === 1);
   for (let pass = 0; pass < 2; pass++) {
     // (alternate directions so it travels both ways along the road in a step)
     for (let k = 0; k < n; k++) {
       const i = pass ? n - 1 - k : k;
-      if (LU[i] !== 3) { if (S[i]) { S[i] = 0; RD[i] = 0; } continue; }
+      if (!way(i)) { if (S[i]) { S[i] = 0; RD[i] = 0; } continue; }
       if (!pass) roads.push(i);
       const x = i % N;
       let s = S[i] * (pass ? 1 : 0.97), id = RD[i];
       for (const o of nb) {
         const j = i + o;
         if (j < 0 || j >= n || (o === -1 && x === 0) || (o === 1 && x === N - 1)) continue;
-        if (LU[j] === 3) { if (S[j] * 0.96 > s) { s = S[j] * 0.96; id = RD[j]; } }
+        if (way(j)) { const f = LU[j] === 3 ? 0.96 : 0.95; if (S[j] * f > s) { s = S[j] * f; id = RD[j]; } }
         else if (D[j] && L[j] > 0.3 && L[j] > s) { s = L[j]; id = D[j]; } // (picked up from an infected stand)
       }
       S[i] = s < 0.02 ? 0 : s; RD[i] = S[i] ? id : 0;
@@ -202,7 +206,7 @@ function roadSpread(world, host, seed) {
     for (const o of nb) {
       const j = i + o;
       if (j < 0 || j >= n || (o === -1 && x === 0) || (o === 1 && x === N - 1)) continue;
-      if (LU[j] === 3 || D[j] || Math.random() > 0.02 * s * (1 - R[j])) continue;
+      if (way(j) || D[j] || Math.random() > 0.02 * s * (1 - R[j])) continue;
       if (host(j, id) > 0.05) seed(j, id);
     }
   }
