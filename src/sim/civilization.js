@@ -45,6 +45,8 @@ export const civParams = {
   clearInvasive: true, // towns cut the invasive pine out of the wild forest around them (at a cost in people)
   townParks: true,   // towns set aside small parks around a special feature, with a trail loop through each
   nationalForests: true, // each map has one or two large National Forests, where no timber is cut
+  fishingQuotas: false, // towns cut back their fishing when their fishing grounds run low
+  restoration: false, // towns replant native trees on their worn-out, burnt and grazed-out land, and take down dams that block fish runs
   fishLadders: false, // towns give their dams fish ladders, so runs like salmon get past
   wildlifeCrossings: false, // towns build wildlife crossings where their roads cut through animals' ranges
   pesticides: 0.5,   // how much the farms spray: saves some crop from pests, but kills the pollinators on and around the fields
@@ -963,11 +965,17 @@ function manMadeFires(world, t, newFarms) {
  * water (your sea animals among it), trawling the sea bed (seagrass, kelp and coral are torn up),
  * and fouling the water a little. Returns the food landed. An overfished, wrecked sea yields less.
  */
-function fishing(world, t) {
+export function fishing(world, t) {
   const N = world.N, H = world.height, sea = seaOf(world), boats = t.boats;
   const hx = t.harbor % N, hz = (t.harbor / N) | 0, FR = 10 + 3 * Math.sqrt(boats);
   t.fishRange = FR;
-  let prod = 0, cells = 0, caught = 0;
+  let prod = 0, cells = 0, caught = 0, stock = 0, cap = 0;
+  // Quotas: when the town's fishing grounds have run low (under half), it cuts its catch back hard
+  // so they can recover, and fishes freely again once they have
+  // (t.fishGrounds: how full its grounds are, as a share of what the water there can hold; under a
+  // quota the catch is cut back from half full, and stopped altogether near a collapse)
+  const quota = civParams.fishingQuotas && t.fishGrounds !== undefined && t.fishGrounds < 0.5 ? Math.max(0, (t.fishGrounds - 0.25) / 0.25) : 1;
+  t.quota = quota < 1;
   const seaAnimals = (world.animals || []).filter((a) => a.habitat === 'sea' || a.habitat === 'coast' || a.habits.runsRivers);
   for (let z = Math.max(0, Math.floor(hz - FR)); z <= Math.min(N - 1, Math.ceil(hz + FR)); z++) {
     for (let x = Math.max(0, Math.floor(hx - FR)); x <= Math.min(N - 1, Math.ceil(hx + FR)); x++) {
@@ -975,7 +983,11 @@ function fishing(world, t) {
       if (H[i] >= sea || zoneHas(world, i, Z.fishing)) continue; // (not in a marine reserve)
       const d = Math.hypot(x - hx, z - hz);
       if (d > FR) continue;
-      const e = boats * 0.0035 * (1 - d / FR) / Math.max(1, FR / 10); // (fishing effort here)
+      // (fishing effort here; with quotas, cut back as the town's grounds run low)
+      const e = boats * 0.0035 * (1 - d / FR) / Math.max(1, FR / 10) * quota;
+      const FS = world.fishStock;
+      // (how full the grounds are, weighted by where the boats fish hardest: near the harbour)
+      if (FS) { const wgt = 1 - d / FR; stock += FS[i] * wgt; cap += (world.fishK ? world.fishK[i] : 1) * wgt; FS[i] = Math.max(0, FS[i] - FS[i] * Math.min(0.3, 0.4 * e)); }
       const m = world.marine ? world.marine[i] : -1, hl = world.marineHealth ? world.marineHealth[i] : 1;
       // The catch depends on a living sea: healthy beds, oxygen, clean water
       prod += (0.35 + 0.65 * (isLivingBed(m) ? hl : 0.5)) * (world.oxygen ? world.oxygen[i] : 1) * (1 - Math.min(0.6, (world.pollution ? world.pollution[i] : 0) * 0.3));
@@ -992,7 +1004,9 @@ function fishing(world, t) {
     }
   }
   t.catch = caught;
-  return boats * 40 * (cells ? prod / cells : 0) + caught * 1500;
+  // (how much fish the town's grounds hold: the catch is only what's there)
+  t.fishGrounds = cells && world.fishStock && cap > 0 ? stock / cap : 1;
+  return boats * 40 * (cells ? prod / cells : 0) * (world.fishStock ? Math.min(1, t.fishGrounds * 1.3) : 1) * quota + caught * 1500;
 }
 
 function seaOf(world) { return world.meanSea !== undefined && world.meanSea > -999 ? world.meanSea : -1e9; }
@@ -1328,6 +1342,7 @@ export function civStep(world) {
     P[i] = Math.min(1, RC[i] * 1.6); // (a broken road loses its paving: plants creep back)
     if (RC[i] <= 0.03) { LU[i] = world.channel[i] ? (world.channel[i] === 1 ? 8 : 9) : 0; P[i] = 0; RC[i] = 0; world.roadCore[i] = 0; world.bridge[i] = 0; } // (a fallen bridge leaves its canal)
   }
+  fishStockStep(world); // (the sea's fish breed back, and drift)
   if (civParams.nationalForests && towns.length) nationalForestStep(world); // (only once there is a civilization to set them aside)
   if (!towns.length) { world.civPop = 0; if (world.popDensity) world.popDensity.fill(0); airPollutionStep(world); desertStep(world); invasiveStep(world); return; } // (the smoke, worn land and pine carry on without towns)
   // (the site fields change slowly: refresh them every few steps)
@@ -1408,6 +1423,7 @@ export function civStep(world) {
     }
     // Exploratory roads out into the deep forest (more as the town grows)
     if (t.pop > 150 && (t.trails || 0) < 1 + Math.floor(t.pop / 500) && Math.random() < 0.04 * civParams.growth) exploreForest(world, t);
+    restorationStep(world, t);
     // Fish ladders on the town's dam, and wildlife crossings on its roads
     if (civParams.fishLadders && t.dam >= 0 && t.dam !== undefined) {
       if (!world.fishLadder || world.fishLadder.length !== n) world.fishLadder = new Uint8Array(n);
@@ -1994,6 +2010,65 @@ function clearInvasives(world, t, R) {
  * 0…1), plants can't grow back there, and the bare ground creeps outward. Taken off grazing (or with
  * more rain) it slowly recovers.
  */
+/**
+ * The sea's fish (world.fishStock, 0…1 of what the water can hold): they breed back towards what
+ * the sea there can feed (healthy beds, oxygen, clean water), fastest at half full, and drift
+ * through the sea (so a marine reserve, where no one fishes, restocks the water round it). Fished
+ * down below about a fifth they can no longer find mates and spawn well, and recover only very
+ * slowly: a collapse.
+ */
+export function fishStockStep(world) {
+  const N = world.N, n = N * N, H = world.height, sea = seaOf(world);
+  if (!world.fishStock || world.fishStock.length !== n) { world.fishStock = new Float32Array(n); for (let i = 0; i < n; i++) world.fishStock[i] = H[i] < sea ? 0.9 : 0; }
+  const FS = world.fishStock;
+  if (!world.fishK || world.fishK.length !== n) world.fishK = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    if (H[i] >= sea) { FS[i] = 0; world.fishK[i] = 0; continue; }
+    const m = world.marine ? world.marine[i] : -1, hl = world.marineHealth ? world.marineHealth[i] : 1;
+    const K = Math.max(0.05, (0.5 + 0.5 * (isLivingBed(m) ? hl : 0.6)) * (world.oxygen ? world.oxygen[i] : 1) * (1 - Math.min(0.6, (world.pollution ? world.pollution[i] : 0) * 0.3)));
+    world.fishK[i] = K;
+    const s = FS[i];
+    const collapse = s < 0.2 ? Math.max(0.05, (s - 0.05) / 0.15) : 1; // (too few to spawn well)
+    FS[i] = Math.max(0, Math.min(K, s + 0.03 * s * (1 - s / K) * collapse + (s < 0.01 ? 0 : 0)));
+  }
+  // (they move about: a little of each cell's mixes with its neighbours')
+  const B = boxBlur(FS, N, 2);
+  for (let i = 0; i < n; i++) if (H[i] < sea) FS[i] += (B[i] - FS[i]) * 0.15;
+}
+
+/**
+ * Restoration (a setting): a town replants native trees on the worn-out, burnt and grazed-out land
+ * around it (more when it's bigger and wild land near it is scarce), and takes down its dam if the
+ * dam stands in the way of a fish run.
+ */
+function restorationStep(world, t) {
+  if (!civParams.restoration || t.pop < 400) return;
+  const N = world.N, LU = world.landUse, V = world.vegetation, DG = world.degraded, B = world.burnt, OF = world.oldField;
+  const R = 12 + Math.sqrt(t.pop) / 2, scarce = Math.max(0, 0.5 - localForest(world, t.x, t.z));
+  const tries = Math.round((2 + t.pop / 500) * (1 + 2 * scarce));
+  for (let k = 0; k < tries; k++) {
+    const a = Math.random() * Math.PI * 2, d = Math.random() * R;
+    const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
+    if (x < 1 || z < 1 || x >= N - 1 || z >= N - 1) continue;
+    const i = z * N + x;
+    if (LU[i] || world.water[i] > 0.1 || world.height[i] < seaOf(world)) continue;
+    const worn = (DG && DG[i] > 0.15) || (B && B[i] > 0.3) || (OF && OF[i]) || (world.grazing && world.grazing[i] > 0.5 && V[i] < 0.5);
+    if (!worn) continue;
+    // (seedlings planted: the land heals, and trees take hold)
+    if (DG) DG[i] = Math.max(0, DG[i] - 0.15);
+    if (world.grazing) world.grazing[i] *= 0.5;
+    if (V[i] < 0.55 && world.soil[i] > 0.2) V[i] = Math.min(0.62, V[i] + 0.12);
+    if (!world.replanted || world.replanted.length !== N * N) world.replanted = new Uint8Array(N * N);
+    world.replanted[i] = 1;
+    t.replanted = (t.replanted || 0) + 1;
+  }
+  // (a dam standing in the way of a fish run comes down)
+  if (t.dam >= 0 && t.dam !== undefined && (world.animals || []).some((an) => an.habits.runsRivers) && !(world.fishLadder && world.fishLadder[t.dam]) && Math.random() < 0.01) {
+    for (let i = 0; i < N * N; i++) if (LU[i] === 7 && world.civOwner[i] === t.num) { LU[i] = 0; world.paved[i] = 0; world.civOwner[i] = 0; if (world.dam) world.dam[i] = 0; }
+    t.dam = -2; // (taken down: not rebuilt)
+  }
+}
+
 function desertStep(world) {
   const N = world.N, n = N * N, G = world.grazing, SM = world.soil, V = world.vegetation, HU = world.humus;
   if (!G || !SM) return;

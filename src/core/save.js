@@ -14,7 +14,7 @@ import { APP_VERSION } from '../version.js';
 
 const MAGIC = 'GEOLEVEL1';
 // Transient or derived state that isn't worth saving (rebuilt on the fly)
-const SKIP_ARRAYS = new Set(['flux', 'strataWarp0', 'pathU', 'pathV', 'popDensity']);
+const SKIP_ARRAYS = new Set(['flux', 'strataWarp0', 'pathU', 'pathV', 'popDensity', 'fishK']);
 // Plain-data lists and objects on the world that are saved as JSON
 const WORLD_JSON = ['sources', 'pollSources', 'currentPaths', 'animals', 'popHistory', 'statHistory', 'probes', 'towns', 'cones', 'geoRange', 'storms', 'holdovers', 'faults', 'landslides', 'portalsOut', 'settlersOut', 'footpaths', 'fireLog', 'fireCount', 'parkSites', 'biomeHistory', 'treeHistory', 'snowHistory'];
 // Settings objects on the app (all plain values)

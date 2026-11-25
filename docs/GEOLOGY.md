@@ -1464,6 +1464,26 @@ run like salmon reaching its spawning grounds upstream, all but 2% of it. With *
 usual passage) gets past. The inspector says whether a dam has one. (Not yet tested in a running
 simulation: the test map's rivers didn't reach the sea, so no run started.)
 
+## Fish stocks, quotas and restoration (`src/sim/civilization.js`)
+
+**Fish stocks.** The sea holds fish (world.fishStock) up to what it can feed (world.fishK: healthy
+beds, oxygen, clean water). They breed back (3% a step at most, fastest half full) and drift through
+the sea, so a marine reserve (an area drawn with *No fishing*) restocks the water around it. Fished
+below about a fifth of full, they can't spawn well and recover only very slowly: a collapse. Boats
+take their catch from the stock, fishing hardest near their harbour, and a town's catch is only what
+its grounds hold. With **Fishing quotas** (Civilization) a town cuts its catch back once its grounds
+(weighted by where it fishes hardest) fall under half full, and stops near a collapse. **Overlays →
+Fish stocks** maps them (reserves hatched green); the *Fish stocks* graph tracks the sea's. In a
+test over 600 steps on one harbour's grounds, 8 boats left them at 58% of full; 40 boats fished them
+down to 3% without quotas but held them at 22% with quotas; 120 boats crashed them even with quotas
+(they bit too late), and a crashed stock left alone had only recovered to 9% after 400 steps.
+
+**Restoration** (Civilization, a setting): towns of 400 or more replant native trees on the
+worn-out, burnt and grazed-out land around them, more when they're bigger and wild land near them is
+scarce (the cover rises, the land stops degrading, world.replanted marks it for the inspector), and
+take down a dam that blocks a fish run. In a test a town of 2,500 replanted 72 of the 876 worn-out
+cells around it in 30 town steps.
+
 ## Groundwater (`src/sim/groundwater.js`)
 
 Beneath the soil every cell holds groundwater (world.groundwater, 0 dry … 1 full). Left alone it

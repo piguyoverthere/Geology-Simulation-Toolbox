@@ -42,6 +42,7 @@ export const STATS = [
   { id: 'clean', label: 'Clean water', group: 'Sea', unit: '%', help: 'Share of the sea whose water is clear (not muddy or polluted).' },
   { id: 'lowOxygen', label: 'Low-oxygen water', group: 'Sea', unit: '%', help: 'Share of the sea short of oxygen (hypoxic water and dead zones).' },
   { id: 'beds', label: 'Healthy sea beds', group: 'Sea', unit: '%', help: 'Share of the kelp, seagrass, coral and cold-water coral beds that are in good health.' },
+  { id: 'fish', label: 'Fish stocks', group: 'Sea', unit: '%', help: 'How much fish the sea holds, as a share of what it could hold: fishing takes it down, and fished below about a fifth a stock collapses and recovers only slowly.' },
   { id: 'coral', label: 'Coral reef', group: 'Sea', unit: '%', help: 'Share of the sea with living coral reef.' },
   { id: 'seaIce', label: 'Sea ice', group: 'Sea', unit: '%', help: 'Share of the sea frozen over.' },
 ];
@@ -98,7 +99,7 @@ export function computeStats(world) {
     snow: pct(snow, land), ice: pct(ice, land), burnt: pct(burnt, land), deadWood: pct(dead, land),
     temp: tempN ? temp / tempN : 0, smoky: pct(smoky, all), carbon: world.carbonPPM ?? 280, warming: climateParams.warming || 0,
     sea: pct(seaN, seaN + land), clean: pct(clean, seaN), lowOxygen: pct(lowOx, seaN), beds: pct(bedsOK, beds),
-    coral: pct(coral, seaN), seaIce: pct(seaIce, seaN),
+    coral: pct(coral, seaN), seaIce: pct(seaIce, seaN), fish: world.fishStock ? (() => { let s = 0, c = 0; for (let i = 0; i < world.fishStock.length; i += 5) if (world.height[i] < (world.meanSea > -999 ? world.meanSea : -1e9)) { s += world.fishStock[i]; c++; } return c ? (100 * s) / c : null; })() : null,
     people: (world.towns || []).reduce((t, x) => t + x.pop, 0), towns: (world.towns || []).length, boats: (world.towns || []).reduce((t, x) => t + (x.boats || 0), 0),
     paved: pct(paved, land), farmland: pct(farmland, land), timber: pct(timber, land), wood: world.woodRate ?? 0, industry: pct(industry, land), dirtyRivers: pct(dirtyStreams, streams),
   };
