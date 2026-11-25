@@ -10,7 +10,15 @@ import { BIOMES, classifyBiome } from '../render/biomes.js';
 import { SPECIES, treeShares, steadyCover } from '../sim/species.js';
 import { seasonParams, snowAt } from '../sim/climate.js';
 
-const rgb = (c, a = 1) => `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${a})`;
+// (colours too dark to see on the dark panel are lifted towards white, keeping their hue)
+const lift = (c) => {
+  const lum = (q) => 0.2126 * q[0] + 0.7152 * q[1] + 0.0722 * q[2];
+  if (lum(c) >= 0.55) return c;
+  let lo = 0, hi = 1;
+  for (let k = 0; k < 12; k++) { const t = (lo + hi) / 2; lum(c.map((v) => v + (1 - v) * t)) < 0.55 ? (lo = t) : (hi = t); }
+  return c.map((v) => v + (1 - v) * hi);
+};
+const rgb = (c, a = 1) => { c = lift(c); return `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${a})`; };
 const MAX_POINTS = 400;
 
 /**

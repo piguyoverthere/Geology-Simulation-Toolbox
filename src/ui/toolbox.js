@@ -1286,7 +1286,7 @@ function drawLine(cv, series, axes, fmt = fmtPop) {
     const s = series[k], d = s.data, rg = k === 0 ? main : range(d);
     if (!d.length || !rg) continue;
     const Y = Yf(rg);
-    ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.setLineDash(s.dashed ? [3, 3] : []);
+    ctx.strokeStyle = visibleOnDark(s.color); ctx.lineWidth = s.width; ctx.setLineDash(s.dashed ? [3, 3] : []);
     ctx.globalAlpha = s.dashed ? 0.75 : 1;
     ctx.beginPath();
     let pen = false; // (gaps where there was no reading)
@@ -1299,13 +1299,34 @@ function drawLine(cv, series, axes, fmt = fmtPop) {
     ctx.textAlign = 'left'; ctx.font = '10px system-ui, sans-serif';
     let y = pad.t + ph + 26;
     series.forEach((s, k) => {
-      ctx.fillStyle = s.color;
+      ctx.fillStyle = visibleOnDark(s.color);
       ctx.fillRect(pad.l, y - 6, 10, k ? 1.5 : 2.5);
       const lastV = [...s.data].reverse().find((v) => v !== null);
       ctx.fillText(`${s.label}: ${lastV !== undefined ? fmt(lastV) : '—'}${k ? ' (own scale)' : ''}`, pad.l + 14, y - 2);
       y += 13;
     });
   }
+}
+
+/**
+ * A colour that shows on the dark graph panels: colours darker than about 55% lightness (a
+ * black-backed woodpecker, a near-black beetle) are lifted towards white just enough to be seen,
+ * keeping their hue.
+ */
+export function visibleOnDark(css) {
+  let c = null;
+  const m = /rgba?\(([^)]+)\)/.exec(css || '');
+  if (m) c = m[1].split(',').slice(0, 3).map((v) => parseFloat(v) / 255);
+  else if (/^#[0-9a-f]{6}$/i.test(css || '')) c = [1, 3, 5].map((k) => parseInt(css.slice(k, k + 2), 16) / 255);
+  if (!c) return css;
+  const lum = (q) => 0.2126 * q[0] + 0.7152 * q[1] + 0.0722 * q[2];
+  const MIN = 0.55;
+  if (lum(c) >= MIN) return css;
+  // (mix with white until it's light enough)
+  let lo = 0, hi = 1;
+  for (let k = 0; k < 12; k++) { const t = (lo + hi) / 2; lum(c.map((v) => v + (1 - v) * t)) < MIN ? (lo = t) : (hi = t); }
+  const out = c.map((v) => Math.round((v + (1 - v) * hi) * 255));
+  return `rgb(${out.join(',')})`;
 }
 
 function fmtPop(v) { return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v >= 10 ? Math.round(v).toString() : v.toFixed(1); }
