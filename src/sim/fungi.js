@@ -27,7 +27,11 @@ function ensure(world) {
     for (let i = 0; i < n; i++) world.fungi[i] = target(world, i);
   }
   if (!world.rootRot || world.rootRot.length !== n) world.rootRot = new Float32Array(n);
+  if (!world.inoculum || world.inoculum.length !== n) world.inoculum = new Float32Array(n);
 }
+
+/** Make sure the fungi layers exist (for the Fungi and Root rot tools). */
+export function ensureFungi(world) { ensure(world); }
 
 /** The fungal diversity a cell would come to hold, left as it is. */
 function target(world, i) {
@@ -44,6 +48,8 @@ function target(world, i) {
   else if (LU) t *= 0.1;             // (paved, built over)
   if (world.burnt[i] > 0) t *= 1 - 0.8 * Math.min(1, world.burnt[i]);
   if (world.airPollution && world.airPollution[i] > 0.1) t *= 1 - 0.5 * Math.min(1, world.airPollution[i]);
+  // (fungi brought in with the Fungi tool: they hold on for years where something grows to host them)
+  if (world.inoculum && world.inoculum[i] > 0) t += 0.45 * world.inoculum[i] * Math.min(1, v / 0.5);
   return Math.min(1, t);
 }
 
@@ -53,9 +59,11 @@ export function fungiStep(world) {
   ensure(world);
   const N = world.N, n = N * N, FG = world.fungi, R = world.rootRot, V = world.vegetation, A = world.forestAge;
   // Fungal diversity follows the forest, slowly (it builds over decades; fire and clearing wipe it fast)
+  const IN = world.inoculum;
   for (let i = 0; i < n; i++) {
     const t = target(world, i);
     FG[i] += (t - FG[i]) * (t > FG[i] ? 0.004 : 0.04);
+    if (IN[i] > 0) { IN[i] = Math.max(0, IN[i] - 0.0015); } // (fades over some years, unless the forest takes it up)
   }
   if (!ecoParams.rootRot) { if (++tick % 10 === 0) R.fill(0); return; }
   const k = ecoParams.rootRotStrength ?? 1;

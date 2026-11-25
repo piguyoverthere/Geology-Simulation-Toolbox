@@ -1517,6 +1517,18 @@ with the trees' roots, and decomposers breaking down litter and dead wood.
   first and leave dead wood.
 - **What stops it:** with its hosts gone, it dies out and the forest grows back.
 
+**Tools** (Life group of the tool bar, Shift reverses each):
+- **🍄 Fungi** brings fungi into the soil, as foresters and gardeners inoculate it. Fungal diversity
+  rises where you paint, and the added fungi (world.inoculum) hold it up for some years where plants
+  grow to host them, fading over about five. **Shift** strips the fungi out (fungicide, or sterilised
+  or scraped soil).
+- **🟤 Root rot** introduces honey mushroom into forest (it takes only where trees are), and it spreads
+  from there. **Shift** cures it. It needs Root rot switched on.
+
+In tests on a grassland patch, painting raised fungal diversity from 0.28 to 0.69. It was 0.46 a year
+later and back to 0.30 after five years, and Shift took it to 0.08. Root rot painted into old forest
+at 0.25 built up to 0.95 and spread to 192 cells in a year; Shift cured it to 0.03.
+
 The **Fungi & root rot** overlay shows fungal diversity (pale to green to violet) with the rot over it
 (orange, red where it's killing the trees). The inspector shows both, and the graphs add
 **Fungal diversity** and **Root rot**. In a test seeded with three outbreaks and run without regrowth

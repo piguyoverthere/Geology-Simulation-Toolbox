@@ -3,6 +3,8 @@
 
 import { infect, cure } from '../sim/disease.js';
 import { ensureGroundwater } from '../sim/groundwater.js';
+import { ensureFungi } from '../sim/fungi.js';
+import { ecoParams } from '../sim/ecology.js';
 import { strike, spawnStormAt } from '../sim/weather.js';
 import { addIce } from '../sim/glacier.js';
 import { MinHeap } from '../core/grid.js';
@@ -612,6 +614,37 @@ TOOLS.fireFlowers = {
         world.fireweed[i] = Math.min(su, world.fireweed[i] + k * w);
         if (world.burnt[i] > 0.15) world.firePoppy[i] = Math.min(su, world.firePoppy[i] + k * w);
       }
+    });
+    world.dirty = true;
+  },
+};
+
+TOOLS.fungiTool = {
+  label: 'Fungi', group: 'Life', icon: '🍄', editsTerrain: false,
+  help: 'Bring fungi into the soil (inoculate it with mycorrhizal and decomposer fungi, as foresters and gardeners do): fungal diversity rises where you paint, and holds for years where plants grow to host them, so trees grow faster, dead wood rots sooner and soil builds faster. Hold Shift to strip the fungi out instead (fungicide, sterilised or scraped soil). Overlay: Fungi & root rot.',
+  apply({ world, x, z, radius, strength, dt, invert }) {
+    ensureFungi(world);
+    const FG = world.fungi, IN = world.inoculum, H = world.height, sea = seaOn(world) ? world.meanSea : -1e9, k = Math.min(1, strength * 2 * dt);
+    forEachCell(world, x, z, radius, (i, w) => {
+      if (H[i] < sea) return;
+      if (invert) { const c = 1 - Math.min(1, k * w * 2); FG[i] *= c; IN[i] *= c; return; }
+      IN[i] = Math.min(1, IN[i] + k * w);
+      if (world.vegetation[i] > 0.05) FG[i] = Math.min(1, FG[i] + k * w * 0.8);
+    });
+    world.dirty = true;
+  },
+};
+
+TOOLS.rootRotTool = {
+  label: 'Root rot', group: 'Life', icon: '🟤', editsTerrain: false,
+  help: 'Introduce honey mushroom (Armillaria), a root and butt rot, where you paint: it takes only in forest, best in old, stressed trees and plantations, then spreads underground from stand to stand and now and then by spores far away, killing heavily infected stands. Rich fungal life in the soil holds it back. Hold Shift to cure it (clearing out the infected roots and stumps). It needs Root rot switched on (Wildlife). Overlay: Fungi & root rot.',
+  apply({ world, app, x, z, radius, strength, dt, invert }) {
+    ensureFungi(world);
+    if (!invert && !ecoParams.rootRot) { app.toolbox.setInfo('<b>Root rot</b> — switch on Root rot (honey mushroom) under Wildlife (Life tab) first: with it off, the rot dies out.'); return; }
+    const R = world.rootRot, V = world.vegetation, k = Math.min(1, strength * 2 * dt);
+    forEachCell(world, x, z, radius, (i, w) => {
+      if (invert) { R[i] *= 1 - Math.min(1, k * w * 2); if (R[i] < 0.002) R[i] = 0; }
+      else if (V[i] > 0.5) R[i] = Math.min(1, R[i] + k * w * 0.8);
     });
     world.dirty = true;
   },
