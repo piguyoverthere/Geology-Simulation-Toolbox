@@ -45,6 +45,8 @@ export const civParams = {
   clearInvasive: true, // towns cut the invasive pine out of the wild forest around them (at a cost in people)
   townParks: true,   // towns set aside small parks around a special feature, with a trail loop through each
   nationalForests: true, // each map has one or two large National Forests, where no timber is cut
+  fishLadders: false, // towns give their dams fish ladders, so runs like salmon get past
+  wildlifeCrossings: false, // towns build wildlife crossings where their roads cut through animals' ranges
   pesticides: 0.5,   // how much the farms spray: saves some crop from pests, but kills the pollinators on and around the fields
   predatorControl: 0.5, // how hard towns cull the predators that take their livestock (0 = never)
   herding: 0.3,      // herding, dogs and fencing: how well towns guard their livestock (0…1)
@@ -1406,6 +1408,12 @@ export function civStep(world) {
     }
     // Exploratory roads out into the deep forest (more as the town grows)
     if (t.pop > 150 && (t.trails || 0) < 1 + Math.floor(t.pop / 500) && Math.random() < 0.04 * civParams.growth) exploreForest(world, t);
+    // Fish ladders on the town's dam, and wildlife crossings on its roads
+    if (civParams.fishLadders && t.dam >= 0 && t.dam !== undefined) {
+      if (!world.fishLadder || world.fishLadder.length !== n) world.fishLadder = new Uint8Array(n);
+      for (let i = 0; i < n; i++) if (LU[i] === 7 && OW[i] === t.num) world.fishLadder[i] = 1;
+    }
+    if (civParams.wildlifeCrossings && t.pop > 500 && Math.random() < 0.05 * civParams.growth) buildCrossing(world, t);
     // A big town dams a river valley near it for a reservoir (one per town)
     if (t.pop > 700 && t.dam === undefined && Math.random() < 0.02 * civParams.growth) { if (!buildDam(world, t)) t.dam = -1; }
     // Fires: land cleared by burning, and accidents
@@ -3320,4 +3328,38 @@ export function populationField(world) {
   // (mostly the blurred heat, with the built-up cells still standing out)
   for (let i = 0; i < n; i++) blur[i] = 0.65 * blur[i] + 0.35 * raw[i];
   world.popDensity = blur;
+}
+
+/**
+ * A wildlife crossing (an overpass or underpass, world.crossing): built on a busy stretch of the
+ * town's roads where land animals live thickly on both sides and there's no crossing near, so they
+ * can cross without being killed by the traffic.
+ */
+function buildCrossing(world, t) {
+  const N = world.N, n = N * N, LU = world.landUse, TR = world.roadTraffic;
+  if (!world.crossing || world.crossing.length !== n) world.crossing = new Uint8Array(n);
+  const CX = world.crossing;
+  const land = (world.animals || []).filter((a) => ['land', 'forest', 'meadow', 'mountains'].includes(a.habitat));
+  if (!land.length) return;
+  const R = 30 + Math.sqrt(t.pop) / 2;
+  let best = -1, bs = 0.05;
+  for (let k = 0; k < 200; k++) {
+    const a = Math.random() * Math.PI * 2, d = Math.random() * R;
+    const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
+    if (x < 3 || z < 3 || x >= N - 3 || z >= N - 3) continue;
+    const i = z * N + x;
+    if (LU[i] !== 3 || TR[i] < 150) continue;
+    let near = false;
+    for (let dz = -12; dz <= 12 && !near; dz += 2) for (let dx = -12; dx <= 12; dx += 2) { const j = i + dz * N + dx; if (j >= 0 && j < n && CX[j]) { near = true; break; } }
+    if (near) continue;
+    // (animals thick around it: where the road cuts their range)
+    let dens = 0;
+    for (const an of land) { const F = world['animal_' + an.id]; if (F) for (const j of [i - 2, i + 2, i - 2 * N, i + 2 * N]) dens += F[j] || 0; }
+    const score = dens * (1 + TR[i] / 1000);
+    if (score > bs) { bs = score; best = i; }
+  }
+  if (best < 0) return;
+  // (the crossing spans the road: the road cells right around it)
+  for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const j = best + dz * N + dx; if (LU[j] === 3) CX[j] = 1; }
+  t.crossings = (t.crossings || 0) + 1;
 }

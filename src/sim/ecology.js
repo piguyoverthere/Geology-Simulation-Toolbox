@@ -297,6 +297,12 @@ function stepAnimal(world, a, M, sea, k) {
   a.starving = fed > 0.5 ? starving / fed : 0; // (share of them starving, for the panel)
   // Abandoned dams wash out
   if (hb.dams) for (let i = 0; i < n; i++) if (world.dam[i] > 0 && P[i] < 0.05) { const d = Math.min(world.dam[i], 0.002 * k); H[i] -= d; world.dam[i] -= d; }
+  // (land animals shun the noisy band either side of a busy road, except at a wildlife crossing: a
+  // band they won't settle in, which few get across)
+  if (['land', 'forest', 'meadow', 'mountains'].includes(a.habitat)) {
+    const band = roadBand(world);
+    if (band) for (let i = 0; i < n; i++) if (band[i] > 0.01) K[i] *= 1 - 0.97 * Math.min(1, band[i] * 4.5);
+  }
   // --- Moving about: toward better feeding, over its roaming range ---
   if (runSeason) riverRun(world, a, P, M);
   else {
@@ -311,6 +317,16 @@ function stepAnimal(world, a, M, sea, k) {
       const target = kb[i] > 1e-3 ? (b[i] * K[i]) / kb[i] : 0;
       // (hungry animals move on, looking for food)
       P[i] += (target - P[i]) * Math.min(0.9, 0.2 * k * (1 + 2 * HU[i]) * trekking);
+    }
+  }
+  // Roads: land animals crossing a road are killed by the traffic (more on a busier road), so a busy
+  // road splits their range: few get across, and a population cut off on one side can dwindle.
+  // At a wildlife crossing (an over- or underpass, world.crossing) they cross safely.
+  if (['land', 'forest', 'meadow', 'mountains'].includes(a.habitat) && world.landUse && world.roadTraffic) {
+    const LU = world.landUse, TR = world.roadTraffic, CX = world.crossing;
+    for (let i = 0; i < n; i++) {
+      if (LU[i] !== 3 || P[i] <= 0 || (CX && CX[i])) continue;
+      P[i] *= 1 - Math.min(0.6, 0.04 + TR[i] / 3000) * Math.min(1, k);
     }
   }
   // End of the run: those in the rivers spawn and die, fertilising the banks
@@ -395,7 +411,9 @@ function riverRun(world, a, P, M) {
       const vx = world.velX[i], vz = world.velZ[i], sp = Math.sqrt(vx * vx + vz * vz) || 1;
       const tx = Math.round(x - (vx / sp) * 1.5), tz = Math.round(z - (vz / sp) * 1.5), j = tz * N + tx;
       const warm = world.temperature[i] + seasonalAt(world, i, st) > 18 ? 0.5 : 1;
-      const go = 0.5 * warm * (j >= 0 && j < n && world.dam[j] > 0.8 ? 0.3 : 1);
+      // (a dam stops the run, all but a few, unless it has a fish ladder)
+      const damHere = j >= 0 && j < n && world.dam[j] > 0.8;
+      const go = 0.5 * warm * (damHere ? (world.fishLadder && world.fishLadder[j] ? 0.6 : 0.02) : 1);
       if (j >= 0 && j < n && M.stream[j]) { tmp[j] += P[i] * go; tmp[i] += P[i] * (1 - go) * 0.97; }
       else tmp[i] += P[i] * 0.97;
     }
@@ -472,4 +490,24 @@ export function addStarterFoodWeb(world) {
     W[i] = 0.05 + 0.03 * Math.random();
   }
   return [deer, wolf];
+}
+
+// The road-avoidance band: busy roads, blurred out three cells either side, with the ground around
+// wildlife crossings left out (a couple of milliseconds to work out)
+function roadBand(world) {
+  const LU = world.landUse, TR = world.roadTraffic;
+  if (!LU || !TR) return null;
+  const N = world.N, n = N * N;
+  const m = new Float32Array(n);
+  let any = false;
+  for (let i = 0; i < n; i++) if (LU[i] === 3 && TR[i] > 50) { m[i] = Math.min(1, TR[i] / 800); any = true; }
+  if (!any) return null;
+  const b = boxBlur(m, N, 3);
+  if (world.crossing) {
+    const c = new Float32Array(n);
+    for (let i = 0; i < n; i++) if (world.crossing[i]) c[i] = 1;
+    const cb = boxBlur(c, N, 4);
+    for (let i = 0; i < n; i++) if (cb[i] > 0.01) b[i] *= Math.max(0, 1 - cb[i] * 12);
+  }
+  return b;
 }

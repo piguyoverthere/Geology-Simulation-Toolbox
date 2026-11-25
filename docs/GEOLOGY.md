@@ -1444,6 +1444,26 @@ field's pollination. In a test on a farming town's 248 fields, its crops yielded
 pollinators on the fields), 82% at the usual spraying (0.11) and 78% sprayed heavily (0.01), while
 the meadows away from the fields kept 0.85.
 
+## Roads, wildlife crossings, dams and fish ladders
+
+**Roads split habitat.** Land animals crossing a road are killed by the traffic (4% plus a share for
+every 3,000 people a day, up to 60% of those on the road each step), and they shun the noisy band
+about three cells either side of a busy road (its carrying capacity there falls up to 97%), so a
+busy road slows them spreading across and splits their range. With **Wildlife crossings**
+(Civilization) towns of 500 or more build over- or underpasses (world.crossing) on busy stretches
+of their roads where animals live thickly on both sides, at least 12 cells apart; animals cross
+there safely and don't shun the ground around them. The inspector shows a road's traffic and what it
+kills. In a test, deer filling the land north of a road 1,500 people a day used took about three
+times as long to start colonising the empty land south of it (0.005 against 0.016 after 150 steps)
+and were 16% fewer there after 600 steps; with crossings every 25 cells they did a little better
+(0.007, then 11% fewer). (Animals still trickle across: the effect is a strong slowing, not a wall.)
+
+**Dams block fish runs.** A town's dam (towns over about 700 people dam a river valley) now stops a
+run like salmon reaching its spawning grounds upstream, all but 2% of it. With **Fish ladders**
+(Civilization) towns give their dams fish ladders (world.fishLadder) and most of the run (60% of the
+usual passage) gets past. The inspector says whether a dam has one. (Not yet tested in a running
+simulation: the test map's rivers didn't reach the sea, so no run started.)
+
 ## Groundwater (`src/sim/groundwater.js`)
 
 Beneath the soil every cell holds groundwater (world.groundwater, 0 dry … 1 full). Left alone it
