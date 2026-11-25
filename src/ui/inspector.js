@@ -152,9 +152,29 @@ export class Inspector {
       `<div class="ins-head"><span class="tb-swatch" style="background:${swatch}"></span><b>${biome.label}</b>` +
       `<span class="ins-dim">cell ${x}, ${z}</span></div>` +
       `<div class="ins-sub">Altitude ${h.toFixed(1)}${sea ? ` (${(h - w.seaLevel) >= 0 ? '+' : ''}${(h - w.seaLevel).toFixed(1)} vs sea)` : ''} · slope ${(Math.atan(slope) * 180 / Math.PI).toFixed(0)}°</div>` +
-      groups.map(([t, rows]) => `<div class="ins-group">${t}</div><table>${rows.map(([k, val]) => `<tr><th>${k}</th><td>${val}</td></tr>`).join('')}</table>`).join('') +
+      `<div class="ins-body">${groups.map(([t, rows]) => `<section class="ins-sec"><div class="ins-group">${t}</div><table>${rows.map(([k, val]) => `<tr><th>${k}</th><td>${val}</td></tr>`).join('')}</table></section>`).join('')}</div>` +
       `<div class="ins-foot">Sim time ${fmtTime(w.time)}</div>`;
     this.root.hidden = false;
+    this.fit();
+  }
+
+  /** Keep it on screen: when it's taller than the view, its sections flow into more columns. */
+  fit() {
+    const R = this.root, view = R.offsetParent || R.parentElement;
+    if (!view) return;
+    const room = view.clientHeight - (parseFloat(getComputedStyle(R).bottom) || 12) - 12;
+    const maxCols = Math.max(1, Math.min(3, Math.floor((view.clientWidth - 24) / 260)));
+    // (start from the columns it used last time, so it doesn't jump about as the cursor moves)
+    let cols = Math.min(this.cols || 1, maxCols);
+    R.dataset.cols = cols;
+    while (R.offsetHeight > room && cols < maxCols) R.dataset.cols = ++cols;
+    while (cols > 1) {
+      R.dataset.cols = cols - 1;
+      if (R.offsetHeight > room * 0.92) { R.dataset.cols = cols; break; }
+      cols--;
+    }
+    this.cols = cols;
+    R.style.maxHeight = `${Math.max(120, room)}px`;
   }
 }
 
