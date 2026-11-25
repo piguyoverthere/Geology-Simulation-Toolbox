@@ -1477,8 +1477,8 @@ dams and mines, and the footpaths. A bridge stands until the water is a cell's d
 town whose centre goes under is lost, its people gone. A park more than 60% under the sea is gone,
 its polygon and its record. Fields, plantations and canals were already destroyed by the sea and
 by storm surges. This runs with the towns' step, whether or not Civilization is on, and the status
-line names what was washed away. In a test, a town 3.3 above the sea and a beach park beside it
-were raised against: the town was lost when the sea rose 3.5, everything it had built was gone at
+line names what was washed away. In a test, the sea was raised step by step over a town 3.3 above it and a beach park beside it:
+the town was lost when the sea rose 3.5, everything it had built was gone at
 7.5, and the park went then too, while a national forest inland stayed.
 
 ## Tools for fuel, fire flowers, groundwater, fish, crossings and fish ladders
