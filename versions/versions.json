@@ -24,5 +24,10 @@
     "version": "1.2.0",
     "date": "2026-11-25",
     "notes": "Ecosystems and people: groundwater, climate change, forest carbon, megafires, trophic cascades, pollinators, roads & dams, fish stocks, restoration, fire followers, more wildlife settings and tools, sea washing away towns, loading screen"
+  },
+  {
+    "version": "1.2.1",
+    "date": "2026-11-25",
+    "notes": "Drowned grassland becomes beach, built-up waterfronts with docks, storage kept when the disk runs low"
   }
 ]
