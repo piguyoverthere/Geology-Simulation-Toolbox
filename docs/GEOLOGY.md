@@ -1406,7 +1406,10 @@ the forest.
 With **Invasive plantation pine** off, every plantation is replanted with native trees at once and
 kept weeded of pine; the pine already loose in the wild keeps spreading through wild forest.
 
-**Town labels.** *Show town labels* (View) hides every town's name label over the map.
+**Town labels.** *Show town labels* (View) hides every town's name label over the map. *Show park names* (View) shows
+each park's and National Forest's name over it (the name alone, without the measurements your own
+drawings show), and *Show trail names* shows the names written along the footpaths and park
+trails; turning either off hides just those names. All three are saved with the level.
 
 ## Town parks (`parkStep` in `src/sim/civilization.js`)
 

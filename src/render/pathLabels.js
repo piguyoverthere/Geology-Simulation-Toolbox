@@ -35,8 +35,8 @@ export class PathLabels {
       const pa = fp.pts[Math.max(0, m - k)], pb = fp.pts[Math.min(fp.pts.length - 1, m + k)];
       const mid = toScreen(this.c, fp.pts[m]);
       const visible = mid.z < 1 && Math.abs(mid.x) < 1.1 && Math.abs(mid.y) < 1.1;
-      el.hidden = !visible;
-      if (!visible) continue;
+      el.hidden = !visible || app.renderer.showTrailNames === false;
+      if (el.hidden) continue;
       toScreen(this.a, pa); toScreen(this.b, pb);
       const ax = ((this.a.x + 1) / 2) * rect.width, ay = ((1 - this.a.y) / 2) * rect.height;
       const bx = ((this.b.x + 1) / 2) * rect.width, by = ((1 - this.b.y) / 2) * rect.height;

@@ -289,7 +289,9 @@ export class Drawings {
       s.label.className = 'draw-label';
       this.container.append(s.label);
     }
-    s.label.innerHTML = `<b style="color:${s.color}">${s.name}</b><br>${this.describe(s)}`;
+    // (a town's park or a National Forest is labelled with its name alone)
+    s.label.innerHTML = s.park ? `<b style="color:${s.color}">${s.name}</b>` : `<b style="color:${s.color}">${s.name}</b><br>${this.describe(s)}`;
+    s.label.classList.toggle('park-label', !!s.park);
   }
 
   dispose(s) {
@@ -335,7 +337,9 @@ export class Drawings {
     const v = new THREE.Vector3();
     for (const s of all) {
       if (!s.label) continue;
-      if (!drawSettings.labels || !s.points.length) { s.label.style.display = 'none'; continue; }
+      // (parks follow the View → Show park names setting; your own drawings, Drawings → labels)
+      const shown = s.park ? this.renderer.showParkNames !== false : drawSettings.labels;
+      if (!shown || !s.points.length) { s.label.style.display = 'none'; continue; }
       // Anchor: the centroid of a polygon, the last point of a path
       let ax, az;
       if (s.closed) { ax = 0; az = 0; for (const p of s.points) { ax += p.x; az += p.z; } ax /= s.points.length; az /= s.points.length; }

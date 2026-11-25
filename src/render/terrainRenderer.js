@@ -75,6 +75,8 @@ export class TerrainRenderer {
     this.showVegetation = true; // off: natural view shows bare ground and bedrock
     this.showClouds = true;
     this.showTownLabels = true; // (the town names over the map)
+    this.showParkNames = true;  // (the names of the parks and National Forests)
+    this.showTrailNames = true; // (the names written along the footpaths)
     // (the Land use overlay is a clear view: no clouds or fog over it)
     Object.defineProperty(this, 'cloudsOn', { get: () => this.showClouds && this.colorMode !== 'landuse' });
     this.showWater = true;

@@ -382,6 +382,8 @@ export class Toolbox {
     view.append(
       toggle('Show clouds', app.renderer, 'showClouds', 'Show the clouds that form where moist air is pushed up over terrain.', this),
       toggle('Show town labels', app.renderer, 'showTownLabels', 'Show the names of the towns (with their population and news) over the map. Off: every town label is hidden; the towns themselves carry on.', this),
+      toggle('Show park names', app.renderer, 'showParkNames', 'Show the name of each park and National Forest over it (just its name). Off: the names are hidden; the parks are still drawn and still apply.', this),
+      toggle('Show trail names', app.renderer, 'showTrailNames', 'Show the names written along the footpaths and park trails. Off: the trails are still drawn, without their names.', this),
       toggle('Show water', app.renderer, 'showWater', 'Show or hide surface water.', this, () => app.world.dirty = true),
       toggle('Show sea', app.renderer, 'showSea', 'Turn off to hide the sea\'s surface and look at the sea bed: kelp, seagrass, coral reefs, die-offs, sand and the shape of the bottom. The sea is still there (tides, coasts, sea life and everything else carry on).', this, () => { app.world.dirty = true; app.renderer.update(true); }),
       toggle('Wireframe', app.renderer.terrainMat, 'wireframe', 'Show the terrain grid.', this),
