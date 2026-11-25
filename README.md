@@ -49,6 +49,26 @@ The page opens on a grey **home screen** listing your simulations, all kept in t
 - Make a release with `python3 tools/release.py <version> "<what changed>"` (add `--pre` for a
   prerelease) after setting `APP_VERSION` (and `IS_PRERELEASE`) in `src/version.js`.
 
+## Ecosystems and people (1.2, experimental)
+
+Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and test results):
+
+- **Groundwater**: rain recharges it, it seeps out into streams in dry spells, towns pump it down
+  (dry wells, sinking ground). Overlays: *Groundwater*, *Groundwater drawdown*.
+- **Climate change** (Civilization setting): the towns' greenhouse gas slowly warms the climate and
+  raises the sea; the land's **forest carbon** (overlay *Forest carbon*) feeds it.
+- **Fire fuel and megafires**: fuel builds where nothing burns; light fuel means surface fires the
+  trees survive, heavy fuel crown fires that kill them. **Fire suppression** and **prescribed
+  burns** (Civilization). Overlay *Fire fuel*.
+- **Trophic cascades**: grazers fear their predators; towns' livestock is taken by predators, which
+  towns cull (**Predator control**, **Herding & fencing**). **+ Deer & wolves** starter food web.
+- **Pollinators** that farm yields depend on, and **Pesticides** that kill them. Overlay *Pollinators*.
+- **Roads** that kill and split land animals, with **Wildlife crossings**; **dams** that stop fish
+  runs, with **Fish ladders**.
+- **Fish stocks** that collapse when overfished and recover slowly, **Fishing quotas**, marine
+  reserves that restock the water. Overlay *Fish stocks*.
+- **Restoration** (setting): towns replant worn-out land and take down dams that block fish runs.
+
 ## The window
 
 - **Menu bar** along the top, like a desktop app's: **File** (new simulation, all simulations,
