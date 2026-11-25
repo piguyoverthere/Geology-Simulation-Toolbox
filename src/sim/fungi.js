@@ -96,12 +96,14 @@ export function fungiStep(world) {
     // (a rich fungal community holds it in check)
     if (FG[i] > 0.6) g -= 0.004 * (FG[i] - 0.6) * g;
     next[i] = g < 0.0002 ? 0 : g > 1 ? 1 : g;
-    // The infected trees die: the stand thins, the old trees go first, dead wood is left
-    if (r > 0.55 && V[i] > 0.4) {
-      const kill = 0.0035 * k * (r - 0.55) * (0.5 + A[i]);
+    // The infected trees die: from a light infection up, some trees rot at the base and fall (butt
+    // rot), more the heavier it is; the stand thins, the old trees go first, dead wood is left
+    if (r > 0.15 && V[i] > 0.4) {
+      const heavy = Math.max(0, r - 0.55);
+      const kill = k * (0.0012 * (r - 0.15) + 0.004 * heavy) * (0.5 + A[i]);
       V[i] = Math.max(0.2, V[i] - kill);
       A[i] = Math.max(0, A[i] - kill * 1.5);
-      if (world.deadWood) world.deadWood[i] = Math.min(1, world.deadWood[i] + kill * 2);
+      if (world.deadWood) world.deadWood[i] = Math.min(1, world.deadWood[i] + kill * 8); // (rotten trunks, snapped and fallen)
       dead += kill;
     }
   }

@@ -329,6 +329,9 @@ export function vegetationStep(world) {
     // Grazing and browsing (sim/ecology.js): deer nip off seedlings and young trees, holding
     // meadows open and keeping cleared ground from growing back into forest
     const browse = world.browse ? Math.min(1, world.browse[i]) : 0;
+    // (root rot: while a stand is infected its trees keep dying, so it can't close up again)
+    const rotted = world.rootRot ? world.rootRot[i] : 0;
+    if (rotted > 0.1) target *= 1 - 0.35 * Math.min(1, rotted);
     if (browse > 0.02 && salt === 0) target = Math.max(Math.min(target, 0.5), target - 0.45 * browse * (1 - age));
     // (salmon carcasses fertilise the banks of salmon rivers: plants there grow faster)
     const salmonFed = world.salmonN ? world.salmonN[i] : 0;
@@ -438,7 +441,8 @@ export function vegetationStep(world) {
     world.forestAge[i] = a < 0 ? 0 : a > 1 ? 1 : a;
     // Tree density: how closely the trees stand (canopy closure): from the tree cover, thicker in
     // old forest, opened up by dead trees
-    world.treeDensity[i] = (world.landUse && world.landUse[i] && world.landUse[i] !== 10) ? 0 : smoothstep(0.45, 0.95, V[i]) * (0.6 + 0.4 * world.forestAge[i]) * (1 - 0.7 * (world.deadWood ? world.deadWood[i] : 0));
+    // (root rot thins the stand: infected trees lose roots and crown, and the worst fall)
+    world.treeDensity[i] = (world.landUse && world.landUse[i] && world.landUse[i] !== 10) ? 0 : smoothstep(0.45, 0.95, V[i]) * (0.6 + 0.4 * world.forestAge[i]) * (1 - 0.7 * (world.deadWood ? world.deadWood[i] : 0)) * (world.rootRot ? 1 - 0.65 * Math.min(1, world.rootRot[i] * 1.3) : 1);
   }
   P.set(H);
   world.dirty = true;

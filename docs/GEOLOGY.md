@@ -1513,9 +1513,20 @@ with the trees' roots, and decomposers breaking down litter and dead wood.
   then by spores to a stand up to half the map away.
 - **Where it takes best:** old trees, trees stressed by dry soil, and plantations. It takes poorly
   where the soil's fungal life is rich.
-- **What it does:** a heavy infection (over 0.55) kills the stand over some years. The old trees go
-  first and leave dead wood.
+- **What it does:** it thins the stand from a light infection up. Infected trees lose roots and crown,
+  so tree density falls (by up to about two thirds). Some rot at the base and fall, more the heavier
+  the infection, the old trees first. While a stand is infected it can't close up again (its cover is
+  held down by up to a third). A heavy infection (over 0.55) kills trees fast, and some of the stand
+  stops being forest.
 - **What stops it:** with its hosts gone, it dies out and the forest grows back.
+
+In a test on three patches of old forest (density 0.90, cover 0.95) after ten steps:
+
+| Patch | Tree density | Forest cover | Still forest |
+|---|---|---|---|
+| Healthy | 0.90 | 0.95 | 64 of 64 |
+| Light infection (grew to 0.44) | 0.49 | 0.83 | 64 of 64 |
+| Heavy infection (0.83) | 0.19 | 0.74 | 54 of 64 |
 
 **Tools** (Life group of the tool bar, Shift reverses each):
 - **🍄 Fungi** brings fungi into the soil, as foresters and gardeners inoculate it. Fungal diversity
