@@ -24,6 +24,7 @@ import { WildlifeMarkers } from './render/wildlife.js';
 import { recordStats } from './sim/stats.js';
 import { groundwaterStep, groundwaterParams } from './sim/groundwater.js';
 import { climateChangeStep } from './sim/climateChange.js';
+import { carbonStep } from './sim/forestCarbon.js';
 import { recordProbes } from './sim/probes.js';
 import { civParams, civStep } from './sim/civilization.js';
 import { TownLabels } from './render/townLabels.js';
@@ -803,6 +804,7 @@ class App {
       // Wind (recomputed only when the wind, sea or land changes) and its very slow erosion
       if (this.frame % 30 === 15) {
         civStep(this.world); this.addTownParks(); gridTick(this);
+        carbonStep(this.world); // (the land's carbon: released by clearing and fire, taken up by regrowth)
         // (climate change: the sea creeps up as it warms, applied a little at a time)
         this.seaRise = (this.seaRise || 0) + climateChangeStep(this.world, this.sim.seaEnabled);
         if (this.seaRise >= 0.05) { this.sim.seaLevel += this.seaRise; this.seaRise = 0; this.applySea(); }

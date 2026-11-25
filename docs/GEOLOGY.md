@@ -1403,6 +1403,17 @@ three years (at about 500 town steps a year); with its emissions then stopped, t
 rising to 1.43 °C a year later before slowly easing (1.27 °C two years on), and the sea had risen
 0.73.
 
+## Forest carbon (`src/sim/forestCarbon.js`)
+
+Every cell holds carbon: in its trees (up to 4.5 t, more the denser and older the stand: young
+regrowth holds a quarter of what old growth does), its grass (0.3 t) and its soil's organic matter
+(up to 1.5 t, built up under long-standing forest). The map's store (world.carbonTotal) is recounted
+every town step; what it loses to felling, clearing and fire goes into the air as greenhouse gas
+(0.004 ppm a tonne) and what regrowing forest gains is taken out, so the land's carbon feeds climate
+change. **Overlays → Forest carbon** maps it, the inspector shows it, and the *Carbon in the land*
+graph tracks it. In a test the map held about 107,000 t, old growth 5.5 t a cell and bare ground
+0.04; burning a 40×40 block of forest released 1,552 t, which became 6.2 ppm of greenhouse gas.
+
 ## Groundwater (`src/sim/groundwater.js`)
 
 Beneath the soil every cell holds groundwater (world.groundwater, 0 dry … 1 full). Left alone it

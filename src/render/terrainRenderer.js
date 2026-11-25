@@ -7,6 +7,7 @@ import { waterQuality } from '../sim/waterQuality.js';
 import { dominantAnimal } from '../sim/ecology.js';
 import { SPECIES, OPEN, steadyCover } from '../sim/species.js';
 import { DISEASE_BY_ID } from '../sim/disease.js';
+import { carbonAt } from '../sim/forestCarbon.js';
 import { fireColor } from '../sim/fireHistory.js';
 import { climateParams, snowAt, seasonalAt } from '../sim/climate.js';
 
@@ -39,6 +40,7 @@ export const OVERLAYS = {
   vegetation: 'Vegetation',
   moisture: 'Wetness',
   groundwater: 'Groundwater',
+  carbon: 'Forest carbon',
   gwChange: 'Groundwater drawdown',
   soil: 'Soil depth',
   bare: 'Bare rock',
@@ -383,6 +385,10 @@ export class TerrainRenderer {
             col = [0.55, 0.55, 0.52]; mix(col, DISEASE_BY_ID[w.roadDisease[i]].color, 0.25 + 0.5 * Math.min(1, w.roadSpores[i]), col);
           }
           shade(col, 0.72 + 0.28 * ny, col);
+        } else if (mode === 'carbon') {
+          // Carbon held in the trees and soil: bare ground pale, old dense forest deep green-black
+          const c = Math.min(1, carbonAt(w, i) / 6);
+          col = shade(c < 0.4 ? mix(CARB_LOW, CARB_MID, c / 0.4, S3) : mix(CARB_MID, CARB_HIGH, (c - 0.4) / 0.6, S3), 0.72 + 0.28 * ny, S3);
         } else if (mode === 'groundwater') {
           // How much water is in the ground: dry ground sandy, a full aquifer deep blue
           const g = w.groundwater ? w.groundwater[i] : 0;
@@ -841,7 +847,7 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
-const GW_DRY = [0.86, 0.76, 0.55], GW_MID = [0.55, 0.72, 0.80], GW_FULL = [0.10, 0.28, 0.62], GW_SAME = [0.84, 0.86, 0.88], GW_DOWN = [0.80, 0.15, 0.12], GW_SUNK = [0.25, 0.10, 0.08], POP_BG = [0.55, 0.56, 0.58], POP_HEAT = [[0.25, 0.10, 0.45], [0.80, 0.15, 0.25], [0.98, 0.55, 0.10], [1.0, 0.95, 0.60]], ONE_LIGHT = [0.86, 0.86, 0.88], ONE_DARK = [0.26, 0.27, 0.30], FOOTPATH = [0.80, 0.68, 0.48], INVASIVE = [0.10, 0.26, 0.28], INV_OPEN = [0.86, 0.85, 0.80], INV_NATIVE = [0.30, 0.62, 0.30], INV_FULL = [0.66, 0.16, 0.38], MINE_A = [0.30, 0.27, 0.25], MINE_B = [0.38, 0.33, 0.29], SPOIL = [0.70, 0.48, 0.26], DEGRADED = [0.82, 0.72, 0.52], AIR_CLEAN = [0.86, 0.90, 0.92], DIS_HEALTHY = [0.55, 0.70, 0.52], FIRE_BG_LO = [0.86, 0.84, 0.80], FIRE_BG_HI = [0.70, 0.78, 0.68], FIRE_TMP = [0, 0, 0], AIR_DIRTY = [0.35, 0.28, 0.22];
+const CARB_LOW = [0.90, 0.88, 0.80], CARB_MID = [0.55, 0.70, 0.35], CARB_HIGH = [0.05, 0.22, 0.12], GW_DRY = [0.86, 0.76, 0.55], GW_MID = [0.55, 0.72, 0.80], GW_FULL = [0.10, 0.28, 0.62], GW_SAME = [0.84, 0.86, 0.88], GW_DOWN = [0.80, 0.15, 0.12], GW_SUNK = [0.25, 0.10, 0.08], POP_BG = [0.55, 0.56, 0.58], POP_HEAT = [[0.25, 0.10, 0.45], [0.80, 0.15, 0.25], [0.98, 0.55, 0.10], [1.0, 0.95, 0.60]], ONE_LIGHT = [0.86, 0.86, 0.88], ONE_DARK = [0.26, 0.27, 0.30], FOOTPATH = [0.80, 0.68, 0.48], INVASIVE = [0.10, 0.26, 0.28], INV_OPEN = [0.86, 0.85, 0.80], INV_NATIVE = [0.30, 0.62, 0.30], INV_FULL = [0.66, 0.16, 0.38], MINE_A = [0.30, 0.27, 0.25], MINE_B = [0.38, 0.33, 0.29], SPOIL = [0.70, 0.48, 0.26], DEGRADED = [0.82, 0.72, 0.52], AIR_CLEAN = [0.86, 0.90, 0.92], DIS_HEALTHY = [0.55, 0.70, 0.52], FIRE_BG_LO = [0.86, 0.84, 0.80], FIRE_BG_HI = [0.70, 0.78, 0.68], FIRE_TMP = [0, 0, 0], AIR_DIRTY = [0.35, 0.28, 0.22];
 const LU_OPEN = [0.86, 0.85, 0.80], LU_WILD = [0.62, 0.70, 0.56], LU_IRRIGATED = [0.55, 0.80, 0.45], LU_FELLED = [0.70, 0.60, 0.36], LU_EDGE = [0.02, 0.18, 0.06], LU_RESTING = [0.56, 0.80, 0.56];
 const LU_COLORS = { 11: [0.30, 0.27, 0.25], 12: [0.85, 0.50, 0.20], 1: [0.95, 0.80, 0.30], 2: [0.86, 0.28, 0.22], 3: [0.30, 0.30, 0.34], 4: [0.58, 0.36, 0.74], 5: [0.98, 0.55, 0.15], 6: [0.70, 0.70, 0.72], 7: [0.95, 0.95, 0.95], 8: [0.25, 0.80, 0.90], 9: [0.35, 0.25, 0.15], 10: [0.09, 0.48, 0.20] };
 const FIELD_A = [0.78, 0.70, 0.38], FIELD_B = [0.52, 0.62, 0.30], TOWN_PAVE = [0.62, 0.60, 0.57], TOWN_ROOF = [0.66, 0.40, 0.32], ROAD = [0.30, 0.30, 0.32], ROAD_WORN = [0.55, 0.52, 0.46], INDUSTRY = [0.50, 0.53, 0.57], HARBOR_A = [0.46, 0.34, 0.22], QUAY = [0.66, 0.65, 0.61], DAM = [0.78, 0.77, 0.74], CANAL = [0.56, 0.52, 0.44], SEWER = [0.30, 0.26, 0.20], PLANTATION = [0.16, 0.30, 0.15], PLANTATION_ROW = [0.11, 0.22, 0.11], CLEARCUT = [0.47, 0.39, 0.27], BRIDGE = [0.36, 0.34, 0.33], QUAY_DARK = [0.46, 0.45, 0.43], HARBOR_B = [0.60, 0.58, 0.55], INDUSTRY_DARK = [0.24, 0.25, 0.28], DIRTY_RIVER = [0.58, 0.47, 0.16], POLLUTED_BANK = [0.42, 0.36, 0.20];

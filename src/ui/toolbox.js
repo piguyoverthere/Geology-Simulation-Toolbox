@@ -926,6 +926,11 @@ export class Toolbox {
     };
     if (mode === 'rock' || (mode === 'natural' && !this.app.renderer.showVegetation)) items('Rock types', ROCKS);
     else if (mode === 'bare') items('Exposed rock (pale = under soil)', [{ label: 'Soil-covered', color: [0.86, 0.84, 0.78], help: 'Bedrock buried under soil deep enough to grow on.' }, ...ROCKS]);
+    else if (mode === 'carbon') {
+      ramp('Carbon in the trees and soil (tonnes a cell)', 'none', '6+', [[0.90, 0.88, 0.80], [0.55, 0.70, 0.35], [0.05, 0.22, 0.12]]);
+      const t = this.app.world.carbonTotal;
+      L.append(el('div', 'tb-note', `Old, dense forest holds the most, in its wood and the soil built up beneath it. Felling, clearing and fire release it as greenhouse gas; regrowing forest takes it back up.${t ? ` The land holds about ${Math.round(t).toLocaleString()} tonnes.` : ''}`));
+    }
     else if (mode === 'groundwater') {
       ramp('Groundwater (how full the ground is)', 'dry', 'full', [[0.86, 0.76, 0.55], [0.55, 0.72, 0.80], [0.10, 0.28, 0.62]]);
       L.append(el('div', 'tb-note', 'Water stored in the ground beneath the soil. Rain refills it, it seeps towards lower ground and out into springs and streams in the valleys, and towns pump it from wells.'));
