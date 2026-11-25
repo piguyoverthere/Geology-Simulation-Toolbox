@@ -281,7 +281,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .mb-mild { background: rgba(79, 163, 217, 0.22); color: #a9d6f2; }
 
 /* Sidebar: topic tabs, plain (always open) sections, switches two to a row */
-.tb-tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 6px 8px; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; background: var(--panel); }
+.tb-tabs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; padding: 6px 8px; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; background: var(--panel); }
 .tb-tab { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 0 4px; border: 1px solid transparent; border-radius: 7px; background: none; color: var(--muted); font: inherit; font-size: 10.5px; cursor: pointer; }
 .tb-tab:hover { color: var(--text); background: var(--panel-2); }
 .tb-tab.active { color: var(--text); background: var(--panel-2); border-color: var(--accent); }

@@ -79,16 +79,17 @@ export const SPECIES = [
 ];
 export const OPEN = { label: 'Open ground', color: [0.52, 0.66, 0.30], mapColor: [0.80, 0.84, 0.70], help: 'Gaps, meadow and scrub between trees.' };
 
-const K = SPECIES.length;
+let K = SPECIES.length;
 const MIXA = [0, 0, 0];
-const CONIFER = SPECIES.map((s) => ['pine', 'fir', 'spruce', 'larch', 'juniper', 'shorepine', 'sitka', 'cedar', 'sequoia', 'redwood'].includes(s.id));
+const CONIFER_IDS = ['pine', 'fir', 'spruce', 'larch', 'juniper', 'shorepine', 'sitka', 'cedar', 'sequoia', 'redwood'];
+let CONIFER = SPECIES.map((s) => s.conifer || CONIFER_IDS.includes(s.id));
 // (mangrove counts as broadleaf; it is evergreen and never turns colour)
 // Broadleaf trees give way to conifers with height: their thin leaves and soft wood can't take the
 // short, cold growing season and heavy snow. The change is gradual and patchy (aspect, shelter,
 // soil), not a line on the mountain. Pioneers (birch, aspen) climb a few degrees higher.
-const BROAD_COLD = SPECIES.map((s) => (CONIFER[SPECIES.indexOf(s)] ? null : s.id === 'birch' || s.id === 'aspen' ? -2.5 : 1.5));
+let BROAD_COLD = SPECIES.map((s) => (CONIFER[SPECIES.indexOf(s)] ? null : s.id === 'birch' || s.id === 'aspen' ? -2.5 : 1.5));
 const PINE = SPECIES.findIndex((s) => s.id === 'pine');
-const scratch = new Float32Array(K);
+let scratch = new Float32Array(K);
 let fireYears = null, nowYear = 0; // (when each fire burnt, for the fire-resistant trees)
 
 function band(x, lo, hi, soft) {
@@ -260,6 +261,15 @@ function smooth(e0, e1, x) {
 
 /** Species index by id. */
 export const SPECIES_INDEX = Object.fromEntries(SPECIES.map((s, k) => [s.id, k]));
+
+/** After species are added (by a mod): rebuild the tables worked out from the list. */
+export function refreshSpecies() {
+  K = SPECIES.length;
+  CONIFER = SPECIES.map((s) => s.conifer || CONIFER_IDS.includes(s.id));
+  BROAD_COLD = SPECIES.map((s, k) => (CONIFER[k] ? null : s.id === 'birch' || s.id === 'aspen' ? -2.5 : 1.5));
+  scratch = new Float32Array(K);
+  SPECIES.forEach((s, k) => { SPECIES_INDEX[s.id] = k; });
+}
 
 /** Each species' share of the trees at cell i (summing to 1 where any suit), written into `out`. */
 export function treeShares(world, i, out) {

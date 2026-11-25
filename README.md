@@ -75,6 +75,9 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
 - Towns, roads and parks the sea covers for good are **washed away**.
 - Grassland the sea covers turns into **beach**, which takes decades to turn back into grassland.
 - A **Farmland cap** (Civilization) limits how much of the land the towns may farm.
+- **Mods**: JavaScript files that add tree species, tools, overlays, settings, rules and starter
+  animals, added from the 🧩 Mods tab. See [the modding guide](docs/MODDING.md) and the example
+  [mods/example-mod.js](mods/example-mod.js).
 - **Fire-resistant trees** (giant sequoia, coast redwood, cork oak) live through smaller fires, gain
   ground where fire returns, and grow far taller (tree heights in the inspector).
 - Coastal towns build up dense **waterfronts**: quays paved over the beaches with a sharp drop-off,

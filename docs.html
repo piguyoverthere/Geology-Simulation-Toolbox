@@ -40,6 +40,7 @@
     <b>Geology Simulation Toolbox · Guide</b>
     <button data-doc="README.md">Getting started</button>
     <button data-doc="docs/GEOLOGY.md">How the simulation works</button>
+    <button data-doc="docs/MODDING.md">Modding</button>
     <a class="back" href="./">Back to the simulation</a>
   </div>
   <div class="wrap">
@@ -115,7 +116,7 @@
         // (links between the two documents open here)
         for (const a of main.querySelectorAll('a[href]')) {
           const h = a.getAttribute('href');
-          if (/(^|\/)(README|GEOLOGY)\.md(#.*)?$/.test(h)) a.addEventListener('click', (e) => { e.preventDefault(); show(h.includes('GEOLOGY') ? 'docs/GEOLOGY.md' : 'README.md'); });
+          if (/(^|\/)(README|GEOLOGY|MODDING)\.md(#.*)?$/.test(h)) a.addEventListener('click', (e) => { e.preventDefault(); show(h.includes('GEOLOGY') ? 'docs/GEOLOGY.md' : h.includes('MODDING') ? 'docs/MODDING.md' : 'README.md'); });
         }
         history.replaceState(null, '', `?doc=${encodeURIComponent(path)}${location.hash}`);
         if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView(); else scrollTo(0, 0);
@@ -123,7 +124,7 @@
     }
     for (const b of document.querySelectorAll('[data-doc]')) b.addEventListener('click', () => { history.replaceState(null, '', location.pathname); show(b.dataset.doc); });
     const q = new URLSearchParams(location.search).get('doc');
-    show(q === 'docs/GEOLOGY.md' ? q : 'README.md');
+    show(q === 'docs/GEOLOGY.md' || q === 'docs/MODDING.md' ? q : 'README.md');
   </script>
 </body>
 </html>

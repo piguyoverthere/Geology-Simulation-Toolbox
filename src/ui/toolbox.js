@@ -20,6 +20,8 @@ import { PROBE_STATS } from '../sim/probes.js';
 import { bestSite, foundTown, ensureCiv, updateProtectedZones, RESTRICTIONS } from '../sim/civilization.js';
 import { YEAR_KINDS } from '../sim/climate.js';
 import { HABITATS, PLANT_FOODS, HABITS, MIGRATION, newAnimal, removeAnimal, describeAnimal } from '../sim/ecology.js';
+import { MOD, listMods, addMod, setModEnabled, removeMod } from '../core/mods.js';
+const app_autosave = async (app) => { try { await app.autosave(); } catch { /* not saved */ } };
 
 /** The sidebar's topic tabs and the settings sections on each. */
 const TABS = {
@@ -28,6 +30,7 @@ const TABS = {
   climate: { label: 'Climate', icon: '☀', sections: ['Climate', 'Seasons', 'Weather'], help: 'Environments, temperature and wind, the seasons (and good and bad years), storms and weather.' },
   sea: { label: 'Sea', icon: '🌊', sections: ['Ocean & coast'], help: 'The sea, tides, currents, coasts and water quality.' },
   life: { label: 'Life', icon: '🐾', sections: ['Wildlife', 'Civilization'], help: 'Your animals (design them, paint them in, follow their populations) and civilization: towns, farms, roads.' },
+  mods: { label: 'Mods', icon: '🧩', sections: ['Mods'], help: 'Mods: JavaScript files that add tree species, tools, overlays, settings and rules to the simulation. Add them here; see the Modding guide.' },
 };
 
 export class Toolbox {
@@ -351,6 +354,9 @@ export class Toolbox {
     );
     this.renderAnimals();
     this.renderDiseases();
+    // (starter animals that mods add)
+    for (const m of MOD.animals) wild.insertBefore(button(m.label, () => { m.add(app.world); this.renderAnimals(); this.updateLegend(); }, 'tb-add-animal', `${m.help || 'Animals'} (from the mod "${m.mod}").`, this), this.animalForm);
+    this.buildMods();
     // --- Civilization ------------------------------------------------------------------------
     const civ = this.section('Civilization');
     this.townList = el('div', 'tb-animals');
@@ -945,7 +951,12 @@ export class Toolbox {
       labels.append(el('span', '', lo), el('span', '', hi));
       L.append(bar, labels);
     };
-    if (mode === 'rock' || (mode === 'natural' && !this.app.renderer.showVegetation)) items('Rock types', ROCKS);
+    if (MOD.overlays[mode]) {
+      const o = MOD.overlays[mode];
+      if (o.legend && o.legend.length) items(o.label, o.legend); else this.legendTitle.textContent = o.label;
+      L.append(el('div', 'tb-note', `An overlay from the mod "${o.mod}".`));
+    }
+    else if (mode === 'rock' || (mode === 'natural' && !this.app.renderer.showVegetation)) items('Rock types', ROCKS);
     else if (mode === 'bare') items('Exposed rock (pale = under soil)', [{ label: 'Soil-covered', color: [0.86, 0.84, 0.78], help: 'Bedrock buried under soil deep enough to grow on.' }, ...ROCKS]);
     else if (mode === 'fish') {
       ramp('Fish stocks (share of what the sea can hold)', 'collapsed', 'plentiful', [[0.80, 0.20, 0.15], [0.95, 0.80, 0.30], [0.10, 0.30, 0.65]]);
@@ -1117,6 +1128,62 @@ export class Toolbox {
       slider('Strength', app.brush, 'strength', 0.05, 1, 0.01, 'How fast the tool works. Hold Shift to invert most tools.', this),
     );
     bar.append(brush);
+  }
+
+  /** The Mods tab: the installed mods (switch on or off, remove, add) and the settings they add. */
+  buildMods() {
+    const body = this.section('Mods');
+    body.append(el('div', 'tb-note', 'Mods are JavaScript files that add to the simulation: tree species, tools, overlays, settings and rules of their own. They run with the app\'s full access, so only add mods you trust. Changes take effect when the page reloads.'));
+    this.modList = el('div', 'tb-animals');
+    body.append(this.modList);
+    const file = button('+ Add mod file…', () => {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = '.js,.mjs,text/javascript';
+      input.onchange = async () => { const f = input.files[0]; if (!f) return; await addMod(f.name, await f.text()); this.renderMods(true); };
+      input.click();
+    }, 'tb-add-animal', 'Add a mod from a .js file on your computer.', this);
+    const url = button('+ Add from URL…', async () => {
+      const u = prompt('The address of the mod (.js file):');
+      if (!u) return;
+      try { const r = await fetch(u); if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); await addMod(decodeURIComponent(u.split('/').pop() || 'Mod'), await r.text()); this.renderMods(true); }
+      catch (err) { this.setInfo(`<b>Mods</b> — couldn't fetch that mod: ${escapeHtml(err.message)}`); }
+    }, 'tb-add-animal', 'Add a mod from a web address (it must allow loading from other sites).', this);
+    const guide = button('📖 Modding guide', () => window.open(`docs.html?doc=docs/MODDING.md`, '_blank'), 'tb-add-animal', 'How to write a mod: the mod API and an example.', this);
+    body.append(file, url, guide);
+    if (MOD.settings.length) {
+      body.append(el('div', 'tb-form-title', 'Mod settings'));
+      for (const s of MOD.settings) {
+        const help = `${s.help || s.label} (from the mod "${s.mod}")`;
+        const ctl = typeof s.obj.value === 'boolean' ? toggle(s.label, s.obj, 'value', help, this, () => s.save()) : slider(s.label, s.obj, 'value', s.min, s.max, s.step, help, this, () => s.save());
+        body.append(ctl);
+      }
+    }
+    this.renderMods(false);
+  }
+
+  async renderMods(changed) {
+    const L = this.modList;
+    if (!L) return;
+    const list = await listMods();
+    L.textContent = '';
+    if (!list.length) L.append(el('div', 'tb-note', 'No mods yet.'));
+    for (const m of list) {
+      const row = el('div', 'tb-animal');
+      const on = document.createElement('input');
+      on.type = 'checkbox'; on.checked = !!m.enabled;
+      on.onchange = async () => { await setModEnabled(m.id, on.checked); this.renderMods(true); };
+      const loaded = MOD.loaded.some((x) => x.id === m.id);
+      const name = el('span', 'tb-animal-name', m.name);
+      const state = el('span', 'tb-dim', m.error ? `error: ${m.error}` : m.enabled ? (loaded ? 'on' : 'on after reload') : 'off');
+      if (m.error) state.style.color = '#ff8a7a';
+      const rm = button('✕', async () => { if (confirm(`Remove the mod "${m.name}"?`)) { await removeMod(m.id); this.renderMods(true); } }, 'tb-small', 'Remove this mod.', this);
+      row.append(on, name, state, rm);
+      L.append(row);
+    }
+    if (changed) {
+      const r = button('Reload to apply', async () => { await app_autosave(this.app); location.reload(); }, 'tb-add-animal', 'Save and reload the page so mod changes take effect.', this);
+      L.append(r);
+    }
   }
 
   /** A collapsible section; whether it's open is remembered between visits. */

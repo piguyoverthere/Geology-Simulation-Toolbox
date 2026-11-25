@@ -43,6 +43,7 @@ import { MonthBar } from './ui/monthbar.js';
 import { CrossSection } from './ui/section.js';
 import { captureDefaults, resetParams, snapshot, applySnapshot, encodeLevel, decodeLevel, storeLevel, fetchLevel, deleteLevel } from './core/save.js';
 import { showLoading, loadingStep, hideLoading } from './ui/loading.js';
+import { loadMods, runModSteps, MOD } from './core/mods.js';
 import { getSim, updateSim, pushHistory, newSimMeta, addSim } from './core/sims.js';
 import { Home } from './ui/home.js';
 import { MenuBar } from './ui/menubar.js';
@@ -881,6 +882,7 @@ class App {
       if (this.frame % 30 === 5) steadySiteInputs(this.world); // (year-averaged wetness for the tree species)
       if (this.frame % 30 === 28) fireFollowerStep(this.world); // (fireweed and fire poppies on recent small burns)
       if (this.frame % 30 === 18) drownedGrassStep(this.world); // (grassland the sea covers becomes beach)
+      if (MOD.steps.length) runModSteps(this); // (what the mods do each step)
       if (this.frame % 30 === 0) pollinatorStep(this.world); // (bees and the like: where they live, pesticides)
       if (this.frame % 30 === 10) groundwaterStep(this.world); // (the aquifer: recharge, seepage, base flow, wells)
       if (this.frame % 30 === 20) fuelStep(this.world, civParams.enabled ? this.world.towns : [], { suppression: civParams.fireSuppression ?? 0.5, prescribed: civParams.prescribedBurns, fireSeason: drySeason() > 0.2 }); // (fuel on the forest floor, firefighting, prescribed burns)
@@ -940,4 +942,5 @@ function smoothstep(e0, e1, x) { const t = Math.min(Math.max((x - e0) / (e1 - e0
 function fmt(v) { return v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v.toFixed(0); }
 function clampI(v, n) { return Math.min(n - 1, Math.max(0, Math.round(v))); }
 
-window.app = new App();
+// Mods first (they add species, tools, overlays and settings the app is then built with)
+loadMods().catch((err) => console.warn('Mods could not be loaded', err)).finally(() => { window.app = new App(); });

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BIOMES, classifyBiome, DRY_SOIL } from './biomes.js';
+import { MOD } from '../core/mods.js';
 import { ROCKS } from '../core/rocks.js';
 import { forestColor } from '../sim/forests.js';
 import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp, waterTempAt, marineShown, marineColor } from '../sim/coast.js';
@@ -268,6 +269,11 @@ export class TerrainRenderer {
         let col = null;
         if (!allColor && z % stride !== phase) {
           // this row is recoloured on another frame
+        } else if (MOD.overlays[mode]) {
+          // (an overlay a mod added: its own colour for each cell)
+          let c = null;
+          try { c = MOD.overlays[mode].color(w, i); } catch { c = null; }
+          col = shade(c && c.length >= 3 ? [c[0], c[1], c[2]] : [0.5, 0.5, 0.5], 0.72 + 0.28 * ny, S3);
         } else if (mode === 'change') {
           const d = h - BASE[i];
           const t = Math.min(1, Math.abs(d) / 4);
