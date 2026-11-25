@@ -14,7 +14,7 @@ import { phenologyStep } from './sim/phenology.js';
 import { updateForestComposition, steadySiteInputs } from './sim/species.js';
 import { weatherStep, weatherParams } from './sim/weather.js';
 import { glacierFlow, glacierBalance, glacierParams } from './sim/glacier.js';
-import { coastParams, coastStep, seaStep, tideLevel } from './sim/coast.js';
+import { coastParams, coastStep, seaStep, tideLevel, drownedGrassStep } from './sim/coast.js';
 import { qualityParams } from './sim/waterQuality.js';
 import { oceanParams } from './sim/ocean.js';
 import { windParams, updateWind, windErosion } from './sim/wind.js';
@@ -528,6 +528,9 @@ class App {
    */
   async startup() {
     this.home = new Home(this);
+    // Ask the browser to keep this site's storage (the simulations) when the disk runs low: without
+    // it, a browser short of space may clear the site's data (Chrome grants it to sites you use)
+    try { if (navigator.storage && navigator.storage.persist && !(await navigator.storage.persisted())) this.storagePersisted = await navigator.storage.persist(); else this.storagePersisted = true; } catch { /* not supported */ }
     const id = params.get('open');
     if (id) {
       window.history.replaceState(null, '', `?size=${GRID}`);
@@ -877,6 +880,7 @@ class App {
       if (this.frame % 30 === 25) diseaseStep(this.world); // (tree diseases you have introduced)
       if (this.frame % 30 === 5) steadySiteInputs(this.world); // (year-averaged wetness for the tree species)
       if (this.frame % 30 === 28) fireFollowerStep(this.world); // (fireweed and fire poppies on recent small burns)
+      if (this.frame % 30 === 18) drownedGrassStep(this.world); // (grassland the sea covers becomes beach)
       if (this.frame % 30 === 0) pollinatorStep(this.world); // (bees and the like: where they live, pesticides)
       if (this.frame % 30 === 10) groundwaterStep(this.world); // (the aquifer: recharge, seepage, base flow, wells)
       if (this.frame % 30 === 20) fuelStep(this.world, civParams.enabled ? this.world.towns : [], { suppression: civParams.fireSuppression ?? 0.5, prescribed: civParams.prescribedBurns, fireSeason: drySeason() > 0.2 }); // (fuel on the forest floor, firefighting, prescribed burns)

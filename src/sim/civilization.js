@@ -48,6 +48,7 @@ export const civParams = {
   fishingQuotas: false, // towns cut back their fishing when their fishing grounds run low
   restoration: false, // towns replant native trees on their worn-out, burnt and grazed-out land, and take down dams that block fish runs
   fishLadders: false, // towns give their dams fish ladders, so runs like salmon get past
+  waterfronts: 1,     // how hard coastal towns build up their waterfronts: quays over the beaches, docks, dense streets behind (0 = only the odd quay)
   wildlifeCrossings: false, // towns build wildlife crossings where their roads cut through animals' ranges
   pesticides: 0.5,   // how much the farms spray: saves some crop from pests, but kills the pollinators on and around the fields
   predatorControl: 0.5, // how hard towns cull the predators that take their livestock (0 = never)
@@ -211,7 +212,7 @@ function landComponents(world) {
 function buildHarbor(world, t, R = 10, fresh = false) {
   const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse;
   let best = -1, bs = -1e9;
-  for (let z = Math.max(1, t.z - R); z <= Math.min(N - 2, t.z + R); z++) for (let x = Math.max(1, t.x - R); x <= Math.min(N - 2, t.x + R); x++) {
+  for (let z = Math.max(1, Math.floor(t.z - R)); z <= Math.min(N - 2, Math.ceil(t.z + R)); z++) for (let x = Math.max(1, Math.floor(t.x - R)); x <= Math.min(N - 2, Math.ceil(t.x + R)); x++) {
     const i = z * N + x;
     if (H[i] < sea || world.water[i] > 0.2 || (LU[i] !== 0 && LU[i] !== 1 && LU[i] !== 6) || zoneHas(world, i, Z.towns | Z.earthworks)) continue;
     let depth = 0;
@@ -238,19 +239,23 @@ function buildQuay(world, t, count) {
   const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse, OW = world.civOwner;
   const half = 0.5 * coastParams.tideRange;
   const cx = t.harbor !== undefined ? t.harbor % N : t.x, cz = t.harbor !== undefined ? (t.harbor / N) | 0 : t.z;
-  const R = 5 + Math.sqrt(t.pop) / 3;
+  const wf = civParams.waterfronts ?? 1;
+  const R = 5 + (Math.sqrt(t.pop) / 3) * (1 + 0.5 * wf);
+  const SH = world.shore;
   const cands = [];
   for (let z = Math.max(2, Math.floor(cz - R)); z <= Math.min(N - 3, Math.ceil(cz + R)); z++) {
     for (let x = Math.max(2, Math.floor(cx - R)); x <= Math.min(N - 3, Math.ceil(cx + R)); x++) {
       const i = z * N + x;
-      if (LU[i] === 6 || LU[i] === 5 || LU[i] === 3 || LU[i] === 4 || zoneHas(world, i, Z.earthworks)) continue;
+      if (LU[i] === 6 || LU[i] === 5 || LU[i] === 3 || LU[i] === 4 || LU[i] === 13 || zoneHas(world, i, Z.earthworks)) continue;
       if (H[i] < sea - half || H[i] > sea + half + 2) continue; // (the shore, in reach of the tide)
       let seaward = false, quayNext = false;
       for (const j of [i - 1, i + 1, i - N, i + N]) { if (H[j] < sea) seaward = true; if (LU[j] === 6 || LU[j] === 5) quayNext = true; }
       if (!seaward) continue;
       const d = Math.hypot(x - cx, z - cz);
       if (d > R) continue;
-      cands.push([(quayNext ? 1 : 0) - d / R + Math.random() * 0.05, i]);
+      // (a built-up waterfront takes the beaches first: sand and shingle paved over for decks)
+      const beach = wf > 0 && SH && (SH[i] === SHORE.sand || SH[i] === SHORE.shingle) ? 0.6 * Math.min(1, wf) : 0;
+      cands.push([(quayNext ? 1 : 0) + beach - d / R + Math.random() * 0.05, i]);
     }
   }
   cands.sort((a, b) => b[0] - a[0]);
@@ -266,6 +271,7 @@ function buildQuay(world, t, count) {
       if (LU[j] || H[j] >= sea + half) continue;
       H[j] = Math.min(H[j], sea - 2.6); world.prevHeight[j] = H[j];
       if (world.marineHealth) world.marineHealth[j] = 0; // (the bed there is gone)
+      markBerth(world, j);
     }
     // …and the sea bed around churned up and smothered, the water clouded
     for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) {
@@ -280,6 +286,102 @@ function buildQuay(world, t, count) {
     built++;
   }
   t.quay = (t.quay || 0) + built;
+  return built;
+}
+
+/**
+ * Docks: a pier of paved deck built straight out from one of the town's quays over the water,
+ * standing above the tide, with deep water dredged along both sides and off its end for ships to
+ * tie up (a sharp drop-off; the sea bed there destroyed). Spaced along the waterfront.
+ */
+/** Dredged water kept deep for ships (beside quays and docks): spoil is never dumped there. */
+function markBerth(world, i) {
+  const n = world.N * world.N;
+  if (!world.berth || world.berth.length !== n) world.berth = new Uint8Array(n);
+  world.berth[i] = 1;
+}
+
+function buildDock(world, t) {
+  const N = world.N, n = N * N, H = world.height, sea = seaOf(world), LU = world.landUse, OW = world.civOwner;
+  const half = 0.5 * coastParams.tideRange;
+  const R = 8 + Math.sqrt(t.pop) / 2;
+  const cands = [];
+  for (let z = Math.max(3, Math.floor(t.z - R)); z <= Math.min(N - 4, Math.ceil(t.z + R)); z++) {
+    for (let x = Math.max(3, Math.floor(t.x - R)); x <= Math.min(N - 4, Math.ceil(t.x + R)); x++) {
+      const i = z * N + x;
+      if (LU[i] !== 6 || OW[i] !== t.num) continue;
+      // (straight out to sea: the one side facing open water)
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => H[i + dz * N + dx] < sea && H[i + 2 * dz * N + 2 * dx] < sea);
+      if (dirs.length !== 1) continue;
+      let near = false;
+      for (let dz = -3; dz <= 3 && !near; dz++) for (let dx = -3; dx <= 3; dx++) { const j = i + dz * N + dx; if (j >= 0 && j < n && LU[j] === 13) { near = true; break; } }
+      if (near || zoneHas(world, i, Z.earthworks)) continue;
+      cands.push([i, dirs[0]]);
+    }
+  }
+  if (!cands.length) return false;
+  const [i0, [dx, dz]] = cands[Math.floor(Math.random() * cands.length)];
+  const x0 = i0 % N, z0 = (i0 / N) | 0;
+  const len = 2 + Math.floor(Math.random() * (2 + Math.min(4, t.pop / 1500)));
+  let built = 0;
+  for (let k = 1; k <= len; k++) {
+    const x = x0 + dx * k, z = z0 + dz * k;
+    if (x < 2 || z < 2 || x >= N - 2 || z >= N - 2) break;
+    const j = z * N + x;
+    if (H[j] >= sea || LU[j] || zoneHas(world, j, Z.earthworks)) break;
+    pave(world, j, t.num, 13);
+    H[j] = sea + half + 0.9; world.prevHeight[j] = H[j]; world.water[j] = 0;
+    // Deep water dredged along both sides (and off the end)
+    const side = [[-dz, dx], [dz, -dx]];
+    if (k === len) side.push([dx, dz]);
+    for (const [sx, sz] of side) {
+      const s = j + sz * N + sx;
+      if (LU[s] || H[s] >= sea) continue;
+      H[s] = Math.min(H[s], sea - 2.8); world.prevHeight[s] = H[s];
+      markBerth(world, s);
+      if (world.marineHealth) world.marineHealth[s] = 0;
+      if (world.silt) world.silt[s] = Math.min(4, world.silt[s] + 0.2);
+    }
+    built++;
+  }
+  if (built) t.docks = (t.docks || 0) + 1;
+  return built > 0;
+}
+
+/**
+ * Waterfront sprawl: the ground behind a busy waterfront fills up with dense streets (warehouses,
+ * offices, flats), the nearest open ground to the town's quays and docks first.
+ */
+export function waterfrontSprawl(world, t, count) {
+  const N = world.N, H = world.height, sea = seaOf(world), LU = world.landUse, OW = world.civOwner;
+  const half = 0.5 * coastParams.tideRange;
+  const R = 8 + Math.sqrt(t.pop) / 2;
+  const front = [];
+  for (let z = Math.max(1, Math.floor(t.z - R)); z <= Math.min(N - 2, Math.ceil(t.z + R)); z++) for (let x = Math.max(1, Math.floor(t.x - R)); x <= Math.min(N - 2, Math.ceil(t.x + R)); x++) {
+    const i = z * N + x;
+    if ((LU[i] === 6 || LU[i] === 13) && OW[i] === t.num) front.push([x, z]);
+  }
+  if (!front.length) return 0;
+  const cands = [];
+  const D = 5;
+  for (const [fx, fz] of front) {
+    for (let dz = -D; dz <= D; dz++) for (let dx = -D; dx <= D; dx++) {
+      const x = fx + dx, z = fz + dz;
+      if (x < 1 || z < 1 || x >= N - 1 || z >= N - 1) continue;
+      const i = z * N + x;
+      if ((LU[i] && LU[i] !== 1) || H[i] < sea + half || world.water[i] > 0.3) continue;
+      if (zoneHas(world, i, Z.towns) || (world.footpath && world.footpath[i])) continue;
+      cands.push([Math.hypot(dx, dz) + Math.random() * 0.8, i]);
+    }
+  }
+  cands.sort((a, b) => a[0] - b[0]);
+  let built = 0;
+  for (const [, i] of cands) {
+    if (built >= count) break;
+    if (LU[i] && LU[i] !== 1) continue;
+    pave(world, i, t.num, 2);
+    built++;
+  }
   return built;
 }
 
@@ -539,6 +641,7 @@ function dumpSpoil(world, t, spoil, R) {
     for (let x = Math.max(2, Math.floor(t.x - R - 8)); x <= Math.min(N - 3, Math.ceil(t.x + R + 8)); x++) {
       const i = z * N + x;
       if (H[i] >= sea + half + 1.6 || sea - H[i] > 5 || zoneHas(world, i, Z.earthworks)) continue;
+      if (world.berth && world.berth[i]) continue; // (dredged berths beside the quays and docks are kept deep)
       let shoreNext = false;
       for (const j of [i - 1, i + 1, i - N, i + N]) if (H[j] >= sea + half) shoreNext = true;
       if (!shoreNext) continue; // (built out from the shore)
@@ -1436,7 +1539,13 @@ export function civStep(world) {
     manMadeFires(world, t, world._newFarms || []);
     world._newFarms = [];
     // A coastal town of a few hundred armours its shore with quays (growing with the town)
-    if (t.pop > 250 && fields.sea[ci] > 0.02 && (t.quay || 0) < Math.floor((t.pop - 200) / 60) && Math.random() < 0.3) buildQuay(world, t, 2);
+    const wf = civParams.waterfronts ?? 1;
+    if (t.pop > 250 - 100 * Math.min(1, wf) && fields.sea[ci] > 0.02 && (t.quay || 0) < Math.floor(((t.pop - 150) / 60) * (1 + 2 * wf)) && Math.random() < 0.3 + 0.2 * wf) buildQuay(world, t, 2 + Math.round(2 * wf));
+    // …and a built-up waterfront: docks out into the water, dense streets packed in behind the quays
+    if (wf > 0 && (t.quay || 0) >= 4) {
+      if ((t.docks || 0) < Math.floor((t.quay || 0) / 6) && Math.random() < 0.25 * wf) buildDock(world, t);
+      if (Math.random() < 0.5 * wf) waterfrontSprawl(world, t, Math.round(4 + 6 * wf));
+    }
     if (t.harbor === undefined && t.pop > 120 && fields.sea[ci] > 0.02) buildHarbor(world, t);
     // A town past a thousand needs a harbour for its trade: it searches farther along the coast,
     // then for a river or lake landing; without one it can't grow beyond about a thousand

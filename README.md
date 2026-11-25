@@ -73,6 +73,11 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
   woodpeckers, fireweed moths) that live on recent burns, but only the smaller ones. Overlay *Fire
   followers*.
 - Towns, roads and parks the sea covers for good are **washed away**.
+- Grassland the sea covers turns into **beach**, which takes decades to turn back into grassland.
+- Coastal towns build up dense **waterfronts**: quays paved over the beaches with a sharp drop-off,
+  docks out over dredged water, and packed streets behind (Civilization: **Waterfronts**).
+- The app asks the browser to keep its storage, so a disk running low doesn't clear your
+  simulations.
 - Tools for **Fire fuel**, **Fire flowers**, **Groundwater**, **Fish**, **Wildlife crossings** and
   **Fish ladders** (Shift reverses each).
 - More **Wildlife** settings: Food abundance, Predation, Roaming, Hard winters, Roadkill, Wildlife

@@ -310,6 +310,9 @@ export function vegetationStep(world) {
       // sand holds little: sparser cover there (the coastal specialists are what grows)
       const sp = world.spray ? world.spray[i] : 0, sd = world.sandy ? world.sandy[i] : 0;
       target *= (1 - 0.45 * sp) * (1 - 0.35 * sd);
+      // (grassland the sea once covered: sand, and only slowly dune grass and then turf again)
+      const bs = world.beachSand ? world.beachSand[i] : 0;
+      if (bs > 0) target = Math.min(target, 0.06 + 0.6 * (1 - bs));
     }
     // Regrowth is faster near water and on deep soil; dieback (drought, cold) is slowed by forest
     // age, since mature trees ride out bad years on their reserves

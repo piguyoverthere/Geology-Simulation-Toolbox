@@ -115,6 +115,8 @@ export class Home {
     try { sims = await listSims(); } catch (err) { this.setStatus(`This browser won't let the page store data, so simulations can't be kept: ${err.message}`); }
     if (!sims.length) { L.append(el('div', 'home-empty', 'No simulations yet. Make a new one to begin.')); return; }
     for (const s of sims) L.append(this.card(s));
+    // (the browser hasn't promised to keep the site's storage: it may clear it if the disk runs low)
+    if (this.app.storagePersisted === false) L.append(el('div', 'home-note', 'This browser may clear its stored simulations if your disk runs low on space. Export the ones you want to keep safe (Export on each card).'));
   }
 
   card(s) {

@@ -1481,6 +1481,42 @@ line names what was washed away. In a test, the sea was raised step by step over
 the town was lost when the sea rose 3.5, everything it had built was gone at
 7.5, and the park went then too, while a national forest inland stayed.
 
+## Drowned grassland becomes beach (`drownedGrassStep`, `src/sim/coast.js`)
+
+A strict rule: grassland, meadow or scrub that the sea covers (below high tide) becomes beach. The
+waves strip the turf and lay sand over it (world.beachSand = 1). Out of the water again (the sea
+falls back, or sand builds the ground up), it shows as the **Beach (drowned grassland)** biome, and
+plants there can't grow past what the sand allows: bare sand, then dune grass, then turf. The sand
+fades very slowly, a little faster where it's wetter. At this map's average rain (0.39, 3,600
+frames a year) it stays beach for about 55 years and is fully grassland again after about 90.
+Forest the sea covers isn't affected by this rule. In a test, the sea was raised 2.5 over 1,020
+grassland cells near the shore and then lowered again: 826 were left as beach, with plant cover held
+at 7%. The rest had been in the tidal zone already.
+
+## Built-up waterfronts (`buildQuay`, `buildDock`, `waterfrontSprawl`)
+
+Coastal towns build up their waterfronts, as hard as the **Waterfronts** setting says (Civilization,
+0–2, default 1):
+- **Quays** go up sooner and far more of them (up to about three times as many at 1), out to a wider
+  reach, and they take the **beaches first**: the sand and shingle are paved over for raised decks
+  with a sharp drop-off into dredged deep water.
+- **Docks**: paved piers built straight out from the quays over the water, standing above the tide,
+  with deep water dredged along both sides and off the end. They are spaced along the waterfront,
+  about one for every six quay cells.
+- **Dredged berths** (world.berth) beside quays and docks are kept deep: spoil from the town's
+  earthworks is never dumped there, so reclaimed land doesn't swallow the docks.
+- **Dense streets** fill the open ground behind the quays and docks, nearest first.
+At 0 a town only walls the odd stretch of shore, as before. In a test, a town of 3,000 built 42 quay
+cells, 4 dock cells and 70 town cells in 10 town steps, against 52 town cells without the sprawl,
+and every dock cell had deep water beside it.
+
+## Keeping your simulations
+
+The app asks the browser to keep its storage persistent (navigator.storage.persist), so that a
+browser short of disk space doesn't clear the site's data. If the browser declines, the home screen
+says so and suggests exporting the simulations you want to keep. If the list of simulations is lost
+but their saves are still there, the home screen rebuilds the list from them.
+
 ## Tools for fuel, fire flowers, groundwater, fish, crossings and fish ladders
 
 Brushes for the newer parts of the simulation. Hold Shift to reverse each one.

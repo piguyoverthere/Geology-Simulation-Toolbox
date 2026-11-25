@@ -285,7 +285,7 @@ export function coastStep(world) {
       SH[i] = type;
       // A quay (a town's sea wall, sim/civilization.js): a fixed, steep stone face. The waves don't
       // wear it, no sand gathers on it, and the tide can't reach over it
-      if (world.landUse && world.landUse[i] === 6) { SH[i] = SHORE.cliff; SAND[i] = 0; continue; }
+      if (world.landUse && (world.landUse[i] === 6 || world.landUse[i] === 13)) { SH[i] = SHORE.cliff; SAND[i] = 0; continue; }
       // (nor do they wear away other kept ground at the shore: towns, roads, fields, reclaimed land
       // and terraces are banked and armoured, the way quays are)
       const kept = world.builtUp(i);
@@ -355,7 +355,7 @@ export function coastStep(world) {
     if (H[i] < sea) { world.spray[i] = 0; world.sandy[i] = 0; continue; }
     const wind = world.wind ? Math.min(1.3, world.wind[i] + 0.2) / 1.3 : 0.7;
     world.spray[i] = Math.min(1, nearSea[i] * 2.5) * (0.35 + 0.65 * wind);
-    world.sandy[i] = Math.min(1, Math.max(world.dune[i], SH[i] === SHORE.sand ? Math.min(1, SAND[i] * 0.7) : 0, sandNear[i] * 0.8));
+    world.sandy[i] = Math.min(1, Math.max(world.dune[i], SH[i] === SHORE.sand ? Math.min(1, SAND[i] * 0.7) : 0, sandNear[i] * 0.8, world.beachSand ? world.beachSand[i] : 0));
   }
   // Mangroves: forests of salt-tolerant trees standing in the tide on warm, sheltered mudflats.
   // They need warm water all year (they die back where the sea drops much below ~20 °C), spread out
@@ -444,4 +444,38 @@ export function paintShore(world, i, w, type, dt) {
 function smoothstep(e0, e1, x) {
   const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1);
   return t * t * (3 - 2 * t);
+}
+
+/**
+ * Drowned grassland becomes beach (a strict rule): any grassland, meadow or scrub the sea covers
+ * (below high tide: the waves strip the turf and lay sand over it) is marked as beach,
+ * world.beachSand = 1. While it is under the sea it stays sand. Once out of the water again (the sea
+ * falls back, or sand and silt build it up) it is sandy beach, then dune grass, and only very slowly
+ * grassland again (about a hundred years at the usual pace): plants there can't grow past what the
+ * sand allows (sim/vegetation.js). Runs every 30 frames.
+ */
+export function drownedGrassStep(world) {
+  const sea = world.meanSea;
+  if (sea === undefined || sea <= -999) return;
+  const n = world.N * world.N, H = world.height, V = world.vegetation, LU = world.landUse;
+  if (!world.beachSand || world.beachSand.length !== n) world.beachSand = new Float32Array(n);
+  if (!world.wasGrass || world.wasGrass.length !== n) world.wasGrass = new Uint8Array(n);
+  const BS = world.beachSand, WG = world.wasGrass, high = sea + 0.5 * coastParams.tideRange;
+  for (let i = 0; i < n; i++) {
+    const h = H[i];
+    if (h >= high) {
+      // (what grows here while it's dry: grassland, meadow or scrub, not forest, bare rock or town)
+      const v = V[i];
+      WG[i] = v > 0.12 && v <= 0.66 && !(LU && LU[i] && LU[i] !== 1) && BS[i] < 0.35 ? 1 : 0;
+      // Out of the water: the sand slowly grows over (faster where it's wetter)
+      if (BS[i] > 0) {
+        const rain = world.precip ? Math.min(1, world.precip[i]) : 0.5;
+        BS[i] = Math.max(0, BS[i] - 0.00012 * (0.4 + rain));
+      }
+      continue;
+    }
+    // Under the sea (below high tide): grassland drowned here becomes beach
+    if (WG[i]) { BS[i] = 1; WG[i] = 0; V[i] = Math.min(V[i], 0.06); if (world.forestAge) world.forestAge[i] = 0; }
+    else if (BS[i] > 0) BS[i] = 1; // (still under: stays sand)
+  }
 }
