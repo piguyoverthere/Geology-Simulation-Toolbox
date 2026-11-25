@@ -25,6 +25,7 @@ import { recordStats } from './sim/stats.js';
 import { groundwaterStep, groundwaterParams } from './sim/groundwater.js';
 import { climateChangeStep } from './sim/climateChange.js';
 import { carbonStep } from './sim/forestCarbon.js';
+import { pollinatorStep } from './sim/pollinators.js';
 import { recordProbes } from './sim/probes.js';
 import { civParams, civStep } from './sim/civilization.js';
 import { TownLabels } from './render/townLabels.js';
@@ -812,6 +813,7 @@ class App {
       } // (towns, farms, roads and their pollution)
       if (this.frame % 30 === 25) diseaseStep(this.world); // (tree diseases you have introduced)
       if (this.frame % 30 === 5) steadySiteInputs(this.world); // (year-averaged wetness for the tree species)
+      if (this.frame % 30 === 0) pollinatorStep(this.world); // (bees and the like: where they live, pesticides)
       if (this.frame % 30 === 10) groundwaterStep(this.world); // (the aquifer: recharge, seepage, base flow, wells)
       if (this.frame % 30 === 20) fuelStep(this.world, civParams.enabled ? this.world.towns : [], { suppression: civParams.fireSuppression ?? 0.5, prescribed: civParams.prescribedBurns, fireSeason: drySeason() > 0.2 }); // (fuel on the forest floor, firefighting, prescribed burns)
       if (this.frame % 10 === 9) { this.ecoPart = ((this.ecoPart ?? -1) + 1) % 3; ecologyStep(this.world, this.ecoPart); }

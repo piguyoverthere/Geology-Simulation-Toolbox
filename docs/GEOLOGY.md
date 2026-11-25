@@ -1431,6 +1431,19 @@ share of what the land can hold) and browsed the land to 0.58, while with the wo
 falling). Around a town of 1,500, culling cut the wolves nearby from 0.041 to 0.009 and the
 livestock lost by half; good herding cut the losses to a sixth and left more wolves (0.015).
 
+## Pollinators (`src/sim/pollinators.js`)
+
+Bees, hoverflies and butterflies (world.pollinators, 0…1) live where there are flowers and nest
+sites: meadows, scrub and old fields best, open woods and forest edges well, deep closed forest
+poorly, towns, bare ground and plantations hardly at all, and the farmland itself only a little.
+They forage about three cells out, and fewer are about in winter. The farms' **Pesticides**
+(Civilization, 0–1) kill them on the fields and, drifting, around them, but save some crop from
+pests (up to 10% more). A field's harvest depends on how many pollinators reach it: 70% with none,
+100% with plenty. **Overlays → Pollinators** maps them (farmland hatched), and the inspector shows a
+field's pollination. In a test on a farming town's 248 fields, its crops yielded 86% unsprayed (0.23
+pollinators on the fields), 82% at the usual spraying (0.11) and 78% sprayed heavily (0.01), while
+the meadows away from the fields kept 0.85.
+
 ## Groundwater (`src/sim/groundwater.js`)
 
 Beneath the soil every cell holds groundwater (world.groundwater, 0 dry … 1 full). Left alone it

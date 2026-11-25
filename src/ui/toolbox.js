@@ -353,6 +353,7 @@ export class Toolbox {
       slider('Destruction', app.civParams, 'destruction', 0, 10, 0.05, 'How hard the towns are on the land: how much forest they burn off to clear fields, how much pollution their streets, works, farms and sewers put into the rivers and sea, and how much they cut hills into terraces. 0: careful, 1: normal, 10: strip the land bare.', this),
       slider('Plantation plot size', app.civParams, 'plotSize', 20, 2000, 10, 'The largest plot (cells) a town lays out as one plantation, and how far a felling may spread into the forest beside it. Small plots are felled and regrown faster and rotate more often, leaving more wild forest between them; big ones take in whole forests. Plots you paint keep the size you paint them.', this),
       toggle('Invasive plantation pine', app.civParams, 'invasive', 'Plantations are planted with a fast-growing exotic pine that escapes into the wild forest around them (and spreads along the roads): it crowds out the native trees and supports no wildlife. Off: every plantation is replanted with native trees at once and kept weeded of pine; the pine already loose in the wild keeps spreading through the wild forest.', this),
+      slider('Pesticides', app.civParams, 'pesticides', 0, 1, 0.05, 'How much the farms spray. It saves some of the crop from pests (up to 10% more), but kills the pollinators on the fields and, drifting, around them, and most crops need pollinators (a field gets 70% of its harvest with none). See the Pollinators overlay.', this),
       slider('Predator control', app.civParams, 'predatorControl', 0, 1, 0.05, 'How hard the towns cull the predators (your animals that hunt others) around them, most of all near their livestock. Kill off the predators and the grazers they kept in check boom and browse out the young trees: the forest stops regenerating.', this),
       slider('Herding & fencing', app.civParams, 'herding', 0, 1, 0.05, 'How well the towns guard their livestock (herders, dogs, fences): fewer animals lost to predators, so less food lost and less culling.', this),
       slider('Fire suppression', app.civParams, 'fireSuppression', 0, 1, 0.05, 'How hard the towns fight the wildfires near them. Putting every fire out protects the towns now, but the fuel on the forest floor builds up until a fire gets away as a megafire; letting small fires burn keeps the fuel down. Big fires overwhelm the firefighters.', this),
@@ -931,6 +932,10 @@ export class Toolbox {
     };
     if (mode === 'rock' || (mode === 'natural' && !this.app.renderer.showVegetation)) items('Rock types', ROCKS);
     else if (mode === 'bare') items('Exposed rock (pale = under soil)', [{ label: 'Soil-covered', color: [0.86, 0.84, 0.78], help: 'Bedrock buried under soil deep enough to grow on.' }, ...ROCKS]);
+    else if (mode === 'pollinators') {
+      ramp('Pollinators (bees and the like)', 'none', 'plenty', [[0.55, 0.55, 0.57], [1.0, 0.80, 0.15]]);
+      L.append(el('div', 'tb-note', 'They live in meadows, scrub, old fields and forest edges and forage a few cells out; few in deep forest, none in towns. Pesticides kill them on the fields and around them. A field yields 70% with none reaching it and 100% with plenty. Farmland is hatched brown.'));
+    }
     else if (mode === 'fuel') {
       ramp('Fuel on the forest floor', 'light (surface fires)', 'heavy (crown fires)', [[0.35, 0.65, 0.35], [0.95, 0.80, 0.25], [0.80, 0.15, 0.10]]);
       L.append(el('div', 'tb-note', 'Dead wood, litter and undergrowth build up where nothing burns. A fire through light fuel stays on the ground and the trees live; through heavy fuel it climbs into the crowns, runs fast and kills the stand. Blue hatching: where the towns fight fires (Fire suppression).'));

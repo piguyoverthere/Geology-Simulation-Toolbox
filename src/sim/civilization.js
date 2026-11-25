@@ -27,6 +27,7 @@ import { ROCK_INDEX } from '../core/rocks.js';
 import { coastParams, isLivingBed, MARINE_ID, SHORE } from './coast.js';
 import { waterParams } from './water.js';
 import { SPECIES, treeShares } from './species.js';
+import { cropFactor } from './pollinators.js';
 import { FOREST_TYPES } from './forests.js';
 import { BIOMES, classifyBiome } from '../render/biomes.js';
 
@@ -44,6 +45,7 @@ export const civParams = {
   clearInvasive: true, // towns cut the invasive pine out of the wild forest around them (at a cost in people)
   townParks: true,   // towns set aside small parks around a special feature, with a trail loop through each
   nationalForests: true, // each map has one or two large National Forests, where no timber is cut
+  pesticides: 0.5,   // how much the farms spray: saves some crop from pests, but kills the pollinators on and around the fields
   predatorControl: 0.5, // how hard towns cull the predators that take their livestock (0 = never)
   herding: 0.3,      // herding, dogs and fencing: how well towns guard their livestock (0…1)
   fireSuppression: 0.5, // how hard towns fight the wildfires near them (0 = let them burn, 1 = put every one out)
@@ -1385,7 +1387,7 @@ export function civStep(world) {
         const f = fertility(world, i, fSlope) * (watered ? 1.2 : 1) * (0.15 + 0.85 * FS[i]);
         // (burnt, flooded or snowbound fields yield little)
         const lost = world.fire[i] > 0 || world.burnt[i] > 0.5 || world.water[i] > 0.4 || (world.snow && world.snow[i] > 0.5 && ph > 0.1 && ph < 0.55) ? 0.2 : 1;
-        food += PER_FARM_CELL * f * lost;
+        food += PER_FARM_CELL * f * lost * cropFactor(world, i); // (and how well the pollinators reach it)
         if (world.vegetation[i] > 0.45) world.vegetation[i] = 0.45; // (crops, not forest)
       }
     }
