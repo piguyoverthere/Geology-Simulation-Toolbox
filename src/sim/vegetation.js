@@ -332,8 +332,10 @@ export function vegetationStep(world) {
     if (browse > 0.02 && salt === 0) target = Math.max(Math.min(target, 0.5), target - 0.45 * browse * (1 - age));
     // (salmon carcasses fertilise the banks of salmon rivers: plants there grow faster)
     const salmonFed = world.salmonN ? world.salmonN[i] : 0;
+    // (mycorrhizal fungi feed the trees' roots: young forest grows back faster where they're rich)
+    const fungal = world.fungi ? 0.8 + 0.5 * world.fungi[i] : 1;
     let rate = target > v
-      ? p.growth * (1 + p.riparianBoost * W[i] + 1.5 * salmonFed) * (0.5 + SO[i]) * (0.25 + 0.75 * smoothstep(-2, 12, VT[i]))
+      ? p.growth * fungal * (1 + p.riparianBoost * W[i] + 1.5 * salmonFed) * (0.5 + SO[i]) * (0.25 + 0.75 * smoothstep(-2, 12, VT[i]))
         * (seasonal ? 0.3 + 1.1 * smoothstep(0, 10, world.temperature[i] + seasonalAt(world, i, st)) : 1)
       : p.growth * (1 - 0.75 * age);
     if (burnt > 0) {
@@ -357,7 +359,9 @@ export function vegetationStep(world) {
     if (world.deadWood && world.deadWood[i] > 0) {
       // (a few years to rot down; faster where it's warm and damp, slower where cold or dry)
       const warm = Math.min(1, Math.max(0.2, (world.temperature[i] + 2) / 16));
-      const rot = Math.min(world.deadWood[i], (0.006 + 0.014 * Math.min(1, S[i] * 1.6) * warm));
+      // (the decomposer fungi do the work: faster where the soil's fungal life is rich)
+      const fu = world.fungi ? world.fungi[i] : 0.4;
+      const rot = Math.min(world.deadWood[i], (0.006 + 0.014 * Math.min(1, S[i] * 1.6) * warm) * (0.6 + fu));
       world.deadWood[i] -= rot;
       SO[i] = Math.min(1, SO[i] + rot * 0.3);
     }
@@ -418,7 +422,8 @@ export function vegetationStep(world) {
     // (a timber plantation hardly builds soil: an even-aged crop of one kind, cut young, its litter
     // and brash hauled off with the timber)
     const plantation = world.landUse && world.landUse[i] === 10;
-    soil += p.soilBuild * v * v * build * (plantation ? 0.1 : 1) * (1 - soil) - p.soilDecay * soil * (1 - v) - change * p.soilErosion;
+    // (soil is built from decaying litter: faster where the decomposer fungi are rich)
+    soil += p.soilBuild * v * v * build * (plantation ? 0.1 : 1) * (world.fungi ? 0.6 + 0.8 * world.fungi[i] : 1) * (1 - soil) - p.soilDecay * soil * (1 - v) - change * p.soilErosion;
     if (F[i] > 0) soil = Math.min(soil, 1 - F[i]);
     SO[i] = soil < 0 ? 0 : soil > 1 ? 1 : soil;
 

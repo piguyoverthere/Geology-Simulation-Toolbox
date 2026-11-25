@@ -61,6 +61,7 @@ export const OVERLAYS = {
   wildlife: 'Wildlife',
   pollinators: 'Pollinators',
   fireFollowers: 'Fire followers',
+  fungi: 'Fungi & root rot',
   fish: 'Fish stocks',
   landuse: 'Land use (clear view)',
   population: 'Population',
@@ -413,6 +414,13 @@ export class TerrainRenderer {
             col = f < 0.2 ? mix(FISH_GONE, FISH_LOW, f / 0.2, S3) : mix(FISH_LOW, FISH_FULL, Math.min(1, (f - 0.2) / 0.7), S3);
             if (w.zoneFlags && (w.zoneFlags[i] & 64) && (x + z) % 5 === 0) mix(col, FISH_RESERVE, 0.5, col); // (marine reserve)
           }
+        } else if (mode === 'fungi') {
+          // Fungal diversity: none (pale) through some (green) to rich (deep violet); honey-mushroom
+          // root rot over it in orange, red where it's killing the trees
+          const fg = w.fungi ? w.fungi[i] : 0, rr = w.rootRot ? w.rootRot[i] : 0;
+          col = fg < 0.4 ? mix(FU_NONE, FU_SOME, fg / 0.4, S3) : mix(FU_SOME, FU_RICH, Math.min(1, (fg - 0.4) / 0.45), S3);
+          if (rr > 0.03) mix(col, rr > 0.55 ? FU_KILL : FU_ROT, Math.min(1, 0.3 + rr), col);
+          shade(col, 0.72 + 0.28 * ny, col);
         } else if (mode === 'fireFollowers') {
           // Fire followers: fireweed (magenta) and fire poppies (orange) on recent small burns
           // (pale ash); burns too big for them dark grey; the rest of the land pale green-grey
@@ -898,6 +906,7 @@ const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = 
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
 const SPOT_WHITE = [0.97, 0.97, 0.96];
+const FU_NONE = [0.86, 0.84, 0.78], FU_SOME = [0.45, 0.66, 0.40], FU_RICH = [0.40, 0.22, 0.55], FU_ROT = [0.95, 0.62, 0.20], FU_KILL = [0.80, 0.18, 0.12];
 const FF_BG = [0.74, 0.78, 0.70], FF_ASH = [0.62, 0.58, 0.54], FF_BIG = [0.30, 0.29, 0.29], FF_FIRE = [0.95, 0.35, 0.10], FF_WEED = [0.85, 0.20, 0.62], FF_POPPY = [0.98, 0.58, 0.10];
 const FISH_LAND = [0.70, 0.70, 0.68], FISH_GONE = [0.80, 0.20, 0.15], FISH_LOW = [0.95, 0.80, 0.30], FISH_FULL = [0.10, 0.30, 0.65], FISH_RESERVE = [0.20, 0.80, 0.50], POL_NONE = [0.55, 0.55, 0.57], POL_FULL = [1.0, 0.80, 0.15], POL_FIELD = [0.35, 0.22, 0.10], FUEL_NONE = [0.80, 0.80, 0.78], FUEL_LOW = [0.35, 0.65, 0.35], FUEL_MID = [0.95, 0.80, 0.25], FUEL_HIGH = [0.80, 0.15, 0.10], FUEL_GUARD = [0.20, 0.40, 0.90], CARB_LOW = [0.90, 0.88, 0.80], CARB_MID = [0.55, 0.70, 0.35], CARB_HIGH = [0.05, 0.22, 0.12], GW_DRY = [0.86, 0.76, 0.55], GW_MID = [0.55, 0.72, 0.80], GW_FULL = [0.10, 0.28, 0.62], GW_SAME = [0.84, 0.86, 0.88], GW_DOWN = [0.80, 0.15, 0.12], GW_SUNK = [0.25, 0.10, 0.08], POP_BG = [0.55, 0.56, 0.58], POP_HEAT = [[0.25, 0.10, 0.45], [0.80, 0.15, 0.25], [0.98, 0.55, 0.10], [1.0, 0.95, 0.60]], ONE_LIGHT = [0.86, 0.86, 0.88], ONE_DARK = [0.26, 0.27, 0.30], FOOTPATH = [0.80, 0.68, 0.48], INVASIVE = [0.10, 0.26, 0.28], INV_OPEN = [0.86, 0.85, 0.80], INV_NATIVE = [0.30, 0.62, 0.30], INV_FULL = [0.66, 0.16, 0.38], MINE_A = [0.30, 0.27, 0.25], MINE_B = [0.38, 0.33, 0.29], SPOIL = [0.70, 0.48, 0.26], DEGRADED = [0.82, 0.72, 0.52], AIR_CLEAN = [0.86, 0.90, 0.92], DIS_HEALTHY = [0.55, 0.70, 0.52], FIRE_BG_LO = [0.86, 0.84, 0.80], FIRE_BG_HI = [0.70, 0.78, 0.68], FIRE_TMP = [0, 0, 0], AIR_DIRTY = [0.35, 0.28, 0.22];
 const LU_OPEN = [0.86, 0.85, 0.80], LU_WILD = [0.62, 0.70, 0.56], LU_IRRIGATED = [0.55, 0.80, 0.45], LU_FELLED = [0.70, 0.60, 0.36], LU_EDGE = [0.02, 0.18, 0.06], LU_RESTING = [0.56, 0.80, 0.56];

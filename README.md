@@ -75,6 +75,9 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
 - Towns, roads and parks the sea covers for good are **washed away**.
 - Grassland the sea covers turns into **beach**, which takes decades to turn back into grassland.
 - A **Farmland cap** (Civilization) limits how much of the land the towns may farm.
+- **Fungi**: fungal diversity (richest in old, mixed forest) speeds tree growth, rotting and soil
+  building; **honey mushroom** root rot spreads underground and by spores and kills stands. Overlay
+  *Fungi & root rot*.
 - **Spotlight**: hover over a town, park, footpath, drawing, animal, tree species, biome or land use
   (in the panel, the map key, the Biomes & trees window, or a name on the map) and the map shows just
   that, everything else faded to white.

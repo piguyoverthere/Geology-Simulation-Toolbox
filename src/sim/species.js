@@ -91,6 +91,10 @@ let BROAD_COLD = SPECIES.map((s) => (CONIFER[SPECIES.indexOf(s)] ? null : s.id =
 const PINE = SPECIES.findIndex((s) => s.id === 'pine');
 let scratch = new Float32Array(K);
 let fireYears = null, nowYear = 0; // (when each fire burnt, for the fire-resistant trees)
+// Trees whose roots partner closely with many kinds of fungi (ectomycorrhizal): forests of them
+// carry the richest fungal life (sim/fungi.js). The rest partner with fewer, more general fungi.
+const ECTO_IDS = ['pine', 'fir', 'spruce', 'larch', 'birch', 'aspen', 'oak', 'beech', 'alder', 'shorepine', 'sitka', 'corkoak'];
+let ECTO = SPECIES.map((s) => s.ecto ?? ECTO_IDS.includes(s.id));
 
 function band(x, lo, hi, soft) {
   return smooth(lo - soft, lo + soft, x) * (1 - smooth(hi - soft, hi + soft, x));
@@ -185,6 +189,11 @@ export function updateForestComposition(world, stride = 1, phase = 0) {
     world.giants = new Float32Array(n);           // giant trees' share of the trees (sequoia, redwood)
     world.canopyHeight = new Float32Array(n);     // typical height of the grown trees here (m)
   }
+  if (!world.treeRichness || world.treeRichness.length !== n) {
+    world.treeRichness = new Float32Array(n);     // how mixed the trees are (0 one kind … 1 many)
+    world.ectoShare = new Float32Array(n);        // share of trees partnering closely with fungi
+  }
+  const TR = world.treeRichness, EC = world.ectoShare;
   fireYears = world.fireLog && world.fireLog.length ? new Map(world.fireLog.map((f) => [f.id, f.endYear ?? f.year])) : null;
   nowYear = seasonParams.year || 1;
   const FPR = world.fireproof, GI = world.giants, CHT = world.canopyHeight;
@@ -197,7 +206,7 @@ export function updateForestComposition(world, stride = 1, phase = 0) {
   for (let i = 0; i < n; i++) {
     if (stride > 1 && ((i / N) | 0) % stride !== phase) { i += N - 1; continue; }
     CH[i] = world.rocksEnabled ? ROCK_CHEM[world.rockAt(H[i], i)] : 0;
-    FPR[i] = 0; GI[i] = 0; CHT[i] = 0;
+    FPR[i] = 0; GI[i] = 0; CHT[i] = 0; TR[i] = 0; EC[i] = 0;
     DS[i] = 0; PS[i] = 0; CF[i] = 0; DC[i * 3] = DC[i * 3 + 1] = DC[i * 3 + 2] = 0; AC[i * 3] = AC[i * 3 + 1] = AC[i * 3 + 2] = 0;
     if (V[i] < 0.3) { D[i] = -1; F[i] = 1; B[i] = 1; continue; }
     const total = suitability(world, i, scratch);
@@ -215,6 +224,9 @@ export function updateForestComposition(world, stride = 1, phase = 0) {
         if (s.fireproof) FPR[i] += (s.fireproof * share) / tc;
         if (s.giant) GI[i] += share / tc;
         CHT[i] += ((s.height || 25) * share) / tc;
+        if (ECTO[k]) EC[i] += share / tc;
+        const sh = share / tc;
+        if (sh > 0.01) TR[i] -= sh * Math.log(sh); // (Shannon diversity of the mix, scaled below)
         if (CONIFER[k]) CF[i] += share / tc;
         if (s.autumn) {
           let a = s.autumn;
@@ -229,6 +241,7 @@ export function updateForestComposition(world, stride = 1, phase = 0) {
         if (share > bestShare) { bestShare = share; best = k; }
       }
       flam /= tc; build /= tc;
+      TR[i] = Math.min(1, TR[i] / 1.4);
     } else {
       // Nothing suits: the canopy is just generic forest
       const base = [0.15, 0.34, 0.12];
@@ -268,6 +281,7 @@ export function refreshSpecies() {
   CONIFER = SPECIES.map((s) => s.conifer || CONIFER_IDS.includes(s.id));
   BROAD_COLD = SPECIES.map((s, k) => (CONIFER[k] ? null : s.id === 'birch' || s.id === 'aspen' ? -2.5 : 1.5));
   scratch = new Float32Array(K);
+  ECTO = SPECIES.map((s) => s.ecto ?? ECTO_IDS.includes(s.id));
   SPECIES.forEach((s, k) => { SPECIES_INDEX[s.id] = k; });
 }
 

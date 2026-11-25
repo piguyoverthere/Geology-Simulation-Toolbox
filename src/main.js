@@ -21,6 +21,7 @@ import { windParams, updateWind, windErosion } from './sim/wind.js';
 import { CurrentPaths } from './render/currentPaths.js';
 import { ecoParams, ecologyStep } from './sim/ecology.js';
 import { fireFollowerStep } from './sim/fireFollowers.js';
+import { fungiStep } from './sim/fungi.js';
 import { WildlifeMarkers } from './render/wildlife.js';
 import { recordStats } from './sim/stats.js';
 import { groundwaterStep, groundwaterParams } from './sim/groundwater.js';
@@ -882,6 +883,7 @@ class App {
       if (this.frame % 30 === 5) steadySiteInputs(this.world); // (year-averaged wetness for the tree species)
       if (this.frame % 30 === 28) fireFollowerStep(this.world); // (fireweed and fire poppies on recent small burns)
       if (this.frame % 30 === 18) drownedGrassStep(this.world); // (grassland the sea covers becomes beach)
+      if (this.frame % 30 === 22) fungiStep(this.world); // (fungal diversity, and honey-mushroom root rot)
       if (MOD.steps.length) runModSteps(this); // (what the mods do each step)
       if (this.frame % 30 === 0) pollinatorStep(this.world); // (bees and the like: where they live, pesticides)
       if (this.frame % 30 === 10) groundwaterStep(this.world); // (the aquifer: recharge, seepage, base flow, wells)

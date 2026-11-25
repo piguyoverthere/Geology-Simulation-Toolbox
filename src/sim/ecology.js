@@ -31,6 +31,8 @@ export const ecoParams = {
   disease: false,        // crowded populations suffer outbreaks of disease
   fireFollowers: true,   // fireweed, fire poppies and the like on recent small burns
   smallBurn: 400,        // largest burn (cells) fire followers fully take to
+  rootRot: true,         // honey mushroom (Armillaria) root and butt rot (sim/fungi.js)
+  rootRotStrength: 1,    // how hard it hits
 };
 
 export const HABITATS = {

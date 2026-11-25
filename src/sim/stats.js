@@ -25,6 +25,8 @@ export const STATS = [
   { id: 'forestCarbon', label: 'Carbon in the land', group: 'Land', unit: 't', help: 'Carbon stored in the trees and soil (old, dense forest holds the most). Felling, clearing and fire release it into the air as greenhouse gas; regrowing forest takes it back up.' },
   { id: 'groundwater', label: 'Groundwater', group: 'Land', unit: '%', help: 'How much water is in the ground compared with what it would hold left alone: below 100% where towns pump it out faster than the rain refills it.' },
   { id: 'fireFlowers', label: 'Fire flowers', group: 'Land', unit: '%', help: 'Share of the land carpeted with fire-following flowers (fireweed, fire poppies) on recent small burns.' },
+  { id: 'fungi', label: 'Fungal diversity', group: 'Land', unit: '%', help: 'Average fungal diversity of the forest (mycorrhizal partners and decomposers): richest in old, mixed forest.' },
+  { id: 'rootRot', label: 'Root rot', group: 'Land', unit: '%', help: 'Share of the forest infected with honey mushroom (Armillaria) root rot.' },
   { id: 'diseased', label: 'Diseased forest', group: 'Land', unit: '%', help: 'Share of the forest infected with one of the tree diseases you have introduced.' },
   { id: 'temp', label: 'Average temperature', group: 'Climate', unit: '°C', help: 'Average temperature over the land today (with the season).' },
   { id: 'carbon', label: 'Greenhouse gas', group: 'Climate', unit: 'ppm', help: 'Greenhouse gas in the air (parts per million; 280 before the towns), from the towns\' burning, industry and wildfires, slowly taken back up by the sea and forests (climate change, a Civilization setting).' },
@@ -54,7 +56,7 @@ export function computeStats(world) {
   const sea = world.meanSea !== undefined && world.meanSea > -999 ? world.meanSea : -1e9;
   let land = 0, tempN = 0, forest = 0, grass = 0, bare = 0, old = 0, healthSum = 0, densSum = 0, snow = 0, ice = 0, burnt = 0, dead = 0, temp = 0;
   let paved = 0, farmland = 0, timber = 0, industry = 0, streams = 0, dirtyStreams = 0;
-  let smoky = 0, all = 0, diseased = 0, ff = 0;
+  let smoky = 0, all = 0, diseased = 0, ff = 0, fgSum = 0, rotN = 0;
   let seaN = 0, clean = 0, lowOx = 0, beds = 0, bedsOK = 0, coral = 0, seaIce = 0;
   const st = world.seasonT || 0;
   for (let i = 0; i < n; i += 2) { // (every other cell: plenty for a map-wide share)
@@ -90,12 +92,13 @@ export function computeStats(world) {
     if (world.fire[i] > 0 || world.burnt[i] > 0.2) burnt++;
     if (world.deadWood && world.deadWood[i] > 0.1) dead++;
     if (world.fireweed && world.fireweed[i] + world.firePoppy[i] > 0.3) ff++;
+    if (v > 0.66 && world.fungi) { fgSum += world.fungi[i]; if (world.rootRot && world.rootRot[i] > 0.1) rotN++; }
     if (i % 8 === 0) { temp += world.temperature[i] + seasonalAt(world, i, st); tempN++; }
   }
   const pct = (a, b) => (b > 0 ? (100 * a) / b : 0);
   return {
     forest: pct(forest, land), grass: pct(grass, land), bare: pct(bare, land),
-    oldGrowth: pct(old, forest), fireFlowers: world.fireweed ? pct(ff, land) : null, diseased: pct(diseased, forest), groundwater: world.groundwater ? 100 * groundwaterShare(world) : null, forestCarbon: world.carbonTotal ?? null,
+    oldGrowth: pct(old, forest), fungi: world.fungi && forest ? (100 * fgSum) / forest : null, rootRot: world.rootRot ? pct(rotN, forest) : null, fireFlowers: world.fireweed ? pct(ff, land) : null, diseased: pct(diseased, forest), groundwater: world.groundwater ? 100 * groundwaterShare(world) : null, forestCarbon: world.carbonTotal ?? null,
     health: world.forestHealth && forest ? (100 * healthSum) / forest : null,
     density: world.treeDensity && forest ? (100 * densSum) / forest : null,
     snow: pct(snow, land), ice: pct(ice, land), burnt: pct(burnt, land), deadWood: pct(dead, land),

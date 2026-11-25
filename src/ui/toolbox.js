@@ -341,6 +341,8 @@ export class Toolbox {
       slider('Hard winters', app.ecoParams, 'winters', 0, 2.5, 0.05, 'How hard cold, heat and deep snow are on the animals: at 0 the weather never kills them; high, and hard winters thin them out (and frost-killed pests die in milder freezes).', this),
       toggle('Roadkill', app.ecoParams, 'roadkill', 'Traffic kills land animals crossing roads, and they shun the noisy band either side of a busy road, so busy roads split their ranges (unless the towns build wildlife crossings). Off: roads don\'t affect them.', this),
       toggle('Wildlife disease', app.ecoParams, 'disease', 'Now and then an outbreak of disease sweeps through a crowded population, hitting hardest where they\'re packed in, then dies down. Predators that keep a population thinned keep it healthier.', this),
+      toggle('Root rot (honey mushroom)', app.ecoParams, 'rootRot', 'Honey mushroom (Armillaria), a root and butt rot: it spreads slowly underground from stand to stand and now and then by spores to a stand far away, takes best in old or stressed trees and plantations, and kills heavily infected stands over some years. Rich fungal life in the soil holds it back. Overlay: Fungi & root rot.', this),
+      slider('Root rot strength', app.ecoParams, 'rootRotStrength', 0, 2, 0.05, 'How fast the honey mushroom spreads and how hard it hits.', this),
       toggle('Fire followers', app.ecoParams, 'fireFollowers', 'Plants that come up only on fresh burns, and only the smaller ones: fireweed (wind-blown seed from the edges) and fire poppies (seeds that wait in the soil for a fire). They feed pollinators, and animals living in the Recent small burns habitat. Overlay: Fire followers.', this),
       slider('Small burn size', app.ecoParams, 'smallBurn', 20, 3000, 10, 'The largest burn (in cells) fire followers fully take to; up to two and a half times that, fewer. Beyond it the heart of the burn is too far from seed and shelter, and the fire burnt hot enough to cook the seed in the soil.', this),
       toggle('Show animals', app.wildlife, 'visible', 'Show the animals as small dots in their colours where they live (and in the map key).', this, () => this.updateLegend()),
@@ -971,6 +973,15 @@ export class Toolbox {
     else if (mode === 'fish') {
       ramp('Fish stocks (share of what the sea can hold)', 'collapsed', 'plentiful', [[0.80, 0.20, 0.15], [0.95, 0.80, 0.30], [0.10, 0.30, 0.65]]);
       L.append(el('div', 'tb-note', 'Fish breed back towards what the sea can feed and drift about; fishing takes them down. Fished below about a fifth, a stock collapses and recovers only slowly. Green hatching: marine reserves (No fishing areas), which restock the water round them.'));
+    }
+    else if (mode === 'fungi') {
+      items('Fungi and root rot', [
+        { label: 'Few fungi', color: [0.86, 0.84, 0.78], help: 'Bare ground, fields, towns, young or burnt stands: little fungal life in the soil.' },
+        { label: 'Some', color: [0.45, 0.66, 0.40], help: 'Ordinary forest and woodland.' },
+        { label: 'Rich fungal life', color: [0.40, 0.22, 0.55], help: 'Old forest of many kinds of trees, above all pine, fir, spruce, oak, beech and birch, whose roots partner with many fungi. Trees grow faster, dead wood rots sooner and the soil builds faster here.' },
+        { label: 'Honey mushroom (root rot)', color: [0.95, 0.62, 0.20], help: 'Armillaria in the roots: spreading underground from stand to stand, and now and then by spores far away.' },
+        { label: 'Root rot killing the trees', color: [0.80, 0.18, 0.12], help: 'A heavy infection: the stand is dying off, leaving dead wood. Once its hosts are gone the rot dies out and the forest grows back.' },
+      ]);
     }
     else if (mode === 'fireFollowers') {
       items('Fire followers', [

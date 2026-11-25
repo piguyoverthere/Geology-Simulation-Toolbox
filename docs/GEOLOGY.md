@@ -1493,6 +1493,36 @@ Forest the sea covers isn't affected by this rule. In a test, the sea was raised
 grassland cells near the shore and then lowered again: 826 were left as beach, with plant cover held
 at 7%. The rest had been in the tidal zone already.
 
+## Fungi and root rot (`src/sim/fungi.js`)
+
+**Fungal diversity** (world.fungi, 0–1) is the fungal life in the soil: mycorrhizal fungi partnering
+with the trees' roots, and decomposers breaking down litter and dead wood.
+- **Where it's richest:** under old forest of many kinds of trees, and most of all under trees whose
+  roots partner closely with many fungi: pine, fir, spruce, larch, birch, aspen, oak, beech, alder,
+  shore pine, Sitka spruce and cork oak. A mod species can say which it is with `ecto: true`.
+- **Where it's poor:** under young or single-kind stands, in plantations (35%), on fields (30%) and
+  built-over ground (10%).
+- **What sets it back:** fire and smoky, polluted air. It builds back over decades and is lost fast.
+- **What it does:** where it's rich, forest grows back faster (up to 1.3 times), dead wood rots
+  sooner (up to 1.6 times), and soil builds faster from the decaying matter (up to 1.4 times).
+
+**Honey mushroom** (Armillaria, world.rootRot, 0–1) is a root and butt rot, switched on by **Root rot
+(honey mushroom)** under Wildlife, with a **Root rot strength** slider.
+- **How it starts:** an outbreak starts now and then in old forest where there's none.
+- **How it spreads:** slowly underground from stand to stand along bootlace-like strands, and now and
+  then by spores to a stand up to half the map away.
+- **Where it takes best:** old trees, trees stressed by dry soil, and plantations. It takes poorly
+  where the soil's fungal life is rich.
+- **What it does:** a heavy infection (over 0.55) kills the stand over some years. The old trees go
+  first and leave dead wood.
+- **What stops it:** with its hosts gone, it dies out and the forest grows back.
+
+The **Fungi & root rot** overlay shows fungal diversity (pale to green to violet) with the rot over it
+(orange, red where it's killing the trees). The inspector shows both, and the graphs add
+**Fungal diversity** and **Root rot**. In a test seeded with three outbreaks and run without regrowth
+for 600 steps (about five years), the rot reached 1,745 cells and killed 5.8% of the forest, still
+spreading. In the full simulation the killed stands grow back once the rot has died out of them.
+
 ## Spotlight (`src/ui/spotlight.js`)
 
 Hover over something and the map shows just that: its cells keep their colours and everything else
