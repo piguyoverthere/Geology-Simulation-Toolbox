@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Keep a release of the app so it can still be run later from the home screen.
 
-    python3 tools/release.py <version> "<what changed>" [--from <git ref>]
+    python3 tools/release.py <version> "<what changed>" [--from <git ref>] [--pre]
+
+--pre marks it an experimental prerelease (versions like 1.2.0-beta.1): the home screen offers it
+to try out, with a warning that it may be unstable.
 
 Copies index.html and src/ (as they are now, or as they were at a git commit) into
 versions/<version>/, points that copy's import map at the shared vendor/ folder, and adds the
@@ -42,8 +45,16 @@ def main():
     listing = os.path.join(ROOT, 'versions', 'versions.json')
     entries = json.load(open(listing)) if os.path.exists(listing) else []
     entries = [e for e in entries if e['version'] != version]
-    entries.append({'version': version, 'date': date, 'notes': notes})
-    entries.sort(key=lambda e: [int(x) if x.isdigit() else x for x in re.split(r'[.\-]', e['version'])])
+    entry = {'version': version, 'date': date, 'notes': notes}
+    if '--pre' in args:
+        entry['prerelease'] = True
+    entries.append(entry)
+    def order(e):
+        main, _, pre = e['version'].partition('-')
+        nums = [int(x) for x in main.split('.')]
+        # (a prerelease sorts before its release: 1.2.0-beta.1 < 1.2.0)
+        return (nums, 0 if pre else 1, [int(x) if x.isdigit() else x for x in pre.split('.')] if pre else [])
+    entries.sort(key=order)
     json.dump(entries, open(listing, 'w'), indent=2)
     open(listing, 'a').write('\n')
     print(f'Kept version {version} ({date}) in versions/{version}/')

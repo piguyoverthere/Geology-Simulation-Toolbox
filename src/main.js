@@ -40,6 +40,7 @@ import { captureDefaults, resetParams, snapshot, applySnapshot, encodeLevel, dec
 import { getSim, updateSim, pushHistory, newSimMeta, addSim } from './core/sims.js';
 import { Home } from './ui/home.js';
 import { MenuBar } from './ui/menubar.js';
+import { APP_VERSION, tooNew } from './version.js';
 import { loadGrid, saveGrid, resetGrid, gridTick, gridStartup, travelTo, thumbnail, freshen } from './core/worldGrid.js';
 import { Drawings, drawSettings } from './render/drawings.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
@@ -440,6 +441,7 @@ class App {
       if (!file) return;
       try {
         const snap = await decodeLevel(file);
+        if (tooNew(snap.meta.appVersion)) { this.setSaveStatus(`${file.name} was saved by version ${snap.meta.appVersion}, newer than this one (${APP_VERSION}): opening it here isn't supported.`); return; }
         if (snap.meta.N !== GRID) {
           // Different map size: it becomes a simulation of its own (opened at its size)
           const gen = (snap.meta.params && snap.meta.params.gen) || {};
@@ -469,7 +471,7 @@ class App {
       await saveGrid(this);
       let thumb = null;
       try { thumb = thumbnail(this.world); } catch { /* no canvas */ }
-      await updateSim(meta.id, { updated: Date.now(), thumb, fresh: false });
+      await updateSim(meta.id, { updated: Date.now(), thumb, fresh: false, appVersion: APP_VERSION });
       // (an earlier save to roll back to, once an hour of play)
       if (Date.now() - (this.lastHistory || 0) > 3600e3) { this.lastHistory = Date.now(); await pushHistory(meta.id, snap, 'Hourly save'); }
       this.setSaveStatus(`Autosaved ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
@@ -506,6 +508,12 @@ class App {
     let snap = null;
     try {
       snap = meta.fresh ? null : await fetchLevel(meta.saveKey);
+      // (a save from a newer version of the app can't be opened in this older one)
+      if (snap && tooNew(snap.meta.appVersion)) {
+        this.loadingLevel = false; this.simMeta = null;
+        this.home.show(`"${meta.name}" was last saved by version ${snap.meta.appVersion}, which is newer than this one (${APP_VERSION}). Opening a newer version's simulation in an older version isn't supported: open it in version ${snap.meta.appVersion} or later.`);
+        return;
+      }
       if (snap && snap.meta.N === GRID) applySnapshot(this, snap);
       else { snap = null; await this.startNewSim(meta); }
     } catch (err) {

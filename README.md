@@ -36,10 +36,18 @@ The page opens on a grey **home screen** listing your simulations, all kept in t
 - **Export** a simulation to a `.geolevel` file, **Import from file…** to add one, **Rename**, **Delete**.
 - Levels from before the home screen appear as **My simulation**.
 - The app's **version** is at the bottom, with a **Run an older version** menu: every release is
-  kept in `versions/<version>/`. Make a release with
-  `python3 tools/release.py <version> "<what changed>"` after setting `APP_VERSION` in
-  `src/version.js`. Older versions don't have the home screen; they open the level that the new
-  version lists as *My simulation*.
+  kept in `versions/<version>/`. Older versions from before 1.2 don't have the home screen; they
+  open the level that the new version lists as *My simulation*.
+- **Experimental prereleases** (versions like `1.2.0-beta.1`): new features that may still be
+  unstable. When there's one newer than the version you're running, a **Try a prerelease** panel
+  on the right of the home screen offers it (and the versions menu marks it *experimental*);
+  a prerelease shows a warning banner on its own home screen.
+- **Going back isn't supported:** every save records the version of the app that made it, and a
+  simulation (or file) saved by a newer version can't be opened in an older one; its card says
+  which version it needs instead of *Open*. So try prereleases on a new simulation or an exported
+  copy. (Versions before 1.2 predate this check.)
+- Make a release with `python3 tools/release.py <version> "<what changed>"` (add `--pre` for a
+  prerelease) after setting `APP_VERSION` (and `IS_PRERELEASE`) in `src/version.js`.
 
 ## The window
 

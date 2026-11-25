@@ -6,7 +6,7 @@
 import { PRESETS } from '../core/generate.js';
 import { listSims, newSimMeta, addSim, deleteSim, updateSim, restoreHistory } from '../core/sims.js';
 import { fetchLevel, storeLevel, encodeLevel, decodeLevel } from '../core/save.js';
-import { APP_VERSION } from '../version.js';
+import { APP_VERSION, IS_PRERELEASE, compareVersions, tooNew } from '../version.js';
 
 const SIZES = [128, 192, 256, 384, 512];
 
@@ -47,7 +47,13 @@ export class Home {
       this.versionSel.value = '';
     });
     foot.append(el('span', 'home-version', `Version ${APP_VERSION}`), this.versionSel);
-    box.append(head, actions, this.status, this.list, foot);
+    // (a side panel: experimental prereleases to try)
+    this.side = el('aside', 'home-side');
+    this.side.hidden = true;
+    const mainCol = el('div', 'home-main');
+    if (IS_PRERELEASE) mainCol.append(el('div', 'home-pre-banner', `⚗ You're running ${APP_VERSION}, an experimental prerelease: it may be unstable. Simulations saved here can't be opened again in older versions.`));
+    mainCol.append(head, actions, this.status, this.list, foot);
+    box.append(mainCol, this.side);
     root.append(box);
     document.body.append(root);
     this.loadVersions();
@@ -75,12 +81,29 @@ export class Home {
       const res = await fetch('versions/versions.json', { cache: 'no-store' });
       const list = res.ok ? await res.json() : [];
       for (const v of list.filter((x) => x.version !== APP_VERSION).reverse()) {
-        const o = el('option', '', `${v.version}${v.date ? ` · ${v.date}` : ''}${v.notes ? ` — ${v.notes}` : ''}`);
+        const o = el('option', '', `${v.version}${v.prerelease ? ' (experimental)' : ''}${v.date ? ` · ${v.date}` : ''}${v.notes ? ` — ${v.notes}` : ''}`);
         o.value = v.version;
         sel.append(o);
       }
       if (sel.options.length === 1) sel.hidden = true;
+      this.renderPrereleases(list);
     } catch { sel.hidden = true; }
+  }
+
+  /** The side panel: prereleases newer than this version, to try out (they may be unstable). */
+  renderPrereleases(list) {
+    const pre = list.filter((v) => v.prerelease && compareVersions(v.version, APP_VERSION) > 0).reverse();
+    const S = this.side;
+    S.textContent = '';
+    S.hidden = !pre.length;
+    if (!pre.length) return;
+    S.append(el('h3', '', '⚗ Try a prerelease'), el('p', 'home-side-note', 'Experimental versions with features still being worked on. They might be unstable, and a simulation you open and save in one can\'t be opened again in this version (going back to an older version isn\'t supported), so try them on a new simulation or an exported copy.'));
+    for (const v of pre) {
+      const card = el('div', 'home-pre');
+      card.append(el('div', 'home-pre-ver', v.version), el('div', 'home-pre-notes', v.notes || ''), el('div', 'home-pre-date', v.date || ''));
+      card.append(btn('Try it', () => { if (confirm(`Open experimental version ${v.version}? It might be unstable. Simulations you save in it can't be opened again in older versions.`)) location.href = `versions/${v.version}/index.html`; }));
+      S.append(card);
+    }
   }
 
   async render() {
@@ -98,10 +121,15 @@ export class Home {
     if (s.thumb) pic.style.backgroundImage = `url(${s.thumb})`;
     const info = el('div', 'home-info');
     const name = el('div', 'home-name', s.name);
-    const meta = el('div', 'home-meta', `${PRESETS[s.preset]?.label || s.preset || 'Map'} · ${s.N}×${s.N}${s.seed !== undefined ? ` · seed ${s.seed}` : ''} · last played ${when(s.updated)}`);
+    const meta = el('div', 'home-meta', `${PRESETS[s.preset]?.label || s.preset || 'Map'} · ${s.N}×${s.N}${s.seed !== undefined ? ` · seed ${s.seed}` : ''} · last played ${when(s.updated)}${s.appVersion ? ` · version ${s.appVersion}` : ''}`);
     info.append(name, meta);
     const row = el('div', 'home-card-actions');
-    row.append(btn('Open', () => this.app.openSim(s.id), 'primary'));
+    if (tooNew(s.appVersion)) {
+      // (saved by a newer version of the app: this one can't open it)
+      const b = btn(`Needs version ${s.appVersion}`, () => this.setStatus(`"${s.name}" was saved by version ${s.appVersion}, newer than this one (${APP_VERSION}). Opening a newer version's simulation in an older version isn't supported.`));
+      b.classList.add('locked');
+      row.append(b);
+    } else row.append(btn('Open', () => this.app.openSim(s.id), 'primary'));
     // Earlier saves to roll back to
     if (s.history && s.history.length) {
       const sel = el('select', 'home-history');
@@ -168,9 +196,11 @@ export class Home {
       try {
         this.setStatus(`Importing ${file.name}…`);
         const snap = await decodeLevel(file);
+        if (tooNew(snap.meta.appVersion)) { this.setStatus(`${file.name} was saved by version ${snap.meta.appVersion}, newer than this one (${APP_VERSION}). Importing a newer version's simulation into an older version isn't supported.`); return; }
         const gen = (snap.meta.params && snap.meta.params.gen) || {};
         const meta = newSimMeta({ name: file.name.replace(/\.geolevel$/i, '').slice(0, 60), N: snap.meta.N, preset: gen.preset, seed: gen.seed });
         meta.fresh = false;
+        meta.appVersion = snap.meta.appVersion;
         await storeLevel(meta.saveKey, snap);
         await addSim(meta);
         this.setStatus(`Imported "${meta.name}". Open it from the list.`);

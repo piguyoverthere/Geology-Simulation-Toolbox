@@ -10,6 +10,8 @@
 // Loading is forgiving: fields the saved level doesn't have keep their freshly generated values,
 // and fields this version doesn't know are ignored, so levels survive updates to the simulation.
 
+import { APP_VERSION } from '../version.js';
+
 const MAGIC = 'GEOLEVEL1';
 // Transient or derived state that isn't worth saving (rebuilt on the fly)
 const SKIP_ARRAYS = new Set(['flux', 'strataWarp0', 'pathU', 'pathV', 'popDensity']);
@@ -57,7 +59,7 @@ export function snapshot(app) {
   }
   const r = app.renderer;
   const meta = {
-    magic: MAGIC, savedAt: new Date().toISOString(), N: w.N, paramDiffs: true,
+    magic: MAGIC, savedAt: new Date().toISOString(), appVersion: APP_VERSION, N: w.N, paramDiffs: true,
     scalars, json, params,
     view: { colorMode: r.colorMode, showVegetation: r.showVegetation, showClouds: r.showClouds, showWater: r.showWater, showTownLabels: r.showTownLabels, showParkNames: r.showParkNames, showTrailNames: r.showTrailNames, singleBiome: r.singleBiome },
     camera: { position: app.camera.position.toArray(), target: app.controls.target.toArray() },
