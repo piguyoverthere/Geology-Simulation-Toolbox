@@ -1430,7 +1430,7 @@ Parks protect only what is hard to find; where nothing rare is near a town, it m
 
 | Park | Chosen for | Also restricted |
 |---|---|---|
-| Old Growth Reserve | the oldest stands (age above 0.8), worth less where old forest is common on the map | no fires, no hunting, no earthworks |
+| Old Growth Reserve | the oldest stands (age above 0.8), worth less where old forest is common on the map; at the edge of a timber plantation (within 6 cells) age above 0.72 will do and it scores higher, so old growth beside plantations is kept from the next felling (plantations nearby don't count against a site, other development does) | no fires, no hunting, no earthworks |
 | Grove (*Fir Grove*, *Cedar Grove*…) | a tree under 8% of the map's forest that makes up at least 40% of the trees there | no hunting (no earthworks for towns over 2,000) |
 | Preserve (*Wetland Preserve*, *Tundra Preserve*…) | a wild biome under 6% of the map's land (forest types, wetland, grassland, shrubland, tundra, mangrove, dunes, mesa, desert) covering most of the ground | no earthworks; hunting allowed |
 | Refuge (*Deer Refuge*…) | an animal living several times more thickly than its average over the land | no hunting, no earthworks |
@@ -1439,7 +1439,9 @@ Parks protect only what is hard to find; where nothing rare is near a town, it m
 | Commons | a block of the town's own fields, only for a town over 10 years old with less than 15% wild forest left within 20 cells | no fires, no hunting |
 | Wilderness | see below | no fires, no earthworks; hunting allowed |
 
-Woods and Game Woods (ordinary forest) are no longer made; any already on a map stay.
+Woods and Game Woods (ordinary forest) are no longer made; any already on a map stay. In a test with
+eight plantation blocks in a stand of 0.76-old forest, a town made 2.3 Old Growth Reserves (2 of
+them at a plantation's edge) against 1 without the plantations, out of 9 parks either way.
 
 **National Forests.** Every map gets one or two (chosen once, world.nationalTarget) large National
 Forests, set aside for the whole map rather than by a town, but only once the map has a civilization

@@ -2459,7 +2459,9 @@ export function townNear(world, x, z, r = 10) {
  * in a loop. Parks protect only what is hard to find, and each kind has its own restrictions (all of
  * them: no timber, no fields, no new towns and no roads; footpaths are still allowed):
  *   • Old Growth Reserve, around the oldest stands (older than 0.8, worth less where old forest is
- *     common on the map): strictest, also no fires, no hunting and no earthworks
+ *     common on the map; at a timber plantation's edge older than 0.72 will do, and it counts for
+ *     more, so the old growth beside plantations is kept from the next felling): strictest, also no
+ *     fires, no hunting and no earthworks
  *   • a Grove (Fir Grove, Cedar Grove…) of a tree under 8% of the map's forest that makes up much of
  *     the trees there: also no hunting
  *   • a Preserve (Wetland Preserve, Tundra Preserve…) of a wild biome under 6% of the map's land:
@@ -2691,11 +2693,16 @@ export function parkStep(world, t) {
     // (wild forest all over: nothing built, farmed or planted in it)
     // (wild all over, nothing built, farmed or planted in it; the last woods of a farmed district may
     // have fields close round them, but not right up against the middle)
-    let wild = true, near = false, open = 0;
+    // (timber plantations close by don't spoil it: old growth at a plantation's edge is just what
+    // needs keeping from the next felling)
+    let wild = true, near = false, open = 0, plant = 0;
     for (let dz = -6; dz <= 6 && !near; dz++) for (let dx = -6; dx <= 6; dx++) {
       if (dx * dx + dz * dz > 36) continue;
       const j = i + dz * N + dx;
-      if (LU[j] && !(world.footpath && world.footpath[j])) { wild = false; if (dx * dx + dz * dz <= 4) { near = true; break; } }
+      if (LU[j] && !(world.footpath && world.footpath[j])) {
+        if (dx * dx + dz * dz <= 4) { near = true; break; }
+        if (LU[j] === 10) plant++; else wild = false;
+      }
       if (V[j] < 0.45) open++;
     }
     if (near) continue;
@@ -2733,7 +2740,9 @@ export function parkStep(world, t) {
     age /= Math.max(1, c);
     // (ordinary forest, for Woods or Game Woods if nothing special turns up: older, nearer is better)
     // (old growth: only the oldest stands, and worth less where old forest is common on the map)
-    let score = age > 0.8 ? Math.min(1, (age - 0.7) * 3.3) * Math.min(1, 0.12 / (oldMean + 0.02)) : 0, kind = 'old', sp = -1;
+    // (beside a timber plantation it counts for more, and a little younger will do)
+    const edge = plant > 0;
+    let score = age > (edge ? 0.72 : 0.8) ? Math.min(1, (age - 0.62) * 3.3) * Math.min(1, 0.12 / (oldMean + 0.02)) + (edge ? 0.2 : 0) : 0, kind = 'old', sp = -1;
     // A rare tree: one making up much more of the trees here than of the map's forest
     treeShares(world, i, sh);
     for (let s = 0; s < K; s++) {
@@ -2744,7 +2753,7 @@ export function parkStep(world, t) {
     }
     // (something the map's parks already protect counts for less: each new park something different)
     const key = kind === 'old' ? 'old' : SPECIES[sp].id;
-    for (const p of sites) for (const f of p.features || [p.kind === 'old' ? 'old' : p.species]) if (f === key) score *= 0.55;
+    for (const p of sites) for (const f of p.features || [p.kind === 'old' ? 'old' : p.species]) if (f === key) score *= key === 'old' && edge ? 0.85 : 0.55;
     score -= d * 0.004; // (nearer is handier)
     // (ground next to a park the town already has is handier still: parks tend to grow together)
     if (sites.some((p) => edgeDist(p, x, z) < 9)) score += 0.1;
