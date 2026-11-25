@@ -30,6 +30,7 @@ export const climateParams = {
   snowstorms: 1,      // how many mountain snowstorms come each year (× the default; 0 = none)
   meltRunoff: 0.05,   // runoff per unit of snow melted (snow is mostly air, and much of the melt soaks in)
   summerDry: 0,       // 0 = rain all year; 1 = almost all of it from autumn to spring, dry summers
+  warming: 0,         // °C the climate has warmed (climate change, see sim/climateChange.js): every temperature includes it
 };
 
 /**
@@ -213,7 +214,8 @@ export function updateTemperature(world) {
   world.seasonT = seasonOffset();
   updateGroundLag(world);
   const T = world.temperature;
-  for (let i = 0; i < N * N; i++) T[i] = p.seaTemp - p.lapse * Math.max(0, H[i]) + p.sunEffect * sun[i];
+  const base = p.seaTemp + (p.warming || 0);
+  for (let i = 0; i < N * N; i++) T[i] = base - p.lapse * Math.max(0, H[i]) + p.sunEffect * sun[i];
   updateEvaporation(world);
 }
 
@@ -404,7 +406,7 @@ export function updateSnow(world, steps = 1, runoff = false) {
 export function cloudTempAt(world, i) {
   const p = climateParams;
   const base = world.cloudBase ? world.cloudBase[i] : Math.max(0, world.height[i]) + p.cloudLift;
-  return p.seaTemp - p.lapse * base + seasonalAt(world, i);
+  return p.seaTemp + (p.warming || 0) - p.lapse * base + seasonalAt(world, i);
 }
 
 /**

@@ -128,7 +128,7 @@ export function tideLevel(world, meanSea) {
 /** Water temperature of the sea (°C): the air's year average, with a damped season. */
 export function seaTemp() {
   const st = seasonParams.enabled ? seasonParams.swing * Math.sin(2 * Math.PI * (seasonParams.phase - 0.12)) : 0;
-  return climateParams.seaTemp + 0.45 * st; // the sea lags and swings less than the air
+  return climateParams.seaTemp + (climateParams.warming || 0) + 0.45 * st; // the sea lags and swings less than the air
 }
 
 /**

@@ -1387,6 +1387,22 @@ native). Work gangs cut it out there, the worst first. The work costs the town p
 every 0.4 of a cell's worth of pine cleared, and the cut pine is worthless as timber, so it isn't
 added to the town's wood. The **Towns clear invasive pine** switch (Civilization) turns it off.
 
+## Climate change (`src/sim/climateChange.js`)
+
+A Civilization setting (**Climate change**, with an **Emissions** slider). Greenhouse gas in the air
+(world.carbonPPM) starts at 280 ppm. The towns add to it: burning (1.5 × 10⁻⁶ ppm a person a town
+step), industry (4 × 10⁻⁴ a cell) and wildfire (2 × 10⁻⁴ a burning cell); the sea and the land take
+0.02% of the excess back up each step. The climate warms towards 3 °C for every doubling of the gas,
+but slowly (0.3% of the way each step), and every temperature on the map includes the warming
+(climateParams.warming), so snow lines and tree lines climb, glaciers shrink, species move uphill and
+the sea warms. While it's warmer the sea rises (0.00025 a step for each degree), and the rise is
+applied to the sea level a little at a time. Switched off, the warming fades away. The *Greenhouse
+gas* and *Warming* graphs (Climate) track it, and the menu bar shows the warming. In a test, a city
+of 8,000 with 200 cells of industry raised the gas from 280 to 401 ppm and the climate 1.28 °C in
+three years (at about 500 town steps a year); with its emissions then stopped, the warming went on
+rising to 1.43 °C a year later before slowly easing (1.27 °C two years on), and the sea had risen
+0.73.
+
 ## Groundwater (`src/sim/groundwater.js`)
 
 Beneath the soil every cell holds groundwater (world.groundwater, 0 dry … 1 full). Left alone it

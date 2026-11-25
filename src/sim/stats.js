@@ -3,7 +3,7 @@
 // every few seconds while the simulation runs; world.statHistory keeps the last few hundred samples
 // of each (saved with the level).
 
-import { seasonalAt } from './climate.js';
+import { seasonalAt, climateParams } from './climate.js';
 import { waterQuality } from './waterQuality.js';
 import { isLivingBed } from './coast.js';
 import { groundwaterShare } from './groundwater.js';
@@ -25,6 +25,8 @@ export const STATS = [
   { id: 'groundwater', label: 'Groundwater', group: 'Land', unit: '%', help: 'How much water is in the ground compared with what it would hold left alone: below 100% where towns pump it out faster than the rain refills it.' },
   { id: 'diseased', label: 'Diseased forest', group: 'Land', unit: '%', help: 'Share of the forest infected with one of the tree diseases you have introduced.' },
   { id: 'temp', label: 'Average temperature', group: 'Climate', unit: '°C', help: 'Average temperature over the land today (with the season).' },
+  { id: 'carbon', label: 'Greenhouse gas', group: 'Climate', unit: 'ppm', help: 'Greenhouse gas in the air (parts per million; 280 before the towns), from the towns\' burning, industry and wildfires, slowly taken back up by the sea and forests (climate change, a Civilization setting).' },
+  { id: 'warming', label: 'Warming', group: 'Climate', unit: '°C', help: 'How much the climate has warmed from the greenhouse gas. It lags the gas by years.' },
   { id: 'smoky', label: 'Smoky air', group: 'Climate', unit: '%', help: 'Share of the map under smoke: wildfire smoke drifting downwind, and the towns\' smoke.' },
   { id: 'people', label: 'Population', group: 'Civilization', unit: 'people', help: 'Everyone living in the towns.' },
   { id: 'towns', label: 'Towns', group: 'Civilization', unit: '', help: 'How many towns and villages there are.' },
@@ -93,7 +95,7 @@ export function computeStats(world) {
     health: world.forestHealth && forest ? (100 * healthSum) / forest : null,
     density: world.treeDensity && forest ? (100 * densSum) / forest : null,
     snow: pct(snow, land), ice: pct(ice, land), burnt: pct(burnt, land), deadWood: pct(dead, land),
-    temp: tempN ? temp / tempN : 0, smoky: pct(smoky, all),
+    temp: tempN ? temp / tempN : 0, smoky: pct(smoky, all), carbon: world.carbonPPM ?? 280, warming: climateParams.warming || 0,
     sea: pct(seaN, seaN + land), clean: pct(clean, seaN), lowOxygen: pct(lowOx, seaN), beds: pct(bedsOK, beds),
     coral: pct(coral, seaN), seaIce: pct(seaIce, seaN),
     people: (world.towns || []).reduce((t, x) => t + x.pop, 0), towns: (world.towns || []).length, boats: (world.towns || []).reduce((t, x) => t + (x.boats || 0), 0),

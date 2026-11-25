@@ -23,6 +23,7 @@ import { ecoParams, ecologyStep } from './sim/ecology.js';
 import { WildlifeMarkers } from './render/wildlife.js';
 import { recordStats } from './sim/stats.js';
 import { groundwaterStep, groundwaterParams } from './sim/groundwater.js';
+import { climateChangeStep } from './sim/climateChange.js';
 import { recordProbes } from './sim/probes.js';
 import { civParams, civStep } from './sim/civilization.js';
 import { TownLabels } from './render/townLabels.js';
@@ -800,7 +801,12 @@ class App {
       if (this.frame % 10 === 5 && this.sim.vegetation) compositionStep(this.world);
       if (this.frame % 10 === 3) seaStep(this.world);
       // Wind (recomputed only when the wind, sea or land changes) and its very slow erosion
-      if (this.frame % 30 === 15) { civStep(this.world); this.addTownParks(); gridTick(this); } // (towns, farms, roads and their pollution)
+      if (this.frame % 30 === 15) {
+        civStep(this.world); this.addTownParks(); gridTick(this);
+        // (climate change: the sea creeps up as it warms, applied a little at a time)
+        this.seaRise = (this.seaRise || 0) + climateChangeStep(this.world, this.sim.seaEnabled);
+        if (this.seaRise >= 0.05) { this.sim.seaLevel += this.seaRise; this.seaRise = 0; this.applySea(); }
+      } // (towns, farms, roads and their pollution)
       if (this.frame % 30 === 25) diseaseStep(this.world); // (tree diseases you have introduced)
       if (this.frame % 30 === 5) steadySiteInputs(this.world); // (year-averaged wetness for the tree species)
       if (this.frame % 30 === 10) groundwaterStep(this.world); // (the aquifer: recharge, seepage, base flow, wells)
@@ -848,7 +854,8 @@ class App {
         `<span>sediment ${fmt(s.sed)}</span><span class="ero">eroded ${fmt(s.eroded)}</span>` +
         `<span class="dep">deposited ${fmt(s.deposited)}</span><span>springs ${this.world.sources.length}</span>` +
         (this.world.events.length ? `<span class="evt">events ${this.world.events.length}</span>` : '') +
-        (this.world.storms?.length ? `<span>storms ${this.world.storms.length}</span>` : ''));
+        (this.world.storms?.length ? `<span>storms ${this.world.storms.length}</span>` : '') +
+        (climateParams.warming > 0.05 ? `<span class="evt" title="Climate change: warming from the towns' greenhouse gas (${Math.round(this.world.carbonPPM || 280)} ppm)">+${climateParams.warming.toFixed(1)} °C</span>` : ''));
     }
   }
 }
