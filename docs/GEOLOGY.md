@@ -1428,6 +1428,16 @@ timber, fields, new towns and roads (footpaths are still allowed).
 
 Parks protect only what is hard to find; where nothing rare is near a town, it makes no park.
 
+**Out in the wild country.** A town looks for park sites up to 90 cells away, and a site counts for
+much less the more of the land within 12 cells is developed (fields, streets, roads, plantations,
+works); distance from the town counts only a little. So parks go to wild country rather than among
+the town's own land. Old growth is always worth keeping: where old forest is common on the map it
+still keeps at least 90% of its score, an old stand with nothing developed within 12 cells scores
+higher, and each Old Growth Reserve already made lowers the next only a little (×0.88; other kinds
+×0.55). Plantations beside old growth don't count against it. In a test where a town of 4,000 had
+farmed and planted the land round it, its parks went an average of 63 cells out with about 4% of the
+land around them developed; 3 of 11 were Old Growth Reserves, where before none were.
+
 | Park | Chosen for | Also restricted |
 |---|---|---|
 | Old Growth Reserve | the oldest stands (age above 0.8), worth less where old forest is common on the map; at the edge of a timber plantation (within 6 cells) age above 0.72 will do and it scores higher, so old growth beside plantations is kept from the next felling (plantations nearby don't count against a site, other development does) | no fires, no hunting, no earthworks |

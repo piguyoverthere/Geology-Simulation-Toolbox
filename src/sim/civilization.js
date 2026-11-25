@@ -2683,7 +2683,7 @@ export function parkStep(world, t) {
   const glob = speciesRarity(world), K = SPECIES.length, sh = new Float32Array(K);
   let best = null;
   for (let k = 0; k < 160; k++) {
-    const a = Math.random() * Math.PI * 2, d = 12 + Math.random() * 45;
+    const a = Math.random() * Math.PI * 2, d = 12 + Math.random() * 78; // (out to 90 cells: away from the town's own land)
     const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
     if (x < 8 || z < 8 || x >= N - 8 || z >= N - 8) continue;
     const i = z * N + x;
@@ -2707,11 +2707,21 @@ export function parkStep(world, t) {
     }
     if (near) continue;
     const handy = sites.some((p) => edgeDist(p, x, z) < 9) ? 0.1 : 0;
+    // (how much of the land around is developed, within 12 cells: parks are for wild country, so a
+    // site among fields and streets counts for much less; distance from town counts only a little)
+    let dv = 0, dc = 0;
+    for (let dz = -12; dz <= 12; dz += 3) for (let dx = -12; dx <= 12; dx += 3) {
+      const j = i + dz * N + dx;
+      if (j < 0 || j >= N * N) continue;
+      dc++;
+      if (LU[j] && !(world.footpath && world.footpath[j])) dv++;
+    }
+    const devCost = (dv / Math.max(1, dc)) * 1.5, far = d * 0.0015;
     // The last woods of the district: forest where little is left within 20 cells
     if (V[i] >= 0.6 && open <= 20) {
       const lf = localForest(world, x, z);
       if (lf < 0.3) {
-        const sc = 0.3 + (0.3 - lf) * 2.5 - d * 0.004 + handy;
+        const sc = 0.3 + (0.3 - lf) * 2.5 - far + handy;
         if (!best || sc > best.score) best = { x, z, score: sc, kind: 'remnant', sp: -1 };
       }
     }
@@ -2721,7 +2731,7 @@ export function parkStep(world, t) {
     if (rb) {
       let sc = rb[1];
       for (const p of sites) for (const f of p.features || []) if (f === 'biome:' + rb[0]) sc *= 0.55;
-      sc += handy - d * 0.004;
+      sc += handy - far - devCost;
       if (sc > 0.25 && (!best || sc > best.score)) best = { x, z, score: sc, kind: 'biome', sp: -1, biome: rb[0] };
     }
     // A refuge: where some wild animal lives much more thickly than across the map (forest or open)
@@ -2729,7 +2739,7 @@ export function parkStep(world, t) {
     if (wl) {
       let sc = wl[1];
       for (const p of sites) for (const f of p.features || []) if (f === 'wild:' + wl[0].id) sc *= 0.55;
-      sc -= d * 0.004;
+      sc -= far + devCost;
       if (sites.some((p) => edgeDist(p, x, z) < 9)) sc += 0.1;
       if (sc > 0.25 && (!best || sc > best.score)) best = { x, z, score: sc, kind: 'refuge', sp: -1, animal: wl[0] };
     }
@@ -2744,7 +2754,7 @@ export function parkStep(world, t) {
     // people already walk to on one of the town's old-growth trails)
     const edge = plant > 0;
     const walked = (world.footpaths || []).some((f) => f.spot && !f.park && Math.hypot(f.spot.x - x, f.spot.z - z) < 8);
-    let score = age > (edge || walked ? 0.72 : 0.8) ? Math.min(1, (age - 0.62) * 3.3) * Math.min(1, 0.12 / (oldMean + 0.02)) + (edge ? 0.2 : 0) + (walked ? 0.25 : 0) : 0, kind = 'old', sp = -1;
+    let score = age > (edge || walked ? 0.72 : 0.8) ? Math.min(1, (age - 0.62) * 3.3) * Math.max(0.9, Math.min(1, 0.12 / (oldMean + 0.02))) + (edge ? 0.2 : 0) + (walked ? 0.25 : 0) + (dv === 0 ? 0.2 : 0) : 0, kind = 'old', sp = -1;
     // A rare tree: one making up much more of the trees here than of the map's forest
     treeShares(world, i, sh);
     for (let s = 0; s < K; s++) {
@@ -2755,8 +2765,8 @@ export function parkStep(world, t) {
     }
     // (something the map's parks already protect counts for less: each new park something different)
     const key = kind === 'old' ? 'old' : SPECIES[sp].id;
-    for (const p of sites) for (const f of p.features || [p.kind === 'old' ? 'old' : p.species]) if (f === key) score *= key === 'old' && edge ? 0.85 : 0.55;
-    score -= d * 0.004; // (nearer is handier)
+    for (const p of sites) for (const f of p.features || [p.kind === 'old' ? 'old' : p.species]) if (f === key) score *= key === 'old' ? 0.88 : 0.55; // (old growth is always worth keeping: only a little less for each reserve already made)
+    score -= far + (kind === 'old' && edge ? 0 : devCost); // (plantations beside old growth don't count against it)
     // (ground next to a park the town already has is handier still: parks tend to grow together)
     if (sites.some((p) => edgeDist(p, x, z) < 9)) score += 0.1;
     if (score > 0.25 && (!best || score > best.score)) best = { x, z, score, kind, sp };
