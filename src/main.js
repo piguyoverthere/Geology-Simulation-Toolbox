@@ -42,6 +42,7 @@ import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
 import { CrossSection } from './ui/section.js';
 import { captureDefaults, resetParams, snapshot, applySnapshot, encodeLevel, decodeLevel, storeLevel, fetchLevel, deleteLevel } from './core/save.js';
+import { showLoading, loadingStep, hideLoading } from './ui/loading.js';
 import { getSim, updateSim, pushHistory, newSimMeta, addSim } from './core/sims.js';
 import { Home } from './ui/home.js';
 import { MenuBar } from './ui/menubar.js';
@@ -497,15 +498,32 @@ class App {
     const id = params.get('open');
     if (id) {
       window.history.replaceState(null, '', `?size=${GRID}`);
-      await this.openSim(id);
+      try { await this.openSim(id); } catch (err) { console.warn('Opening the simulation failed', err); this.home.show(`Couldn't open the simulation: ${err.message}`); }
+      await hideLoading(); // (never left covering the page)
     } else await this.home.show();
   }
 
   /** Open a simulation (reloading at its map size if it's a different size from this page's). */
   async openSim(id) {
+    try { return await this.openSimNow(id); } catch (err) {
+      console.warn('Opening the simulation failed', err);
+      this.loadingLevel = false;
+      await hideLoading();
+      this.home.show(`Couldn't open the simulation: ${err.message}`);
+    }
+  }
+
+  async openSimNow(id) {
     const meta = await getSim(id);
-    if (!meta) { this.home.show('That simulation could not be found.'); return; }
-    if (meta.N !== GRID) { location.search = new URLSearchParams({ size: meta.N, open: id }).toString(); return; }
+    if (!meta) { await hideLoading(); this.home.show('That simulation could not be found.'); return; }
+    if (meta.N !== GRID) {
+      // (the page reloads at the simulation's map size; the loading screen stays up through it)
+      try { sessionStorage.setItem('loadingName', meta.name); } catch { /* no storage */ }
+      await showLoading(`Opening \u201c${meta.name}\u201d`, `Switching to a ${meta.N}×${meta.N} map…`, 0.05);
+      location.search = new URLSearchParams({ size: meta.N, open: id }).toString();
+      return;
+    }
+    await showLoading(`${meta.fresh ? 'Creating' : 'Opening'} \u201c${meta.name}\u201d`, this.simMeta ? 'Saving the open simulation…' : 'Reading the save…', 0.1);
     if (this.simMeta && this.simMeta.id !== id) await this.autosave();
     this.loadingLevel = true;
     this.simMeta = meta;
@@ -513,20 +531,23 @@ class App {
     this.grid = null;
     let snap = null;
     try {
+      await loadingStep(meta.fresh ? 'Preparing…' : 'Reading the save…', 0.2);
       snap = meta.fresh ? null : await fetchLevel(meta.saveKey);
       // (a save from a newer version of the app can't be opened in this older one)
       if (snap && tooNew(snap.meta.appVersion)) {
         this.loadingLevel = false; this.simMeta = null;
+        await hideLoading();
         this.home.show(`"${meta.name}" was last saved by version ${snap.meta.appVersion}, which is newer than this one (${APP_VERSION}). Opening a newer version's simulation in an older version isn't supported: open it in version ${snap.meta.appVersion} or later.`);
         return;
       }
-      if (snap && snap.meta.N === GRID) applySnapshot(this, snap);
+      if (snap && snap.meta.N === GRID) { await loadingStep('Rebuilding the world…', 0.45); applySnapshot(this, snap); }
       else { snap = null; await this.startNewSim(meta); }
     } catch (err) {
       console.warn('Opening the simulation failed', err);
       this.setSaveStatus(`Couldn't open "${meta.name}": ${err.message}`);
     }
     this.loadingLevel = false;
+    await loadingStep('Loading the world grid…', 0.75);
     try { await loadGrid(this); gridStartup(this); this.toolbox?.renderGrid?.(); } catch (err) { console.warn('World grid unavailable', err); }
     // (the save as it was when this session began: something to roll back to)
     if (snap) { await pushHistory(meta.id, snap, 'Start of a session'); this.lastHistory = Date.now(); }
@@ -537,6 +558,8 @@ class App {
     this.toolbox.setSimName?.(meta.name);
     this.menubar?.refresh();
     this.toolbox.refresh();
+    await loadingStep('Drawing the map…', 0.9);
+    await hideLoading();
     this.setSaveStatus(snap ? `Opened "${meta.name}" (saved ${new Date(snap.meta.savedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })})` : `Created "${meta.name}"`);
     await this.autosave();
   }
@@ -558,10 +581,12 @@ class App {
     else if (st.seaLevel !== undefined && this.sim.seaEnabled && st.seaLevel !== 12) this.sim.seaLevel = st.seaLevel;
     if (st.seasons !== undefined) this.seasonParams.enabled = st.seasons;
     if (st.civ !== undefined) civParams.enabled = st.civ;
+    await loadingStep('Generating the terrain…', 0.35);
     generateTerrain(w, meta.preset, meta.seed);
     if (st.erosion !== undefined) w.erosionEnabled = st.erosion;
     if (st.wildlife) { const { addStarterFoodWeb } = await import('./sim/ecology.js'); addStarterFoodWeb(w); }
     this.renderer.dispD = null; this.renderer.wVis = null;
+    await loadingStep('Working out the wind and climate…', 0.6);
     updateWind(w, true);
     this.effects.deck.ready = false;
     this.afterLoad();
@@ -578,8 +603,11 @@ class App {
   async encodeCurrent() { return encodeLevel(snapshot(this)); }
 
   /** Travel to another cell of the world grid. */
-  travel(x, z) {
-    return travelTo(this, x, z, (msg) => this.setSaveStatus(msg));
+  async travel(x, z) {
+    if (this.travelling) return;
+    await showLoading('Travelling', 'Saving this cell…', 0.1);
+    try { return await travelTo(this, x, z, (msg) => { this.setSaveStatus(msg); loadingStep(msg, 0.5); }); }
+    finally { await hideLoading(); }
   }
 
   setSaveStatus(text) { this.saveStatus = text; this.toolbox.setSaveStatus?.(text); }

@@ -15,6 +15,24 @@
   </script>
 </head>
 <body>
+  <div id="loading" class="loading" hidden role="status" aria-live="polite">
+    <div class="ld-box">
+      <div class="ld-spin" aria-hidden="true"></div>
+      <div class="ld-title">Loading…</div>
+      <div class="ld-step"></div>
+      <div class="ld-bar"><i></i></div>
+    </div>
+  </div>
+  <script>
+    // (reloaded to open a simulation at its map size: cover the page at once, before the app loads)
+    if (/[?&]open=/.test(location.search)) {
+      const L = document.getElementById('loading'); L.hidden = false;
+      let name = ''; try { name = sessionStorage.getItem('loadingName') || ''; } catch (e) {}
+      L.querySelector('.ld-title').textContent = name ? 'Opening \u201c' + name + '\u201d' : 'Opening simulation';
+      L.querySelector('.ld-step').textContent = 'Starting the simulation…';
+      L.querySelector('.ld-bar i').style.width = '8%';
+    }
+  </script>
   <header id="menubar"></header>
   <main id="app">
     <div id="stage">

@@ -35,6 +35,8 @@ The page opens on a grey **home screen** listing your simulations, all kept in t
   the save you had in the history too.
 - **Export** a simulation to a `.geolevel` file, **Import from file…** to add one, **Rename**, **Delete**.
 - Levels from before the home screen appear as **My simulation**.
+- While a simulation opens (or a new one is made, or you travel to another world-grid cell) a
+  **loading screen** shows what it's doing and how far along it is.
 - Simulations are kept **per web address and per browser**: the live site, `localhost:8174` and
   another browser each have their own list, so a simulation made on one doesn't show on another
   (use Export and Import to move it). If the list itself is ever lost, the home screen rebuilds it
