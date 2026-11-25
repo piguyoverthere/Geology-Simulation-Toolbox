@@ -268,7 +268,10 @@ also break up fresh lava and ash, so new rock next to a forest weathers into soi
 than isolated rock.
 
 **Forest age.** Forests mature slowly while left alone, from young regrowth to old growth over
-roughly 1,000+ vegetation steps, and lose their age when they thin out, burn or are buried. Old
+roughly 1,000+ vegetation steps, and lose their age when they thin out, burn or are buried. A
+stand thinned only a little (cover just under 0.66, by disease, browsing or a dry spell) keeps its
+old trees and loses its age slowly; the loss rises steeply as the cover falls, and is at the full
+rate (0.03 a step) once the cover is below 0.36, where the canopy is really gone. Old
 growth is darker and far more robust. In tests comparing all-young with all-old forest on the
 same map: after a drought, 29% of old forest survived versus none of the young; old forest ground
 eroded about a third less under rain; and the same eruption's wildfire burned half as much old
@@ -1407,7 +1410,9 @@ fell to about 850 by step 1,000 as the stands became resistant, then rose and fe
 (1,000–2,200 cells). It dies out where its hosts are gone. The invasive pine is host to none of them. In a test, needle blight
 dropped forest health by 0.55 in young stands and by 0.05 in old ones. The *Tree disease* overlay
 colours each disease, the inspector names it, and the *Diseased forest* graph tracks its share of
-the forest.
+the forest. Under an old canopy (age above 0.6) the steady thinning stops at cover 0.68, and whole
+clumps die far less often, so an outbreak no longer strips the age off old forest: in a test,
+needle blight spreading to 11,600 cells took 0.6% of the old growth (it took 18% before this).
 
 With **Invasive plantation pine** off, every plantation is replanted with native trees at once and
 kept weeded of pine; the pine already loose in the wild keeps spreading through wild forest.

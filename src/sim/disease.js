@@ -121,13 +121,15 @@ export function diseaseStep(world) {
       if (Math.random() < 0.0015) l *= 0.25; // (a patch clears up on its own: a dry spell, a good year)
       // Damage, mostly to the young trees: some killed outright, the rest stunted
       const e = l * h * y;
-      if (V[i] > 0.35) V[i] -= 0.006 * e;                        // (dying saplings thin the cover)
+      // (dying saplings thin the cover; under an old canopy that hardly opens it)
+      if (V[i] > (A[i] > 0.6 ? 0.68 : 0.35)) V[i] -= 0.006 * e;
       if (DW) DW[i] = Math.min(1, DW[i] + 0.006 * e);            // (and stand dead)
       if (FH) FH[i] = Math.max(0, FH[i] - 0.02 * e);             // (no young trees coming through)
       if (TD) TD[i] = Math.max(0, TD[i] - 0.004 * e);
       if (A[i] < 0.6) A[i] = Math.max(0, A[i] - 0.0012 * e);     // (stunted: a young stand stops maturing)
       // Now and then a whole clump of host trees dies, old ones too
-      if (Math.random() < 0.04 * l * h * (0.4 + y)) {
+      // (rarely among old trees, which mostly survive it)
+      if (Math.random() < 0.04 * l * h * (0.1 + y)) {
         const k = h * (0.5 + 0.5 * Math.random());
         V[i] = Math.max(0.25, V[i] - 0.1 * k);
         if (TD) TD[i] = Math.max(0, TD[i] - 0.1 * k);

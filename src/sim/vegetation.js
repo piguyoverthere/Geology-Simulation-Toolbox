@@ -421,8 +421,10 @@ export function vegetationStep(world) {
 
     // Forest age: matures while forested, lost quickly when the cover thins or the ground is torn up
     let a = age;
+    // (a stand thinned a little, by disease, browsing or a dry spell, keeps its old trees and so its
+    // age: it's lost slowly just under forest cover, and fast only where the canopy is really gone)
     if (v > 0.66) a += p.ageRate * (1 - a);
-    else a -= p.ageLoss;
+    else { const gone = Math.min(1, (0.66 - v) / 0.3); a -= p.ageLoss * gone * gone; }
     a -= change * 2;
     if (saltKill) a -= 0.05;
     world.forestAge[i] = a < 0 ? 0 : a > 1 ? 1 : a;
