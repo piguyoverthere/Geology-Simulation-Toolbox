@@ -1523,7 +1523,7 @@ export function civStep(world) {
     // Clearing the invasive pine out of the forest around it
     if (civParams.clearInvasive) clearInvasives(world, t, R);
     // Parks: a growing town sets aside small areas around something special in the forest near it
-    if (civParams.townParks) { parkStep(world, t); wildernessStep(world, t); oldTrailStep(world, t); }
+    if (civParams.townParks) { parkStep(world, t); oldGrowthStep(world, t); wildernessStep(world, t); oldTrailStep(world, t); }
     // A big town sends people out to found a daughter village (linked by road)
     // (when the town is crowded: near what its land can feed)
     // (a town with boats can send them across the water, farther afield; without, only overland)
@@ -2670,18 +2670,19 @@ function edgeDist(p, x, z) {
   }
   return d;
 }
-export function parkStep(world, t) {
+export function parkStep(world, t, pick = null) {
   if (t.pop < 400) return;
-  // (every piece of park counts, merged or not)
+  // (every piece of park counts, merged or not; Old Growth Reserves have an allowance of their own)
   let mine = 0;
-  for (const p of world.parkSites || []) if (p.town === t.num || (p.towns && p.towns.includes(t.num))) mine += p.parts || 1;
+  for (const p of world.parkSites || []) if ((p.town === t.num || (p.towns && p.towns.includes(t.num))) && !p.oldOwn) mine += p.parts || 1;
   // (the Park frequency slider: how soon they come, and how many a town of its size keeps)
   const rate = civParams.parkRate ?? 1;
-  if (rate <= 0 || mine >= Math.max(1, Math.round((1 + t.pop / 1500) * rate)) || Math.random() > 0.02 * rate * Math.max(0.5, civParams.growth)) return;
+  if (!pick && (rate <= 0 || mine >= Math.max(1, Math.round((1 + t.pop / 1500) * rate)) || Math.random() > 0.02 * rate * Math.max(0.5, civParams.growth))) return;
   const N = world.N, LU = world.landUse, V = world.vegetation, A = world.forestAge, H = world.height, sea = seaOf(world);
   const sites = (world.parkSites ||= []);
   const glob = speciesRarity(world), K = SPECIES.length, sh = new Float32Array(K);
-  let best = null;
+  let best = pick;
+  if (!pick) {
   for (let k = 0; k < 160; k++) {
     const a = Math.random() * Math.PI * 2, d = 12 + Math.random() * 78; // (out to 90 cells: away from the town's own land)
     const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
@@ -2779,9 +2780,10 @@ export function parkStep(world, t) {
   // (only when it has next to no wild forest left within 20 cells, and has been there ten years)
   const old = (seasonParams.year || 1) - (t.founded || 1) >= 10;
   if (!best && old && localForest(world, t.x, t.z) < 0.15) { const c = commonsSite(world, t); if (c) best = c; }
+  }
   if (!best) return;
   const type = PARK_TYPES[best.kind];
-  const r = (5 + Math.random() * 4) * (civParams.parkSize ?? 1); // (10–18 cells across, times the Park size slider)
+  const r = best.r || (5 + Math.random() * 4) * (civParams.parkSize ?? 1); // (10–18 cells across, times the Park size slider)
   const label = best.kind === 'grove' ? `${SPECIES[best.sp].label.replace(/\s*\(.*\)/, '').replace(/ & .*/, '')} Grove`
     : best.kind === 'beach' ? ['Beach', 'Pebble Beach', 'Black Beach'][best.shore]
     : best.kind === 'refuge' ? `${best.animal.name} Refuge`
@@ -2790,7 +2792,7 @@ export function parkStep(world, t) {
   for (const k of type.restrict) restrict[k] = true;
   if (best.kind === 'woods' && Math.random() < 0.4) restrict.fires = true;
   if (best.kind === 'grove' && t.pop > 2000) restrict.earthworks = true;
-  const points = parkOutline(world, best.x, best.z, r, best.kind === 'commons');
+  const points = best.outline || parkOutline(world, best.x, best.z, r, best.kind === 'commons');
   const feature = best.kind === 'grove' ? SPECIES[best.sp].id : best.kind === 'refuge' ? 'wild:' + best.animal.id : best.kind === 'biome' ? 'biome:' + best.biome : best.kind;
   // (a Commons: its fields inside are taken out of farming and left to go wild)
   if (best.kind === 'commons') {
@@ -2837,7 +2839,7 @@ export function parkStep(world, t) {
       name = `${t.name} ${dir} ${label}`;
       for (let k = 2; sites.some((p) => p.name === name); k++) name = `${t.name} ${dir} ${label} ${k}`;
     }
-    site = { id: 'pk' + Math.random().toString(36).slice(2, 8), town: t.num, name, kind: best.kind, kinds: [best.kind], species: best.sp >= 0 ? SPECIES[best.sp].id : null,
+    site = { id: 'pk' + Math.random().toString(36).slice(2, 8), town: t.num, name, kind: best.kind, kinds: [best.kind], oldOwn: !!best.own, species: best.sp >= 0 ? SPECIES[best.sp].id : null,
       features: [feature], x: best.x, z: best.z, r, year, parts: 1, points, restrict };
     sites.push(site);
     from = { x: t.x, z: t.z };
@@ -3183,4 +3185,73 @@ export function oldTrailStep(world, t) {
   const n = (world.footpaths || []).filter((f) => f.spot && f.town === t.num).length;
   fp.spot = { x: best.x, z: best.z }; fp.town = t.num;
   fp.name = `${t.name} Old Forest Trail${n ? ` ${n + 1}` : ''}`;
+}
+
+/**
+ * Old Growth Reserves, set aside on their own (apart from the town's other parks, with an allowance
+ * of their own, so the rare groves, preserves and beaches don't crowd them out): a town of 400 or
+ * more looks up to 120 cells out for old growth (older than 0.78 over the stand, forest, outside any
+ * park but a National Forest) in wild country (little development within 12 cells; plantations
+ * beside it don't count), preferring the biggest old stands, and reserves it. The reserve is larger
+ * than other parks (12–26 cells across, times Park size) and its outline follows the old growth out
+ * to where the forest gets younger (below 0.7), meets the sea or anything built. A stand on one of the
+ * town's Old Forest Trails is preferred, and next to an existing reserve it joins it. A town keeps
+ * about one for every 1,200 people, plus one (times Park frequency).
+ */
+export function oldGrowthStep(world, t) {
+  const rate = civParams.parkRate ?? 1;
+  if (t.pop < 400 || rate <= 0 || Math.random() > 0.025 * rate * Math.max(0.5, civParams.growth)) return;
+  const sites = world.parkSites || [];
+  let mine = 0;
+  for (const p of sites) if (p.oldOwn && (p.town === t.num || (p.towns && p.towns.includes(t.num)))) mine += p.parts || 1;
+  if (mine >= Math.max(1, Math.round((1 + t.pop / 1200) * rate))) return;
+  const N = world.N, LU = world.landUse, V = world.vegetation, A = world.forestAge, H = world.height, sea = seaOf(world);
+  const FP = world.footpath;
+  let best = null;
+  for (let k = 0; k < 250; k++) {
+    const a = Math.random() * Math.PI * 2, d = 12 + Math.random() * 108;
+    const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
+    if (x < 8 || z < 8 || x >= N - 8 || z >= N - 8) continue;
+    const i = z * N + x;
+    if (LU[i] || V[i] < 0.6 || H[i] < sea + 0.3 || A[i] < 0.75) continue;
+    if (sites.some((p) => p.kind !== 'national' && (inPark(p, x, z) || edgeDist(p, x, z) < 4))) continue;
+    // (the stand: how old, and how much old growth there is within 10 cells)
+    let age = 0, c = 0, old = 0, oc = 0;
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { const j = i + dz * N + dx; if (!LU[j]) { age += A[j]; c++; } }
+    age /= Math.max(1, c);
+    if (age < 0.78) continue;
+    let dv = 0, dc = 0;
+    for (let dz = -12; dz <= 12; dz += 2) for (let dx = -12; dx <= 12; dx += 2) {
+      const j = i + dz * N + dx;
+      if (j < 0 || j >= N * N) continue;
+      dc++;
+      if (LU[j] && LU[j] !== 10 && !(FP && FP[j])) dv++;
+      if (dx * dx + dz * dz <= 100) { oc++; if (A[j] > 0.75 && V[j] > 0.55 && !LU[j]) old++; }
+    }
+    if (dv / dc > 0.2) continue;
+    const walked = (world.footpaths || []).some((f) => f.spot && !f.park && Math.hypot(f.spot.x - x, f.spot.z - z) < 8);
+    const score = age + (old / oc) * 0.8 - (dv / dc) * 2 - d * 0.001 + (walked ? 0.3 : 0);
+    if (!best || score > best.score) best = { x, z, score };
+  }
+  if (!best) return;
+  const r = (6 + Math.random() * 7) * (civParams.parkSize ?? 1);
+  // Outline: out along each ray while the forest stays old (a few younger cells are let through)
+  const K = 32, pts = [];
+  for (let k = 0; k < K; k++) {
+    const a = (k / K) * Math.PI * 2;
+    let reach = r * 0.35, gap = 0;
+    for (let s = 0.5; s <= r * 1.4; s += 0.5) {
+      const x = Math.round(best.x + Math.cos(a) * s), z = Math.round(best.z + Math.sin(a) * s);
+      if (x < 0 || z < 0 || x >= N || z >= N) break;
+      const j = z * N + x;
+      if (H[j] < sea || world.water[j] > 0.3 || (LU[j] && !(FP && FP[j]))) break;
+      if (A[j] >= 0.7 && V[j] > 0.5) { gap = 0; reach = s; } else if (++gap > 4) break;
+    }
+    pts.push({ x: best.x + Math.cos(a) * reach, z: best.z + Math.sin(a) * reach });
+  }
+  const outline = pts.map((p, k) => {
+    const a = pts[(k + K - 1) % K], b = pts[(k + 1) % K];
+    return { x: Math.max(0, Math.min(N - 1, (a.x + 2 * p.x + b.x) / 4)), z: Math.max(0, Math.min(N - 1, (a.z + 2 * p.z + b.z) / 4)) };
+  });
+  parkStep(world, t, { x: best.x, z: best.z, score: best.score, kind: 'old', sp: -1, r, outline, own: true });
 }
