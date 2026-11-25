@@ -44,6 +44,8 @@ export const civParams = {
   clearInvasive: true, // towns cut the invasive pine out of the wild forest around them (at a cost in people)
   townParks: true,   // towns set aside small parks around a special feature, with a trail loop through each
   nationalForests: true, // each map has one or two large National Forests, where no timber is cut
+  predatorControl: 0.5, // how hard towns cull the predators that take their livestock (0 = never)
+  herding: 0.3,      // herding, dogs and fencing: how well towns guard their livestock (0…1)
   fireSuppression: 0.5, // how hard towns fight the wildfires near them (0 = let them burn, 1 = put every one out)
   prescribedBurns: false, // towns burn off the fuel in their parks and nearby forest in the damp season
   climateChange: true, // the towns' greenhouse gas warms the climate and raises the sea (sim/climateChange.js)
@@ -1440,6 +1442,31 @@ export function civStep(world) {
         }
       }
       food += t.hunted * 1500;
+    }
+    // Livestock and predators: predators near the town's grazing land take its livestock (less with
+    // good herding and fencing), and the town culls them (Predator control): kill off the wolves and
+    // the deer they kept in check can boom and strip the young trees
+    t.livestockLost = 0;
+    if (world.animals && world.animals.length && world.grazing) {
+      const preds = world.animals.filter((a) => a.prey.length && ['land', 'forest', 'meadow', 'mountains'].includes(a.habitat));
+      if (preds.length) {
+        const R = 15 + Math.sqrt(t.pop) / 2;
+        const x0 = Math.max(0, Math.floor(t.x - R)), x1 = Math.min(N - 1, Math.ceil(t.x + R));
+        const z0 = Math.max(0, Math.floor(t.z - R)), z1 = Math.min(N - 1, Math.ceil(t.z + R));
+        const guard = Math.max(0, Math.min(1, civParams.herding ?? 0.3));
+        const cull = (civParams.predatorControl ?? 0.5) * (1 - 0.5 * guard);
+        for (const a of preds) {
+          const F = world['animal_' + a.id];
+          if (!F) continue;
+          for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+            const i = z * N + x, g = world.grazing[i] + (LU[i] === 1 ? 0.5 : 0);
+            if (F[i] <= 0.001 || (x - t.x) ** 2 + (z - t.z) ** 2 > R * R) continue;
+            if (g > 0.05) t.livestockLost += F[i] * g * (1 - 0.8 * guard);
+            if (cull > 0 && !zoneHas(world, i, Z.hunting)) F[i] -= F[i] * 0.04 * cull * (g > 0.05 ? 1.5 : 0.5);
+          }
+        }
+        food -= Math.min(food * 0.3, t.livestockLost * 600);
+      }
     }
     // Trade: working roads to other towns bring in goods and food
     let working = 0, roadsNear = 0;

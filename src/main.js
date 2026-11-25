@@ -558,6 +558,7 @@ class App {
     if (st.civ !== undefined) civParams.enabled = st.civ;
     generateTerrain(w, meta.preset, meta.seed);
     if (st.erosion !== undefined) w.erosionEnabled = st.erosion;
+    if (st.wildlife) { const { addStarterFoodWeb } = await import('./sim/ecology.js'); addStarterFoodWeb(w); }
     this.renderer.dispD = null; this.renderer.wVis = null;
     updateWind(w, true);
     this.effects.deck.ready = false;

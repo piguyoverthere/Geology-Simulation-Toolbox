@@ -264,7 +264,9 @@ function stepAnimal(world, a, M, sea, k) {
     P[i] = p;
     fed += p; starving += p * (hu > 0.4 ? 1 : 0);
     // --- What it does to the place ---
-    if (grazer && M.land[i]) world.browse[i] = Math.min(1, world.browse[i] + p * (a.eats.grass || a.eats.young ? 1 : 0.5));
+    // (where their predators are about, grazers keep moving and browse less: the young trees there
+    // get a chance to grow, the landscape of fear behind a trophic cascade)
+    if (grazer && M.land[i]) world.browse[i] = Math.min(1, world.browse[i] + p * (a.eats.grass || a.eats.young ? 1 : 0.5) * (hunted ? 1 - 0.65 * Math.min(1, hunted[i] * 2.5) : 1));
     if (a.eats.plankton && world.plankton && M.seaM[i]) world.plankton[i] = Math.max(0, world.plankton[i] - 0.02 * p * k);
     if (a.eats.seaweed && world.marineHealth && M.seaM[i]) {
       const m = world.marine ? world.marine[i] : -1;
@@ -450,4 +452,24 @@ export function describeAnimal(world, a) {
   if (a.migrates && a.migrates !== 'none') habits.push(MIGRATION[a.migrates].toLowerCase());
   habits.push(`likes ${a.tempMin ?? -10} to ${a.tempMax ?? 30} °C`);
   return `Lives in: ${HABITATS[a.habitat].toLowerCase()}. Eats: ${foods.length ? foods.join(', ') : 'nothing yet (it will die out)'}.${habits.length ? ' ' + habits.join('; ') + '.' : ''}`;
+}
+
+/**
+ * A starter food web: deer (grazing meadows and browsing young trees, avoiding deep snow) and wolves
+ * (hunting the deer), spread over the land they suit. Without the wolves the deer multiply and
+ * browse the young trees out, and the forest stops regenerating; with them the deer are kept in
+ * check and shy away from where the wolves hunt (a trophic cascade).
+ */
+export function addStarterFoodWeb(world) {
+  ensureEcology(world);
+  const deer = newAnimal({ name: 'Deer', color: [0.66, 0.46, 0.26], habitat: 'land', eats: { grass: true, young: true }, breed: 1.1, roam: 3, habits: { avoidsSnow: true } });
+  const wolf = newAnimal({ name: 'Wolf', color: [0.42, 0.42, 0.46], habitat: 'land', eats: {}, prey: [deer.id], breed: 0.7, roam: 7, habits: {} });
+  world.animals.push(deer, wolf);
+  const n = world.N * world.N, D = animalField(world, deer), W = animalField(world, wolf);
+  for (let i = 0; i < n; i++) {
+    if (!canLive(world, deer, i) || world.vegetation[i] < 0.2) continue;
+    D[i] = 0.25 + 0.1 * Math.random();
+    W[i] = 0.05 + 0.03 * Math.random();
+  }
+  return [deer, wolf];
 }

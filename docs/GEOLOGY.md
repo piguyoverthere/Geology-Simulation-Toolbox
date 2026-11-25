@@ -1414,6 +1414,23 @@ change. **Overlays → Forest carbon** maps it, the inspector shows it, and the 
 graph tracks it. In a test the map held about 107,000 t, old growth 5.5 t a cell and bare ground
 0.04; burning a 40×40 block of forest released 1,552 t, which became 6.2 ppm of greenhouse gas.
 
+## Predators, livestock and trophic cascades (`src/sim/ecology.js`, `src/sim/civilization.js`)
+
+Grazers already browse young trees (world.browse holds the forest back from regrowing). Now they
+also fear their predators: where the animals that hunt them are about, they keep moving and browse
+up to 65% less, so the young trees there get a chance (the landscape of fear). Towns' livestock
+graze the land around their farms, and predators there take some of it (food lost, up to 30% of
+the town's); towns cull the predators around them, hardest near their herds (**Predator control**,
+Civilization), and guard their herds (**Herding & fencing**): fewer losses, and so less culling.
+Cull the predators away and the grazers they kept in check boom and browse out the young trees, and
+the forest stops regenerating: a trophic cascade. **+ Deer & wolves** (Life → Wildlife) and the New
+simulation dialog's *Deer & wolves* add a starter food web: deer (meadows and young trees, avoiding
+deep snow) and wolves hunting them. In a test over 260 steps, deer on their own rose to 0.65 (as a
+share of what the land can hold) and browsed the land to 0.58, while with the wolves they stayed at
+0.066 and browsing at 0.055, and land that was regrowing kept more cover (0.56 against 0.51 and
+falling). Around a town of 1,500, culling cut the wolves nearby from 0.041 to 0.009 and the
+livestock lost by half; good herding cut the losses to a sixth and left more wolves (0.015).
+
 ## Groundwater (`src/sim/groundwater.js`)
 
 Beneath the soil every cell holds groundwater (world.groundwater, 0 dry … 1 full). Left alone it

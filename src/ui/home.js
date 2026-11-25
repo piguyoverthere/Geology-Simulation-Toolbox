@@ -251,6 +251,7 @@ export class Home {
     const seasons = check('Seasons', true, 'Summer and winter, snow, leaf fall.');
     const civ = check('Civilization', true, 'Towns can be founded and grow.');
     const erosion = check('Erosion', true, 'Rain and rivers wear the land down.');
+    const wildlife = check('Deer & wolves', true, 'Start with a food web: deer that graze and browse, and wolves that hunt them.');
     const btns = el('div', 'home-form-buttons');
     const cancel = btn('Cancel', (e) => { e.preventDefault(); back.remove(); });
     const create = el('button', 'home-btn primary', 'Create');
@@ -261,7 +262,7 @@ export class Home {
       e.preventDefault();
       const meta = newSimMeta({
         name: name.value.trim() || 'New simulation', N: +size.value, preset: preset.value, seed: +seed.value || 1,
-        settings: { sea: sea.value, seaLevel: +level.value, seasons: seasons.checked, civ: civ.checked, erosion: erosion.checked },
+        settings: { sea: sea.value, seaLevel: +level.value, seasons: seasons.checked, civ: civ.checked, erosion: erosion.checked, wildlife: wildlife.checked },
       });
       await addSim(meta);
       back.remove();
