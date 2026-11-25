@@ -1474,7 +1474,10 @@ the park it joins, and the park's trails are numbered. In a test, 11 park pieces
 three merged parks of 2–3 pieces, 15–28 cells across, and three single ones. With the larger outlines, single parks covered 140–210 cells (for example 10×20 and 23×14 cells) and a park merged from three pieces about 400. In other tests, a town ringed by its own fields made Commons
 (some of which merged), and a herd of deer packed into one patch got a *Deer Refuge* 3 cells from its
 centre. A town whose district was farmed all round but for one wood made that wood its *Last
-Woods*, and a big town found a *Tundra Preserve* and a *Coastal Dunes Preserve*. A coastal town made *Glenfield Beach*, taking in 21 cells of sand beach and the land behind, with no sea inside.
+Woods*, and a big town found a *Tundra Preserve* and a *Coastal Dunes Preserve*. A coastal town made *Glenfield Beach*, taking in 21 cells of sand beach and the land behind, with no sea inside. A beach park's trail doesn't loop inland: it comes out from the town to the nearer end
+of the beach and runs along the beach itself to the other end, a single narrow track over the sand,
+shingle or boulders (the longest connected stretch of beach in and just outside the park). In tests,
+beach trails ran 11–16 cells along the beach, many of them right at the water's edge.
 
 The parks appear in the **Drawings** list as green polygons, where you can change their
 restrictions or delete them; world.parkSites remembers each park. Turn them off with **Town parks**

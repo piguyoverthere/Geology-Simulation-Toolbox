@@ -2824,12 +2824,22 @@ export function parkStep(world, t) {
   (world.newParks ||= []).push({ id: site.id, name: site.name, points: site.points, restrict: { ...site.restrict } });
   // A trail loop through the new ground, from the side nearest the town, walked out to from the town
   // (or, for ground joining a park, from the middle of the park it joins)
-  const ta = Math.atan2(from.z - best.z, from.x - best.x), rl = r * 0.7;
-  const at = (a) => ({ x: Math.round(best.x + Math.cos(a) * rl), z: Math.round(best.z + Math.sin(a) * rl) });
-  const loop = [at(ta), at(ta + 2.1), at(ta + 4.2), at(ta)];
+  // (a beach park's trail instead runs along the beach itself, end to end, walked out to from town)
   const before = new Set((world.footpaths || []).map((f) => f.id));
-  let fp = addFootpath(world, from, loop[0], false);
-  for (let k = 0; k < 3; k++) fp = addFootpath(world, loop[k], loop[k + 1]) || fp;
+  const along = best.kind === 'beach' ? beachPath(world, points) : null;
+  let fp;
+  if (along) {
+    const near = Math.hypot(along[0].x - from.x, along[0].z - from.z) <= Math.hypot(along[along.length - 1].x - from.x, along[along.length - 1].z - from.z);
+    if (!near) along.reverse();
+    fp = addFootpath(world, from, along[0], false);
+    if (fp) { fp.pts.push(...along.slice(1)); markFootpaths(world); }
+  } else {
+    const ta = Math.atan2(from.z - best.z, from.x - best.x), rl = r * 0.7;
+    const at = (a) => ({ x: Math.round(best.x + Math.cos(a) * rl), z: Math.round(best.z + Math.sin(a) * rl) });
+    const loop = [at(ta), at(ta + 2.1), at(ta + 4.2), at(ta)];
+    fp = addFootpath(world, from, loop[0], false);
+    for (let k = 0; k < 3; k++) fp = addFootpath(world, loop[k], loop[k + 1]) || fp;
+  }
   if (fp && !before.has(fp.id)) { fp.park = site.id; (site.trails ||= []).push(fp.id); }
   // (the park's trails are named after it, numbered if there are several)
   const trails = (world.footpaths || []).filter((f) => f.park === site.id);
@@ -3047,4 +3057,60 @@ function beachSite(world, t) {
     if (score > 0.25 && (!best || score > best.score)) best = { x: cx, z: cz, score, kind: 'beach', sp: -1, shore: kind };
   }
   return best;
+}
+
+/**
+ * A path along the beach inside a park outline: from one end of the beach to the other, cell by
+ * cell over the beach itself (sand, shingle or boulders above the water). Null if there's too
+ * little beach for one.
+ */
+function beachPath(world, poly) {
+  const N = world.N, SH = world.shore, H = world.height, LU = world.landUse, sea = seaOf(world);
+  if (!SH) return null;
+  const beach = new Set([SHORE.sand, SHORE.shingle, SHORE.basalt]);
+  let x0 = N, x1 = 0, z0 = N, z1 = 0;
+  for (const p of poly) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
+  // (the beach just outside the outline counts too: the outline stops at the water's edge)
+  x0 = Math.max(0, Math.floor(x0) - 4); z0 = Math.max(0, Math.floor(z0) - 4); x1 = Math.min(N - 1, Math.ceil(x1) + 4); z1 = Math.min(N - 1, Math.ceil(z1) + 4);
+  const site = { points: poly };
+  const ok = new Set();
+  for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+    const i = z * N + x;
+    if (!beach.has(SH[i]) || H[i] < sea - 0.2 || LU[i]) continue;
+    if (inPark(site, x, z) || edgeDist(site, x, z) < 4) ok.add(i);
+  }
+  if (ok.size < 5) return null;
+  const bfs = (start) => {
+    const dist = new Map([[start, 0]]), prev = new Map(), q = [start];
+    for (let h = 0; h < q.length; h++) {
+      const i = q[h], x = i % N;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        if ((dx === 1 && x === N - 1) || (dx === -1 && x === 0)) continue;
+        const j = i + dz * N + dx;
+        if (!ok.has(j) || dist.has(j)) continue;
+        dist.set(j, dist.get(i) + 1); prev.set(j, i); q.push(j);
+      }
+    }
+    let far = start, fd = 0;
+    for (const [j, d] of dist) if (d > fd) { fd = d; far = j; }
+    return { far, fd, prev };
+  };
+  // (the two ends of the longest stretch of beach: on the biggest connected stretch, its farthest
+  // cell from anywhere, then the farthest from that)
+  let start = -1, most = 0;
+  const seen = new Set();
+  for (const i of ok) {
+    if (seen.has(i)) continue;
+    const r = bfs(i);
+    let size = 0;
+    for (const j of r.prev.keys()) { seen.add(j); size++; }
+    seen.add(i);
+    if (size + 1 > most) { most = size + 1; start = r.far; }
+  }
+  const a = start;
+  const { far: b, fd, prev } = bfs(a);
+  if (fd < 4) return null;
+  const pts = [];
+  for (let i = b; i !== undefined; i = prev.get(i)) pts.push({ x: i % N, z: (i / N) | 0 });
+  return pts;
 }
