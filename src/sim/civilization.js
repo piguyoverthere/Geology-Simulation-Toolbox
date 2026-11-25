@@ -43,6 +43,7 @@ export const civParams = {
   invasive: true,  // plantations are planted with an invasive exotic pine that escapes into the wild forest
   clearInvasive: true, // towns cut the invasive pine out of the wild forest around them (at a cost in people)
   townParks: true,   // towns set aside small parks around a special feature, with a trail loop through each
+  parkRate: 1,       // how often towns make parks (and how many a town keeps; 0 = none)
   parkSize: 1,       // how large the towns' parks are made (× the usual 10–18 cells across; not Wilderness Areas)
   trailsSpread: true, // footpaths carry tree diseases and invasive pine seed (on boots), like roads
 };
@@ -2666,7 +2667,9 @@ export function parkStep(world, t) {
   // (every piece of park counts, merged or not)
   let mine = 0;
   for (const p of world.parkSites || []) if (p.town === t.num || (p.towns && p.towns.includes(t.num))) mine += p.parts || 1;
-  if (mine >= 1 + Math.floor(t.pop / 1500) || Math.random() > 0.02 * Math.max(0.5, civParams.growth)) return;
+  // (the Park frequency slider: how soon they come, and how many a town of its size keeps)
+  const rate = civParams.parkRate ?? 1;
+  if (rate <= 0 || mine >= Math.max(1, Math.round((1 + t.pop / 1500) * rate)) || Math.random() > 0.02 * rate * Math.max(0.5, civParams.growth)) return;
   const N = world.N, LU = world.landUse, V = world.vegetation, A = world.forestAge, H = world.height, sea = seaOf(world);
   const sites = (world.parkSites ||= []);
   const glob = speciesRarity(world), K = SPECIES.length, sh = new Float32Array(K);
@@ -2862,7 +2865,7 @@ function commonsSite(world, t) {
  * that is taken.
  */
 export function wildernessStep(world, t) {
-  if (t.pop < 1500 || Math.random() > 0.004 * Math.max(0.5, civParams.growth)) return;
+  if (t.pop < 1500 || Math.random() > 0.004 * (civParams.parkRate ?? 1) * Math.max(0.5, civParams.growth)) return;
   const sites = (world.parkSites ||= []);
   if (sites.some((p) => p.kind === 'wilderness' && p.town === t.num)) return;
   const N = world.N, n = N * N, LU = world.landUse, H = world.height, V = world.vegetation, sea = seaOf(world), FP = world.footpath;

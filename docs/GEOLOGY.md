@@ -1412,7 +1412,10 @@ kept weeded of pine; the pine already loose in the wild keeps spreading through 
 
 A town of 400 people or more sets aside parks near it, each 10–18 cells across (times the **Park
 size** slider, 0.3–3, under Life → Civilization; Wilderness Areas aren't affected). In a test, new
-parks covered 21–53 cells at 0.5, 117–148 at 1 and 306–662 at 2. A park's outline is
+parks covered 21–53 cells at 0.5, 117–148 at 1 and 306–662 at 2. The **Park frequency** slider (0–5) sets how
+often towns make parks and how many a town keeps (about one per 1,500 people, plus one, times the
+slider); 0 stops new parks and Wilderness Areas. In a test, a town of 3,000 made 0, 2.3 and 7.7
+parks in 150 steps at 0, 1 and 3. A park's outline is
 an irregular blob, often drawn out longer one way than the other (up to about twice as long as it
 is wide), with bays and lobes. It stops short where the wild land ends: at fields, streets, roads,
 the sea, lakes and big rivers (a Commons only at streets, works and water). Most
