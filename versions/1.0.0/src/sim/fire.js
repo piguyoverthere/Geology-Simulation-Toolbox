@@ -1,0 +1,142 @@
+// Wildfire.
+//
+// Lava is around 1000 °C, so any vegetation it touches catches fire. Fire then spreads from plant
+// to plant: dense forest carries a fast, intense fire (lots of fuel, crowns touching), grassland a
+// slower one, and bare ground stops it. Fire runs faster uphill (flames lean into the slope and
+// pre-heat the fuel above) and is damped by wet ground, open water and rain (the global rain or a
+// storm passing overhead). Snow puts it out completely: a burning spot that gets snowed on goes
+// out, and fire can't spread onto snowy ground. Fire in dry country is much harder to put out: parched soil and dry
+// litter keep smouldering and flare up again, and resinous pine burns hot and long. So rain and
+// water quench a fire in a damp broadleaf forest quickly, but barely slow one in a dry pine wood. Burnt ground is left
+// barren and ash-covered; plants return more slowly while the ash and charred soil recover.
+//
+// world.fire is the fire intensity per cell (0 = not burning); world.burnt (1 = freshly burnt)
+// fades as the vegetation step regrows the land.
+
+import { waterParams } from './water.js';
+import { drySeason, climateParams } from './climate.js';
+import { FOREST_TYPES, forestTypeAt } from './forests.js';
+
+export const fireParams = {
+  enabled: true,
+  spread: 1.6,      // chance per step to ignite a fully fuelled neighbour (× intensity × dt)
+  burnRate: 0.4,    // fuel (plant cover) consumed per second at full intensity
+  minFuel: 0.12,    // cover below this can't carry fire
+  resiliency: 0,
+  mergeGap: 4,      // fires burning at the same time this close (cells) count as one (Fire history)    // how much a big fire shrugs off rain (0 = rain puts any fire out as well; 1+ = big fires burn on through it)
+};
+
+/**
+ * How readily cover catches: forest (crowns touching) very readily; grassland and shrubland
+ * (dry grass, sagebrush) carry a slower, creeping fire; bare ground barely at all.
+ */
+function flammability(v) {
+  const t = Math.min(Math.max((v - 0.62) / 0.25, 0), 1);
+  const g = Math.min(Math.max((v - 0.15) / 0.3, 0), 1);
+  return t * t * (3 - 2 * t) + 0.035 * g * g * (3 - 2 * g);
+}
+
+const SNOWED = 0.02; // any lying snow (depth) puts fire out and stops it spreading
+
+const NEIGHBORS = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
+let ignite = null;
+
+/** Advance fire one step. Returns true while anything is burning. */
+export function fireStep(world, dt) {
+  const N = world.N, n = N * N;
+  const F = world.fire, V = world.vegetation, H = world.height, L = world.lava, T = world.lavaTemp;
+  const B = world.burnt, D = world.water, W = world.nearWater;
+  if (!ignite || ignite.length !== n) ignite = new Uint8Array(n);
+  const p = fireParams;
+  const globalRain = waterParams.rain > 0.01;
+  const LW = world.lastWet, now = world.time, SO = world.soil, PS = world.pineShare;
+  // How hard a fire here is to put out: dry soil and pine make it stubborn (1 ≈ ordinary)
+  // A dry summer (with Seasons on and Dry summers set) makes the whole landscape tinder
+  const drought = drySeason();
+  const SN = world.snow;
+  const wind = (climateParams.windAngle * Math.PI) / 180;
+  const resist = (i) => (0.6 + 1.6 * (1 - (SO ? SO[i] : 0.5))) * (1 + 1.5 * (PS ? PS[i] : 0)) * (1 + 3 * drought);
+  const rainingAt = (i) => globalRain || now - LW[i] < 0.5;
+  const cells = world.fireCells;
+  // Fire resiliency: once a fire is big (hundreds of cells burning, as of the last step), its heat
+  // and the updraft over it dry the air and drive the rain off, so rain puts it out far more slowly.
+  // (Standing water and snow still put it out.)
+  const bigFire = 1 + p.resiliency * 4 * Math.min(1, Math.max(0, (cells.length - 80) / 400));
+  cells.length = 0;
+  let any = false;
+
+  for (let z = 0; z < N; z++) {
+    for (let x = 0; x < N; x++) {
+      const i = z * N + x;
+      const hotLava = L[i] > 0.02 && T[i] > 0.25;
+      if (F[i] <= 0 && !hotLava) continue;
+      any = true;
+
+      // Snow smothers fire completely
+      if (F[i] > 0 && SN && SN[i] > SNOWED) { F[i] = 0; continue; }
+      if (F[i] > 0) {
+        // Standing water puts fire out quickly, rain more slowly; otherwise intensity builds up to
+        // what the fuel can sustain (a grass fire never gets as hot as a crown fire)
+        if (D[i] > 0.05) F[i] -= (dt * 6) / resist(i);
+        else if (rainingAt(i)) F[i] -= (dt * 1.2) / (resist(i) * bigFire); // (a big fire makes its own weather: rain hardly reaches it)
+        else F[i] = Math.min(Math.min(1, 0.2 + V[i] * 1.2), F[i] + dt * 2);
+        V[i] -= p.burnRate * dt * F[i];
+        if (V[i] <= 0.03 || F[i] < 0.05) {
+          V[i] = Math.max(0, V[i]);
+          if (V[i] <= 0.03) { B[i] = 1; V[i] = 0; world.humus[i] *= 0.6; world.forestAge[i] = 0; } // litter and topsoil burn
+          F[i] = 0;
+          continue;
+        }
+        cells.push(i);
+      }
+      if (!p.enabled) continue;
+
+      // Spread to (or, for lava, ignite) the 8 neighbours
+      const heat = hotLava ? 1 : F[i];
+      for (let k = 0; k < 8; k++) {
+        const nx = x + NEIGHBORS[k][0], nz = z + NEIGHBORS[k][1];
+        if (nx < 0 || nz < 0 || nx >= N || nz >= N) continue;
+        const j = nz * N + nx;
+        if (F[j] > 0 || ignite[j] || V[j] < p.minFuel || L[j] > 0.02 || (SN && SN[j] > SNOWED)) continue;
+        // Forest type matters: resinous conifers and dry woodland burn readily, rainforest and swamp barely
+        // Old-growth forest (thick bark, damp shaded floor) is harder to ignite than young stands
+        const kind = V[j] > 0.62
+          ? (world.forestFlam ? world.forestFlam[j] : FOREST_TYPES[forestTypeAt(world, j)].flammability) * (1 - 0.35 * world.forestAge[j])
+          : 1;
+        // Grass and shrubs only burn well when they've dried out (cured grass in a dry summer)
+        const grassy = V[j] <= 0.62 ? 0.3 + 0.8 * (1 - (SO ? SO[j] : 0.5)) + 4 * drought : 1;
+        // (standing dead wood from a bark beetle outbreak burns fiercely)
+        const fuel = flammability(V[j]) * kind * grassy * (1 + 2.5 * (world.deadWood ? world.deadWood[j] : 0));
+        const rj = resist(j);
+        const damp = (1 - 0.7 * (W ? W[j] : 0)) * (D[j] > 0.05 ? Math.min(1, 0.1 * rj) : 1)
+          * (rainingAt(j) ? Math.min(1, 0.3 * rj) : 1) * (0.7 + 0.6 * (1 - (SO ? SO[j] : 0.5)));
+        const uphill = 1 + Math.min(2, Math.max(0, H[j] - H[i]) * 1.5);
+        const diag = k < 4 ? 1 : 0.7;
+        // Late-summer fire season: bone-dry fuels let fire run several times faster
+        const chance = hotLava ? 0.5 * fuel : p.spread * dt * heat * fuel * damp * uphill * diag * (1 + 4 * drought);
+        if (Math.random() < chance) ignite[j] = 1;
+      }
+      // Spotting: in the fire season, burning embers blow downwind and start new fires ahead of the
+      // front (often hundreds of metres), so big fires leap roads, rivers and firebreaks
+      if (!hotLava && drought > 0.2 && F[i] > 0.4 && Math.random() < 0.6 * drought * F[i] * dt) {
+        const dist = 2 + Math.random() * (3 + 6 * drought);
+        const a = wind + (Math.random() - 0.5) * 0.9;
+        const sx = Math.round(x + Math.cos(a) * dist), sz = Math.round(z + Math.sin(a) * dist);
+        if (sx >= 0 && sz >= 0 && sx < N && sz < N) {
+          const j = sz * N + sx;
+          if (F[j] <= 0 && V[j] >= p.minFuel && D[j] <= 0.05 && L[j] <= 0.02 && !(SN && SN[j] > SNOWED)) ignite[j] = 1;
+        }
+      }
+    }
+  }
+  if (!any) return false;
+
+
+  for (let i = 0; i < n; i++) {
+    if (!ignite[i]) continue;
+    ignite[i] = 0;
+    F[i] = 0.3;
+  }
+  world.dirty = true;
+  return true;
+}
