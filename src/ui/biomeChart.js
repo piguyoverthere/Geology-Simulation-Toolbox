@@ -18,6 +18,7 @@ const lift = (c) => {
   for (let k = 0; k < 12; k++) { const t = (lo + hi) / 2; lum(c.map((v) => v + (1 - v) * t)) < 0.55 ? (lo = t) : (hi = t); }
   return c.map((v) => v + (1 - v) * hi);
 };
+import { spotlight, speciesMask, biomeMask } from './spotlight.js';
 const rgb = (c, a = 1) => { c = lift(c); return `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${a})`; };
 const MAX_POINTS = 400;
 
@@ -169,8 +170,18 @@ export class BiomeChart {
       row.title = info?.help || '';
       row.innerHTML = `<span class="biome-sw" style="background:${rgb(tab.color(id))}"></span><span class="biome-name"></span><span class="biome-pct">${v * 100 < 0.1 ? '<0.1' : (v * 100).toFixed(1)}%</span>`;
       row.querySelector('.biome-name').textContent = info?.label || id;
-      row.addEventListener('mouseenter', () => { this.hot = id; row.classList.add('hot'); this.paint(); });
-      row.addEventListener('mouseleave', () => { if (this.hot === id) this.hot = null; row.classList.remove('hot'); this.paint(); });
+      row.addEventListener('mouseenter', () => {
+        this.hot = id; row.classList.add('hot'); this.paint();
+        // (and the map shows just this biome, species, or the snow or ice)
+        const w = this.app.world;
+        try {
+          const M = this.tab === 'trees' ? (id === 'open' ? null : speciesMask(w, id))
+            : this.tab === 'snow' ? Float32Array.from(id === 'ice' ? (w.ice || []) : (w.snow || []), (v) => (v > (id === 'ice' ? 0.05 : 0.1) ? 1 : 0))
+            : biomeMask(w, id, true);
+          spotlight(this.app, M);
+        } catch { /* nothing to show */ }
+      });
+      row.addEventListener('mouseleave', () => { if (this.hot === id) this.hot = null; row.classList.remove('hot'); this.paint(); spotlight(this.app, null); });
       this.legend.append(row);
     }
     this.note.textContent = this.tab === 'biomes'

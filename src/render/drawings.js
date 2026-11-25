@@ -8,6 +8,7 @@
 // cancels.
 
 import * as THREE from 'three';
+import { spotOnHover, shapeMask } from '../ui/spotlight.js';
 
 export const drawSettings = {
   shape: 'path',      // 'path' | 'polygon'
@@ -287,6 +288,9 @@ export class Drawings {
     if (!s.label) {
       s.label = document.createElement('div');
       s.label.className = 'draw-label';
+      // (hover the name: the map shows just this park or drawing)
+      if (this.app) spotOnHover(s.label, this.app, () => shapeMask(this.world, s));
+      else s.label.addEventListener('mouseenter', () => { if (window.app) window.app.renderer.setSpotlight(shapeMask(this.world, s)); }), s.label.addEventListener('mouseleave', () => { if (window.app) window.app.renderer.setSpotlight(null); });
       this.container.append(s.label);
     }
     // (a town's park or a National Forest is labelled with its name alone)

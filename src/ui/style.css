@@ -493,3 +493,6 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 @media (prefers-reduced-motion: reduce) { .ld-spin { animation-duration: 2.5s; } .loading, .ld-bar i { transition: none; } }
 
 .home-note { margin-top: 10px; font-size: 12.5px; color: #c9b98a; }
+
+/* Labels on the map can be hovered to spotlight what they name (ui/spotlight.js) */
+.town-label, .draw-label { pointer-events: auto; cursor: default; }

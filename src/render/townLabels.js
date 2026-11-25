@@ -2,6 +2,7 @@
 // over the town as the camera moves.
 
 import * as THREE from 'three';
+import { spotOnHover, townMask } from '../ui/spotlight.js';
 
 export class TownLabels {
   constructor(container, app) {
@@ -21,6 +22,8 @@ export class TownLabels {
       if (!el) {
         el = document.createElement('div');
         el.className = 'town-label';
+        // (hover the name: the map shows just this town)
+        spotOnHover(el, app, () => townMask(app.world, t));
         this.container.append(el);
         this.labels.set(t.id, el);
       }

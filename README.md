@@ -75,6 +75,9 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
 - Towns, roads and parks the sea covers for good are **washed away**.
 - Grassland the sea covers turns into **beach**, which takes decades to turn back into grassland.
 - A **Farmland cap** (Civilization) limits how much of the land the towns may farm.
+- **Spotlight**: hover over a town, park, footpath, drawing, animal, tree species, biome or land use
+  (in the panel, the map key, the Biomes & trees window, or a name on the map) and the map shows just
+  that, everything else faded to white.
 - **Mods**: JavaScript files that add tree species, tools, overlays, settings, rules and starter
   animals, added from the 🧩 Mods tab. See [the modding guide](docs/MODDING.md) and the example
   [mods/example-mod.js](mods/example-mod.js).

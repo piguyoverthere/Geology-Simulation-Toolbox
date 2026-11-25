@@ -21,6 +21,7 @@ import { bestSite, foundTown, ensureCiv, updateProtectedZones, RESTRICTIONS } fr
 import { YEAR_KINDS } from '../sim/climate.js';
 import { HABITATS, PLANT_FOODS, HABITS, MIGRATION, newAnimal, removeAnimal, describeAnimal } from '../sim/ecology.js';
 import { MOD, listMods, addMod, setModEnabled, removeMod } from '../core/mods.js';
+import { spotOnHover, townMask, shapeMask, pathMask, animalMask, speciesMask, biomeMask, landUseMask } from './spotlight.js';
 const app_autosave = async (app) => { try { await app.autosave(); } catch { /* not saved */ } };
 
 /** The sidebar's topic tabs and the settings sections on each. */
@@ -487,6 +488,7 @@ export class Toolbox {
     const colors = Object.keys(DRAW_COLORS);
     for (const s of all) {
       const row = el('div', 'draw-item');
+      if (s !== d.current) spotOnHover(row, this.app, () => shapeMask(this.app.world, s));
       let after = null; // (the restrictions panel, shown under the row)
       const dot = el('span', 'dot');
       dot.style.background = s.color;
@@ -618,6 +620,7 @@ export class Toolbox {
       spark.title = 'Population over time (click to expand)';
       row.append(sw, name, spark, paint, edit, del);
       this.helpOn(row, `<b>${escapeHtml(a.name)}</b> — ${escapeHtml(describeAnimal(w, a))}`);
+      spotOnHover(row, app, () => animalMask(app.world, a));
       L.append(row);
       const big = el('canvas', 'tb-popchart');
       big.width = 270; big.height = 120;
@@ -682,6 +685,7 @@ export class Toolbox {
         this.renderFootpaths();
       }, 'tb-small', `Remove ${fp.name}.`, this);
       row.append(el('span', '', '🥾'), name, del);
+      spotOnHover(row, this.app, () => pathMask(w, fp.pts));
       L.append(row);
     }
   }
@@ -705,6 +709,7 @@ export class Toolbox {
       big.width = 270; big.height = 120; big.hidden = !this.openTowns.has(t.id);
       row.addEventListener('click', () => { if (this.openTowns.has(t.id)) this.openTowns.delete(t.id); else this.openTowns.add(t.id); big.hidden = !this.openTowns.has(t.id); this.drawGraphs(); });
       this.helpOn(row, `<b>${escapeHtml(t.name)}</b> — founded in year ${t.founded}. Population ${Math.round(t.pop)} of the ${Math.round(t.capacity || 0)} its land can feed; ${t.cells || 0} cells of town, ${t.industry || 0} of industry, ${t.farm || 0} of farmland${t.hunted > 0.01 ? '; still hunting much of its food' : ''}${t.boats ? `; a harbour with ${t.boats} fishing boat${t.boats > 1 ? 's' : ''}` : ''}${t.byBoat ? '; settled by boat' : ''}${t.dam >= 0 ? '; has dammed a river for a reservoir' : ''}${t.canals ? `; ${t.canals} irrigation canal${t.canals > 1 ? 's' : ''}` : ''}${t.seaOutfall >= 0 ? '; its sewage piped out to the nearest sea' : ''}${t.timberCells ? `; ${t.timberCells} cells of timber plantation` : ''}${t.invCleared ? `; has cleared ${t.invCleared.toFixed(0)} cells' worth of invasive pine (at a cost of ${Math.round(t.invLost || 0)} people)` : ''}${t.woodNeed ? `; timber: ${Math.round(t.woodStock || 0)} in stock, using ${t.woodNeed.toFixed(1)} a step${t.woodSupply < 1 ? ` (short: only ${Math.round(t.woodSupply * 100)}% of what it needs coming in)` : ''}` : ''}${t.mineCount ? `; ${t.mineCount} mine${t.mineCount > 1 ? 's' : ''}` : ''}${t.sick > 0 ? `; an epidemic: ${Math.round(t.sick * 100)}% sick` : t.outbreaks ? `; ${t.outbreaks} outbreak${t.outbreaks > 1 ? 's' : ''} of disease (last in year ${t.lastOutbreak})` : ''}${Math.abs(t.migrants || 0) > 2 ? `; people ${t.migrants > 0 ? 'moving in' : 'moving away'}` : ''}${t.lastFire ? `; a fire got away from it in year ${t.lastFire}` : ''}${t.smoky ? '; under wildfire smoke, people falling ill' : ''}${t.links && t.links.length ? `; roads to ${t.links.length} town${t.links.length > 1 ? 's' : ''} (${Math.round((t.roadsWorking ?? 1) * 100)}% in working order)` : ''}. Click for its population chart.`);
+      spotOnHover(row, this.app, () => townMask(w, t));
       L.append(row, big);
       this.townGraphs.push({ t, val, spark, big });
     }
@@ -939,6 +944,11 @@ export class Toolbox {
         sw.style.background = rgb(it.color);
         item.append(sw, el('span', '', it.label));
         if (it.help) this.helpOn(item, `<b>${it.label}</b> — ${it.help}`);
+        // (hover: the map shows just this)
+        const w = this.app.world;
+        if (it.lu) spotOnHover(item, this.app, () => landUseMask(w, it.lu));
+        else if (it.biome) spotOnHover(item, this.app, () => biomeMask(w, it.biome, mode !== 'natural' && mode !== 'biome'));
+        else if (it.speciesId) spotOnHover(item, this.app, () => speciesMask(w, it.speciesId));
         L.append(item);
       }
     };
@@ -1034,7 +1044,7 @@ export class Toolbox {
       show();
     }
     else if (mode === 'natural' || mode === 'biome') {
-      items(mode === 'biome' ? 'Biomes' : 'Biomes (blended)', Object.values(BIOMES));
+      items(mode === 'biome' ? 'Biomes' : 'Biomes (blended)', Object.entries(BIOMES).map(([id, b]) => ({ ...b, biome: id })));
       // Your animals, when shown on the map
       const animals = this.app.world.animals || [];
       if (mode === 'natural' && animals.length && this.app.wildlife.visible) {
@@ -1054,19 +1064,19 @@ export class Toolbox {
     else if (mode === 'disease') items('Tree diseases (stronger colour = heavier infection)', [{ label: 'Healthy forest', color: [0.55, 0.70, 0.52], help: 'Forest with no disease.' }, ...DISEASES, { label: 'Road carrying spores', color: [0.62, 0.58, 0.48], help: 'A road whose traffic carries a disease (tinted in its colour): the host trees beside it catch it.' }]);
     else if (mode === 'air') ramp('Air pollution (town smoke, acid rain, wildfire smoke)', 'clean', 'thick smoke', [[0.86, 0.90, 0.92], [0.35, 0.28, 0.22]]);
     else if (mode === 'landuse') items('Land use', [
-      { label: 'Fields', color: [0.95, 0.80, 0.30], help: 'Farmland (greener where irrigated).' },
-      { label: 'Timber plantation', color: [0.09, 0.48, 0.20], help: 'Outlined in dark green; brown-green where it has just been felled and is regrowing.' },
+      { lu: 1, label: 'Fields', color: [0.95, 0.80, 0.30], help: 'Farmland (greener where irrigated).' },
+      { lu: 10, label: 'Timber plantation', color: [0.09, 0.48, 0.20], help: 'Outlined in dark green; brown-green where it has just been felled and is regrowing.' },
       { label: 'Plantation resting', color: [0.40, 0.70, 0.43], help: 'A painted plantation the town has stopped working while its worn soil recovers; it takes it up again once the soil is good.' },
-      { label: 'Town', color: [0.86, 0.28, 0.22], help: 'Streets and houses.' },
-      { label: 'Industry', color: [0.58, 0.36, 0.74], help: 'Mass-paved industrial areas.' },
-      { label: 'Road', color: [0.30, 0.30, 0.34], help: 'Roads and bridges.' },
-      { label: 'Harbour', color: [0.98, 0.55, 0.15], help: 'Harbours.' },
-      { label: 'Dock', color: [0.55, 0.42, 0.30], help: 'Docks: paved piers built out over the water from the quays.' },
-      { label: 'Quay / breakwater', color: [0.70, 0.70, 0.72], help: 'Sea walls and breakwaters.' },
-      { label: 'Dam', color: [0.95, 0.95, 0.95], help: 'Dams.' },
-      { label: 'Canal', color: [0.25, 0.80, 0.90], help: 'Irrigation canals.' },
-      { label: 'Mine', color: [0.30, 0.27, 0.25], help: 'Open-pit mines.' },
-      { label: 'Spoil heap', color: [0.85, 0.50, 0.20], help: 'Waste rock from the mines: poisonous ground.' },
+      { lu: 2, label: 'Town', color: [0.86, 0.28, 0.22], help: 'Streets and houses.' },
+      { lu: 4, label: 'Industry', color: [0.58, 0.36, 0.74], help: 'Mass-paved industrial areas.' },
+      { lu: 3, label: 'Road', color: [0.30, 0.30, 0.34], help: 'Roads and bridges.' },
+      { lu: 5, label: 'Harbour', color: [0.98, 0.55, 0.15], help: 'Harbours.' },
+      { lu: 13, label: 'Dock', color: [0.55, 0.42, 0.30], help: 'Docks: paved piers built out over the water from the quays.' },
+      { lu: 6, label: 'Quay / breakwater', color: [0.70, 0.70, 0.72], help: 'Sea walls and breakwaters.' },
+      { lu: 7, label: 'Dam', color: [0.95, 0.95, 0.95], help: 'Dams.' },
+      { lu: 8, label: 'Canal', color: [0.25, 0.80, 0.90], help: 'Irrigation canals.' },
+      { lu: 11, label: 'Mine', color: [0.30, 0.27, 0.25], help: 'Open-pit mines.' },
+      { lu: 12, label: 'Spoil heap', color: [0.85, 0.50, 0.20], help: 'Waste rock from the mines: poisonous ground.' },
       { label: 'Wild land', color: [0.62, 0.70, 0.56], help: 'Not used by any town (paler where bare). This view leaves out pollution, murky water, clouds and fog.' },
     ]);
     else if (mode === 'precip') ramp('Precipitation', 'dry (rain shadow)', 'wet (windward)', [[0.86, 0.74, 0.52], [0.12, 0.35, 0.75]]);
@@ -1084,7 +1094,7 @@ export class Toolbox {
     else if (mode === 'ice') ramp('Glacier ice (grey = none)', 'thin', 'thick', [[0.82, 0.93, 0.98], [0.45, 0.72, 0.92], [0.12, 0.28, 0.62]]);
     else if (mode === 'decid') ramp('Deciduous share (pale = no forest)', 'evergreen', 'all deciduous', [[0.10, 0.32, 0.22], [0.95, 0.60, 0.12]]);
     else if (mode === 'temp') ramp('Temperature today (land: air · sea: surface water)', '−15 °C', '35 °C', [[0.15, 0.25, 0.65], [0.92, 0.94, 0.98], [0.35, 0.65, 0.35], [0.95, 0.80, 0.30], [0.80, 0.20, 0.12]]);
-    else if (mode === 'species') items('Dominant tree species', [...SPECIES, OPEN].map((s) => ({ ...s, color: s.mapColor })));
+    else if (mode === 'species') items('Dominant tree species', [...SPECIES.map((s) => ({ ...s, speciesId: s.id })), OPEN].map((s) => ({ ...s, color: s.mapColor })));
     else if (mode === 'chem') ramp('Soil chemistry (from the rock below)', 'acidic (granite, sandstone)', 'alkaline (limestone, marble)', [[0.55, 0.30, 0.62], [0.88, 0.86, 0.80], [0.20, 0.62, 0.56]]);
     else if (mode === 'age') ramp('Forest age (pale = no forest)', 'young', 'old growth', [[0.72, 0.86, 0.42], [0.05, 0.24, 0.10]]);
     else if (mode === 'soil') ramp('Soil depth', 'bare rock', 'deep soil', [[0.88, 0.85, 0.76], [0.72, 0.48, 0.24], [0.22, 0.13, 0.07]]);

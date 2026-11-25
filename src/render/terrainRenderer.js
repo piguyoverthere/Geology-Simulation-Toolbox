@@ -204,6 +204,14 @@ export class TerrainRenderer {
     return new THREE.Mesh(geo, mat);
   }
 
+  /** Show only the cells of `mask` (Float32Array, 1 shown … 0 faded to white); null shows everything. */
+  setSpotlight(mask) {
+    if (mask === this.spotMask) return;
+    this.spotMask = mask && mask.length === this.world.N * this.world.N ? mask : null;
+    this.spotChanged = true;
+    this.world.dirty = true;
+  }
+
   update(force = false) {
     const w = this.world;
     if (!w.dirty && !force) return;
@@ -235,7 +243,9 @@ export class TerrainRenderer {
       topoInt = step; topoLo = Math.max(lo, sea > -999 ? sea : lo);
       this.topo = { lo: topoLo, hi, interval: step };
     }
-    const allColor = force || stride === 1 || mode !== this.lastMode || this.showVegetation !== this.lastVeg;
+    const allColor = force || stride === 1 || mode !== this.lastMode || this.showVegetation !== this.lastVeg || this.spotChanged;
+    this.spotChanged = false;
+    const SM = this.spotMask; // (a spotlight: everything outside it fades to white, see ui/spotlight.js)
     this.lastMode = mode; this.lastVeg = this.showVegetation;
     this.colorPhase = ((this.colorPhase || 0) + 1) % stride;
     const phase = this.colorPhase;
@@ -524,6 +534,7 @@ export class TerrainRenderer {
           const dirty = Math.min(0.5, (w.iceDebris ? w.iceDebris[i] : 0) * 2);
           mix(col, mix(ICE, ICE_DIRTY, dirty, S4), t * 0.92, col);
         }
+        if (col && SM && SM[i] < 1) mix(col, SPOT_WHITE, 0.9 * (1 - SM[i]), col);
         if (col) { this.tCol[i3] = col[0] * col[0]; this.tCol[i3 + 1] = col[1] * col[1]; this.tCol[i3 + 2] = col[2] * col[2]; }
 
         // Lava and fire layer: alpha 1 where present, 0 (discarded) elsewhere
@@ -886,6 +897,7 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
+const SPOT_WHITE = [0.97, 0.97, 0.96];
 const FF_BG = [0.74, 0.78, 0.70], FF_ASH = [0.62, 0.58, 0.54], FF_BIG = [0.30, 0.29, 0.29], FF_FIRE = [0.95, 0.35, 0.10], FF_WEED = [0.85, 0.20, 0.62], FF_POPPY = [0.98, 0.58, 0.10];
 const FISH_LAND = [0.70, 0.70, 0.68], FISH_GONE = [0.80, 0.20, 0.15], FISH_LOW = [0.95, 0.80, 0.30], FISH_FULL = [0.10, 0.30, 0.65], FISH_RESERVE = [0.20, 0.80, 0.50], POL_NONE = [0.55, 0.55, 0.57], POL_FULL = [1.0, 0.80, 0.15], POL_FIELD = [0.35, 0.22, 0.10], FUEL_NONE = [0.80, 0.80, 0.78], FUEL_LOW = [0.35, 0.65, 0.35], FUEL_MID = [0.95, 0.80, 0.25], FUEL_HIGH = [0.80, 0.15, 0.10], FUEL_GUARD = [0.20, 0.40, 0.90], CARB_LOW = [0.90, 0.88, 0.80], CARB_MID = [0.55, 0.70, 0.35], CARB_HIGH = [0.05, 0.22, 0.12], GW_DRY = [0.86, 0.76, 0.55], GW_MID = [0.55, 0.72, 0.80], GW_FULL = [0.10, 0.28, 0.62], GW_SAME = [0.84, 0.86, 0.88], GW_DOWN = [0.80, 0.15, 0.12], GW_SUNK = [0.25, 0.10, 0.08], POP_BG = [0.55, 0.56, 0.58], POP_HEAT = [[0.25, 0.10, 0.45], [0.80, 0.15, 0.25], [0.98, 0.55, 0.10], [1.0, 0.95, 0.60]], ONE_LIGHT = [0.86, 0.86, 0.88], ONE_DARK = [0.26, 0.27, 0.30], FOOTPATH = [0.80, 0.68, 0.48], INVASIVE = [0.10, 0.26, 0.28], INV_OPEN = [0.86, 0.85, 0.80], INV_NATIVE = [0.30, 0.62, 0.30], INV_FULL = [0.66, 0.16, 0.38], MINE_A = [0.30, 0.27, 0.25], MINE_B = [0.38, 0.33, 0.29], SPOIL = [0.70, 0.48, 0.26], DEGRADED = [0.82, 0.72, 0.52], AIR_CLEAN = [0.86, 0.90, 0.92], DIS_HEALTHY = [0.55, 0.70, 0.52], FIRE_BG_LO = [0.86, 0.84, 0.80], FIRE_BG_HI = [0.70, 0.78, 0.68], FIRE_TMP = [0, 0, 0], AIR_DIRTY = [0.35, 0.28, 0.22];
 const LU_OPEN = [0.86, 0.85, 0.80], LU_WILD = [0.62, 0.70, 0.56], LU_IRRIGATED = [0.55, 0.80, 0.45], LU_FELLED = [0.70, 0.60, 0.36], LU_EDGE = [0.02, 0.18, 0.06], LU_RESTING = [0.56, 0.80, 0.56];

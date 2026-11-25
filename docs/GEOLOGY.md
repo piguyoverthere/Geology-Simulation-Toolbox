@@ -1493,6 +1493,25 @@ Forest the sea covers isn't affected by this rule. In a test, the sea was raised
 grassland cells near the shore and then lowered again: 826 were left as beach, with plant cover held
 at 7%. The rest had been in the tidal zone already.
 
+## Spotlight (`src/ui/spotlight.js`)
+
+Hover over something and the map shows just that: its cells keep their colours and everything else
+fades to white, until the pointer moves off. It works for:
+- **Towns**: their row in Civilization, or their name on the map. Everything the town owns lights up
+  (streets, fields, industry, roads, harbour), with its centre.
+- **Parks and drawings**: their row in Drawings, or their name on the map. The area inside them (or
+  along them, for a line) lights up.
+- **Footpaths**: their row in the footpath list.
+- **Animals**: their row in Wildlife. Brighter where there are more of them.
+- **Tree species**: in the Tree species map key, or the Trees tab of Biomes & trees. Where each species
+  grows, brighter the bigger its share.
+- **Biomes**: in the Biomes map key, or the Biomes tab of Biomes & trees.
+- **Snow and ice**: in the Snow & ice tab.
+- **Land uses**: in the Land use map key.
+
+Working out a mask takes a few milliseconds: 33 ms for a species and 11 ms for a biome on a 256×256
+map.
+
 ## Fire-resistant and giant trees (`src/sim/species.js`, `src/sim/fire.js`)
 
 Three new tree species have thick, fire-resistant bark (`fireproof`):
