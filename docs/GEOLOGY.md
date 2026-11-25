@@ -1387,6 +1387,25 @@ native). Work gangs cut it out there, the worst first. The work costs the town p
 every 0.4 of a cell's worth of pine cleared, and the cut pine is worthless as timber, so it isn't
 added to the town's wood. The **Towns clear invasive pine** switch (Civilization) turns it off.
 
+## Groundwater (`src/sim/groundwater.js`)
+
+Beneath the soil every cell holds groundwater (world.groundwater, 0 dry … 1 full). Left alone it
+settles at a natural level (world.gwNatural) set by the rain, the soil and the lie of the land
+(valley floors and hollows fill highest). Rain recharges it (less under pavement), water standing
+on the ground leaks down into it, it seeps slowly towards its neighbours, and where it's full in a
+valley bottom it seeps out into the stream as base flow, which keeps rivers running through dry
+spells. Towns pump it from wells in a cone around them: their people (0.00004 a person a step) and
+their farmland. Pumped faster than the rain refills it, the water table falls; where it's pumped
+nearly dry the ground settles (subsidence, world.subsided, up to 1.5) and the town runs short of
+water (its carrying capacity falls 30%). Stop pumping and it slowly refills. **Overlays →
+Groundwater** shows how full the ground is, **Groundwater drawdown** how far the wells have drawn it
+below its natural level (and where the ground has sunk); the inspector shows it and the *Groundwater*
+graph tracks the map's total. Settings (Land → Water): *Groundwater* on/off, *Well pumping*. In a test
+over 400 steps on ground whose natural level was 0.58, a village of 400 drew its wells down to 0.43,
+a town of 3,000 to 0.23, a city of 8,000 to 0.09 (wells dry, ground sunk 0.2) and the same city
+pumping three times as hard to 0 (sunk 0.52); left alone, the drawn-down city's wells refilled to
+0.43. The step takes about 1 ms.
+
 ## Tree diseases (`src/sim/disease.js`)
 
 Introduced pathogens, each attacking only certain native trees. None is present until you introduce

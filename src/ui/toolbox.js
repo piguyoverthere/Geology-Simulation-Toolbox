@@ -153,6 +153,8 @@ export class Toolbox {
     sim.append(
       slider('Sim speed', app.sim, 'substeps', 1, 20, 1,
         'Water-flow steps per frame. Higher = faster geological time, lower framerate.', this),
+      toggle('Groundwater', app.groundwaterParams, 'enabled', 'Water stored in the ground: rain refills it, it seeps to lower ground and out into springs and streams in the valleys (keeping rivers running through dry spells), and towns pump it from wells. See it with the Groundwater and Groundwater drawdown overlays.', this),
+      slider('Well pumping', app.groundwaterParams, 'pumping', 0, 4, 0.1, 'How hard the towns pump groundwater for their people and fields (1 = usual). Pumped faster than the rain refills it, the water table falls in a cone around each town: streams fail, the town runs short of water and the ground sinks where it\'s pumped dry.', this),
       slider('Global rain', app.waterParams, 'rain', 0, 0.1, 0.002,
         'Rainfall over the whole map, fed into the shallow-water flow model. Rivers form where runoff converges.', this),
       slider('Evaporation', app.waterParams, 'evaporate', 0, 0.3, 0.005,
@@ -922,6 +924,14 @@ export class Toolbox {
     };
     if (mode === 'rock' || (mode === 'natural' && !this.app.renderer.showVegetation)) items('Rock types', ROCKS);
     else if (mode === 'bare') items('Exposed rock (pale = under soil)', [{ label: 'Soil-covered', color: [0.86, 0.84, 0.78], help: 'Bedrock buried under soil deep enough to grow on.' }, ...ROCKS]);
+    else if (mode === 'groundwater') {
+      ramp('Groundwater (how full the ground is)', 'dry', 'full', [[0.86, 0.76, 0.55], [0.55, 0.72, 0.80], [0.10, 0.28, 0.62]]);
+      L.append(el('div', 'tb-note', 'Water stored in the ground beneath the soil. Rain refills it, it seeps towards lower ground and out into springs and streams in the valleys, and towns pump it from wells.'));
+    }
+    else if (mode === 'gwChange') {
+      ramp('Groundwater drawn down by pumping', 'as it would be', 'pumped dry', [[0.84, 0.86, 0.88], [0.80, 0.15, 0.12]]);
+      L.append(el('div', 'tb-note', 'How far the towns\' wells have drawn the water table below where the rain would keep it: a cone around each town. Dark red-brown where the ground has sunk (subsidence) from being pumped nearly dry.'));
+    }
     else if (mode === 'population') {
       ramp('People per cell (where the towns\' people live)', 'a few', '60+', [[0.25, 0.10, 0.45], [0.80, 0.15, 0.25], [0.98, 0.55, 0.10], [1.0, 0.95, 0.60]]);
       const total = Math.round(this.app.world.civPop || 0);

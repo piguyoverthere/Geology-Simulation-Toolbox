@@ -22,6 +22,7 @@ import { CurrentPaths } from './render/currentPaths.js';
 import { ecoParams, ecologyStep } from './sim/ecology.js';
 import { WildlifeMarkers } from './render/wildlife.js';
 import { recordStats } from './sim/stats.js';
+import { groundwaterStep, groundwaterParams } from './sim/groundwater.js';
 import { recordProbes } from './sim/probes.js';
 import { civParams, civStep } from './sim/civilization.js';
 import { TownLabels } from './render/townLabels.js';
@@ -75,6 +76,7 @@ class App {
     this.windParams = windParams;
     this.ecoParams = ecoParams;
     this.civParams = civParams;
+    this.groundwaterParams = groundwaterParams;
 
     this.tool = 'raise';
     this.brush = { radius: 12, strength: 0.5 };
@@ -801,6 +803,7 @@ class App {
       if (this.frame % 30 === 15) { civStep(this.world); this.addTownParks(); gridTick(this); } // (towns, farms, roads and their pollution)
       if (this.frame % 30 === 25) diseaseStep(this.world); // (tree diseases you have introduced)
       if (this.frame % 30 === 5) steadySiteInputs(this.world); // (year-averaged wetness for the tree species)
+      if (this.frame % 30 === 10) groundwaterStep(this.world); // (the aquifer: recharge, seepage, base flow, wells)
       if (this.frame % 10 === 9) { this.ecoPart = ((this.ecoPart ?? -1) + 1) % 3; ecologyStep(this.world, this.ecoPart); }
       if (this.frame % 10 === 7) { updateWind(this.world); if (this.world.erosionEnabled) windErosion(this.world); }
       // Glacier ice creeps a little every frame (faster at higher sim speed)

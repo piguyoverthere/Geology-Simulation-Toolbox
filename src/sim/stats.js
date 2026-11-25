@@ -6,6 +6,7 @@
 import { seasonalAt } from './climate.js';
 import { waterQuality } from './waterQuality.js';
 import { isLivingBed } from './coast.js';
+import { groundwaterShare } from './groundwater.js';
 
 const HISTORY = 300;
 
@@ -21,6 +22,7 @@ export const STATS = [
   { id: 'ice', label: 'Glacier ice', group: 'Land', unit: '%', help: 'Share of the land under glacier ice.' },
   { id: 'burnt', label: 'Burnt or burning', group: 'Land', unit: '%', help: 'Share of the land on fire or freshly burnt.' },
   { id: 'deadWood', label: 'Dead forest', group: 'Land', unit: '%', help: 'Share of the land with standing dead trees (killed by tree-killing animals), which burn fiercely.' },
+  { id: 'groundwater', label: 'Groundwater', group: 'Land', unit: '%', help: 'How much water is in the ground compared with what it would hold left alone: below 100% where towns pump it out faster than the rain refills it.' },
   { id: 'diseased', label: 'Diseased forest', group: 'Land', unit: '%', help: 'Share of the forest infected with one of the tree diseases you have introduced.' },
   { id: 'temp', label: 'Average temperature', group: 'Climate', unit: '°C', help: 'Average temperature over the land today (with the season).' },
   { id: 'smoky', label: 'Smoky air', group: 'Climate', unit: '%', help: 'Share of the map under smoke: wildfire smoke drifting downwind, and the towns\' smoke.' },
@@ -87,7 +89,7 @@ export function computeStats(world) {
   const pct = (a, b) => (b > 0 ? (100 * a) / b : 0);
   return {
     forest: pct(forest, land), grass: pct(grass, land), bare: pct(bare, land),
-    oldGrowth: pct(old, forest), diseased: pct(diseased, forest),
+    oldGrowth: pct(old, forest), diseased: pct(diseased, forest), groundwater: world.groundwater ? 100 * groundwaterShare(world) : null,
     health: world.forestHealth && forest ? (100 * healthSum) / forest : null,
     density: world.treeDensity && forest ? (100 * densSum) / forest : null,
     snow: pct(snow, land), ice: pct(ice, land), burnt: pct(burnt, land), deadWood: pct(dead, land),

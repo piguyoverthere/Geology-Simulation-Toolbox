@@ -1454,7 +1454,8 @@ export function civStep(world) {
     food *= yearFactor;
     // Water: a river or lake nearby, or only wells; dirty water slows them
     const freshNear = fields.fresh[ci];
-    const waterOK = freshNear > 0.02 ? 1 : 0.35;
+    // (and when the wells have been pumped nearly dry, water runs short)
+    const waterOK = (freshNear > 0.02 ? 1 : 0.35) * (t.wellsDry ? 0.7 : 1);
     const dirty = Math.min(1, (RP[ci] || 0) * 0.5 + (fields.fresh[ci] > 0 ? 0 : 0));
     // (and it can only hold so many more than its streets house: it grows as fast as it builds)
     let K = Math.max(20, Math.min(food * waterOK * (1 - 0.4 * dirty), (townCells / 2 + indCells + 4) * PER_TOWN_CELL * 1.3));
