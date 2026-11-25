@@ -6,7 +6,7 @@
 import { PRESETS } from '../core/generate.js';
 import { listSims, newSimMeta, addSim, deleteSim, updateSim, restoreHistory } from '../core/sims.js';
 import { fetchLevel, storeLevel, encodeLevel, decodeLevel } from '../core/save.js';
-import { APP_VERSION, IS_PRERELEASE, compareVersions, tooNew } from '../version.js';
+import { APP_VERSION, IS_PRERELEASE, SITE_ROOT, compareVersions, tooNew } from '../version.js';
 
 const SIZES = [128, 192, 256, 384, 512];
 
@@ -32,7 +32,7 @@ export class Home {
     const head = el('div', 'home-head');
     head.append(el('h1', '', 'Geology Simulation Toolbox'), el('div', 'home-sub', 'Your simulations are kept in this browser. Export one to a file to keep it safe or move it to another computer.'));
     const actions = el('div', 'home-actions');
-    const guide = btn('📖 Guide', () => { location.href = 'docs.html'; });
+    const guide = btn('📖 Guide', () => { location.href = `${SITE_ROOT}docs.html`; });
     guide.title = 'How to use the toolbox, and how each part of the simulation works';
     actions.append(btn('＋ New simulation', () => this.newDialog(), 'primary'), btn('Import from file…', () => this.importFile()), guide);
     this.list = el('div', 'home-list');
@@ -43,10 +43,12 @@ export class Home {
     this.versionSel.addEventListener('change', () => {
       const v = this.versionSel.value;
       if (!v) return;
-      if (confirm(`Open version ${v} of the app? You can come back to this version (${APP_VERSION}) from the address bar or its own menu.`)) location.href = `versions/${v}/index.html`;
+      if (confirm(`Open version ${v} of the app? You can come back to this version (${APP_VERSION}) from the address bar or its own menu.`)) location.href = `${SITE_ROOT}versions/${v}/index.html`;
       this.versionSel.value = '';
     });
     foot.append(el('span', 'home-version', `Version ${APP_VERSION}`), this.versionSel);
+    // (running an archived version: a way back to the site's current one)
+    if (SITE_ROOT !== './') { const back = btn('Back to the current version', () => { location.href = SITE_ROOT; }); foot.insertBefore(back, this.versionSel); }
     // (a side panel: experimental prereleases to try)
     this.side = el('aside', 'home-side');
     this.side.hidden = true;
@@ -78,7 +80,7 @@ export class Home {
     first.value = '';
     sel.append(first);
     try {
-      const res = await fetch('versions/versions.json', { cache: 'no-store' });
+      const res = await fetch(`${SITE_ROOT}versions/versions.json`, { cache: 'no-store' });
       const list = res.ok ? await res.json() : [];
       for (const v of list.filter((x) => x.version !== APP_VERSION).reverse()) {
         const o = el('option', '', `${v.version}${v.prerelease ? ' (experimental)' : ''}${v.date ? ` · ${v.date}` : ''}${v.notes ? ` — ${v.notes}` : ''}`);
@@ -101,7 +103,7 @@ export class Home {
     for (const v of pre) {
       const card = el('div', 'home-pre');
       card.append(el('div', 'home-pre-ver', v.version), el('div', 'home-pre-notes', v.notes || ''), el('div', 'home-pre-date', v.date || ''));
-      card.append(btn('Try it', () => { if (confirm(`Open experimental version ${v.version}? It might be unstable. Simulations you save in it can't be opened again in older versions.`)) location.href = `versions/${v.version}/index.html`; }));
+      card.append(btn('Try it', () => { if (confirm(`Open experimental version ${v.version}? It might be unstable. Simulations you save in it can't be opened again in older versions.`)) location.href = `${SITE_ROOT}versions/${v.version}/index.html`; }));
       S.append(card);
     }
   }
