@@ -36,6 +36,7 @@ export const civParams = {
   growth: 1,      // how fast towns spread: new villages, hunting
   popRate: 1,     // how fast their populations increase
   farmSlope: 15,  // steepest ground (degrees) that can be farmed; steeper must be terraced flat first
+  farmCap: 100,   // most of the land (%) that may be farmland, all towns together (100 = no cap)
   destruction: 1, // how hard towns are on the land: burning to clear it, pollution, terracing
   quarrying: true, // whether big towns quarry hills away
   extraPlantations: false, // towns keep starting plantations even when they have all the timber they need
@@ -1268,6 +1269,7 @@ export function civStep(world) {
   const towns = world.towns;
   const N = world.N, n = N * N, H = world.height, sea = seaOf(world);
   const P = world.paved, LU = world.landUse, OW = world.civOwner, RP = world.riverPollution;
+  farmCapStep(world);
   // --- Pollution: light near pavement, heavy downstream (always) ---------------------------
   for (let i = 0; i < n; i++) if (RP[i] > 0) RP[i] = RP[i] < 1e-3 ? 0 : RP[i] * 0.85;
   let anyPaved = false;
@@ -2403,6 +2405,12 @@ function expand(world, t, use, count, R, fields, NWexp = null) {
     cands.push([score + Math.random() * 0.05, i]);
   }
   cands.sort((a, b) => b[0] - a[0]);
+  // (the farmland cap: no more fields once the map's farmland reaches it)
+  if (use === 1 && (civParams.farmCap ?? 100) < 100 && world.landCells) {
+    const room = Math.floor((civParams.farmCap / 100) * world.landCells) - (world.farmCells || 0);
+    count = Math.max(0, Math.min(count, room));
+    world.farmCells = (world.farmCells || 0) + Math.min(count, cands.length);
+  }
   for (let k = 0; k < Math.min(count, cands.length); k++) {
     const i = cands[k][1];
     if (use === 2) pave(world, i, t.num, 2);
@@ -2411,6 +2419,39 @@ function expand(world, t, use, count, R, fields, NWexp = null) {
       makeFarm(world, i, t.num);
     }
   }
+}
+
+/**
+ * The farmland cap (civParams.farmCap, % of the land): counts the map's land and farmland for the
+ * towns' growth, and where there's more farmland than the cap allows (the cap was lowered), the
+ * fields farthest from their towns are given up a few at a time (left fallow as old fields that go
+ * back to the wild).
+ */
+function farmCapStep(world) {
+  const N = world.N, n = N * N, H = world.height, LU = world.landUse, OW = world.civOwner, sea = seaOf(world);
+  let land = 0, farms = 0;
+  for (let i = 0; i < n; i++) { if (H[i] >= sea) land++; if (LU[i] === 1) farms++; }
+  world.landCells = land; world.farmCells = farms;
+  const cap = civParams.farmCap ?? 100;
+  if (cap >= 100) return;
+  const excess = farms - Math.floor((cap / 100) * land);
+  if (excess <= 0) return;
+  const at = {};
+  for (const t of world.towns || []) at[t.num] = t;
+  const far = [];
+  for (let i = 0; i < n; i++) {
+    if (LU[i] !== 1) continue;
+    const t = at[OW[i]];
+    far.push([t ? Math.hypot((i % N) - t.x, ((i / N) | 0) - t.z) : 1e9, i]);
+  }
+  far.sort((a, b) => b[0] - a[0]);
+  const drop = Math.min(far.length, Math.max(20, Math.ceil(excess * 0.1)), excess);
+  for (let k = 0; k < drop; k++) {
+    const i = far[k][1];
+    LU[i] = 0; OW[i] = 0; world.irrigated[i] = 0;
+    markOldField(world, i);
+  }
+  world.farmCells = farms - drop;
 }
 
 /**

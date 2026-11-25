@@ -1493,6 +1493,15 @@ Forest the sea covers isn't affected by this rule. In a test, the sea was raised
 grassland cells near the shore and then lowered again: 826 were left as beach, with plant cover held
 at 7%. The rest had been in the tidal zone already.
 
+## Farmland cap (`farmCapStep`, Civilization: Farmland cap %)
+
+The most of the map's land that may be farmland, all the towns together (1–100%, default 100 = no
+cap). Once the fields reach it, towns clear no more and grow only on the food they already have
+(and the sea's). Lowered below what's farmed now, the fields farthest from their towns are given up
+a few at a time (a tenth of the excess a step, at least 20 cells) and go back to the wild as old
+fields. In a test with towns held at 4,000 people, farmland at 1.44% of the land fell to a 1% cap
+over nine town steps and stayed there.
+
 ## Keeping trails from getting too dense
 
 Towns' trails (park trails, old-growth trails, wilderness trails) used to pile up: each one was
