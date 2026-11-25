@@ -1442,7 +1442,8 @@ Parks protect only what is hard to find; where nothing rare is near a town, it m
 Woods and Game Woods (ordinary forest) are no longer made; any already on a map stay.
 
 **National Forests.** Every map gets one or two (chosen once, world.nationalTarget) large National
-Forests, set aside for the whole map rather than by a town, so a map with no towns gets them too.
+Forests, set aside for the whole map rather than by a town, but only once the map has a civilization
+(at least one town, with civilization on): a map with no towns gets no parks of any kind.
 Each covers the most heavily forested stretch of the map not already in one (over 45% forest within
 about 45 cells), 60–90 cells across. Its outline follows the forest out to where it gives out (the
 sea, or more than five cells of open ground) and is smoothed a little. No timber is cut inside (no

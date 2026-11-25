@@ -1318,7 +1318,7 @@ export function civStep(world) {
     P[i] = Math.min(1, RC[i] * 1.6); // (a broken road loses its paving: plants creep back)
     if (RC[i] <= 0.03) { LU[i] = world.channel[i] ? (world.channel[i] === 1 ? 8 : 9) : 0; P[i] = 0; RC[i] = 0; world.roadCore[i] = 0; world.bridge[i] = 0; } // (a fallen bridge leaves its canal)
   }
-  if (civParams.nationalForests) nationalForestStep(world);
+  if (civParams.nationalForests && towns.length) nationalForestStep(world); // (only once there is a civilization to set them aside)
   if (!towns.length) { world.civPop = 0; airPollutionStep(world); desertStep(world); invasiveStep(world); return; } // (the smoke, worn land and pine carry on without towns)
   // (the site fields change slowly: refresh them every few steps)
   world.civFieldsAge = (world.civFieldsAge || 0) + 1;
@@ -2952,7 +2952,8 @@ export function wildernessStep(world, t) {
  * the forest gives out). No timber is cut inside (no plantations planted or felled); towns, farms and
  * roads can still go there, and town parks can be made inside it. A trail runs through it. Named
  * after the nearest town, or with a name of its own if none is near. They wait until the map has
- * enough forest (a young map may take a while).
+ * enough forest (a young map may take a while), and until there is a civilization: no town, no
+ * National Forest.
  */
 const NF_NAMES = ['Silverpine', 'Blackwater', 'Ironwood', 'Stillwater', 'Bear Creek', 'Eagle Ridge', 'Greenhollow', 'Misty Hills', 'Elk Valley', 'Thornbury', 'Coldspring', 'Ravenwood'];
 export function nationalForestStep(world) {
