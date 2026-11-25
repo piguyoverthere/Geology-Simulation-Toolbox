@@ -36,8 +36,10 @@ import { FireLabels } from './render/fireLabels.js';
 import { Inspector } from './ui/inspector.js';
 import { MonthBar } from './ui/monthbar.js';
 import { CrossSection } from './ui/section.js';
-import { captureDefaults, snapshot, applySnapshot, encodeLevel, decodeLevel, storeLevel, fetchLevel, deleteLevel } from './core/save.js';
-import { loadGrid, saveGrid, resetGrid, gridTick, gridStartup, travelTo } from './core/worldGrid.js';
+import { captureDefaults, resetParams, snapshot, applySnapshot, encodeLevel, decodeLevel, storeLevel, fetchLevel, deleteLevel } from './core/save.js';
+import { getSim, updateSim, pushHistory, newSimMeta, addSim } from './core/sims.js';
+import { Home } from './ui/home.js';
+import { loadGrid, saveGrid, resetGrid, gridTick, gridStartup, travelTo, thumbnail, freshen } from './core/worldGrid.js';
 import { Drawings, drawSettings } from './render/drawings.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
 import { fireStep, fireParams } from './sim/fire.js';
@@ -121,7 +123,7 @@ class App {
     setInterval(() => this.autosave(), 30000);
     addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this.autosave(); });
     addEventListener('pagehide', () => this.autosave());
-    this.restoreLevel();
+    this.startup();
     this.setTool(this.tool);
 
     this.clock = new THREE.Clock();
@@ -437,9 +439,13 @@ class App {
       try {
         const snap = await decodeLevel(file);
         if (snap.meta.N !== GRID) {
-          // Different map size: hand it over to a reload at the right size
-          await storeLevel('pending', snap);
-          location.search = new URLSearchParams({ size: snap.meta.N, restore: 'pending' }).toString();
+          // Different map size: it becomes a simulation of its own (opened at its size)
+          const gen = (snap.meta.params && snap.meta.params.gen) || {};
+          const meta = newSimMeta({ name: file.name.replace(/\.geolevel$/i, '').slice(0, 60), N: snap.meta.N, preset: gen.preset, seed: gen.seed });
+          meta.fresh = false;
+          await storeLevel(meta.saveKey, snap);
+          await addSim(meta);
+          this.openSim(meta.id);
           return;
         }
         applySnapshot(this, snap);
@@ -454,10 +460,16 @@ class App {
 
   /** Save to the browser so a reload (or an update) picks up where you left off. */
   async autosave() {
-    if (!this.keepLevel.on || this.loadingLevel) return;
+    if (!this.keepLevel.on || this.loadingLevel || !this.simMeta) return; // (nothing open: the home screen)
     try {
-      await storeLevel(`autosave-${GRID}`, snapshot(this));
+      const snap = snapshot(this), meta = this.simMeta;
+      await storeLevel(meta.saveKey, snap);
       await saveGrid(this);
+      let thumb = null;
+      try { thumb = thumbnail(this.world); } catch { /* no canvas */ }
+      await updateSim(meta.id, { updated: Date.now(), thumb, fresh: false });
+      // (an earlier save to roll back to, once an hour of play)
+      if (Date.now() - (this.lastHistory || 0) > 3600e3) { this.lastHistory = Date.now(); await pushHistory(meta.id, snap, 'Hourly save'); }
       this.setSaveStatus(`Autosaved ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
       this.saveWarning?.saved();
     } catch (err) {
@@ -466,34 +478,86 @@ class App {
     }
   }
 
-  /** On start-up: load a level handed over by a reload, or the last autosave for this map size. */
-  async restoreLevel() {
+  /**
+   * On start-up: the home screen, or straight into a simulation when the page was reloaded to open
+   * one at its map size (?open=<id>).
+   */
+  async startup() {
+    this.home = new Home(this);
+    const id = params.get('open');
+    if (id) {
+      window.history.replaceState(null, '', `?size=${GRID}`);
+      await this.openSim(id);
+    } else await this.home.show();
+  }
+
+  /** Open a simulation (reloading at its map size if it's a different size from this page's). */
+  async openSim(id) {
+    const meta = await getSim(id);
+    if (!meta) { this.home.show('That simulation could not be found.'); return; }
+    if (meta.N !== GRID) { location.search = new URLSearchParams({ size: meta.N, open: id }).toString(); return; }
+    if (this.simMeta && this.simMeta.id !== id) await this.autosave();
     this.loadingLevel = true;
+    this.simMeta = meta;
+    this.gridKey = meta.gridKey;
+    this.grid = null;
+    let snap = null;
     try {
-      let snap = null, from = '';
-      if (params.get('restore') === 'pending') {
-        snap = await fetchLevel('pending');
-        await deleteLevel('pending');
-        from = 'Loaded level';
-        window.history.replaceState(null, '', `?size=${GRID}`);
-      } else if (this.keepLevel.on) {
-        snap = await fetchLevel(`autosave-${GRID}`);
-        from = 'Restored your last level';
-      }
-      if (snap && snap.meta.N === GRID) {
-        applySnapshot(this, snap);
-        // (a level from a file is a world of its own: a new grid around it)
-        if (from === 'Loaded level') { await loadGrid(this); await resetGrid(this); }
-        this.setSaveStatus(`${from} (saved ${new Date(snap.meta.savedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })})`);
-      }
+      snap = meta.fresh ? null : await fetchLevel(meta.saveKey);
+      if (snap && snap.meta.N === GRID) applySnapshot(this, snap);
+      else { snap = null; await this.startNewSim(meta); }
     } catch (err) {
-      console.warn('Level restore failed', err);
-      this.setSaveStatus(`Couldn't restore the last level: ${err.message}`);
+      console.warn('Opening the simulation failed', err);
+      this.setSaveStatus(`Couldn't open "${meta.name}": ${err.message}`);
     }
     this.loadingLevel = false;
-    // The world grid: which cell this is, and its neighbours
-    try { if (!this.grid) await loadGrid(this); gridStartup(this); this.toolbox?.renderGrid?.(); } catch (err) { console.warn('World grid unavailable', err); }
+    try { await loadGrid(this); gridStartup(this); this.toolbox?.renderGrid?.(); } catch (err) { console.warn('World grid unavailable', err); }
+    // (the save as it was when this session began: something to roll back to)
+    if (snap) { await pushHistory(meta.id, snap, 'Start of a session'); this.lastHistory = Date.now(); }
+    else this.lastHistory = 0;
+    this.home.hide();
+    this.sim.running = true;
+    document.title = `${meta.name} — Geology Simulation Toolbox`;
+    this.toolbox.setSimName?.(meta.name);
+    this.toolbox.refresh();
+    this.setSaveStatus(snap ? `Opened "${meta.name}" (saved ${new Date(snap.meta.savedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })})` : `Created "${meta.name}"`);
+    await this.autosave();
   }
+
+  /** A new simulation: every setting back to its default, then the terrain and world asked for. */
+  async startNewSim(meta) {
+    const st = meta.settings || {};
+    resetParams(this);
+    this.presetKeys = [];
+    freshen(this);
+    const w = this.world;
+    for (const k of ['fireLog', 'parkSites', 'newParks', 'animals']) w[k] = [];
+    for (const k of ['fireCount', 'nationalTarget', 'siteAvgCount', 'biomeHistory', 'treeHistory', 'snowHistory']) delete w[k];
+    this.drawings.clear();
+    this.gen = { preset: meta.preset, seed: meta.seed, size: GRID };
+    this.applyPresetSettings(meta.preset);
+    if (st.sea === 'on') { this.sim.seaEnabled = true; this.sim.seaLevel = st.seaLevel ?? this.sim.seaLevel; }
+    else if (st.sea === 'off') this.sim.seaEnabled = false;
+    else if (st.seaLevel !== undefined && this.sim.seaEnabled && st.seaLevel !== 12) this.sim.seaLevel = st.seaLevel;
+    if (st.seasons !== undefined) this.seasonParams.enabled = st.seasons;
+    if (st.civ !== undefined) civParams.enabled = st.civ;
+    generateTerrain(w, meta.preset, meta.seed);
+    if (st.erosion !== undefined) w.erosionEnabled = st.erosion;
+    this.renderer.dispD = null; this.renderer.wVis = null;
+    updateWind(w, true);
+    this.effects.deck.ready = false;
+    this.afterLoad();
+    await resetGrid(this);
+  }
+
+  /** Back to the home screen (the open simulation is saved first). */
+  async goHome() {
+    await this.autosave();
+    this.home.show();
+  }
+
+  /** The level as it is now, as a file (for exporting the open simulation). */
+  async encodeCurrent() { return encodeLevel(snapshot(this)); }
 
   /** Travel to another cell of the world grid. */
   travel(x, z) {
@@ -525,9 +589,13 @@ class App {
   }
 
   /** Reload with a different map size, keeping the preset and seed. */
-  setMapSize(size) {
-    const q = new URLSearchParams({ size, preset: this.gen.preset, seed: this.gen.seed });
-    location.search = q.toString();
+  async setMapSize(size) {
+    // (a map's size is fixed: a new simulation at the new size, with the same terrain and seed)
+    const name = `${this.simMeta ? this.simMeta.name : 'Simulation'} (${size}×${size})`;
+    const meta = newSimMeta({ name, N: +size, preset: this.gen.preset, seed: this.gen.seed, settings: { sea: this.sim.seaEnabled ? 'on' : 'off', seaLevel: this.sim.seaLevel, seasons: this.seasonParams.enabled, civ: civParams.enabled } });
+    await addSim(meta);
+    await this.autosave();
+    this.openSim(meta.id);
   }
 
   /**

@@ -50,7 +50,10 @@ export class Toolbox {
     r.innerHTML = '';
 
     const header = el('div', 'tb-header');
-    header.append(el('h1', '', 'Geology Toolbox'));
+    const home = button('🏠', () => app.goHome(), 'tb-home', 'Home: your simulations (this one is saved first).', this);
+    this.simNameEl = el('h1', '', app.simMeta ? app.simMeta.name : 'Geology Toolbox');
+    this.simNameEl.title = 'The simulation you have open';
+    header.append(home, this.simNameEl);
     this.playBtn = button('', () => app.toggleSim(), 'tb-play');
     header.append(this.playBtn);
     r.append(header);
@@ -897,6 +900,9 @@ export class Toolbox {
     name.focus();
     name.select();
   }
+
+  /** Show the open simulation's name in the header. */
+  setSimName(name) { if (this.simNameEl) this.simNameEl.textContent = name; }
 
   updateLegend() {
     const mode = this.app.renderer.colorMode;

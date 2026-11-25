@@ -42,7 +42,8 @@ const now = () => (seasonParams.year || 1) + (seasonParams.phase || 0);
 /** The manifest of the grid for this map size (made on first use, with the current level as (0, 0)). */
 export async function loadGrid(app) {
   const N = app.world.N;
-  let g = await fetchLevel(`grid-${N}`);
+  // (each simulation keeps its own grid: app.gridKey; levels from before simulations use grid-<size>)
+  let g = await fetchLevel(app.gridKey || `grid-${N}`);
   if (!g || !g.cells) g = newManifest();
   app.grid = g;
   return g;
@@ -53,7 +54,7 @@ function newManifest() {
 }
 
 export async function saveGrid(app) {
-  if (app.grid) await storeLevel(`grid-${app.world.N}`, app.grid);
+  if (app.grid) await storeLevel(app.gridKey || `grid-${app.world.N}`, app.grid);
 }
 
 /** Forget the grid (a new level was generated): the frozen cells are deleted. */
@@ -188,7 +189,7 @@ function edgeCell(N, side, k, depth) {
 }
 
 /** A small picture of the cell for the grid map (land, water, forest, towns). */
-function thumbnail(w) {
+export function thumbnail(w) {
   const N = w.N, S = 32, step = N / S, H = w.height, sea = w.meanSea > -999 ? w.meanSea : -1e9;
   const c = document.createElement('canvas');
   c.width = c.height = S;
@@ -295,7 +296,7 @@ function makeCell(app, x, z) {
  * since (civilization, ocean, ecology…) is dropped (each is made afresh when next needed), and the
  * lists of what's going on are emptied. The world's switches (erosion, rocks, edges) are kept.
  */
-function freshen(app) {
+export function freshen(app) {
   const w = app.world, fresh = new World(w.N);
   for (const k of Object.keys(w)) {
     if (ArrayBuffer.isView(w[k])) { if (ArrayBuffer.isView(fresh[k])) w[k] = fresh[k]; else delete w[k]; }

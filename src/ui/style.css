@@ -395,3 +395,39 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .tb-onebiome .tb-legend-item { display: flex; align-items: center; gap: 6px; }
 .tb-onebiome select { flex: 1; min-width: 0; }
 .tb-onebiome .tb-note { line-height: 1.35; }
+
+/* --- Home screen: your simulations ------------------------------------------------------------ */
+.home { position: fixed; inset: 0; z-index: 100; background: #3a3d42; color: #e8eaed; overflow-y: auto; font-family: inherit; }
+.home[hidden] { display: none; }
+.home-box { max-width: 880px; margin: 0 auto; padding: 48px 24px 32px; min-height: 100%; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box; }
+.home-head h1 { margin: 0 0 6px; font-size: 28px; font-weight: 600; }
+.home-sub { color: #b4b9c0; font-size: 14px; }
+.home-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.home-btn { font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 2px; border: 1px solid #5a5f67; background: #4a4e55; color: #eef0f2; cursor: pointer; }
+.home-btn:hover { background: #565b63; }
+.home-btn.primary { background: #3d7be0; border-color: #3d7be0; color: #fff; }
+.home-btn.primary:hover { background: #4b88ea; }
+.home-btn.danger { color: #ffb4ae; }
+.home-status { min-height: 18px; font-size: 13px; color: #c9e3ff; }
+.home-list { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.home-empty { padding: 40px; text-align: center; color: #b4b9c0; border: 1px dashed #5a5f67; border-radius: 3px; }
+.home-card { display: grid; grid-template-columns: 64px 1fr; grid-template-rows: auto auto; gap: 4px 14px; padding: 12px; border-radius: 3px; background: #44484e; border: 1px solid #50555c; }
+.home-thumb { grid-row: span 2; width: 64px; height: 64px; border-radius: 2px; background: #2f3236 center / cover no-repeat; image-rendering: pixelated; }
+.home-name { font-size: 16px; font-weight: 600; }
+.home-meta { font-size: 12px; color: #b4b9c0; }
+.home-card-actions { grid-column: 2; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+.home-card-actions select, .home-versions { font: inherit; font-size: 12px; padding: 5px 6px; border-radius: 2px; border: 1px solid #5a5f67; background: #3a3d42; color: #e8eaed; max-width: 260px; }
+.home-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px solid #50555c; font-size: 12px; color: #9aa0a8; }
+.home-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.home-form { width: 420px; max-width: 100%; max-height: 100%; overflow-y: auto; background: #44484e; border: 1px solid #5a5f67; border-radius: 3px; padding: 20px; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; }
+.home-form h2 { margin: 0 0 4px; font-size: 18px; }
+.home-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.home-field > span { color: #c8ccd2; }
+.home-field input, .home-field select { font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 2px; border: 1px solid #5a5f67; background: #33363b; color: #eef0f2; }
+.home-field small, .home-check small { color: #9aa0a8; font-size: 11px; }
+.home-seed { display: flex; gap: 6px; }
+.home-seed input { flex: 1; min-width: 0; }
+.home-check { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; font-size: 13px; }
+.home-check small { grid-column: 2; }
+.home-form-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.tb-home { padding: 2px 7px; margin-right: 6px; }

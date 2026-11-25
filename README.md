@@ -14,8 +14,28 @@ python3 -m http.server 8173
 Then open <http://localhost:8173>. You need a local server (not a double-clicked `index.html`)
 because browsers block ES modules loaded from `file://`.
 
-To put it online, turn on **GitHub Pages** for this repo (Settings → Pages → Deploy from branch →
-`master` / root). The game will then live at `https://<user>.github.io/Geology-Simulation-Toolbox/`.
+It's also online at <https://piguyoverthere.github.io/Geology-Simulation-Toolbox/> (GitHub Pages,
+deployed from `master`).
+
+## Simulations, saves and versions
+
+The page opens on a grey **home screen** listing your simulations, all kept in the browser
+(IndexedDB) until you delete them:
+
+- **New simulation**: name it and set up the terrain (preset, seed, map size), the sea (as the
+  terrain comes, on or off, and its level), and whether seasons, civilization and erosion are on.
+- **Open** a simulation to carry on where you left off. It saves itself every 30 seconds and when
+  the page is hidden or closed. The 🏠 button at the top of the side panel goes back home.
+- **Restore an earlier save**: each simulation keeps earlier saves to roll back to, one when each
+  session starts and one an hour while it runs (the oldest thinned out past 24). Rolling back keeps
+  the save you had in the history too.
+- **Export** a simulation to a `.geolevel` file, **Import from file…** to add one, **Rename**, **Delete**.
+- Levels from before the home screen appear as **My simulation**.
+- The app's **version** is at the bottom, with a **Run an older version** menu: every release is
+  kept in `versions/<version>/`. Make a release with
+  `python3 tools/release.py <version> "<what changed>"` after setting `APP_VERSION` in
+  `src/version.js`. Older versions don't have the home screen; they open the level that the new
+  version lists as *My simulation*.
 
 ## Controls
 

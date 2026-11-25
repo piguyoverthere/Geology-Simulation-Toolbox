@@ -27,6 +27,12 @@ export function captureDefaults(app) {
   for (const k of PARAMS) if (app[k]) DEFAULTS[k] = plain(app[k]);
 }
 
+/** Put every settings panel back to this version's defaults (for a new simulation). */
+export function resetParams(app) {
+  if (!DEFAULTS) return;
+  for (const k of PARAMS) if (app[k] && DEFAULTS[k]) mergePlain(app[k], DEFAULTS[k]);
+}
+
 /** Capture the app's current level. Returns { meta, arrays } (arrays are copies). */
 export function snapshot(app) {
   const w = app.world;
