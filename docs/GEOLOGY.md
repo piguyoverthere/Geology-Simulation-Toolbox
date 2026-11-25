@@ -1444,6 +1444,43 @@ field's pollination. In a test on a farming town's 248 fields, its crops yielded
 pollinators on the fields), 82% at the usual spraying (0.11) and 78% sprayed heavily (0.01), while
 the meadows away from the fields kept 0.85.
 
+## Fire followers (`src/sim/fireFollowers.js`)
+
+Some plants and animals live only on freshly burnt ground, and only in the **smaller burns**. Each
+connected stretch of burnt ground is measured once its fire is out; a burn up to **Small burn size**
+cells (Wildlife, default 400) counts fully, fading to nothing at two and a half times that. The heart
+of a big burn is out of reach of wind-blown seed and of animals moving in from the edges for years,
+and its hot fire cooks the seeds waiting in the soil. Fire-follower ground (world.burnSuit) is
+remembered for a few years after the ash has gone and fades as the burn greens over.
+
+- **Fireweed** (world.fireweed) arrives on the wind from fireweed nearby (a little from far off),
+  carpets small burns in magenta for a few years and is shaded out as shrubs and trees return.
+- **Fire poppies** (world.firePoppy) sprout from a seed bank in the soil (world.poppySeeds, under
+  scrub and open ground) only after a fire: a summer or two of flowers, which refill the seed bank.
+  A big fire reduces the seed bank to a third.
+- Fire flowers are rich in nectar, so pollinators thrive on small burns.
+- Animals: a new habitat, **Recent small burns**, and two new foods, **fire-following flowers** and
+  **burnt and dead trees**. Animals of that habitat hang on thinly in the forest between fires and
+  are drawn from far off to a fresh small burn (as fire beetles home in on smoke). **+ Fire
+  followers** adds fire beetles, black-backed woodpeckers that eat them, and fireweed moths.
+
+**Overlays → Fire followers** shows fireweed, fire poppies, small burns, burns too big for them and
+fires burning. In a test, an 8×8 burn was 69% fireweed with fire beetles at 0.54 and woodpeckers at
+0.04 after 1,200 frames, while a 34×34 burn (1,156 cells) next to it had none of them. A 6×6 burn
+over a seed bank of 0.33 flowered at 0.68 fire poppies, and the seed bank grew to 0.59.
+
+## More wildlife settings
+
+Wildlife has new settings alongside Population speed:
+- **Food abundance** (0.3–2): how many animals each place supports.
+- **Predation** (0–2): how hard predators hit their prey.
+- **Roaming** (0.3–3): how far animals range and how fast they spread.
+- **Hard winters** (0–2.5): how much cold, heat and deep snow kill (at 0, never).
+- **Roadkill** (on): roads kill animals and split their ranges. Off, roads don't affect them.
+- **Wildlife disease** (off): an outbreak now and then sweeps a crowded population for a while, worst
+  where it's densest.
+- **Fire followers** (on) and **Small burn size**.
+
 ## Roads, wildlife crossings, dams and fish ladders
 
 **Roads split habitat.** Land animals crossing a road are killed by the traffic (4% plus a share for

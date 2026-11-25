@@ -59,6 +59,7 @@ export const OVERLAYS = {
   wind: 'Wind speed',
   wildlife: 'Wildlife',
   pollinators: 'Pollinators',
+  fireFollowers: 'Fire followers',
   fish: 'Fish stocks',
   landuse: 'Land use (clear view)',
   population: 'Population',
@@ -396,6 +397,15 @@ export class TerrainRenderer {
             col = f < 0.2 ? mix(FISH_GONE, FISH_LOW, f / 0.2, S3) : mix(FISH_LOW, FISH_FULL, Math.min(1, (f - 0.2) / 0.7), S3);
             if (w.zoneFlags && (w.zoneFlags[i] & 64) && (x + z) % 5 === 0) mix(col, FISH_RESERVE, 0.5, col); // (marine reserve)
           }
+        } else if (mode === 'fireFollowers') {
+          // Fire followers: fireweed (magenta) and fire poppies (orange) on recent small burns
+          // (pale ash); burns too big for them dark grey; the rest of the land pale green-grey
+          const fw = w.fireweed ? w.fireweed[i] : 0, fp = w.firePoppy ? w.firePoppy[i] : 0, su = w.burnSuit ? w.burnSuit[i] : 0;
+          const big = w.burnt[i] > 0.15 && su < 0.1;
+          col = w.fire[i] > 0 ? FF_FIRE.slice() : big ? FF_BIG.slice() : su > 0.05 ? mix(FF_BG, FF_ASH, Math.min(1, su * 1.5), S3) : FF_BG.slice();
+          if (fw > 0.03) mix(col, FF_WEED, Math.min(1, fw * 1.3), col);
+          if (fp > 0.03) mix(col, FF_POPPY, Math.min(1, fp * 1.5), col);
+          shade(col, 0.72 + 0.28 * ny, col);
         } else if (mode === 'pollinators') {
           // Bees and the like: none (grey) to plenty (golden yellow); farmland outlined darker
           const p = w.pollinators ? Math.min(1, w.pollinators[i]) : 0;
@@ -870,6 +880,7 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
+const FF_BG = [0.74, 0.78, 0.70], FF_ASH = [0.62, 0.58, 0.54], FF_BIG = [0.30, 0.29, 0.29], FF_FIRE = [0.95, 0.35, 0.10], FF_WEED = [0.85, 0.20, 0.62], FF_POPPY = [0.98, 0.58, 0.10];
 const FISH_LAND = [0.70, 0.70, 0.68], FISH_GONE = [0.80, 0.20, 0.15], FISH_LOW = [0.95, 0.80, 0.30], FISH_FULL = [0.10, 0.30, 0.65], FISH_RESERVE = [0.20, 0.80, 0.50], POL_NONE = [0.55, 0.55, 0.57], POL_FULL = [1.0, 0.80, 0.15], POL_FIELD = [0.35, 0.22, 0.10], FUEL_NONE = [0.80, 0.80, 0.78], FUEL_LOW = [0.35, 0.65, 0.35], FUEL_MID = [0.95, 0.80, 0.25], FUEL_HIGH = [0.80, 0.15, 0.10], FUEL_GUARD = [0.20, 0.40, 0.90], CARB_LOW = [0.90, 0.88, 0.80], CARB_MID = [0.55, 0.70, 0.35], CARB_HIGH = [0.05, 0.22, 0.12], GW_DRY = [0.86, 0.76, 0.55], GW_MID = [0.55, 0.72, 0.80], GW_FULL = [0.10, 0.28, 0.62], GW_SAME = [0.84, 0.86, 0.88], GW_DOWN = [0.80, 0.15, 0.12], GW_SUNK = [0.25, 0.10, 0.08], POP_BG = [0.55, 0.56, 0.58], POP_HEAT = [[0.25, 0.10, 0.45], [0.80, 0.15, 0.25], [0.98, 0.55, 0.10], [1.0, 0.95, 0.60]], ONE_LIGHT = [0.86, 0.86, 0.88], ONE_DARK = [0.26, 0.27, 0.30], FOOTPATH = [0.80, 0.68, 0.48], INVASIVE = [0.10, 0.26, 0.28], INV_OPEN = [0.86, 0.85, 0.80], INV_NATIVE = [0.30, 0.62, 0.30], INV_FULL = [0.66, 0.16, 0.38], MINE_A = [0.30, 0.27, 0.25], MINE_B = [0.38, 0.33, 0.29], SPOIL = [0.70, 0.48, 0.26], DEGRADED = [0.82, 0.72, 0.52], AIR_CLEAN = [0.86, 0.90, 0.92], DIS_HEALTHY = [0.55, 0.70, 0.52], FIRE_BG_LO = [0.86, 0.84, 0.80], FIRE_BG_HI = [0.70, 0.78, 0.68], FIRE_TMP = [0, 0, 0], AIR_DIRTY = [0.35, 0.28, 0.22];
 const LU_OPEN = [0.86, 0.85, 0.80], LU_WILD = [0.62, 0.70, 0.56], LU_IRRIGATED = [0.55, 0.80, 0.45], LU_FELLED = [0.70, 0.60, 0.36], LU_EDGE = [0.02, 0.18, 0.06], LU_RESTING = [0.56, 0.80, 0.56];
 const LU_COLORS = { 11: [0.30, 0.27, 0.25], 12: [0.85, 0.50, 0.20], 1: [0.95, 0.80, 0.30], 2: [0.86, 0.28, 0.22], 3: [0.30, 0.30, 0.34], 4: [0.58, 0.36, 0.74], 5: [0.98, 0.55, 0.15], 6: [0.70, 0.70, 0.72], 7: [0.95, 0.95, 0.95], 8: [0.25, 0.80, 0.90], 9: [0.35, 0.25, 0.15], 10: [0.09, 0.48, 0.20] };

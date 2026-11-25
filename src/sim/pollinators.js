@@ -12,8 +12,15 @@ import { boxBlur } from '../core/grid.js';
 import { civParams } from './civilization.js';
 import { seasonParams } from './climate.js';
 
-/** How good cell i is for pollinators to live in (flowers and nest sites). */
+/** How good cell i is for pollinators to live in (flowers and nest sites); fire-following flowers
+ * (fireweed, fire poppies) on small burns are rich in nectar. */
 function habitat(world, i) {
+  const base = habitatBase(world, i);
+  const ff = (world.fireweed ? world.fireweed[i] : 0) + (world.firePoppy ? world.firePoppy[i] : 0);
+  return ff > 0.02 && base > 0 ? Math.min(1.3, base + 0.6 * Math.min(1, ff)) : base;
+}
+
+function habitatBase(world, i) {
   const v = world.vegetation[i], LU = world.landUse ? world.landUse[i] : 0;
   if (world.height[i] < (world.meanSea > -999 ? world.meanSea : -1e9) || world.water[i] > 0.2) return 0;
   if (LU === 2 || LU === 3 || LU === 4 || LU === 5 || LU === 6 || LU === 11 || LU === 12) return 0;

@@ -67,6 +67,11 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
 - **Trophic cascades**: grazers fear their predators; towns' livestock is taken by predators, which
   towns cull (**Predator control**, **Herding & fencing**). **+ Deer & wolves** starter food web.
 - **Pollinators** that farm yields depend on, and **Pesticides** that kill them. Overlay *Pollinators*.
+- **Fire followers**: fireweed, fire poppies and animals (**+ Fire followers**: fire beetles,
+  woodpeckers, fireweed moths) that live on recent burns, but only the smaller ones. Overlay *Fire
+  followers*.
+- More **Wildlife** settings: Food abundance, Predation, Roaming, Hard winters, Roadkill, Wildlife
+  disease, Small burn size.
 - **Roads** that kill and split land animals, with **Wildlife crossings**; **dams** that stop fish
   runs, with **Fish ladders**.
 - **Fish stocks** that collapse when overfished and recover slowly, **Fishing quotas**, marine

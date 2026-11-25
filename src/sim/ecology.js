@@ -23,6 +23,14 @@ import { advect } from './ocean.js';
 export const ecoParams = {
   enabled: true,
   speed: 1,      // how fast populations grow, decline and move
+  abundance: 1,  // how much food the land and sea offer (× what each place supports)
+  predation: 1,  // how hard predators hit their prey
+  roaming: 1,    // how far animals range and how fast they spread
+  winters: 1,    // how hard winters, cold, heat and deep snow are on them
+  roadkill: true,        // traffic kills animals crossing roads (and they shun busy roads)
+  disease: false,        // crowded populations suffer outbreaks of disease
+  fireFollowers: true,   // fireweed, fire poppies and the like on recent small burns
+  smallBurn: 400,        // largest burn (cells) fire followers fully take to
 };
 
 export const HABITATS = {
@@ -33,6 +41,7 @@ export const HABITATS = {
   stream: 'Streams and ponds',
   sea: 'The sea',
   coast: 'Coastal shallows',
+  burn: 'Recent small burns (fire followers)',
 };
 export const PLANT_FOODS = {
   grass: 'Grass and meadow plants',
@@ -41,6 +50,8 @@ export const PLANT_FOODS = {
   conifer: 'Conifers',
   plankton: 'Plankton',
   seaweed: 'Seaweed (kelp, seagrass)',
+  fireflowers: 'Fire-following flowers (fireweed, fire poppies)',
+  charred: 'Burnt and dead trees (like wood-boring beetles)',
 };
 export const HABITS = {
   avoidsSnow: ['Avoids deep snow', 'Leaves deep snow in winter, and some die in hard winters.'],
@@ -132,6 +143,8 @@ function habitatBase(world, a, i, M, sea) {
     case 'stream': return M.stream[i] || world.dam[i] > 0.05 ? 1 : 0;
     case 'forest': return M.land[i] ? (V[i] > 0.6 ? 1 : V[i] * 0.5) : 0;
     case 'meadow': return M.land[i] ? (V[i] > 0.05 && V[i] < 0.7 ? 1 : 0.25) : 0;
+    // (fire followers: recent small burns, and a few hang on in the forest between fires)
+    case 'burn': return M.land[i] ? Math.max(world.burnSuit ? world.burnSuit[i] : 0, V[i] > 0.6 ? 0.1 : 0.03) : 0;
     case 'mountains': return M.land[i] ? (world.temperature[i] < 6 ? 1 : 0.15) : 0;
     default: return M.land[i];
   }
@@ -146,6 +159,8 @@ function plantFood(world, a, i, M) {
     if (e.young) f += v * (1 - world.forestAge[i]);
     if (e.decid) f += (world.decid ? world.decid[i] : 0) * v * 1.4;
     if (e.conifer) f += (world.conifer ? world.conifer[i] : 0) * v * 1.4;
+    if (e.fireflowers) f += 1.3 * Math.min(1, (world.fireweed ? world.fireweed[i] : 0) + (world.firePoppy ? world.firePoppy[i] : 0)) + 0.04 * v;
+    if (e.charred) f += 1.2 * (world.burnSuit ? world.burnSuit[i] : 0) * (world.burnt[i] > 0.05 || world.forestAge[i] > 0.2 ? 1 : 0.5) + (world.deadWood ? world.deadWood[i] : 0) + 0.03 * v;
     const snow = world.snow ? world.snow[i] : 0;
     if (snow > 0) f *= Math.max(0.05, 1 - snow * 0.8);
   }
@@ -228,6 +243,15 @@ function stepAnimal(world, a, M, sea, k) {
   const PO = world.pollution, OX = world.oxygen, SNW = world.snow;
   const grazer = a.eats.grass || a.eats.young || a.eats.decid || a.eats.conifer;
   const r = 0.03 * a.breed * k;
+  const wint = ecoParams.winters ?? 1;
+  // Disease (a setting): crowded populations now and then suffer an outbreak, which runs for a
+  // while and hits hardest where they're packed in
+  if (ecoParams.disease) {
+    if (a.outbreak > 0) a.outbreak--;
+    else if (a.crowded > 0.25 && Math.random() < 0.03 * a.crowded * k) a.outbreak = 30 + Math.floor(Math.random() * 30);
+  } else a.outbreak = 0;
+  const sick = a.outbreak > 0;
+  let crowd = 0, occupied = 0;
   // Temperature: comfortable inside its range (fading out over ~5 °C beyond it)
   const tLo = a.tempMin ?? -10, tHi = a.tempMax ?? 30;
   const tempFit = (i) => {
@@ -242,7 +266,7 @@ function stepAnimal(world, a, M, sea, k) {
     const food = Math.min(1.2, plantFood(world, a, i, M) + (prey ? prey[i] * 1.5 : 0));
     // Too hot or too cold: the place supports fewer of them, and they breed slower there
     const fit = tempFit(i);
-    K[i] = food * h * (0.1 + 0.9 * fit);
+    K[i] = food * h * (0.1 + 0.9 * fit) * (ecoParams.abundance ?? 1);
     let p = P[i];
     if (p <= 0) { HU[i] = 0; continue; }
     // Hunger: builds where there's less food than the animals here need, eases where there's
@@ -252,17 +276,19 @@ function stepAnimal(world, a, M, sea, k) {
     const hu = HU[i];
     let dp = r * p * (1 - p / Math.max(0.02, K[i]));
     if (dp > 0) dp *= (1 - hu) * fit;
-    if (fit < 0.5) dp -= 0.05 * k * (0.5 - fit) * p; // (exposure: heat or cold stress)
+    if (fit < 0.5) dp -= 0.05 * k * (0.5 - fit) * p * wint; // (exposure: heat or cold stress)
     dp -= 0.12 * k * hu * hu * p; // (starving)
-    if (hunted) dp -= 0.25 * k * hunted[i] * p;
-    if (hb.avoidsSnow && SNW && SNW[i] > 1.2) dp -= 0.02 * k * p;
+    if (hunted) dp -= 0.25 * k * hunted[i] * p * (ecoParams.predation ?? 1);
+    if (hb.avoidsSnow && SNW && SNW[i] > 1.2) dp -= 0.02 * k * p * wint;
+    if (sick && p > 0.35) dp -= 0.12 * k * p * (p - 0.2); // (an outbreak: worst where they're crowded)
     if (hb.pollution && ((PO && PO[i] > 0.4) || (world.riverPollution && world.riverPollution[i] > 0.3))) dp -= 0.1 * k * p;
     if (M.seaM[i] && OX && OX[i] < 0.35) dp -= 0.15 * k * p; // (suffocating)
     p = Math.max(0, Math.min(1.5, p + dp));
-    if (hb.frostKills && world.temperature[i] + seasonalAt(world, i, st) < -12) p *= 0.6;
+    if (hb.frostKills && world.temperature[i] + seasonalAt(world, i, st) < -12 * Math.min(2, 1 / Math.max(0.3, wint))) p *= 0.6;
     if (p < 0.002) { P[i] = 0; HU[i] = 0; continue; }
     P[i] = p;
     fed += p; starving += p * (hu > 0.4 ? 1 : 0);
+    if (p > 0.05) { occupied++; if (p > 0.55 && p > 0.85 * K[i]) crowd++; }
     // --- What it does to the place ---
     // (where their predators are about, grazers keep moving and browse less: the young trees there
     // get a chance to grow, the landscape of fear behind a trophic cascade)
@@ -295,11 +321,17 @@ function stepAnimal(world, a, M, sea, k) {
     if (runSeason && M.stream[i]) world.runners[i] += p;
   }
   a.starving = fed > 0.5 ? starving / fed : 0; // (share of them starving, for the panel)
+  a.crowded = occupied > 20 ? crowd / occupied : 0;
+  // Fire followers: drawn from far off to a fresh small burn (beetles home in on the smoke)
+  if (a.habitat === 'burn' && world.burnSuit) {
+    const BSU = world.burnSuit;
+    for (let i = 0; i < n; i++) if (BSU[i] > 0.3 && allow[i] && P[i] < 0.05 * K[i] + 0.02) P[i] += 0.003 * k * BSU[i];
+  }
   // Abandoned dams wash out
   if (hb.dams) for (let i = 0; i < n; i++) if (world.dam[i] > 0 && P[i] < 0.05) { const d = Math.min(world.dam[i], 0.002 * k); H[i] -= d; world.dam[i] -= d; }
   // (land animals shun the noisy band either side of a busy road, except at a wildlife crossing: a
   // band they won't settle in, which few get across)
-  if (['land', 'forest', 'meadow', 'mountains'].includes(a.habitat)) {
+  if (ecoParams.roadkill !== false && ['land', 'forest', 'meadow', 'mountains', 'burn'].includes(a.habitat)) {
     const band = roadBand(world);
     if (band) for (let i = 0; i < n; i++) if (band[i] > 0.01) K[i] *= 1 - 0.97 * Math.min(1, band[i] * 4.5);
   }
@@ -311,7 +343,7 @@ function stepAnimal(world, a, M, sea, k) {
     const trekking = (a.migrates === 'ns' || a.migrates === 'ew') && seasonParams.enabled ? 0.3 : 1;
     const tmp = new Float32Array(n);
     for (let i = 0; i < n; i++) tmp[i] = P[i] * allow[i];
-    const rr = Math.max(1, a.roam), b = boxBlur(tmp, N, rr), kb = boxBlur(K, N, rr);
+    const rr = Math.max(1, Math.round(a.roam * (ecoParams.roaming ?? 1))), b = boxBlur(tmp, N, rr), kb = boxBlur(K, N, rr);
     for (let i = 0; i < n; i++) {
       if (!allow[i]) { P[i] = 0; continue; }
       const target = kb[i] > 1e-3 ? (b[i] * K[i]) / kb[i] : 0;
@@ -322,7 +354,7 @@ function stepAnimal(world, a, M, sea, k) {
   // Roads: land animals crossing a road are killed by the traffic (more on a busier road), so a busy
   // road splits their range: few get across, and a population cut off on one side can dwindle.
   // At a wildlife crossing (an over- or underpass, world.crossing) they cross safely.
-  if (['land', 'forest', 'meadow', 'mountains'].includes(a.habitat) && world.landUse && world.roadTraffic) {
+  if (ecoParams.roadkill !== false && ['land', 'forest', 'meadow', 'mountains', 'burn'].includes(a.habitat) && world.landUse && world.roadTraffic) {
     const LU = world.landUse, TR = world.roadTraffic, CX = world.crossing;
     for (let i = 0; i < n; i++) {
       if (LU[i] !== 3 || P[i] <= 0 || (CX && CX[i])) continue;
@@ -490,6 +522,22 @@ export function addStarterFoodWeb(world) {
     W[i] = 0.05 + 0.03 * Math.random();
   }
   return [deer, wolf];
+}
+
+/** Fire followers that live on recent small burns: wood-boring beetles drawn to the smoke, the
+ * woodpeckers that feed on them, and moths that drink at the fireweed. */
+export function addFireFollowers(world) {
+  ensureEcology(world);
+  const beetle = newAnimal({ name: 'Fire beetle', color: [0.18, 0.16, 0.14], habitat: 'burn', eats: { charred: true }, breed: 1.8, roam: 5, habits: { frostKills: false } });
+  const pecker = newAnimal({ name: 'Black-backed woodpecker', color: [0.10, 0.10, 0.12], habitat: 'burn', eats: {}, prey: [beetle.id], breed: 0.9, roam: 6, habits: {} });
+  const moth = newAnimal({ name: 'Fireweed moth', color: [0.85, 0.35, 0.65], habitat: 'burn', eats: { fireflowers: true }, breed: 1.6, roam: 6, habits: {}, tempMin: -5, tempMax: 32 });
+  world.animals.push(beetle, pecker, moth);
+  const n = world.N * world.N;
+  for (const a of [beetle, pecker, moth]) {
+    const P = animalField(world, a);
+    for (let i = 0; i < n; i++) if (canLive(world, a, i)) P[i] = 0.02 + 0.02 * Math.random();
+  }
+  return [beetle, pecker, moth];
 }
 
 // The road-avoidance band: busy roads, blurred out three cells either side, with the ground around

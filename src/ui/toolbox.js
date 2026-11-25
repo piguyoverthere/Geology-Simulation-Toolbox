@@ -331,10 +331,19 @@ export class Toolbox {
     wild.append(
       toggle('Wildlife', app.ecoParams, 'enabled', 'Animals you design: give each a name and colour, say where it lives, what it eats (plants, plankton, seaweed or your other animals) and its habits. They grow where there is food, starve where there is none, are thinned out by whatever eats them, and change the land and sea (grazing, damming streams, killing trees, cropping plankton or kelp). Paint them in with the Animal tool.', this),
       slider('Population speed', app.ecoParams, 'speed', 0.2, 3, 0.1, 'How fast the animal populations grow, decline and move.', this),
+      slider('Food abundance', app.ecoParams, 'abundance', 0.3, 2, 0.05, 'How much food the land and sea offer: how many animals each place can support. Lower it for a lean, hungry landscape; raise it for a rich one.', this),
+      slider('Predation', app.ecoParams, 'predation', 0, 2, 0.05, 'How hard predators hit their prey. Low, and prey grows plentiful (and grazes harder); high, and predators can eat their prey out and then starve themselves.', this),
+      slider('Roaming', app.ecoParams, 'roaming', 0.3, 3, 0.1, 'How far animals range for food, and so how fast they spread into new ground and refill places they were wiped out of.', this),
+      slider('Hard winters', app.ecoParams, 'winters', 0, 2.5, 0.05, 'How hard cold, heat and deep snow are on the animals: at 0 the weather never kills them; high, and hard winters thin them out (and frost-killed pests die in milder freezes).', this),
+      toggle('Roadkill', app.ecoParams, 'roadkill', 'Traffic kills land animals crossing roads, and they shun the noisy band either side of a busy road, so busy roads split their ranges (unless the towns build wildlife crossings). Off: roads don\'t affect them.', this),
+      toggle('Wildlife disease', app.ecoParams, 'disease', 'Now and then an outbreak of disease sweeps through a crowded population, hitting hardest where they\'re packed in, then dies down. Predators that keep a population thinned keep it healthier.', this),
+      toggle('Fire followers', app.ecoParams, 'fireFollowers', 'Plants that come up only on fresh burns, and only the smaller ones: fireweed (wind-blown seed from the edges) and fire poppies (seeds that wait in the soil for a fire). They feed pollinators, and animals living in the Recent small burns habitat. Overlay: Fire followers.', this),
+      slider('Small burn size', app.ecoParams, 'smallBurn', 20, 3000, 10, 'The largest burn (in cells) fire followers fully take to; up to two and a half times that, fewer. Beyond it the heart of the burn is too far from seed and shelter, and the fire burnt hot enough to cook the seed in the soil.', this),
       toggle('Show animals', app.wildlife, 'visible', 'Show the animals as small dots in their colours where they live (and in the map key).', this, () => this.updateLegend()),
       this.animalList,
       button('+ Add animal', () => this.editAnimal(null), 'tb-add-animal', 'Design a new animal: its name, colour, where it lives, what it eats and its habits.', this),
       button('+ Deer & wolves', async () => { const { addStarterFoodWeb } = await import('../sim/ecology.js'); addStarterFoodWeb(app.world); this.renderAnimals(); this.updateLegend(); }, 'tb-add-animal', 'A starter food web spread over the land: deer that graze and browse young trees, and wolves that hunt them. Cull the wolves (Predator control) and the deer boom and browse the young trees out: the forest stops regenerating (a trophic cascade).', this),
+      button('+ Fire followers', async () => { const { addFireFollowers } = await import('../sim/ecology.js'); addFireFollowers(app.world); this.renderAnimals(); this.updateLegend(); }, 'tb-add-animal', 'Animals of recent small burns: fire beetles that home in on the smoke to lay their eggs in the scorched trees, black-backed woodpeckers that follow them, and moths that feed at the fireweed. Between fires they hang on thinly in the forest.', this),
       this.animalForm,
       el('div', 'tb-form-title', 'Tree diseases'),
       el('div', 'tb-note', 'Pathogens that each attack certain native trees, worst on young ones (killing or stunting them). None is here until you introduce one with the Tree disease brush (🦠; Shift cures). Overlay: Tree disease.'),
@@ -939,6 +948,16 @@ export class Toolbox {
     else if (mode === 'fish') {
       ramp('Fish stocks (share of what the sea can hold)', 'collapsed', 'plentiful', [[0.80, 0.20, 0.15], [0.95, 0.80, 0.30], [0.10, 0.30, 0.65]]);
       L.append(el('div', 'tb-note', 'Fish breed back towards what the sea can feed and drift about; fishing takes them down. Fished below about a fifth, a stock collapses and recovers only slowly. Green hatching: marine reserves (No fishing areas), which restock the water round them.'));
+    }
+    else if (mode === 'fireFollowers') {
+      items('Fire followers', [
+        { label: 'Fireweed', color: [0.85, 0.20, 0.62], help: 'Wind-blown seed from fireweed nearby: carpets small burns for a few years until shrubs and trees shade it out.' },
+        { label: 'Fire poppies', color: [0.98, 0.58, 0.10], help: 'Seeds wait in the soil for years and sprout only after a fire: a summer or two of flowers, which refill the seed bank.' },
+        { label: 'Small burn (fire-follower ground)', color: [0.62, 0.58, 0.54], help: `A burn of up to about ${this.app.ecoParams.smallBurn} cells, recently out.` },
+        { label: 'Burn too big for them', color: [0.30, 0.29, 0.29], help: 'The heart of a big burn is out of reach of seed and wings for years, and its hot fire cooked the seeds in the soil.' },
+        { label: 'Burning', color: [0.95, 0.35, 0.10] },
+      ]);
+      L.append(el('div', 'tb-note', 'Fire followers only take to the smaller burns (Wildlife: Small burn size). Fire beetles, woodpeckers and fireweed moths (+ Fire followers) live on them too.'));
     }
     else if (mode === 'pollinators') {
       ramp('Pollinators (bees and the like)', 'none', 'plenty', [[0.55, 0.55, 0.57], [1.0, 0.80, 0.15]]);

@@ -20,6 +20,7 @@ import { oceanParams } from './sim/ocean.js';
 import { windParams, updateWind, windErosion } from './sim/wind.js';
 import { CurrentPaths } from './render/currentPaths.js';
 import { ecoParams, ecologyStep } from './sim/ecology.js';
+import { fireFollowerStep } from './sim/fireFollowers.js';
 import { WildlifeMarkers } from './render/wildlife.js';
 import { recordStats } from './sim/stats.js';
 import { groundwaterStep, groundwaterParams } from './sim/groundwater.js';
@@ -813,6 +814,7 @@ class App {
       } // (towns, farms, roads and their pollution)
       if (this.frame % 30 === 25) diseaseStep(this.world); // (tree diseases you have introduced)
       if (this.frame % 30 === 5) steadySiteInputs(this.world); // (year-averaged wetness for the tree species)
+      if (this.frame % 30 === 28) fireFollowerStep(this.world); // (fireweed and fire poppies on recent small burns)
       if (this.frame % 30 === 0) pollinatorStep(this.world); // (bees and the like: where they live, pesticides)
       if (this.frame % 30 === 10) groundwaterStep(this.world); // (the aquifer: recharge, seepage, base flow, wells)
       if (this.frame % 30 === 20) fuelStep(this.world, civParams.enabled ? this.world.towns : [], { suppression: civParams.fireSuppression ?? 0.5, prescribed: civParams.prescribedBurns, fireSeason: drySeason() > 0.2 }); // (fuel on the forest floor, firefighting, prescribed burns)
