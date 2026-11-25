@@ -792,9 +792,15 @@ the map's typical slope, so each forms whole regions.
 Bare biomes (desert, mesa, barren) erode fastest, which is why arid landscapes are so sharply
 carved: there are no roots to hold the ground when the rare storms come. Turn **Climate wetness**
 down and watch forest give way to shrubland and then desert, while mesas emerge on the dry
-slopes. **Overlays → Biomes** shows the categories; hover the legend for descriptions. The **🌍 Biomes**
-window at the top right of the map gives each biome's share of the land, as a stacked bar and a
-sorted list (counted on every fourth cell, refreshed every couple of seconds while it is open).
+slopes. **Overlays → Biomes** shows the categories; hover the legend for descriptions. The **🌍 Biomes & trees**
+window at the top right of the map has two line graphs over time, on tabs: **Biomes**, one line per
+biome for its share of the land (counted on every fourth cell), and **Trees**, one line per tree
+species for its share of all the trees on the map (every ninth cell, weighted by tree cover). A
+point is recorded every couple of seconds whether or not the window is open, and saved with the
+level (world.biomeHistory, world.treeHistory), so the graph runs from when recording began. Long
+histories are thinned (every other point dropped past 400) rather than cut. Below the graph each
+line is listed, largest first, with its share now; hover a name to pick out its line. Recording
+takes about 10 ms every couple of seconds.
 
 ---
 

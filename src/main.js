@@ -749,7 +749,7 @@ class App {
     this.pathLabels.update();
     this.boats.update(dt);
     if (this.frame % 30 === 0) { this.toolbox.drawGraphs(); this.toolbox.drawStats(); } // (population and map graphs)
-    if (this.frame % 120 === 90) this.biomeChart.update(); // (biome shares, while that window is open)
+    if (this.frame % 120 === 90) this.biomeChart.update(); // (biome and tree-species shares, recorded always, drawn while that window is open)
     if (this.sim.running && this.frame % 120 === 60) { recordStats(this.world); recordProbes(this.world); } // (whole-map statistics and probes, every couple of seconds)
     this.controls.update();
     this.effects.applyShake(this.camera, dt);

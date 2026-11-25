@@ -355,7 +355,13 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .biome-body[hidden] { display: none; }
 .biome-stack { display: flex; height: 12px; border-radius: 3px; overflow: hidden; margin: 2px 0 5px; background: #333a44; }
 .biome-stack span { height: 100%; }
-.biome-row { display: grid; grid-template-columns: 10px 1fr 50px 40px; align-items: center; gap: 6px; }
+.biome-row { display: grid; grid-template-columns: 10px 1fr 44px; align-items: center; gap: 6px; padding: 0 3px; border-radius: 3px; cursor: default; }
+.biome-row.hot { background: rgba(255,255,255,0.08); }
+.biome-tabs { display: flex; gap: 4px; margin: 2px 0 4px; }
+.biome-tabs button { flex: 1; font: inherit; font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #3a424e; background: #232831; color: var(--muted); cursor: pointer; }
+.biome-tabs button.on { background: #3a4656; color: #fff; border-color: #56657a; }
+.biome-graph { display: block; margin: 0 0 4px; }
+.biome-legend { display: flex; flex-direction: column; gap: 2px; }
 .biome-sw { width: 10px; height: 10px; border-radius: 2px; }
 .biome-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .biome-bar { height: 6px; border-radius: 3px; background: #333a44; overflow: hidden; }
