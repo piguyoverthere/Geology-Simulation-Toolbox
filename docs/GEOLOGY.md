@@ -1443,6 +1443,15 @@ Woods and Game Woods (ordinary forest) are no longer made; any already on a map 
 eight plantation blocks in a stand of 0.76-old forest, a town made 2.3 Old Growth Reserves (2 of
 them at a plantation's edge) against 1 without the plantations, out of 9 parks either way.
 
+**Old-growth trails.** Outside the parks, a town of 300 or more now and then lays a trail out to a
+stand of old growth near it (older than 0.75, wild, 10–45 cells away, outside any park), ending in a
+short loop through the stand: the *Old Forest Trail* (numbered if a town has several). A town keeps
+about one for every 2,000 people, plus one, times **Park frequency**. A stand people walk to is
+more likely to become a park: within 8 cells of one, an Old Growth Reserve needs only age 0.72 and
+scores higher, and when a park forms there it takes the trail in as its own (renamed after the park).
+In a test in a stand of 0.78-old forest, a town laid three Old Forest Trails, and one of their stands
+became an Old Growth Reserve in each run, taking in its trail; without the trails, none did.
+
 **National Forests.** Every map gets one or two (chosen once, world.nationalTarget) large National
 Forests, set aside for the whole map rather than by a town, but only once the map has a civilization
 (at least one town, with civilization on): a map with no towns gets no parks of any kind.

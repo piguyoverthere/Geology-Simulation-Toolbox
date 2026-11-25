@@ -1523,7 +1523,7 @@ export function civStep(world) {
     // Clearing the invasive pine out of the forest around it
     if (civParams.clearInvasive) clearInvasives(world, t, R);
     // Parks: a growing town sets aside small areas around something special in the forest near it
-    if (civParams.townParks) { parkStep(world, t); wildernessStep(world, t); }
+    if (civParams.townParks) { parkStep(world, t); wildernessStep(world, t); oldTrailStep(world, t); }
     // A big town sends people out to found a daughter village (linked by road)
     // (when the town is crowded: near what its land can feed)
     // (a town with boats can send them across the water, farther afield; without, only overland)
@@ -2740,9 +2740,11 @@ export function parkStep(world, t) {
     age /= Math.max(1, c);
     // (ordinary forest, for Woods or Game Woods if nothing special turns up: older, nearer is better)
     // (old growth: only the oldest stands, and worth less where old forest is common on the map)
-    // (beside a timber plantation it counts for more, and a little younger will do)
+    // (beside a timber plantation it counts for more, and a little younger will do; so does a stand
+    // people already walk to on one of the town's old-growth trails)
     const edge = plant > 0;
-    let score = age > (edge ? 0.72 : 0.8) ? Math.min(1, (age - 0.62) * 3.3) * Math.min(1, 0.12 / (oldMean + 0.02)) + (edge ? 0.2 : 0) : 0, kind = 'old', sp = -1;
+    const walked = (world.footpaths || []).some((f) => f.spot && !f.park && Math.hypot(f.spot.x - x, f.spot.z - z) < 8);
+    let score = age > (edge || walked ? 0.72 : 0.8) ? Math.min(1, (age - 0.62) * 3.3) * Math.min(1, 0.12 / (oldMean + 0.02)) + (edge ? 0.2 : 0) + (walked ? 0.25 : 0) : 0, kind = 'old', sp = -1;
     // A rare tree: one making up much more of the trees here than of the map's forest
     treeShares(world, i, sh);
     for (let s = 0; s < K; s++) {
@@ -2850,6 +2852,8 @@ export function parkStep(world, t) {
     for (let k = 0; k < 3; k++) fp = addFootpath(world, loop[k], loop[k + 1]) || fp;
   }
   if (fp && !before.has(fp.id)) { fp.park = site.id; (site.trails ||= []).push(fp.id); }
+  // (an old-growth trail out to a stand inside the park becomes one of its trails)
+  for (const f of world.footpaths || []) if (f.spot && !f.park && (inPark(site, f.spot.x, f.spot.z) || edgeDist(site, f.spot.x, f.spot.z) < 3)) { f.park = site.id; (site.trails ||= []).push(f.id); }
   // (the park's trails are named after it, numbered if there are several)
   const trails = (world.footpaths || []).filter((f) => f.park === site.id);
   trails.forEach((f, k) => { f.name = `${site.name} Trail${trails.length > 1 ? ` ${k + 1}` : ''}`; });
@@ -3123,4 +3127,50 @@ function beachPath(world, poly) {
   const pts = [];
   for (let i = b; i !== undefined; i = prev.get(i)) pts.push({ x: i % N, z: (i / N) | 0 });
   return pts;
+}
+
+/**
+ * Old-growth trails: a town of 300 or more now and then lays a trail out to a stand of old growth
+ * near it (older than 0.75, wild, outside any park), ending in a short loop through the stand. People
+ * walk there, and a stand with a trail to it is much more likely to become an Old Growth Reserve
+ * later, which then takes the trail in as its own. A town keeps about one such trail for every 2,000
+ * people, plus one (times the Park frequency slider). Named after the town (the "Old Forest Trail").
+ */
+export function oldTrailStep(world, t) {
+  const rate = civParams.parkRate ?? 1;
+  if (t.pop < 300 || rate <= 0 || Math.random() > 0.012 * rate) return;
+  const mine = (world.footpaths || []).filter((f) => f.spot && f.town === t.num && !f.park).length;
+  if (mine >= Math.max(1, Math.round((1 + t.pop / 2000) * rate))) return;
+  const N = world.N, LU = world.landUse, V = world.vegetation, A = world.forestAge, sites = world.parkSites || [];
+  let best = null;
+  for (let k = 0; k < 120; k++) {
+    const a = Math.random() * Math.PI * 2, d = 10 + Math.random() * 35;
+    const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
+    if (x < 6 || z < 6 || x >= N - 6 || z >= N - 6) continue;
+    const i = z * N + x;
+    if (LU[i] || V[i] < 0.6) continue;
+    if (sites.some((p) => p.kind !== 'national' && inPark(p, x, z))) continue;
+    if ((world.footpaths || []).some((f) => f.spot && Math.hypot(f.spot.x - x, f.spot.z - z) < 10)) continue;
+    let age = 0, c = 0, built = false;
+    for (let dz = -3; dz <= 3 && !built; dz++) for (let dx = -3; dx <= 3; dx++) {
+      const j = i + dz * N + dx;
+      if (LU[j] && LU[j] !== 10 && !(world.footpath && world.footpath[j])) { built = true; break; }
+      age += A[j]; c++;
+    }
+    if (built) continue;
+    age /= c;
+    if (age < 0.75) continue;
+    const score = age - d * 0.004;
+    if (!best || score > best.score) best = { x, z, score };
+  }
+  if (!best) return;
+  const rl = 3, ta = Math.atan2(t.z - best.z, t.x - best.x);
+  const at = (a) => ({ x: Math.round(best.x + Math.cos(a) * rl), z: Math.round(best.z + Math.sin(a) * rl) });
+  const loop = [at(ta), at(ta + 2.1), at(ta + 4.2), at(ta)];
+  let fp = addFootpath(world, { x: t.x, z: t.z }, loop[0], false);
+  for (let k = 0; k < 3; k++) fp = addFootpath(world, loop[k], loop[k + 1]) || fp;
+  if (!fp) return;
+  const n = (world.footpaths || []).filter((f) => f.spot && f.town === t.num).length;
+  fp.spot = { x: best.x, z: best.z }; fp.town = t.num;
+  fp.name = `${t.name} Old Forest Trail${n ? ` ${n + 1}` : ''}`;
 }
