@@ -19,5 +19,10 @@
     "date": "2026-11-24",
     "notes": "Groundwater, climate change, forest carbon, megafires, trophic cascades, pollinators, roads & dams, fish stocks, restoration",
     "prerelease": true
+  },
+  {
+    "version": "1.2.0",
+    "date": "2026-11-25",
+    "notes": "Ecosystems and people: groundwater, climate change, forest carbon, megafires, trophic cascades, pollinators, roads & dams, fish stocks, restoration, fire followers, more wildlife settings and tools, sea washing away towns, loading screen"
   }
 ]
