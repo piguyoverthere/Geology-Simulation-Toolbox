@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guide — Geology Simulation Toolbox</title>
+  <style>
+    :root { --bg: #3a3d42; --panel: #44484e; --line: #555a62; --text: #e8eaed; --muted: #b4b9c0; --accent: #6aa6ff; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .bar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 4px; padding: 0 16px; height: 40px; background: #0f1114; border-bottom: 1px solid #262b33; font-size: 13px; }
+    .bar b { margin-right: 14px; }
+    .bar a, .bar button { color: var(--text); text-decoration: none; padding: 5px 10px; border-radius: 3px; background: none; border: none; font: inherit; cursor: pointer; }
+    .bar a:hover, .bar button:hover, .bar .on { background: #2b313b; }
+    .bar .back { margin-left: auto; background: #3d7be0; color: #fff; }
+    .wrap { display: grid; grid-template-columns: 240px minmax(0, 1fr); max-width: 1180px; margin: 0 auto; }
+    nav.toc { position: sticky; top: 40px; align-self: start; max-height: calc(100vh - 40px); overflow-y: auto; padding: 18px 12px; font-size: 13px; border-right: 1px solid var(--line); }
+    nav.toc a { display: block; color: var(--muted); text-decoration: none; padding: 3px 6px; border-radius: 2px; }
+    nav.toc a.h3 { padding-left: 18px; font-size: 12px; }
+    nav.toc a:hover { color: var(--text); background: #4a4e55; }
+    main { padding: 24px 36px 80px; min-width: 0; }
+    h1 { font-size: 28px; margin: 0.2em 0 0.6em; }
+    h2 { font-size: 21px; margin: 1.8em 0 0.5em; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+    h3 { font-size: 17px; margin: 1.5em 0 0.4em; }
+    h4 { font-size: 15px; margin: 1.2em 0 0.3em; }
+    a { color: var(--accent); }
+    code { background: #2c2f34; padding: 1px 5px; border-radius: 2px; font-size: 0.9em; }
+    pre { background: #2c2f34; padding: 12px 14px; border-radius: 3px; overflow-x: auto; }
+    pre code { padding: 0; background: none; }
+    table { border-collapse: collapse; margin: 1em 0; font-size: 13.5px; display: block; overflow-x: auto; }
+    th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+    th { background: var(--panel); }
+    hr { border: none; border-top: 1px solid var(--line); margin: 2em 0; }
+    blockquote { margin: 1em 0; padding: 2px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+    ul, ol { padding-left: 1.4em; }
+    @media (max-width: 760px) { .wrap { grid-template-columns: 1fr; } nav.toc { display: none; } main { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <b>Geology Simulation Toolbox · Guide</b>
+    <button data-doc="README.md">Getting started</button>
+    <button data-doc="docs/GEOLOGY.md">How the simulation works</button>
+    <a class="back" href="./">Back to the simulation</a>
+  </div>
+  <div class="wrap">
+    <nav class="toc" id="toc"></nav>
+    <main id="doc">Loading…</main>
+  </div>
+  <script>
+    // A small Markdown renderer for the guide: headings, paragraphs, lists, tables, code, quotes,
+    // links, bold and italics (enough for README.md and docs/GEOLOGY.md).
+    const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const slug = (s) => s.toLowerCase().replace(/<[^>]+>/g, '').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-');
+    function inline(s) {
+      const codes = [];
+      s = s.replace(/`([^`]+)`/g, (m, c) => { codes.push(`<code>${esc(c)}</code>`); return `\u0000${codes.length - 1}\u0000`; });
+      s = esc(s);
+      s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, u) => `<a href="${u}">${t}</a>`);
+      s = s.replace(/&lt;(https?:\/\/[^&\s]+)&gt;/g, '<a href="$1">$1</a>');
+      s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/(^|[^\w*])\*([^*\n]+)\*(?=[^\w*]|$)/g, '$1<i>$2</i>');
+      return s.replace(/\u0000(\d+)\u0000/g, (m, k) => codes[+k]);
+    }
+    function render(md) {
+      const lines = md.replace(/\r/g, '').split('\n'), out = [], toc = [];
+      let i = 0;
+      const para = [];
+      const flush = () => { if (para.length) { out.push(`<p>${inline(para.join(' '))}</p>`); para.length = 0; } };
+      while (i < lines.length) {
+        const l = lines[i];
+        if (/^```/.test(l)) {
+          flush(); const code = []; i++;
+          while (i < lines.length && !/^```/.test(lines[i])) code.push(lines[i++]);
+          out.push(`<pre><code>${esc(code.join('\n'))}</code></pre>`); i++; continue;
+        }
+        const h = l.match(/^(#{1,4})\s+(.*)$/);
+        if (h) {
+          flush(); const lvl = h[1].length, text = inline(h[2]), id = slug(h[2]);
+          if (lvl === 2 || lvl === 3) toc.push({ lvl, text: h[2].replace(/`/g, ''), id });
+          out.push(`<h${lvl} id="${id}">${text}</h${lvl}>`); i++; continue;
+        }
+        if (/^\s*(---|\*\*\*)\s*$/.test(l)) { flush(); out.push('<hr>'); i++; continue; }
+        if (/^\|/.test(l)) {
+          flush(); const rows = [];
+          while (i < lines.length && /^\|/.test(lines[i])) rows.push(lines[i++]);
+          const cells = (r) => r.replace(/^\||\|\s*$/g, '').split(/(?<!\\)\|/).map((c) => inline(c.trim().replace(/\\\|/g, '|')));
+          const head = cells(rows[0]), body = rows.slice(2).map(cells);
+          out.push(`<table><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+          continue;
+        }
+        if (/^\s*([-*]|\d+\.)\s+/.test(l)) {
+          flush(); const ordered = /^\s*\d+\./.test(l), items = [];
+          while (i < lines.length && (/^\s*([-*]|\d+\.)\s+/.test(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && items.length))) {
+            if (/^\s*([-*]|\d+\.)\s+/.test(lines[i])) items.push(lines[i].replace(/^\s*([-*]|\d+\.)\s+/, ''));
+            else items[items.length - 1] += ' ' + lines[i].trim();
+            i++;
+          }
+          out.push(`<${ordered ? 'ol' : 'ul'}>${items.map((t) => `<li>${inline(t)}</li>`).join('')}</${ordered ? 'ol' : 'ul'}>`);
+          continue;
+        }
+        if (/^>\s?/.test(l)) { flush(); const q = []; while (i < lines.length && /^>\s?/.test(lines[i])) q.push(lines[i++].replace(/^>\s?/, '')); out.push(`<blockquote>${inline(q.join(' '))}</blockquote>`); continue; }
+        if (!l.trim()) { flush(); i++; continue; }
+        para.push(l.trim()); i++;
+      }
+      flush();
+      return { html: out.join('\n'), toc };
+    }
+    async function show(path) {
+      for (const b of document.querySelectorAll('[data-doc]')) b.classList.toggle('on', b.dataset.doc === path);
+      const main = document.getElementById('doc'), nav = document.getElementById('toc');
+      try {
+        const md = await (await fetch(path, { cache: 'no-store' })).text();
+        const { html, toc } = render(md);
+        main.innerHTML = html;
+        nav.innerHTML = toc.map((t) => `<a class="h${t.lvl}" href="#${t.id}">${esc(t.text)}</a>`).join('');
+        // (links between the two documents open here)
+        for (const a of main.querySelectorAll('a[href]')) {
+          const h = a.getAttribute('href');
+          if (/(^|\/)(README|GEOLOGY)\.md(#.*)?$/.test(h)) a.addEventListener('click', (e) => { e.preventDefault(); show(h.includes('GEOLOGY') ? 'docs/GEOLOGY.md' : 'README.md'); });
+        }
+        history.replaceState(null, '', `?doc=${encodeURIComponent(path)}${location.hash}`);
+        if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView(); else scrollTo(0, 0);
+      } catch (err) { main.textContent = `Couldn't load ${path}: ${err.message}`; }
+    }
+    for (const b of document.querySelectorAll('[data-doc]')) b.addEventListener('click', () => { history.replaceState(null, '', location.pathname); show(b.dataset.doc); });
+    const q = new URLSearchParams(location.search).get('doc');
+    show(q === 'docs/GEOLOGY.md' ? q : 'README.md');
+  </script>
+</body>
+</html>

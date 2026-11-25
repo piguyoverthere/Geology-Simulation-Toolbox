@@ -26,6 +26,8 @@ The page opens on a grey **home screen** listing your simulations, all kept in t
 
 - **New simulation**: name it and set up the terrain (preset, seed, map size), the sea (as the
   terrain comes, on or off, and its level), and whether seasons, civilization and erosion are on.
+- **📖 Guide** opens this guide and *How the simulation works* (docs/GEOLOGY.md) as web pages
+  (`docs.html`), with a contents list; Help → Guide in the menu bar opens it too.
 - **Open** a simulation to carry on where you left off. It saves itself every 30 seconds and when
   the page is hidden or closed. The 🏠 button at the top of the side panel goes back home.
 - **Restore an earlier save**: each simulation keeps earlier saves to roll back to, one when each

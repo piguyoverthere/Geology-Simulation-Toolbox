@@ -32,7 +32,9 @@ export class Home {
     const head = el('div', 'home-head');
     head.append(el('h1', '', 'Geology Simulation Toolbox'), el('div', 'home-sub', 'Your simulations are kept in this browser. Export one to a file to keep it safe or move it to another computer.'));
     const actions = el('div', 'home-actions');
-    actions.append(btn('＋ New simulation', () => this.newDialog(), 'primary'), btn('Import from file…', () => this.importFile()));
+    const guide = btn('📖 Guide', () => { location.href = 'docs.html'; });
+    guide.title = 'How to use the toolbox, and how each part of the simulation works';
+    actions.append(btn('＋ New simulation', () => this.newDialog(), 'primary'), btn('Import from file…', () => this.importFile()), guide);
     this.list = el('div', 'home-list');
     this.status = el('div', 'home-status');
     const foot = el('div', 'home-foot');

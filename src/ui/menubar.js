@@ -106,7 +106,8 @@ export class MenuBar {
       ],
       Help: [
         { label: 'Controls', action: () => alert('Left-drag: use the tool\nRight-drag: orbit · Middle-drag: pan · Scroll: zoom\nShift + tool: invert it\nSpace: play / pause\n1–9, 0, -, = and letters: pick a tool (shown on the tool bar and in the Tools menu)\n[ and ]: brush size\n' + `${MOD}Z / ⇧${MOD}Z: undo / redo`) },
-        { label: 'Read the guide (README)', action: () => window.open('https://github.com/piguyoverthere/Geology-Simulation-Toolbox#readme', '_blank') },
+        { label: 'Guide', action: () => window.open('docs.html', '_blank') },
+        { label: 'How the simulation works', action: () => window.open('docs.html?doc=docs/GEOLOGY.md', '_blank') },
         '-',
         { label: `About · version ${APP_VERSION}`, action: () => alert(`Geology Simulation Toolbox\nVersion ${APP_VERSION}\n\nOlder versions can be run from the home screen.`) },
       ],
