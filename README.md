@@ -202,6 +202,7 @@ seasons, weather), **Sea** (ocean and coast) and **Life** (wildlife).
   forest: wetter vegetation, forest allowed on nearly all the land, faster growth and seed spread, and
   slower fire. Within a few dozen steps nearly all the land is closed-canopy forest. Presets
   bring their own settings and put back the previous preset's when you switch.
+- **Population** overlay: a heatmap of where the towns' people live (people per cell, log scale).
 - **Single biome** overlay: one biome, picked in the legend, highlighted on the map with everything else grey.
 - **Biomes & trees** window (top right of the map, click to open): three line graphs over time on
   tabs, one line per biome (share of the land, the same categories as the Biomes overlay, looking

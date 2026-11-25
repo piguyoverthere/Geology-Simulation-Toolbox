@@ -925,6 +925,11 @@ export class Toolbox {
     };
     if (mode === 'rock' || (mode === 'natural' && !this.app.renderer.showVegetation)) items('Rock types', ROCKS);
     else if (mode === 'bare') items('Exposed rock (pale = under soil)', [{ label: 'Soil-covered', color: [0.86, 0.84, 0.78], help: 'Bedrock buried under soil deep enough to grow on.' }, ...ROCKS]);
+    else if (mode === 'population') {
+      ramp('People per cell (where the towns\' people live)', 'a few', '60+', [[0.25, 0.10, 0.45], [0.80, 0.15, 0.25], [0.98, 0.55, 0.10], [1.0, 0.95, 0.60]]);
+      const total = Math.round(this.app.world.civPop || 0);
+      L.append(el('div', 'tb-note', `Each town's people spread over the land it owns: most in its streets, some in its works, a few out on its farms and plantations. Log scale, so a village shows as well as a city. ${total ? `${total.toLocaleString()} people on the map.` : 'No towns yet.'}`));
+    }
     else if (mode === 'onebiome') {
       // Pick the biome to show; its share of the land below
       this.legendTitle.textContent = 'Single biome';

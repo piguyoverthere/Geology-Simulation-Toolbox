@@ -1319,7 +1319,7 @@ export function civStep(world) {
     if (RC[i] <= 0.03) { LU[i] = world.channel[i] ? (world.channel[i] === 1 ? 8 : 9) : 0; P[i] = 0; RC[i] = 0; world.roadCore[i] = 0; world.bridge[i] = 0; } // (a fallen bridge leaves its canal)
   }
   if (civParams.nationalForests && towns.length) nationalForestStep(world); // (only once there is a civilization to set them aside)
-  if (!towns.length) { world.civPop = 0; airPollutionStep(world); desertStep(world); invasiveStep(world); return; } // (the smoke, worn land and pine carry on without towns)
+  if (!towns.length) { world.civPop = 0; if (world.popDensity) world.popDensity.fill(0); airPollutionStep(world); desertStep(world); invasiveStep(world); return; } // (the smoke, worn land and pine carry on without towns)
   // (the site fields change slowly: refresh them every few steps)
   world.civFieldsAge = (world.civFieldsAge || 0) + 1;
   if (!world._civFields || world._civFields.N !== N || world.civFieldsAge % 6 === 0) { world._civFields = siteFields(world); world._civFields.N = N; world._landComp = landComponents(world); }
@@ -1592,6 +1592,7 @@ export function civStep(world) {
     else total += t.pop;
   }
   world.civPop = total;
+  populationField(world);
   // People on the move, disease, smoke and worn-out land
   migrationStep(world, world.towns);
   if (civParams.epidemics) epidemicStep(world, world.towns);
@@ -2307,6 +2308,7 @@ export function addFootpath(world, a, b, join = true) {
   // laid a stretch at a time
   let joined = null, atEnd = true, bd = 4;
   if (join) for (const fp of world.footpaths) {
+    if (!fp.pts || !fp.pts.length) continue;
     const e = fp.pts[fp.pts.length - 1], s0 = fp.pts[0];
     const de = Math.hypot(e.x - a.x, e.z - a.z), ds = Math.hypot(s0.x - a.x, s0.z - a.z);
     if (de < bd) { bd = de; joined = fp; atEnd = true; }
@@ -2369,6 +2371,8 @@ export function markFootpaths(world) {
   const N = world.N, n = N * N;
   if (!world.footpath || world.footpath.length !== n) world.footpath = new Uint8Array(n);
   world.footpath.fill(0);
+  // (a footpath with no ground left to it, e.g. from an old level, is dropped)
+  if (world.footpaths && world.footpaths.some((fp) => !fp.pts || fp.pts.length < 2)) world.footpaths = world.footpaths.filter((fp) => fp.pts && fp.pts.length >= 2);
   const tread = (x, z) => {
     if (x < 0 || z < 0 || x >= N || z >= N) return;
     const i = z * N + x;
@@ -3254,4 +3258,32 @@ export function oldGrowthStep(world, t) {
     return { x: Math.max(0, Math.min(N - 1, (a.x + 2 * p.x + b.x) / 4)), z: Math.max(0, Math.min(N - 1, (a.z + 2 * p.z + b.z) / 4)) };
   });
   parkStep(world, t, { x: best.x, z: best.z, score: best.score, kind: 'old', sp: -1, r, outline, own: true });
+}
+
+/**
+ * Where the people live (the Population overlay): each town's people spread over the cells it owns,
+ * most in its streets and houses (by how built up), some in its works, a few on its farmland and
+ * plantations (farmers and foresters), then blurred a little into a heatmap. world.popDensity holds
+ * people per cell (rebuilt every town step; not saved).
+ */
+const POP_WEIGHT = { 2: 1, 4: 0.25, 5: 0.2, 6: 0.15, 1: 0.05, 10: 0.01, 11: 0.05 };
+export function populationField(world) {
+  const N = world.N, n = N * N, LU = world.landUse, OW = world.civOwner, P = world.paved;
+  const sum = {}, raw = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const o = OW[i];
+    if (!o) continue;
+    let wgt = POP_WEIGHT[LU[i]] || 0;
+    if (LU[i] === 2) wgt *= 0.3 + 0.7 * Math.min(1, P[i]);
+    if (!wgt) continue;
+    raw[i] = wgt;
+    sum[o] = (sum[o] || 0) + wgt;
+  }
+  const popOf = {};
+  for (const t of world.towns || []) popOf[t.num] = t.pop;
+  for (let i = 0; i < n; i++) if (raw[i]) { const o = OW[i]; raw[i] = popOf[o] ? (popOf[o] * raw[i]) / sum[o] : 0; }
+  const blur = boxBlur(raw, N, 2);
+  // (mostly the blurred heat, with the built-up cells still standing out)
+  for (let i = 0; i < n; i++) blur[i] = 0.65 * blur[i] + 0.35 * raw[i];
+  world.popDensity = blur;
 }

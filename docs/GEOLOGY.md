@@ -1431,6 +1431,15 @@ needle blight spreading to 11,600 cells took 0.6% of the old growth (it took 18%
 With **Invasive plantation pine** off, every plantation is replanted with native trees at once and
 kept weeded of pine; the pine already loose in the wild keeps spreading through wild forest.
 
+**Population overlay.** *Overlays → Population* is a heatmap of where the towns' people live, in
+people per cell: each town's people spread over the land it owns (most in its streets and houses,
+by how built up they are; some in its works, harbour and quays; a few out on its farms, plantations
+and mines), blurred a little, on a log scale (deep purple → red → orange → pale yellow at 60 or more
+a cell) so a village shows as well as a city; land with nobody on it is grey. The inspector shows
+*People here*. world.popDensity is rebuilt every town step and not saved. In a test, a town of 2,577
+peaked at 28 people a cell and a village of 203 at 9, and the map summed to the 2,783 people of
+both.
+
 **Town labels.** *Show town labels* (View) hides every town's name label over the map. *Show park names* (View) shows
 each park's and National Forest's name over it (the name alone, without the measurements your own
 drawings show), and *Show trail names* shows the names written along the footpaths and park
