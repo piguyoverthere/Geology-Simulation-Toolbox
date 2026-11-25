@@ -1262,6 +1262,7 @@ export function buildRoad(world, pts) {
 export function civStep(world) {
   // (footpaths stay trodden: plants don't close over them, though nothing maintains them)
   if (world.footpaths && world.footpaths.length) markFootpaths(world);
+  if (world.footpaths && world.footpaths.length > 3 && Math.random() < 0.1) thinFootpaths(world);
   if (!civParams.enabled) return;
   ensureCiv(world);
   const towns = world.towns;
@@ -2240,7 +2241,8 @@ function desertStep(world) {
  * slopes, crossing rivers only where it must (and never the open sea), reusing roads already there.
  * The route wanders a little with the lie of the land. Returns grid points, or null.
  */
-export function routeRoad(world, a, b) {
+export function routeRoad(world, a, b, foot = false) {
+  const FPm = foot ? world.footpath : null; // (a footpath keeps to the paths already trodden where it can)
   const N = world.N, n = N * N, H = world.height, D = world.water, sea = seaOf(world), LU = world.landUse;
   const pad = 30;
   const x0 = Math.max(1, Math.min(a.x, b.x) - pad), x1 = Math.min(N - 2, Math.max(a.x, b.x) + pad);
@@ -2266,7 +2268,7 @@ export function routeRoad(world, a, b) {
       // The lie of the land: gentle undulations in where a road finds it easiest to go
       const lie = 0.35 * (1 + Math.sin(x * 0.19 + z * 0.07) * Math.cos(z * 0.15 - x * 0.06));
       // (protected zones are kept wild: roads go round them unless there's truly no other way)
-      const cost = len * (1 + 14 * grade * grade + (D[j] > 0.1 ? 6 : 0) + lie - (LU[j] === 3 ? 0.6 : 0) + (zoneHas(world, j, Z.roads) ? 60 : 0));
+      const cost = len * (1 + 14 * grade * grade + (D[j] > 0.1 ? 6 : 0) + lie - (LU[j] === 3 ? 0.6 : 0) + (zoneHas(world, j, Z.roads) ? 60 : 0)) * (FPm && FPm[j] ? 0.2 : 1);
       const ng = g[c] + cost;
       if (ng < g[j]) { g[j] = ng; from[j] = c; heap.push(j, ng + hcost(j)); }
     }
@@ -2557,7 +2559,7 @@ export function addFootpath(world, a, b, join = true) {
   ensureCiv(world);
   const N = world.N;
   if (!world.footpaths) world.footpaths = [];
-  let pts = routeRoad(world, a, b);
+  let pts = routeRoad(world, a, b, true);
   if (!pts || pts.length < 2) {
     const len = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z)));
     pts = [];
@@ -2627,6 +2629,70 @@ export function removeFootpathsNear(world, a, b, r = 2) {
 }
 
 /** Mark the cells the footpaths cross (world.footpath) and wear the ground along them a little. */
+/** Share of the ground within r cells of (x, z) that is footpath. */
+function pathDensity(world, x, z, r = 10) {
+  const N = world.N, FP = world.footpath;
+  if (!FP) return 0;
+  let on = 0, all = 0;
+  for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+    if (dx * dx + dz * dz > r * r) continue;
+    const xx = Math.round(x + dx), zz = Math.round(z + dz);
+    if (xx < 0 || zz < 0 || xx >= N || zz >= N) continue;
+    all++; if (FP[zz * N + xx]) on++;
+  }
+  return all ? on / all : 0;
+}
+const CROWDED = 0.07; // (paths on more than this share of the ground around: no new trail there)
+
+/**
+ * Where a new trail out to (dest) starts: from the nearest point of the footpaths already there when
+ * that's much nearer than (from), so trails branch off the network rather than each running all the
+ * way out from town alongside the others.
+ */
+function trailStart(world, dest, from) {
+  let best = from, bd = Math.hypot(from.x - dest.x, from.z - dest.z) * 0.7;
+  for (const fp of world.footpaths || []) for (const p of fp.pts || []) {
+    const d = Math.hypot(p.x - dest.x, p.z - dest.z);
+    if (d < bd) { bd = d; best = { x: p.x, z: p.z }; }
+  }
+  return best;
+}
+
+/**
+ * Thin out trails where the towns have laid too many: wherever footpaths cover more than about a
+ * sixth of the ground around, the newest town-made trails through there are taken up (and grow
+ * over) until it's thin enough. Paths you drew are never touched, and a park keeps at least one trail.
+ */
+export function thinFootpaths(world) {
+  const fps = world.footpaths || [];
+  if (fps.length < 4 || !world.footpath) return 0;
+  const N = world.N;
+  let removed = 0;
+  for (let round = 0; round < 12; round++) {
+    const dens = boxBlur(Float32Array.from(world.footpath), N, 7);
+    let victim = null;
+    for (let k = fps.length - 1; k >= 0 && !victim; k--) {
+      const f = fps[k];
+      if (!f.park && !f.spot) continue; // (only the towns' own trails)
+      if (f.park) {
+        const site = (world.parkSites || []).find((p) => p.id === f.park);
+        const others = fps.filter((g) => g !== f && g.park === f.park).length;
+        if (site && others === 0) continue; // (a park's only trail stays)
+      }
+      let sum = 0, c = 0;
+      for (const p of f.pts) { if (p.x >= 0 && p.z >= 0 && p.x < N && p.z < N) { sum += dens[p.z * N + p.x]; c++; } }
+      if (c && sum / c > 0.16) victim = f;
+    }
+    if (!victim) break;
+    const i = fps.indexOf(victim);
+    fps.splice(i, 1);
+    for (const site of world.parkSites || []) if (site.trails) site.trails = site.trails.filter((id) => id !== victim.id);
+    markFootpaths(world);
+    removed++;
+  }
+  return removed;
+}
+
 export function markFootpaths(world) {
   const N = world.N, n = N * N;
   if (!world.footpath || world.footpath.length !== n) world.footpath = new Uint8Array(n);
@@ -3120,11 +3186,12 @@ export function parkStep(world, t, pick = null) {
     if (!near) along.reverse();
     fp = addFootpath(world, from, along[0], false);
     if (fp) { fp.pts.push(...along.slice(1)); markFootpaths(world); }
-  } else {
+  } else if (pathDensity(world, best.x, best.z, Math.max(8, r)) < CROWDED) {
+    // (no new loop where the ground is already laced with trails)
     const ta = Math.atan2(from.z - best.z, from.x - best.x), rl = r * 0.7;
     const at = (a) => ({ x: Math.round(best.x + Math.cos(a) * rl), z: Math.round(best.z + Math.sin(a) * rl) });
     const loop = [at(ta), at(ta + 2.1), at(ta + 4.2), at(ta)];
-    fp = addFootpath(world, from, loop[0], false);
+    fp = addFootpath(world, trailStart(world, loop[0], from), loop[0], false);
     for (let k = 0; k < 3; k++) fp = addFootpath(world, loop[k], loop[k + 1]) || fp;
   }
   if (fp && !before.has(fp.id)) { fp.park = site.id; (site.trails ||= []).push(fp.id); }
@@ -3229,7 +3296,7 @@ export function wildernessStep(world, t) {
   const rl = Math.min(10, r * 0.4), ta = Math.atan2(t.z - best.z, t.x - best.x);
   const at = (a) => ({ x: Math.round(best.x + Math.cos(a) * rl), z: Math.round(best.z + Math.sin(a) * rl) });
   const loop = [at(ta), at(ta + 2.1), at(ta + 4.2), at(ta)];
-  let fp = addFootpath(world, { x: t.x, z: t.z }, loop[0], false);
+  let fp = addFootpath(world, trailStart(world, loop[0], { x: t.x, z: t.z }), loop[0], false);
   for (let k = 0; k < 3; k++) fp = addFootpath(world, loop[k], loop[k + 1]) || fp;
   if (fp) { fp.park = site.id; fp.name = `${name} Trail`; site.trails = [fp.id]; }
 }
@@ -3415,7 +3482,8 @@ function beachPath(world, poly) {
 export function oldTrailStep(world, t) {
   const rate = civParams.parkRate ?? 1;
   if (t.pop < 300 || rate <= 0 || Math.random() > 0.012 * rate) return;
-  const mine = (world.footpaths || []).filter((f) => f.spot && f.town === t.num && !f.park).length;
+  // (every trail it has laid counts, including those a park has since taken over)
+  const mine = (world.footpaths || []).filter((f) => f.spot && f.town === t.num).length;
   if (mine >= Math.max(1, Math.round((1 + t.pop / 2000) * rate))) return;
   const N = world.N, LU = world.landUse, V = world.vegetation, A = world.forestAge, sites = world.parkSites || [];
   let best = null;
@@ -3427,6 +3495,7 @@ export function oldTrailStep(world, t) {
     if (LU[i] || V[i] < 0.6) continue;
     if (sites.some((p) => p.kind !== 'national' && inPark(p, x, z))) continue;
     if ((world.footpaths || []).some((f) => f.spot && Math.hypot(f.spot.x - x, f.spot.z - z) < 10)) continue;
+    if (pathDensity(world, x, z, 8) >= CROWDED) continue; // (not where trails are thick already)
     let age = 0, c = 0, built = false;
     for (let dz = -3; dz <= 3 && !built; dz++) for (let dx = -3; dx <= 3; dx++) {
       const j = i + dz * N + dx;
@@ -3443,7 +3512,7 @@ export function oldTrailStep(world, t) {
   const rl = 3, ta = Math.atan2(t.z - best.z, t.x - best.x);
   const at = (a) => ({ x: Math.round(best.x + Math.cos(a) * rl), z: Math.round(best.z + Math.sin(a) * rl) });
   const loop = [at(ta), at(ta + 2.1), at(ta + 4.2), at(ta)];
-  let fp = addFootpath(world, { x: t.x, z: t.z }, loop[0], false);
+  let fp = addFootpath(world, trailStart(world, loop[0], { x: t.x, z: t.z }), loop[0], false);
   for (let k = 0; k < 3; k++) fp = addFootpath(world, loop[k], loop[k + 1]) || fp;
   if (!fp) return;
   const n = (world.footpaths || []).filter((f) => f.spot && f.town === t.num).length;

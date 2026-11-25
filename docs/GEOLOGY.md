@@ -1493,6 +1493,25 @@ Forest the sea covers isn't affected by this rule. In a test, the sea was raised
 grassland cells near the shore and then lowered again: 826 were left as beach, with plant cover held
 at 7%. The rest had been in the tidal zone already.
 
+## Keeping trails from getting too dense
+
+Towns' trails (park trails, old-growth trails, wilderness trails) used to pile up: each one was
+walked out from the town centre along its own route, and a town laid a new old-growth trail every
+time a park took one of its trails over. Now:
+- A new trail **keeps to the paths already trodden** where it can (path routing costs a fifth as much
+  along an existing footpath), and **branches off the nearest footpath** when that's much nearer than
+  the town.
+- No new old-growth trail, and no new park trail loop, where footpaths already cover more than 7% of
+  the ground around. A town's old-growth trails all count towards its limit, including those a park
+  has taken over.
+- **Thinning**: wherever footpaths cover more than about a sixth of the ground around, the newest
+  town-made trails there are taken up and grow over, until it's thin enough. Paths you drew are never
+  touched, and every park keeps at least one trail. This also clears trail mazes already on a map.
+
+In a test, a lattice of 26 town trails over a 60×60 block (37% of the ground footpath) was thinned
+to 4 (8%), keeping a path drawn by hand, and a second trail out to a spot near the first one's end
+shared 47% of its route with it.
+
 ## Bare ground in reach of the waves is shore
 
 Bare ground (plant cover 25% or less) below the reach of the waves (high tide plus 1.2, plus any storm
