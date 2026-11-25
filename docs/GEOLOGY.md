@@ -1432,6 +1432,7 @@ Parks protect only what is hard to find; where nothing rare is near a town, it m
 | Preserve (*Wetland Preserve*, *Tundra Preserve*…) | a wild biome under 6% of the map's land (forest types, wetland, grassland, shrubland, tundra, mangrove, dunes, mesa, desert) covering most of the ground | no earthworks; hunting allowed |
 | Refuge (*Deer Refuge*…) | an animal living several times more thickly than its average over the land | no hunting, no earthworks |
 | Last Woods | forest where less than 30% of the land within 20 cells is still wild forest | no fires, no earthworks; hunting allowed |
+| Beach (*Beach*, *Pebble Beach*, *Black Beach*) | an unbuilt stretch of sand, shingle or basalt beach within 55 cells (at least six beach cells together), its middle set a few cells inland so it takes in the beach and the land behind; each beach park already on the map makes another count for less | no earthworks (no quays, breakwaters or dumped spoil); hunting allowed |
 | Commons | a block of the town's own fields, only for a town over 10 years old with less than 15% wild forest left within 20 cells | no fires, no hunting |
 | Wilderness | see below | no fires, no earthworks; hunting allowed |
 
@@ -1473,7 +1474,7 @@ the park it joins, and the park's trails are numbered. In a test, 11 park pieces
 three merged parks of 2–3 pieces, 15–28 cells across, and three single ones. With the larger outlines, single parks covered 140–210 cells (for example 10×20 and 23×14 cells) and a park merged from three pieces about 400. In other tests, a town ringed by its own fields made Commons
 (some of which merged), and a herd of deer packed into one patch got a *Deer Refuge* 3 cells from its
 centre. A town whose district was farmed all round but for one wood made that wood its *Last
-Woods*, and a big town found a *Tundra Preserve* and a *Coastal Dunes Preserve*.
+Woods*, and a big town found a *Tundra Preserve* and a *Coastal Dunes Preserve*. A coastal town made *Glenfield Beach*, taking in 21 cells of sand beach and the land behind, with no sea inside.
 
 The parks appear in the **Drawings** list as green polygons, where you can change their
 restrictions or delete them; world.parkSites remembers each park. Turn them off with **Town parks**

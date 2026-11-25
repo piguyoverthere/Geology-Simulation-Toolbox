@@ -24,7 +24,7 @@
 import { boxBlur, MinHeap } from '../core/grid.js';
 import { seasonParams, seasonalAt, drySeason, climateParams } from './climate.js';
 import { ROCK_INDEX } from '../core/rocks.js';
-import { coastParams, isLivingBed, MARINE_ID } from './coast.js';
+import { coastParams, isLivingBed, MARINE_ID, SHORE } from './coast.js';
 import { waterParams } from './water.js';
 import { SPECIES, treeShares } from './species.js';
 import { FOREST_TYPES } from './forests.js';
@@ -2467,6 +2467,8 @@ export function townNear(world, x, z, r = 10) {
  *   • a Refuge (Deer Refuge…) where an animal lives far more thickly than across the map: also no
  *     hunting, no earthworks
  *   • Last Woods, forest where little is left within 20 cells: also no fires, no earthworks
+ *   • a Beach park (Beach, Pebble Beach, Black Beach) on a stretch of unbuilt sand, shingle or
+ *     basalt beach and the land behind it: also no earthworks (no quays, breakwaters or dumped spoil)
  *   • Commons, only for a town over ten years old with next to no wild forest left within 20 cells:
  *     a block of its own fields taken out of farming and left to go back to the wild; no fires, no
  *     hunting
@@ -2488,6 +2490,7 @@ export const PARK_TYPES = {
   commons: { label: 'Commons', restrict: ['timber', 'fields', 'towns', 'roads', 'fires', 'hunting'] },
   biome: { label: 'Preserve', restrict: ['timber', 'fields', 'towns', 'roads', 'earthworks'] },
   national: { label: 'National Forest', restrict: ['timber'] },
+  beach: { label: 'Beach', restrict: ['timber', 'fields', 'towns', 'roads', 'earthworks'] },
   remnant: { label: 'Last Woods', restrict: ['timber', 'fields', 'towns', 'roads', 'fires', 'earthworks'] },
   wilderness: { label: 'Wilderness', restrict: ['timber', 'fields', 'towns', 'roads', 'fires', 'earthworks'] },
 };
@@ -2749,6 +2752,9 @@ export function parkStep(world, t) {
   }
   // A town hemmed in by its own development (or, now and then, an old town): a Commons, out of its
   // own fields
+  // A beach: an unbuilt stretch of the shore near the town
+  const bch = beachSite(world, t);
+  if (bch && (!best || bch.score > best.score)) best = bch;
   // (only when it has next to no wild forest left within 20 cells, and has been there ten years)
   const old = (seasonParams.year || 1) - (t.founded || 1) >= 10;
   if (!best && old && localForest(world, t.x, t.z) < 0.15) { const c = commonsSite(world, t); if (c) best = c; }
@@ -2756,6 +2762,7 @@ export function parkStep(world, t) {
   const type = PARK_TYPES[best.kind];
   const r = (5 + Math.random() * 4) * (civParams.parkSize ?? 1); // (10–18 cells across, times the Park size slider)
   const label = best.kind === 'grove' ? `${SPECIES[best.sp].label.replace(/\s*\(.*\)/, '').replace(/ & .*/, '')} Grove`
+    : best.kind === 'beach' ? ['Beach', 'Pebble Beach', 'Black Beach'][best.shore]
     : best.kind === 'refuge' ? `${best.animal.name} Refuge`
     : best.kind === 'biome' ? `${BIOMES[best.biome].label.replace(/\s*\(.*\)/, '').replace(/\b\w/g, (ch) => ch.toUpperCase())} Preserve` : type.label;
   const restrict = {};
@@ -3002,4 +3009,42 @@ export function nationalForestStep(world) {
   const lerp = (p, f) => ({ x: Math.round(best.x + (p.x - best.x) * f), z: Math.round(best.z + (p.z - best.z) * f) });
   const fp = addFootpath(world, lerp(p1, 0.85), lerp(p2, 0.85), false);
   if (fp) { fp.park = site.id; fp.name = `${name} Trail`; site.trails = [fp.id]; }
+}
+
+/**
+ * Where a town makes a beach park: an unbuilt stretch of sand, shingle or basalt beach within 55
+ * cells, at least six cells of it together. The park's middle is set a few cells inland, so it takes
+ * in the beach and the land behind it. Each beach park the map has already makes another count for
+ * less. Returns { x, z, score, kind: 'beach', shore: 0 sand / 1 shingle / 2 basalt } or null.
+ */
+function beachSite(world, t) {
+  if (!world.shore) return null;
+  const N = world.N, SH = world.shore, LU = world.landUse, H = world.height, sea = seaOf(world), sites = world.parkSites || [];
+  const kinds = [SHORE.sand, SHORE.shingle, SHORE.basalt];
+  const beaches = sites.filter((p) => p.features && p.features.includes('beach')).length;
+  let best = null;
+  for (let k = 0; k < 200; k++) {
+    const a = Math.random() * Math.PI * 2, d = 8 + Math.random() * 47;
+    const x = Math.round(t.x + Math.cos(a) * d), z = Math.round(t.z + Math.sin(a) * d);
+    if (x < 8 || z < 8 || x >= N - 8 || z >= N - 8) continue;
+    const i = z * N + x, kind = kinds.indexOf(SH[i]);
+    if (kind < 0 || LU[i] || H[i] < sea - 0.5) continue;
+    let cnt = 0, built = 0, sx = 0, sz = 0, sc = 0;
+    for (let dz = -6; dz <= 6; dz++) for (let dx = -6; dx <= 6; dx++) {
+      if (dx * dx + dz * dz > 36) continue;
+      const j = i + dz * N + dx;
+      if (SH[j] === SH[i]) cnt++;
+      if (LU[j] && !(world.footpath && world.footpath[j])) built++;
+      if (H[j] < sea) { sx += dx; sz += dz; sc++; }
+    }
+    if (cnt < 6 || built > 6 || !sc) continue;
+    // (a few cells inland, away from the sea)
+    const L = Math.hypot(sx, sz) || 1;
+    const cx = Math.round(x - (sx / L) * 3), cz = Math.round(z - (sz / L) * 3);
+    if (cx < 8 || cz < 8 || cx >= N - 8 || cz >= N - 8 || H[cz * N + cx] < sea + 0.3 || LU[cz * N + cx]) continue;
+    if (sites.some((p) => p.kind !== 'national' && (inPark(p, cx, cz) || edgeDist(p, cx, cz) < 4))) continue;
+    const score = (0.45 + Math.min(0.3, cnt * 0.008)) * Math.pow(0.55, beaches) - d * 0.004;
+    if (score > 0.25 && (!best || score > best.score)) best = { x: cx, z: cz, score, kind: 'beach', sp: -1, shore: kind };
+  }
+  return best;
 }
