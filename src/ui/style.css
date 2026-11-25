@@ -389,3 +389,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .save-warning-text { flex: 1; }
 .save-warning button { flex: none; background: #fff; color: #5a1e0e; border: none; border-radius: 6px; padding: 5px 9px; font: inherit; font-weight: 600; cursor: pointer; }
 .save-warning button.save-warning-close { background: none; color: #fff; padding: 2px 4px; }
+
+/* Single biome overlay: the biome picker, then a note on it */
+.tb-onebiome { display: flex; flex-direction: column; gap: 6px; }
+.tb-onebiome .tb-legend-item { display: flex; align-items: center; gap: 6px; }
+.tb-onebiome select { flex: 1; min-width: 0; }
+.tb-onebiome .tb-note { line-height: 1.35; }

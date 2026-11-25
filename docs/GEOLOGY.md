@@ -323,7 +323,12 @@ cap; 30 °C gives only tropical forest and no snow. See it with **Overlays → T
 ### Tree species and soil chemistry (`src/sim/species.js`)
 
 Forests are mixes of species, each with its own preferences, so every spot has a percentage of
-each species plus open ground between the trees:
+each species plus open ground between the trees. The mix answers to the climate rather than the
+season: it uses the ground's wetness and nearness to water averaged over about a year
+(world.soilAvg, world.nearAvg), and the species readouts and graph weigh it by the tree cover
+averaged the same way (world.vegAvg), so a wet spring or a flush of leaves doesn't swing it (before
+this, alder's share of the trees fell from 10.6% to 5.8% in one season; now it held between 10.8%
+and 11.0% from late winter into spring):
 
 | Species | Likes |
 | --- | --- |
@@ -795,12 +800,17 @@ the map's typical slope, so each forms whole regions.
 Bare biomes (desert, mesa, barren) erode fastest, which is why arid landscapes are so sharply
 carved: there are no roots to hold the ground when the rare storms come. Turn **Climate wetness**
 down and watch forest give way to shrubland and then desert, while mesas emerge on the dry
-slopes. **Overlays → Biomes** shows the categories; hover the legend for descriptions. The **🌍 Biomes & trees**
-window at the top right of the map has two line graphs over time, on tabs: **Biomes**, one line per
-biome for its share of the land (counted on every fourth cell), and **Trees**, one line per tree
-species for its share of all the trees on the map (every ninth cell, weighted by tree cover). A
+slopes. **Overlays → Biomes** shows the categories; hover the legend for descriptions. **Overlays → Single
+biome** picks out one biome, chosen in the legend, in its own colour, with everything else flat grey
+(light grey behind a dark biome, dark grey behind a light one such as snow or desert); the legend
+says how much of the land it covers now. The **🌍 Biomes & trees**
+window at the top right of the map has three line graphs over time, on tabs: **Biomes**, one line
+per biome for its share of the land (counted on every fourth cell, looking through lying snow to the
+biome beneath, so the lines don't swing with the winters); **Snow & ice**, the share of the land
+under snow and under glacier ice; and **Trees**, one line per tree species for its share of all the
+trees on the map (every ninth cell, weighted by tree cover averaged over about a year). A
 point is recorded every couple of seconds whether or not the window is open, and saved with the
-level (world.biomeHistory, world.treeHistory), so the graph runs from when recording began. Long
+level (world.biomeHistory, world.snowHistory, world.treeHistory), so the graph runs from when recording began. Long
 histories are thinned (every other point dropped past 400) rather than cut. Below the graph each
 line is listed, largest first, with its share now; hover a name to pick out its line. Recording
 takes about 10 ms every couple of seconds.

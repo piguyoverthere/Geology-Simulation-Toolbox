@@ -925,6 +925,41 @@ export class Toolbox {
     };
     if (mode === 'rock' || (mode === 'natural' && !this.app.renderer.showVegetation)) items('Rock types', ROCKS);
     else if (mode === 'bare') items('Exposed rock (pale = under soil)', [{ label: 'Soil-covered', color: [0.86, 0.84, 0.78], help: 'Bedrock buried under soil deep enough to grow on.' }, ...ROCKS]);
+    else if (mode === 'onebiome') {
+      // Pick the biome to show; its share of the land below
+      this.legendTitle.textContent = 'Single biome';
+      L.className = 'tb-onebiome';
+      const r = this.app.renderer;
+      const sel = el('select', 'tb-select');
+      for (const [id, b] of Object.entries(BIOMES)) {
+        const o = el('option', '', b.label);
+        o.value = id;
+        if (id === r.singleBiome) o.selected = true;
+        sel.append(o);
+      }
+      const info = el('div', 'tb-note', '');
+      const show = async () => {
+        const b = BIOMES[r.singleBiome];
+        const { biomeShares } = await import('./biomeChart.js');
+        const { shares, snow } = biomeShares(this.app.world, r.singleBiome !== 'snow');
+        const s = r.singleBiome === 'snow' ? snow : (shares.find((x) => x.id === r.singleBiome) || { share: 0 }).share;
+        info.textContent = `${b.help || ''} Covers ${s * 100 < 0.1 && s > 0 ? '<0.1' : (s * 100).toFixed(1)}% of the land now.`;
+      };
+      sel.addEventListener('change', () => { r.singleBiome = sel.value; this.app.world.dirty = true; r.update?.(true); show(); });
+      const sw = el('div', 'tb-legend-item');
+      const dot = el('span', 'tb-swatch');
+      dot.style.background = rgb(BIOMES[r.singleBiome]?.color || [0.5, 0.5, 0.5]);
+      sel.addEventListener('change', () => { dot.style.background = rgb(BIOMES[sel.value].color); });
+      sw.append(dot, sel);
+      const other = el('div', 'tb-legend-item');
+      const os = el('span', 'tb-swatch');
+      const greyFor = (c) => (0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2] > 0.55 ? [0.26, 0.27, 0.30] : [0.86, 0.86, 0.88]);
+      os.style.background = rgb(greyFor(BIOMES[r.singleBiome]?.color || [0.5, 0.5, 0.5]));
+      sel.addEventListener('change', () => { os.style.background = rgb(greyFor(BIOMES[sel.value].color)); });
+      other.append(os, el('span', '', 'Everything else'));
+      L.append(sw, other, info);
+      show();
+    }
     else if (mode === 'natural' || mode === 'biome') {
       items(mode === 'biome' ? 'Biomes' : 'Biomes (blended)', Object.values(BIOMES));
       // Your animals, when shown on the map

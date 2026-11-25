@@ -35,6 +35,7 @@ const C = {
 export const OVERLAYS = {
   natural: 'None (natural)',
   biome: 'Biomes',
+  onebiome: 'Single biome',
   vegetation: 'Vegetation',
   moisture: 'Wetness',
   soil: 'Soil depth',
@@ -75,6 +76,7 @@ export class TerrainRenderer {
     this.showVegetation = true; // off: natural view shows bare ground and bedrock
     this.showClouds = true;
     this.showTownLabels = true; // (the town names over the map)
+    this.singleBiome = 'wetland'; // (the biome the Single biome overlay picks out)
     this.showParkNames = true;  // (the names of the parks and National Forests)
     this.showTrailNames = true; // (the names written along the footpaths)
     // (the Land use overlay is a clear view: no clouds or fog over it)
@@ -278,7 +280,7 @@ export class TerrainRenderer {
           col = shade(mix(SOIL_COVER, this.rockColor(h, i), w.bareExposure(i, tan), S3), 0.7 + 0.3 * ny, S3);
         } else if (mode === 'species') {
           // Dominant species where there's forest; open ground and bare land pale
-          const d = w.domSpecies ? w.domSpecies[i] : -1, v = w.vegetation[i];
+          const d = w.domSpecies ? w.domSpecies[i] : -1, v = (w.vegAvg || w.vegetation)[i]; // (year-averaged cover)
           col = shade(d >= 0 && v > 0.5 ? SPECIES[d].mapColor : v > 0.3 ? OPEN.mapColor : NO_FOREST, 0.75 + 0.25 * ny, S3);
         } else if (mode === 'chem') {
           const c = w.soilChem ? w.soilChem[i] : 0;
@@ -294,6 +296,13 @@ export class TerrainRenderer {
           col = shade(this.rockColor(h, i), 0.7 + 0.3 * ny, S3);
         } else if (mode === 'biome') {
           col = shade(BIOMES[classifyBiome(w, i, tan)].color, 0.8 + 0.2 * ny, S3);
+        } else if (mode === 'onebiome') {
+          // One biome picked out in its colour; everything else flat grey, light behind a dark biome and
+          // dark behind a light one (snow, desert, sand) so it always stands out
+          const pick = this.singleBiome, pc = BIOMES[pick] ? BIOMES[pick].color : [0.5, 0.5, 0.5];
+          const b = classifyBiome(w, i, tan, pick !== 'snow');
+          col = b === pick ? pc.slice() : (0.3 * pc[0] + 0.59 * pc[1] + 0.11 * pc[2] > 0.55 ? ONE_DARK : ONE_LIGHT).slice();
+          shade(col, 0.72 + 0.28 * ny, col);
         } else if (mode === 'precip') {
           col = shade(mix(PRECIP_DRY, PRECIP_WET, w.precip ? w.precip[i] : 0, S3), 0.75 + 0.25 * ny, S3);
         } else if (mode === 'snowDepth') {
@@ -808,7 +817,7 @@ const TWIGS = [0.40, 0.34, 0.29], FLUSH = [0.58, 0.80, 0.30], STRAW = [0.72, 0.6
 const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = [0.84, 0.82, 0.76];
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
-const FOOTPATH = [0.80, 0.68, 0.48], INVASIVE = [0.10, 0.26, 0.28], INV_OPEN = [0.86, 0.85, 0.80], INV_NATIVE = [0.30, 0.62, 0.30], INV_FULL = [0.66, 0.16, 0.38], MINE_A = [0.30, 0.27, 0.25], MINE_B = [0.38, 0.33, 0.29], SPOIL = [0.70, 0.48, 0.26], DEGRADED = [0.82, 0.72, 0.52], AIR_CLEAN = [0.86, 0.90, 0.92], DIS_HEALTHY = [0.55, 0.70, 0.52], FIRE_BG_LO = [0.86, 0.84, 0.80], FIRE_BG_HI = [0.70, 0.78, 0.68], FIRE_TMP = [0, 0, 0], AIR_DIRTY = [0.35, 0.28, 0.22];
+const ONE_LIGHT = [0.86, 0.86, 0.88], ONE_DARK = [0.26, 0.27, 0.30], FOOTPATH = [0.80, 0.68, 0.48], INVASIVE = [0.10, 0.26, 0.28], INV_OPEN = [0.86, 0.85, 0.80], INV_NATIVE = [0.30, 0.62, 0.30], INV_FULL = [0.66, 0.16, 0.38], MINE_A = [0.30, 0.27, 0.25], MINE_B = [0.38, 0.33, 0.29], SPOIL = [0.70, 0.48, 0.26], DEGRADED = [0.82, 0.72, 0.52], AIR_CLEAN = [0.86, 0.90, 0.92], DIS_HEALTHY = [0.55, 0.70, 0.52], FIRE_BG_LO = [0.86, 0.84, 0.80], FIRE_BG_HI = [0.70, 0.78, 0.68], FIRE_TMP = [0, 0, 0], AIR_DIRTY = [0.35, 0.28, 0.22];
 const LU_OPEN = [0.86, 0.85, 0.80], LU_WILD = [0.62, 0.70, 0.56], LU_IRRIGATED = [0.55, 0.80, 0.45], LU_FELLED = [0.70, 0.60, 0.36], LU_EDGE = [0.02, 0.18, 0.06], LU_RESTING = [0.56, 0.80, 0.56];
 const LU_COLORS = { 11: [0.30, 0.27, 0.25], 12: [0.85, 0.50, 0.20], 1: [0.95, 0.80, 0.30], 2: [0.86, 0.28, 0.22], 3: [0.30, 0.30, 0.34], 4: [0.58, 0.36, 0.74], 5: [0.98, 0.55, 0.15], 6: [0.70, 0.70, 0.72], 7: [0.95, 0.95, 0.95], 8: [0.25, 0.80, 0.90], 9: [0.35, 0.25, 0.15], 10: [0.09, 0.48, 0.20] };
 const FIELD_A = [0.78, 0.70, 0.38], FIELD_B = [0.52, 0.62, 0.30], TOWN_PAVE = [0.62, 0.60, 0.57], TOWN_ROOF = [0.66, 0.40, 0.32], ROAD = [0.30, 0.30, 0.32], ROAD_WORN = [0.55, 0.52, 0.46], INDUSTRY = [0.50, 0.53, 0.57], HARBOR_A = [0.46, 0.34, 0.22], QUAY = [0.66, 0.65, 0.61], DAM = [0.78, 0.77, 0.74], CANAL = [0.56, 0.52, 0.44], SEWER = [0.30, 0.26, 0.20], PLANTATION = [0.16, 0.30, 0.15], PLANTATION_ROW = [0.11, 0.22, 0.11], CLEARCUT = [0.47, 0.39, 0.27], BRIDGE = [0.36, 0.34, 0.33], QUAY_DARK = [0.46, 0.45, 0.43], HARBOR_B = [0.60, 0.58, 0.55], INDUSTRY_DARK = [0.24, 0.25, 0.28], DIRTY_RIVER = [0.58, 0.47, 0.16], POLLUTED_BANK = [0.42, 0.36, 0.20];

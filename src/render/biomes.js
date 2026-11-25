@@ -40,7 +40,8 @@ export const DRY_SOIL = 0.28;     // soil moisture below this is arid (desert / 
  * @param {number} i      cell index
  * @param {number} slope  rise/run at the cell
  */
-export function classifyBiome(world, i, slope) {
+/** The biome at cell i. With noSnow, snow lying on the ground is looked through to the biome beneath. */
+export function classifyBiome(world, i, slope, noSnow = false) {
   const v = world.vegetation[i];
   const soil = world.soil ? world.soil[i] : 0.5;
   const near = world.nearWater ? world.nearWater[i] : 0;
@@ -56,7 +57,7 @@ export function classifyBiome(world, i, slope) {
   if (world.landUse && world.landUse[i] === 4 && world.paved[i] > 0.5) return 'industry';
   if (world.landUse && world.landUse[i] === 2 && world.paved[i] > 0.5) return 'town';
   if (world.landUse && world.landUse[i] === 1) return 'farmland';
-  if (snowAt(world, i, slope) > 0.5) return 'snow';
+  if (!noSnow && snowAt(world, i, slope) > 0.5) return 'snow';
   if (T < climateParams.treeLineTemp - 0.5 && v > 0.12 && v <= 0.66) return 'tundra'; // (high fir forest stays forest)
   if (world.mangrove && world.mangrove[i] > 0.3) return 'mangrove';
   if (world.dune && world.dune[i] > 0.3 && v <= 0.66) return 'dunes';

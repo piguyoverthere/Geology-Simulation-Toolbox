@@ -86,12 +86,14 @@ function band(x, lo, hi, soft) {
 /** How well each species suits cell i (writes into `out`); returns the total. */
 function suitability(world, i, out) {
   const T = (world.vegTemp || world.temperature)[i]; // the climate the forest has adapted to
-  const m = world.soil ? world.soil[i] : 0.5;
+  // (wetness averaged over about a year: the trees that grow here answer to the climate, not to one
+  // wet spring)
+  const m = (world.soilAvg || world.soil) ? (world.soilAvg || world.soil)[i] : 0.5;
   const age = world.forestAge[i];
   const soil = world.humus[i];
   const slope = (world.standSlope ? world.standSlope[i] : 0.5) / (world.gentleSlope || 0.6);
   const chem = world.soilChem ? world.soilChem[i] : 0;
-  const near = world.nearWater ? world.nearWater[i] : 0;
+  const near = (world.nearAvg || world.nearWater) ? (world.nearAvg || world.nearWater)[i] : 0;
   const coastal = world.coastal ? world.coastal[i] : 0, dune = world.dune ? world.dune[i] : 0;
   const mang = world.mangrove ? world.mangrove[i] : 0;
   const spray = world.spray ? world.spray[i] : 0, sandy = world.sandy ? world.sandy[i] : 0;
@@ -203,7 +205,7 @@ export function updateForestComposition(world, stride = 1, phase = 0) {
 /** Full mix at one cell for the Inspect readout: [{label, color, share}] sorted, including open ground. */
 export function compositionAt(world, i) {
   const total = suitability(world, i, scratch);
-  const tc = treeCover(world.vegetation[i]);
+  const tc = treeCover((world.vegAvg || world.vegetation)[i]);
   const out = [];
   if (total > 1e-6) {
     for (let k = 0; k < K; k++) {
@@ -229,4 +231,22 @@ export function treeShares(world, i, out) {
   if (total > 1e-6) for (let k = 0; k < K; k++) out[k] /= total;
   else out.fill(0);
   return out;
+}
+
+/**
+ * Keep running averages (over roughly a year) of the ground wetness and nearness to water that the
+ * tree species answer to (world.soilAvg, world.nearAvg), and of the tree cover (world.vegAvg, which
+ * the species graph and readouts weigh the mix by), so the mix of species doesn't swing with the
+ * seasons: a spring flood or a flush of leaves doesn't fill the forest with alder for a few weeks. Called every
+ * 30 frames.
+ */
+export function steadySiteInputs(world) {
+  const n = world.N * world.N;
+  for (const [src, dst] of [['soil', 'soilAvg'], ['nearWater', 'nearAvg'], ['vegetation', 'vegAvg']]) {
+    const S = world[src];
+    if (!S) continue;
+    if (!world[dst] || world[dst].length !== n) { world[dst] = S.slice(); continue; }
+    const D = world[dst];
+    for (let i = 0; i < n; i++) D[i] += (S[i] - D[i]) * 0.004;
+  }
 }

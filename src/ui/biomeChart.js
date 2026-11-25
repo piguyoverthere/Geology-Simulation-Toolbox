@@ -8,33 +8,41 @@
 
 import { BIOMES, classifyBiome } from '../render/biomes.js';
 import { SPECIES, treeShares } from '../sim/species.js';
-import { seasonParams } from '../sim/climate.js';
+import { seasonParams, snowAt } from '../sim/climate.js';
 
 const rgb = (c, a = 1) => `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${a})`;
 const MAX_POINTS = 400;
 
-/** Share of the land in each biome (0…1), and the sea's share of the map. */
-export function biomeShares(world) {
+/**
+ * Share of the land in each biome (0…1), the sea's share of the map, and the share of the land under
+ * snow and under glacier ice. With noSnow (the default) snow is looked through to the biome beneath,
+ * so the biome lines don't swing with the winters; snow has a graph of its own.
+ */
+export function biomeShares(world, noSnow = true) {
   const N = world.N, H = world.height;
   const sea = world.meanSea !== undefined && world.meanSea > -999 ? world.meanSea : -1e9;
   const count = {};
-  let land = 0, seaN = 0;
+  let land = 0, seaN = 0, snowN = 0, iceN = 0;
+  const ice = world.ice;
   for (let z = 0; z < N; z += 2) for (let x = 0; x < N; x += 2) { // (every fourth cell is plenty)
     const i = z * N + x;
     if (H[i] < sea) { seaN++; continue; }
     const gx = (H[x < N - 1 ? i + 1 : i] - H[x > 0 ? i - 1 : i]) * 0.5;
     const gz = (H[z < N - 1 ? i + N : i] - H[z > 0 ? i - N : i]) * 0.5;
-    const b = classifyBiome(world, i, Math.sqrt(gx * gx + gz * gz));
+    const slope = Math.sqrt(gx * gx + gz * gz);
+    const b = classifyBiome(world, i, slope, noSnow);
     count[b] = (count[b] || 0) + 1;
+    if (snowAt(world, i, slope) > 0.5) snowN++;
+    if (ice && ice[i] > 0.05) iceN++;
     land++;
   }
   const shares = Object.entries(count).map(([id, c]) => ({ id, share: c / Math.max(1, land) })).sort((a, b) => b.share - a.share);
-  return { shares, sea: seaN / Math.max(1, land + seaN) };
+  return { shares, sea: seaN / Math.max(1, land + seaN), snow: snowN / Math.max(1, land), ice: iceN / Math.max(1, land) };
 }
 
 /** Each tree species' share of all the trees on the map (weighted by how much tree cover). */
 export function speciesShares(world) {
-  const N = world.N, V = world.vegetation, LU = world.landUse, K = SPECIES.length;
+  const N = world.N, V = world.vegAvg || world.vegetation, LU = world.landUse, K = SPECIES.length; // (year-averaged cover: steady through the seasons)
   const sum = new Float64Array(K), sh = new Float32Array(K);
   let tot = 0;
   for (let z = 1; z < N; z += 3) for (let x = 1; x < N; x += 3) { // (every ninth cell)
@@ -64,8 +72,13 @@ function record(h, time, shares) {
   }
 }
 
+const SNOW = {
+  snow: { label: 'Snow cover', color: [0.92, 0.95, 1.0], help: 'Land under lying snow (comes and goes with the seasons).' },
+  ice: { label: 'Glacier ice', color: [0.45, 0.70, 0.95], help: 'Land under glacier ice.' },
+};
 const TABS = {
   biomes: { label: 'Biomes', key: 'biomeHistory', info: (id) => BIOMES[id], color: (id) => BIOMES[id]?.color, what: 'of the land' },
+  snow: { label: 'Snow & ice', key: 'snowHistory', info: (id) => SNOW[id], color: (id) => SNOW[id]?.color, what: 'of the land' },
   trees: { label: 'Trees', key: 'treeHistory', info: (id) => SPECIES.find((s) => s.id === id), color: (id) => SPECIES.find((s) => s.id === id)?.mapColor, what: 'of the trees' },
 };
 
@@ -118,12 +131,15 @@ export class BiomeChart {
     const time = +((seasonParams.year || 1) + (seasonParams.phase || 0)).toFixed(3);
     w.biomeHistory ||= { t: [], s: {} };
     w.treeHistory ||= { t: [], s: {} };
+    w.snowHistory ||= { t: [], s: {} };
     // (a time earlier than the last point means a different level was loaded or the year reset)
-    for (const h of [w.biomeHistory, w.treeHistory]) if (h.t.length && time < h.t[h.t.length - 1] - 0.01) { h.t = []; h.s = {}; }
+    for (const h of [w.biomeHistory, w.treeHistory, w.snowHistory]) if (h.t.length && time < h.t[h.t.length - 1] - 0.01) { h.t = []; h.s = {}; }
+    if (w.biomeHistory.s.snow) delete w.biomeHistory.s.snow; // (snow has its own graph now)
     const b = biomeShares(w);
     this.sea = b.sea;
     record(w.biomeHistory, time, b.shares.filter((s) => BIOMES[s.id]));
     record(w.treeHistory, time, speciesShares(w));
+    record(w.snowHistory, time, [{ id: 'snow', share: b.snow }, { id: 'ice', share: b.ice }]);
     if (this.open) this.draw();
   }
 
@@ -149,7 +165,8 @@ export class BiomeChart {
       this.legend.append(row);
     }
     this.note.textContent = this.tab === 'biomes'
-      ? `Share of the land${this.sea > 0 ? ` · the sea covers ${Math.round(this.sea * 100)}% of the map` : ''}`
+      ? `Share of the land (looking through snow to the biome beneath)${this.sea > 0 ? ` · the sea covers ${Math.round(this.sea * 100)}% of the map` : ''}`
+      : this.tab === 'snow' ? 'Share of the land under snow and under glacier ice'
       : 'Share of all the trees on the map (by tree cover)';
   }
 
@@ -169,7 +186,7 @@ export class BiomeChart {
     }
     const n = h.t.length, t0 = h.t[0], t1 = h.t[n - 1];
     // (lines worth drawing: any that reached half a percent)
-    const ids = Object.keys(h.s).filter((id) => tab.color(id) && Math.max(...h.s[id]) >= 0.005);
+    const ids = Object.keys(h.s).filter((id) => tab.color(id) && (this.tab === 'snow' || Math.max(...h.s[id]) >= 0.005));
     let top = 0;
     for (const id of ids) for (const v of h.s[id]) top = Math.max(top, v);
     top = Math.min(1, Math.ceil((top * 1.1) * 10) / 10 || 0.1);

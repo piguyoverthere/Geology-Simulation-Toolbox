@@ -11,7 +11,7 @@ import { waterStep, waterParams } from './sim/water.js';
 import { initVegetation, vegetationStep, compositionStep, vegetationParams } from './sim/vegetation.js';
 import { climateParams, seasonParams, advanceSeason, seasonName, updateTemperature, updatePrecip, updateSnow } from './sim/climate.js';
 import { phenologyStep } from './sim/phenology.js';
-import { updateForestComposition } from './sim/species.js';
+import { updateForestComposition, steadySiteInputs } from './sim/species.js';
 import { weatherStep, weatherParams } from './sim/weather.js';
 import { glacierFlow, glacierBalance, glacierParams } from './sim/glacier.js';
 import { coastParams, coastStep, seaStep, tideLevel } from './sim/coast.js';
@@ -721,6 +721,7 @@ class App {
       // Wind (recomputed only when the wind, sea or land changes) and its very slow erosion
       if (this.frame % 30 === 15) { civStep(this.world); this.addTownParks(); gridTick(this); } // (towns, farms, roads and their pollution)
       if (this.frame % 30 === 25) diseaseStep(this.world); // (tree diseases you have introduced)
+      if (this.frame % 30 === 5) steadySiteInputs(this.world); // (year-averaged wetness for the tree species)
       if (this.frame % 10 === 9) { this.ecoPart = ((this.ecoPart ?? -1) + 1) % 3; ecologyStep(this.world, this.ecoPart); }
       if (this.frame % 10 === 7) { updateWind(this.world); if (this.world.erosionEnabled) windErosion(this.world); }
       // Glacier ice creeps a little every frame (faster at higher sim speed)

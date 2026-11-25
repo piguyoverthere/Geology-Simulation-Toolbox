@@ -202,9 +202,11 @@ seasons, weather), **Sea** (ocean and coast) and **Life** (wildlife).
   forest: wetter vegetation, forest allowed on nearly all the land, faster growth and seed spread, and
   slower fire. Within a few dozen steps nearly all the land is closed-canopy forest. Presets
   bring their own settings and put back the previous preset's when you switch.
-- **Biomes & trees** window (top right of the map, click to open): two line graphs over time on
-  tabs, one line per biome (share of the land, the same categories as the Biomes overlay) and one
-  line per tree species (share of the trees), recorded every couple of seconds and saved with the
+- **Single biome** overlay: one biome, picked in the legend, highlighted on the map with everything else grey.
+- **Biomes & trees** window (top right of the map, click to open): three line graphs over time on
+  tabs, one line per biome (share of the land, the same categories as the Biomes overlay, looking
+  through snow), snow cover and glacier ice, and one line per tree species (share of the trees,
+  steady through the seasons), recorded every couple of seconds and saved with the
   level; hover a name below the graph to pick out its line.
 - **Graphs** window (bottom left of the map, click to open): how the whole map changes over time,
   sampled every couple of seconds while the simulation runs and saved with the level: forest cover,

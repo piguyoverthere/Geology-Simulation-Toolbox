@@ -14,7 +14,7 @@ const MAGIC = 'GEOLEVEL1';
 // Transient or derived state that isn't worth saving (rebuilt on the fly)
 const SKIP_ARRAYS = new Set(['flux', 'strataWarp0', 'pathU', 'pathV']);
 // Plain-data lists and objects on the world that are saved as JSON
-const WORLD_JSON = ['sources', 'pollSources', 'currentPaths', 'animals', 'popHistory', 'statHistory', 'probes', 'towns', 'cones', 'geoRange', 'storms', 'holdovers', 'faults', 'landslides', 'portalsOut', 'settlersOut', 'footpaths', 'fireLog', 'fireCount', 'parkSites', 'biomeHistory', 'treeHistory'];
+const WORLD_JSON = ['sources', 'pollSources', 'currentPaths', 'animals', 'popHistory', 'statHistory', 'probes', 'towns', 'cones', 'geoRange', 'storms', 'holdovers', 'faults', 'landslides', 'portalsOut', 'settlersOut', 'footpaths', 'fireLog', 'fireCount', 'parkSites', 'biomeHistory', 'treeHistory', 'snowHistory'];
 // Settings objects on the app (all plain values)
 const PARAMS = ['waterParams', 'thermalParams', 'vegetationParams', 'climateParams', 'seasonParams', 'weatherParams',
   'volcanoSettings', 'faultSettings', 'fireParams', 'landslideParams', 'coastParams', 'qualityParams', 'oceanParams', 'windParams', 'ecoParams', 'civParams', 'glacierParams', 'sim', 'gen', 'brush', 'drawSettings'];
@@ -53,7 +53,7 @@ export function snapshot(app) {
   const meta = {
     magic: MAGIC, savedAt: new Date().toISOString(), N: w.N, paramDiffs: true,
     scalars, json, params,
-    view: { colorMode: r.colorMode, showVegetation: r.showVegetation, showClouds: r.showClouds, showWater: r.showWater, showTownLabels: r.showTownLabels, showParkNames: r.showParkNames, showTrailNames: r.showTrailNames },
+    view: { colorMode: r.colorMode, showVegetation: r.showVegetation, showClouds: r.showClouds, showWater: r.showWater, showTownLabels: r.showTownLabels, showParkNames: r.showParkNames, showTrailNames: r.showTrailNames, singleBiome: r.singleBiome },
     camera: { position: app.camera.position.toArray(), target: app.controls.target.toArray() },
     drawings: app.drawings.shapes.map((s) => ({ name: s.name, points: s.points, closed: s.closed, color: s.color, protected: !!s.protected, limited: !!s.limited, restrict: s.restrict ? { ...s.restrict } : undefined, park: s.park || undefined })),
     drawNextId: app.drawings.nextId,
@@ -88,7 +88,7 @@ export function applySnapshot(app, snap) {
   w.keepBasin = app.gen.preset === 'volcano' ? (i) => Math.hypot(i % N - N / 2, ((i / N) | 0) - N / 2) < N * 0.06 : null;
   w.events = []; w.flows = []; w.debris = []; w.fireCells = []; w.slideAreas = [];
   const r = app.renderer, v = meta.view || {};
-  for (const k of ['colorMode', 'showVegetation', 'showClouds', 'showWater', 'showTownLabels', 'showParkNames', 'showTrailNames']) if (v[k] !== undefined) r[k] = v[k];
+  for (const k of ['colorMode', 'showVegetation', 'showClouds', 'showWater', 'showTownLabels', 'showParkNames', 'showTrailNames', 'singleBiome']) if (v[k] !== undefined) r[k] = v[k];
   if (meta.camera) {
     app.camera.position.fromArray(meta.camera.position);
     app.controls.target.fromArray(meta.camera.target);
