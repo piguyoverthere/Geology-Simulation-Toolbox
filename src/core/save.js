@@ -60,6 +60,7 @@ export function snapshot(app) {
   const r = app.renderer;
   const meta = {
     magic: MAGIC, savedAt: new Date().toISOString(), appVersion: APP_VERSION, N: w.N, paramDiffs: true,
+    sim: app.simMeta ? { id: app.simMeta.id, name: app.simMeta.name, created: app.simMeta.created, settings: app.simMeta.settings } : undefined,
     scalars, json, params,
     view: { colorMode: r.colorMode, showVegetation: r.showVegetation, showClouds: r.showClouds, showWater: r.showWater, showTownLabels: r.showTownLabels, showParkNames: r.showParkNames, showTrailNames: r.showTrailNames, singleBiome: r.singleBiome },
     camera: { position: app.camera.position.toArray(), target: app.controls.target.toArray() },
@@ -190,6 +191,18 @@ export async function fetchLevel(key) {
   });
   db.close();
   return snap;
+}
+
+/** Every key stored (to find saves the simulations list has lost track of). */
+export async function listLevelKeys() {
+  const db = await openDB();
+  const keys = await new Promise((resolve, reject) => {
+    const req = db.transaction(STORE).objectStore(STORE).getAllKeys();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+  db.close();
+  return keys.map(String);
 }
 
 export async function deleteLevel(key) {

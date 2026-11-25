@@ -35,6 +35,10 @@ The page opens on a grey **home screen** listing your simulations, all kept in t
   the save you had in the history too.
 - **Export** a simulation to a `.geolevel` file, **Import from file…** to add one, **Rename**, **Delete**.
 - Levels from before the home screen appear as **My simulation**.
+- Simulations are kept **per web address and per browser**: the live site, `localhost:8174` and
+  another browser each have their own list, so a simulation made on one doesn't show on another
+  (use Export and Import to move it). If the list itself is ever lost, the home screen rebuilds it
+  from the saves still stored, with their earlier saves and (for saves from 1.2 on) their names.
 - The app's **version** is at the bottom, with a **Run an older version** menu: every release is
   kept in `versions/<version>/`. Older versions from before 1.2 don't have the home screen; they
   open the level that the new version lists as *My simulation*.
