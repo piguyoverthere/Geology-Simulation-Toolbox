@@ -43,6 +43,7 @@ export const civParams = {
   invasive: true,  // plantations are planted with an invasive exotic pine that escapes into the wild forest
   clearInvasive: true, // towns cut the invasive pine out of the wild forest around them (at a cost in people)
   townParks: true,   // towns set aside small parks around a special feature, with a trail loop through each
+  nationalForests: true, // each map has one or two large National Forests, where no timber is cut
   parkRate: 1,       // how often towns make parks (and how many a town keeps; 0 = none)
   parkSize: 1,       // how large the towns' parks are made (× the usual 10–18 cells across; not Wilderness Areas)
   trailsSpread: true, // footpaths carry tree diseases and invasive pine seed (on boots), like roads
@@ -1317,6 +1318,7 @@ export function civStep(world) {
     P[i] = Math.min(1, RC[i] * 1.6); // (a broken road loses its paving: plants creep back)
     if (RC[i] <= 0.03) { LU[i] = world.channel[i] ? (world.channel[i] === 1 ? 8 : 9) : 0; P[i] = 0; RC[i] = 0; world.roadCore[i] = 0; world.bridge[i] = 0; } // (a fallen bridge leaves its canal)
   }
+  if (civParams.nationalForests) nationalForestStep(world);
   if (!towns.length) { world.civPop = 0; airPollutionStep(world); desertStep(world); invasiveStep(world); return; } // (the smoke, worn land and pine carry on without towns)
   // (the site fields change slowly: refresh them every few steps)
   world.civFieldsAge = (world.civFieldsAge || 0) + 1;
@@ -2485,6 +2487,7 @@ export const PARK_TYPES = {
   refuge: { label: 'Refuge', restrict: ['timber', 'fields', 'towns', 'roads', 'hunting', 'earthworks'] },
   commons: { label: 'Commons', restrict: ['timber', 'fields', 'towns', 'roads', 'fires', 'hunting'] },
   biome: { label: 'Preserve', restrict: ['timber', 'fields', 'towns', 'roads', 'earthworks'] },
+  national: { label: 'National Forest', restrict: ['timber'] },
   remnant: { label: 'Last Woods', restrict: ['timber', 'fields', 'towns', 'roads', 'fires', 'earthworks'] },
   wilderness: { label: 'Wilderness', restrict: ['timber', 'fields', 'towns', 'roads', 'fires', 'earthworks'] },
 };
@@ -2681,7 +2684,7 @@ export function parkStep(world, t) {
     const i = z * N + x;
     if (LU[i] || V[i] < 0.25 || H[i] < sea + 0.5 || world.water[i] > 0.1) continue;
     // (not in or on top of another park; your own drawn areas don't stop a park, whatever they restrict)
-    if (sites.some((p) => inPark(p, x, z) || edgeDist(p, x, z) < 5)) continue;
+    if (sites.some((p) => p.kind !== 'national' && (inPark(p, x, z) || edgeDist(p, x, z) < 5))) continue; // (a National Forest doesn't keep parks out)
     // (wild forest all over: nothing built, farmed or planted in it)
     // (wild all over, nothing built, farmed or planted in it; the last woods of a farmed district may
     // have fields close round them, but not right up against the middle)
@@ -2840,7 +2843,7 @@ function commonsSite(world, t) {
     if (x < 6 || z < 6 || x >= N - 6 || z >= N - 6) continue;
     const i = z * N + x;
     if (LU[i] !== 1 || OW[i] !== t.num) continue;
-    if (sites.some((p) => inPark(p, x, z) || edgeDist(p, x, z) < 3)) continue;
+    if (sites.some((p) => p.kind !== 'national' && (inPark(p, x, z) || edgeDist(p, x, z) < 3))) continue;
     let fields = 0, blocked = false;
     for (let dz = -5; dz <= 5 && !blocked; dz++) for (let dx = -5; dx <= 5; dx++) {
       if (dx * dx + dz * dz > 25) continue;
@@ -2873,7 +2876,7 @@ export function wildernessStep(world, t) {
   const dist = new Int16Array(n).fill(-1), q = new Int32Array(n);
   let head = 0, tail = 0;
   for (let i = 0; i < n; i++) if (LU[i] && !(FP && FP[i])) { dist[i] = 0; q[tail++] = i; }
-  for (const p of sites) { const i = p.z * N + p.x; if (dist[i] < 0) { dist[i] = 0; q[tail++] = i; } }
+  for (const p of sites) { if (p.kind === 'national') continue; const i = p.z * N + p.x; if (dist[i] < 0) { dist[i] = 0; q[tail++] = i; } }
   if (!tail) return;
   while (head < tail) {
     const i = q[head++], x = i % N, d = dist[i] + 1;
@@ -2922,5 +2925,81 @@ export function wildernessStep(world, t) {
   const loop = [at(ta), at(ta + 2.1), at(ta + 4.2), at(ta)];
   let fp = addFootpath(world, { x: t.x, z: t.z }, loop[0], false);
   for (let k = 0; k < 3; k++) fp = addFootpath(world, loop[k], loop[k + 1]) || fp;
+  if (fp) { fp.park = site.id; fp.name = `${name} Trail`; site.trails = [fp.id]; }
+}
+
+/**
+ * National Forests: every map gets one or two (decided once, world.nationalTarget) large forest
+ * parks, set aside for the whole map rather than by a town: the most heavily forested stretch of the
+ * map, 60–90 cells across, its outline following the forest's edge (it stops at the sea and where
+ * the forest gives out). No timber is cut inside (no plantations planted or felled); towns, farms and
+ * roads can still go there, and town parks can be made inside it. A trail runs through it. Named
+ * after the nearest town, or with a name of its own if none is near. They wait until the map has
+ * enough forest (a young map may take a while).
+ */
+const NF_NAMES = ['Silverpine', 'Blackwater', 'Ironwood', 'Stillwater', 'Bear Creek', 'Eagle Ridge', 'Greenhollow', 'Misty Hills', 'Elk Valley', 'Thornbury', 'Coldspring', 'Ravenwood'];
+export function nationalForestStep(world) {
+  if (world.nationalTarget === undefined) world.nationalTarget = Math.random() < 0.5 ? 1 : 2;
+  const sites = (world.parkSites ||= []);
+  const have = sites.filter((p) => p.kind === 'national');
+  if (have.length >= world.nationalTarget || Math.random() > 0.03) return;
+  const N = world.N, V = world.vegetation, H = world.height, LU = world.landUse, sea = seaOf(world);
+  const forest = (j) => V[j] > 0.55 && H[j] >= sea && LU[j] !== 10;
+  const R = Math.round(Math.min(45, N * 0.17));
+  let best = null;
+  for (let k = 0; k < 120; k++) {
+    const x = Math.round(R * 0.5 + Math.random() * (N - R)), z = Math.round(R * 0.5 + Math.random() * (N - R));
+    if (have.some((p) => Math.hypot(p.x - x, p.z - z) < p.r + R * 0.8)) continue;
+    let f = 0, c = 0;
+    for (let dz = -R; dz <= R; dz += 4) for (let dx = -R; dx <= R; dx += 4) {
+      if (dx * dx + dz * dz > R * R) continue;
+      const xx = x + dx, zz = z + dz;
+      if (xx < 0 || zz < 0 || xx >= N || zz >= N) continue;
+      c++;
+      if (forest(zz * N + xx)) f++;
+    }
+    const cover = f / Math.max(1, c);
+    if (cover > 0.45 && forest(z * N + x) && (!best || cover > best.cover)) best = { x, z, cover };
+  }
+  if (!best) return;
+  // Outline: out along each ray to where the forest gives out (the sea, or several cells of open ground)
+  const K = 40, pts = [];
+  for (let k = 0; k < K; k++) {
+    const a = (k / K) * Math.PI * 2, rr = R * (0.75 + Math.random() * 0.3);
+    let reach = R * 0.3, gap = 0;
+    for (let t = 1; t <= rr; t += 1) {
+      const x = Math.round(best.x + Math.cos(a) * t), z = Math.round(best.z + Math.sin(a) * t);
+      if (x < 0 || z < 0 || x >= N || z >= N) break;
+      const j = z * N + x;
+      if (H[j] < sea) break;
+      if (forest(j)) { gap = 0; reach = Math.max(reach, t); } else if (++gap > 5) break;
+    }
+    pts.push({ x: +(best.x + Math.cos(a) * reach).toFixed(2), z: +(best.z + Math.sin(a) * reach).toFixed(2) });
+  }
+  // (smoothed a little, so the edge doesn't jag from ray to ray)
+  const points = pts.map((p, k) => {
+    const a = pts[(k + K - 1) % K], b = pts[(k + 1) % K];
+    return { x: +((a.x + 2 * p.x + b.x) / 4).toFixed(2), z: +((a.z + 2 * p.z + b.z) / 4).toFixed(2) };
+  });
+  let near = null, nd = 60;
+  for (const t of world.towns || []) { const d = Math.hypot(t.x - best.x, t.z - best.z); if (d < nd) { nd = d; near = t; } }
+  const used = new Set(sites.map((p) => p.name));
+  let name = near ? `${near.name} National Forest` : null;
+  if (!name || used.has(name)) {
+    const free = NF_NAMES.filter((w) => !used.has(`${w} National Forest`));
+    name = `${free.length ? free[(Math.random() * free.length) | 0] : 'Great'} National Forest`;
+  }
+  let r = 0;
+  for (const p of points) r = Math.max(r, Math.hypot(p.x - best.x, p.z - best.z));
+  const site = { id: 'nf' + Math.random().toString(36).slice(2, 8), town: 0, name, kind: 'national', kinds: ['national'], species: null, features: ['national'],
+    x: best.x, z: best.z, r, year: seasonParams.year || 1, parts: 0, points, restrict: { timber: true }, noMerge: true };
+  sites.push(site);
+  (world.newParks ||= []).push({ id: site.id, name, points, restrict: { timber: true }, color: '#3fae5a' });
+  // (a trail through it, end to end the long way)
+  let a0 = 0, best2 = 0;
+  for (let k = 0; k < K / 2; k++) { const d = Math.hypot(points[k].x - points[k + K / 2].x, points[k].z - points[k + K / 2].z); if (d > best2) { best2 = d; a0 = k; } }
+  const p1 = points[a0], p2 = points[a0 + K / 2];
+  const lerp = (p, f) => ({ x: Math.round(best.x + (p.x - best.x) * f), z: Math.round(best.z + (p.z - best.z) * f) });
+  const fp = addFootpath(world, lerp(p1, 0.85), lerp(p2, 0.85), false);
   if (fp) { fp.park = site.id; fp.name = `${name} Trail`; site.trails = [fp.id]; }
 }

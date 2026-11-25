@@ -387,7 +387,7 @@ class App {
         s.restrict ||= {};
         for (const [k, v] of Object.entries(p.restrict)) if (v) s.restrict[k] = true;
       } else {
-        s = { id: d.nextId++, name: p.name, points: p.points.map((q) => ({ ...q })), closed: true, color: '#7dff6a', protected: false, limited: false, restrict: { ...p.restrict }, park: p.id, obj: null, label: null };
+        s = { id: d.nextId++, name: p.name, points: p.points.map((q) => ({ ...q })), closed: true, color: p.color || '#7dff6a', protected: false, limited: false, restrict: { ...p.restrict }, park: p.id, obj: null, label: null };
         d.shapes.push(s);
       }
       d.build(s);

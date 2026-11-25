@@ -1437,6 +1437,18 @@ Parks protect only what is hard to find; where nothing rare is near a town, it m
 
 Woods and Game Woods (ordinary forest) are no longer made; any already on a map stay.
 
+**National Forests.** Every map gets one or two (chosen once, world.nationalTarget) large National
+Forests, set aside for the whole map rather than by a town, so a map with no towns gets them too.
+Each covers the most heavily forested stretch of the map not already in one (over 45% forest within
+about 45 cells), 60–90 cells across. Its outline follows the forest out to where it gives out (the
+sea, or more than five cells of open ground) and is smoothed a little. No timber is cut inside (no
+plantations planted or felled), and that is its only restriction: towns, farms and roads can still
+go there, and towns can make their own parks inside. A trail runs through it the long way. It is
+named after the nearest town within 60 cells, or else given a name of its own (*Stillwater*, *Eagle
+Ridge*…). A young map waits until it has enough forest. Turn them off with **National Forests**
+(Life → Civilization). In a test, the two National Forests covered 4,135 and 3,149 cells (80×79 and
+78×67), 95% of it forest.
+
 **Wilderness Areas.** A town of 1,500 people or more now and then sets aside a very large tract,
 36–70 cells across, of the remotest wild land it can find 40–130 cells away. It picks the point
 farthest from any town, field, road, works or park centre, with mostly living land around it.
