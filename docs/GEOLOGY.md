@@ -1605,6 +1605,27 @@ They fade sooner along a trail than along a road (5% a cell rather than 3–4%).
 beside a trail catch the disease far from where it started. In a test, spores fell from 0.83 to
 0.05 over about 45 cells of trail.
 
+## Fire fuel, megafires and firefighting (`src/sim/fire.js`)
+
+Dead wood, litter and undergrowth build up on the forest floor (world.fuel, 0…1) where nothing
+burns: faster under dense, old forest and where trees have died, gone where fire has passed. A fire
+through light fuel (under 0.35) is a **surface fire**: it clears the undergrowth, but the canopy
+stays and the trees keep their age. Through heavier fuel it climbs into the crowns: it spreads up to
+2.5 times as readily, throws embers further ahead, and kills the stand. So a forest that burns a
+little every few years stays safe, and one where every fire is put out builds up fuel until a fire
+gets away as a megafire. In a test, the same fire through the same forest reached about 1,400
+forest cells either way; with light fuel it killed no stands and no old growth, with heavy fuel it
+killed 1,059 stands, 663 of them old growth.
+
+**Fire suppression** (Civilization, 0–1, default 0.5): around each town (15 cells plus more for a
+bigger town; world.fireGuard) firefighters put fires out, strongly near the town and less further
+out; a big fire (300+ cells burning) overwhelms them. In a test a fire started beside a town was out
+in 6 steps with full suppression and killed 1,063 stands with none. **Prescribed burns** (a
+setting): in the cool, damp part of the year towns burn off heavy fuel in their parks and the forest
+around them, a patch (9 cells across) at a time; in a test this took the fuel around a town from 0.8
+to 0.62 over 300 steps. **Overlays → Fire fuel** maps the fuel (with the firefighters' ground
+hatched in blue) and the inspector shows it.
+
 ## Wildfire history (`src/sim/fireHistory.js`)
 
 Every wildfire is tracked as one event and numbered in order (#1, #2, …). After each fire step,

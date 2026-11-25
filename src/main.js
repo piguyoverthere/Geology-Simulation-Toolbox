@@ -9,7 +9,7 @@ import { runDroplets } from './sim/droplet.js';
 import { thermalStep, thermalParams } from './sim/thermal.js';
 import { waterStep, waterParams } from './sim/water.js';
 import { initVegetation, vegetationStep, compositionStep, vegetationParams } from './sim/vegetation.js';
-import { climateParams, seasonParams, advanceSeason, seasonName, updateTemperature, updatePrecip, updateSnow } from './sim/climate.js';
+import { climateParams, seasonParams, advanceSeason, seasonName, updateTemperature, updatePrecip, updateSnow, drySeason } from './sim/climate.js';
 import { phenologyStep } from './sim/phenology.js';
 import { updateForestComposition, steadySiteInputs } from './sim/species.js';
 import { weatherStep, weatherParams } from './sim/weather.js';
@@ -47,7 +47,7 @@ import { APP_VERSION, tooNew } from './version.js';
 import { loadGrid, saveGrid, resetGrid, gridTick, gridStartup, travelTo, thumbnail, freshen } from './core/worldGrid.js';
 import { Drawings, drawSettings } from './render/drawings.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
-import { fireStep, fireParams } from './sim/fire.js';
+import { fireStep, fireParams, fuelStep } from './sim/fire.js';
 import { landslideCheck, debrisStep, landslideParams } from './sim/landslides.js';
 import { faultSettings } from './sim/tectonics.js';
 import { Effects } from './render/effects.js';
@@ -812,6 +812,7 @@ class App {
       if (this.frame % 30 === 25) diseaseStep(this.world); // (tree diseases you have introduced)
       if (this.frame % 30 === 5) steadySiteInputs(this.world); // (year-averaged wetness for the tree species)
       if (this.frame % 30 === 10) groundwaterStep(this.world); // (the aquifer: recharge, seepage, base flow, wells)
+      if (this.frame % 30 === 20) fuelStep(this.world, civParams.enabled ? this.world.towns : [], { suppression: civParams.fireSuppression ?? 0.5, prescribed: civParams.prescribedBurns, fireSeason: drySeason() > 0.2 }); // (fuel on the forest floor, firefighting, prescribed burns)
       if (this.frame % 10 === 9) { this.ecoPart = ((this.ecoPart ?? -1) + 1) % 3; ecologyStep(this.world, this.ecoPart); }
       if (this.frame % 10 === 7) { updateWind(this.world); if (this.world.erosionEnabled) windErosion(this.world); }
       // Glacier ice creeps a little every frame (faster at higher sim speed)

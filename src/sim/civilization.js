@@ -44,6 +44,8 @@ export const civParams = {
   clearInvasive: true, // towns cut the invasive pine out of the wild forest around them (at a cost in people)
   townParks: true,   // towns set aside small parks around a special feature, with a trail loop through each
   nationalForests: true, // each map has one or two large National Forests, where no timber is cut
+  fireSuppression: 0.5, // how hard towns fight the wildfires near them (0 = let them burn, 1 = put every one out)
+  prescribedBurns: false, // towns burn off the fuel in their parks and nearby forest in the damp season
   climateChange: true, // the towns' greenhouse gas warms the climate and raises the sea (sim/climateChange.js)
   emissions: 1,      // how much greenhouse gas the towns give off (× the usual)
   parkRate: 1,       // how often towns make parks (and how many a town keeps; 0 = none)
