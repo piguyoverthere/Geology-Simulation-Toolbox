@@ -1493,6 +1493,38 @@ Forest the sea covers isn't affected by this rule. In a test, the sea was raised
 grassland cells near the shore and then lowered again: 826 were left as beach, with plant cover held
 at 7%. The rest had been in the tidal zone already.
 
+## Fire-resistant and giant trees (`src/sim/species.js`, `src/sim/fire.js`)
+
+Three new tree species have thick, fire-resistant bark (`fireproof`):
+- **Giant sequoia**: cool, fairly dry mountain slopes with deep soil, up to about 90 m.
+- **Coast redwood**: in the summer fog a little way in from a cool coast, out of the salt spray, over
+  100 m.
+- **Cork oak**: warm, dry country, about 20 m.
+
+Every species now has a typical grown height. The inspector shows the stand's **Tree height** (now,
+and when grown, growing with the stand's age), its share of **giant trees**, and its **Fire
+resistance**. Giant stands hold up to three times the carbon of an ordinary old stand.
+
+- **They live through smaller fires.** Where fire-resistant trees make up enough of the stand
+  (world.fireproof over 0.15), a crown fire burns there as a surface fire: the undergrowth goes,
+  most of the canopy stays, and the stand keeps its age.
+- **A megafire still kills most of them.** Once a fire has burnt more than 2% of the map in all, or
+  1.2% is alight at once, only about a third of even the thickest-barked stands it reaches survive.
+- **They gain ground where fire comes back.** Without fire they grow slowly and lose out to faster
+  neighbours (rare on a map that never burns); where fire has been through in the last few decades
+  (fading over about 30 years) they're up to three times as competitive.
+
+Tests with dense forest of fire-resistant trees (0.9) and heavy fuel:
+
+| Fire | Fire-resistant forest left | Ordinary forest left |
+|---|---|---|
+| 100 cells | 100 of 100 | 0 of 100 |
+| 400 cells | 400 of 400 | (not run) |
+| 2,025 cells (a megafire) | 1,219 of 2,025 | 0 of 2,025 |
+
+On a map with no recent fire, sequoia led 10 cells, redwood 7 and cork oak 93. Surface fires now go
+out as soon as the undergrowth is burnt up; before, they could smoulder on without end.
+
 ## Farmland cap (`farmCapStep`, Civilization: Farmland cap %)
 
 The most of the map's land that may be farmland, all the towns together (1–100%, default 100 = no

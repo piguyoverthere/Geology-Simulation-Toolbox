@@ -11,7 +11,9 @@ export function carbonAt(world, i) {
   const cover = v > 0.35 ? Math.min(1, (v - 0.35) / 0.5) : 0;
   const age = world.forestAge ? world.forestAge[i] : 0;
   const dens = world.treeDensity ? world.treeDensity[i] : cover;
-  const wood = 4.5 * cover * (0.25 + 0.75 * age) * (0.4 + 0.6 * dens);
+  // (giant trees, sequoia and redwood, hold several times the wood of an ordinary old stand)
+  const giant = world.giants ? world.giants[i] : 0;
+  const wood = 4.5 * cover * (0.25 + 0.75 * age) * (0.4 + 0.6 * dens) * (1 + 2 * giant * age);
   const grass = v > 0.1 ? 0.3 * Math.min(1, v / 0.6) : 0;
   const soil = 1.5 * (world.humus ? world.humus[i] : 0);
   return wood + grass + soil;

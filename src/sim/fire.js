@@ -49,6 +49,8 @@ const SNOWED = 0.02; // any lying snow (depth) puts fire out and stops it spread
 
 const NEIGHBORS = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
 let ignite = null;
+/** A fixed 0…1 number for each cell (which stands of fire-resistant trees a megafire spares). */
+function survivor(i) { const x = Math.sin(i * 12.9898) * 43758.5453; return x - Math.floor(x); }
 
 /** Advance fire one step. Returns true while anything is burning. */
 export function fireStep(world, dt) {
@@ -72,6 +74,13 @@ export function fireStep(world, dt) {
   // and the updraft over it dry the air and drive the rain off, so rain puts it out far more slowly.
   // (Standing water and snow still put it out.)
   const bigFire = 1 + p.resiliency * 4 * Math.min(1, Math.max(0, (cells.length - 80) / 400));
+  // (how big the fire is, as of the last step: thick-barked trees live through smaller fires)
+  // A fire counts as a megafire by how much it has burnt in all (world.fireLog, sim/fireHistory.js)
+  // or how much is alight at once
+  const fireSize = cells.length, megafire = Math.max(400, n * 0.012), megaBurnt = Math.max(600, n * 0.02);
+  const FPR = world.fireproof, SCAR = world.fireScar;
+  const burntSoFar = new Map();
+  for (const f of world.fireLog || []) if (f.active) burntSoFar.set(f.id, f.cells || 0);
   cells.length = 0;
   let any = false;
 
@@ -98,7 +107,18 @@ export function fireStep(world, dt) {
           FU[i] = Math.max(0, FU[i] - dt * 0.8 * F[i]);
           V[i] = Math.max(Math.min(V[i], 0.68), V[i] - p.burnRate * dt * F[i] * 0.1); // (the canopy stays: still forest)
           F[i] = Math.min(F[i], 0.35);
-          if (FU[i] <= 0.02) F[i] -= dt * 2;
+          if (FU[i] <= 0.02) F[i] = 0; // (the undergrowth is burnt up: the fire is out here)
+          if (F[i] < 0.05) { F[i] = 0; continue; }
+          cells.push(i);
+        } else if (FPR && FPR[i] > 0.15 && V[i] > 0.5 && (fireSize < megafire && !(SCAR && (burntSoFar.get(SCAR[i]) || 0) >= megaBurnt) || survivor(i) < 0.35 * FPR[i])) {
+          // (in a megafire only about a third of even the thickest-barked stands live through it)
+          // Fire-resistant trees (thick bark, crowns high above the flames): in a smaller fire the
+          // flames stay down in the undergrowth and most of the stand lives, keeping its age
+          const fp = FPR[i];
+          if (FU) FU[i] = Math.max(0, FU[i] - dt * 0.8 * F[i]);
+          V[i] = Math.max(Math.min(V[i], 0.5 + 0.18 * Math.min(1, fp * 1.2)), V[i] - p.burnRate * dt * F[i] * (1 - 0.9 * fp));
+          F[i] = Math.min(F[i], 0.45);
+          if (!FU || FU[i] <= 0.02) F[i] = 0; // (the undergrowth is burnt up: the fire is out here)
           if (F[i] < 0.05) { F[i] = 0; continue; }
           cells.push(i);
         } else {
