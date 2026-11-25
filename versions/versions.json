@@ -29,5 +29,10 @@
     "version": "1.2.1",
     "date": "2026-11-25",
     "notes": "Drowned grassland becomes beach, built-up waterfronts with docks, storage kept when the disk runs low"
+  },
+  {
+    "version": "1.2.2",
+    "date": "2026-11-25",
+    "notes": "Shores instead of barren ground in reach of the waves, footpaths that don't pile up, farmland cap"
   }
 ]
