@@ -8,5 +8,10 @@
     "version": "1.0.0",
     "date": "2026-11-24",
     "notes": "Home screen and simulations"
+  },
+  {
+    "version": "1.1.0",
+    "date": "2026-11-24",
+    "notes": "Menu bar, compact tool bar"
   }
 ]
