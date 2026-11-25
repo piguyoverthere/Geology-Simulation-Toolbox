@@ -15,7 +15,9 @@ Then open <http://localhost:8173>. You need a local server (not a double-clicked
 because browsers block ES modules loaded from `file://`.
 
 It's also online at <https://piguyoverthere.github.io/Geology-Simulation-Toolbox/> (GitHub Pages,
-deployed from `master`).
+served from the `gh-pages` branch: update it with `git push origin master:gh-pages`). Simulations
+are kept per site, so the online version starts with an empty list; export a simulation here and
+import it there to move it.
 
 ## Simulations, saves and versions
 
