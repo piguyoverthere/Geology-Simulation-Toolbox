@@ -39,6 +39,22 @@ The page opens on a grey **home screen** listing your simulations, all kept in t
   `src/version.js`. Older versions don't have the home screen; they open the level that the new
   version lists as *My simulation*.
 
+## The window
+
+- **Menu bar** along the top, like a desktop app's: **File** (new simulation, all simulations,
+  save/load a level file, new map size, keep saving automatically), **Edit** (undo, redo, clear
+  drawings), **View** (every overlay, and what's shown: vegetation, clouds, water, sea, town labels,
+  park names, trail names, wireframe), **Simulation** (play/pause, speed, erosion, seasons,
+  civilization, sea, generate new terrain), **Tools** (every tool by group, with its key),
+  **Window** (the Graphs and Biomes & trees windows, the side panel, each settings tab) and
+  **Help** (controls, the guide, version). On the right: the technical readouts (frame rate,
+  water, speed, sediment, eroded, deposited, springs, storms, events), the open simulation, when it
+  was last saved, and play/pause.
+- **Tool bar** along the bottom: compact icon buttons (the group names show on hover and in the
+  Tools menu), with the brush size and strength at the end.
+- **Side panel** on the right: settings by topic (Map, Land, Climate, Sea, Life), the overlay key,
+  and help for whatever is under the mouse.
+
 ## Controls
 
 | Input | Action |

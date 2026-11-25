@@ -54,12 +54,11 @@ export class Toolbox {
     this.simNameEl = el('h1', '', app.simMeta ? app.simMeta.name : 'Geology Toolbox');
     this.simNameEl.title = 'The simulation you have open';
     header.append(home, this.simNameEl);
-    this.playBtn = button('', () => app.toggleSim(), 'tb-play');
-    header.append(this.playBtn);
+    // (play/pause, the readouts and saving are in the menu bar at the top)
+    this.tabLabels = Object.fromEntries(Object.entries(TABS).map(([k, t]) => [k, t.label]));
     r.append(header);
 
-    this.statsEl = el('div', 'tb-stats');
-    r.append(this.statsEl);
+
     // Topic tabs: one topic's settings at a time
     this.tabBar = el('div', 'tb-tabs');
     this.tabButtons = {};
@@ -256,19 +255,10 @@ export class Toolbox {
       toggle('Drain at edges', app.world, 'edgeDrain', 'Let water flow off the edges of the map instead of being walled in.', this),
     );
 
-    // --- Level -------------------------------------------------------------------------------
+    // --- Level: saving and loading are in the File menu; this keeps the save status ------------
     const lvl = this.section('Level', true);
-    const lvlBtns = el('div', 'tb-row');
-    lvlBtns.append(
-      button('Save level', () => app.saveLevelFile(), 'primary', 'Download everything about this level to a .geolevel file: terrain, water, vegetation, soil, snow, rocks, lava and burn scars, springs, drawings, camera and every setting.', this),
-      button('Load level', () => app.loadLevelFile(), '', 'Open a .geolevel file saved earlier (it switches map size if needed).', this),
-    );
-    lvl.append(lvlBtns,
-      toggle('Keep level on reload', app.keepLevel, 'on',
-        'Autosave the level to this browser every 30 seconds (and when you leave the page), and bring it back when the page reloads, e.g. after an update. Each map size keeps its own. Generate starts a new level.', this,
-        () => { try { localStorage.setItem('geo.keepLevel', app.keepLevel.on ? '1' : '0'); } catch { /* storage blocked */ } if (app.keepLevel.on) app.autosave(); }));
     this.saveStatusEl = el('div', 'tb-save-status', app.saveStatus || '');
-    lvl.append(this.saveStatusEl);
+    lvl.append(el('div', 'tb-note', 'Save, load, new simulations and map size are in the File menu at the top.'), this.saveStatusEl);
 
     // --- World grid --------------------------------------------------------------------------
     const wg = this.section('World grid', true);
@@ -435,6 +425,7 @@ export class Toolbox {
     this.graphOpen = setOpen;
     this.graphTab = 'map';
     this.renderGraphTabs();
+    this.setGraphsOpen = setOpen; this.graphsOpen = () => open; // (the Window menu opens and closes it)
     setOpen(open);
 
     // Put each tab's sections in order, and open the last-used tab
@@ -1039,6 +1030,7 @@ export class Toolbox {
     const groups = [...new Set(Object.values(TOOLS).map((t) => t.group))];
     for (const g of groups) {
       const group = el('div', 'bar-group');
+      group.title = g;
       group.append(el('div', 'bar-label', g));
       const icons = el('div', 'bar-icons');
       for (const [id, t] of Object.entries(TOOLS)) {
@@ -1100,13 +1092,12 @@ export class Toolbox {
 
   setInfo(html) { this.info.innerHTML = html; }
 
-  setSaveStatus(text) { if (this.saveStatusEl) this.saveStatusEl.textContent = text; }
+  setSaveStatus(text) { if (this.saveStatusEl) this.saveStatusEl.textContent = text; this.app.menubar?.setSave(text); }
 
   /** Sync all controls and highlight the active tool. Called after state changes from code. */
   refresh() {
     for (const [id, b] of this.toolButtons) b.classList.toggle('active', id === this.app.tool);
-    this.playBtn.textContent = this.app.sim.running ? '❚❚ Pause' : '▶ Play';
-    this.playBtn.classList.toggle('running', this.app.sim.running);
+    this.app.menubar?.refresh();
     document.querySelectorAll('[data-sync]').forEach((n) => n.sync());
     if (this.animalList) this.renderAnimals();
     // (after loading a level: rebuild the probe tabs if the probes are different)
@@ -1117,7 +1108,7 @@ export class Toolbox {
     this.setInfo(this.defaultInfo());
   }
 
-  setStats(html) { this.statsEl.innerHTML = html; }
+  setStats(html) { this.app.menubar?.setStats(html); }
 }
 
 // --- tiny DOM helpers ------------------------------------------------------------------------

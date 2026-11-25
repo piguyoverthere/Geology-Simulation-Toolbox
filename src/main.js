@@ -39,6 +39,7 @@ import { CrossSection } from './ui/section.js';
 import { captureDefaults, resetParams, snapshot, applySnapshot, encodeLevel, decodeLevel, storeLevel, fetchLevel, deleteLevel } from './core/save.js';
 import { getSim, updateSim, pushHistory, newSimMeta, addSim } from './core/sims.js';
 import { Home } from './ui/home.js';
+import { MenuBar } from './ui/menubar.js';
 import { loadGrid, saveGrid, resetGrid, gridTick, gridStartup, travelTo, thumbnail, freshen } from './core/worldGrid.js';
 import { Drawings, drawSettings } from './render/drawings.js';
 import { lavaStep, flowStep, volcanoSettings } from './sim/volcanism.js';
@@ -114,6 +115,7 @@ class App {
     try { keep = localStorage.getItem('geo.keepLevel') !== '0'; } catch { /* storage blocked */ }
     this.keepLevel = { on: keep };
     this.toolbox = new Toolbox(document.getElementById('toolbox'), document.getElementById('toolbar'), this);
+    this.menubar = new MenuBar(this, document.getElementById('menubar'));
     this.biomeChart = new BiomeChart(this, document.getElementById('viewport'));
     this.saveWarning = new SaveWarning(this, document.getElementById('viewport'));
     if (keep) this.saveWarning.check();
@@ -370,7 +372,7 @@ class App {
     this.toolbox.refresh();
   }
 
-  toggleSim() { this.sim.running = !this.sim.running; this.toolbox.refresh(); }
+  toggleSim() { this.sim.running = !this.sim.running; this.toolbox.refresh(); this.menubar?.refresh(); }
 
   // --- Saving levels -----------------------------------------------------------------------------
 
@@ -519,6 +521,7 @@ class App {
     this.sim.running = true;
     document.title = `${meta.name} — Geology Simulation Toolbox`;
     this.toolbox.setSimName?.(meta.name);
+    this.menubar?.refresh();
     this.toolbox.refresh();
     this.setSaveStatus(snap ? `Opened "${meta.name}" (saved ${new Date(snap.meta.savedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })})` : `Created "${meta.name}"`);
     await this.autosave();
