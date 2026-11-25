@@ -11,6 +11,7 @@ import { APP_VERSION, SITE_ROOT } from '../version.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 const MOD = mac ? '⌘' : 'Ctrl+';
+const REDO = mac ? '⇧⌘Z' : 'Ctrl+Y';
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -64,7 +65,7 @@ export class MenuBar {
       ],
       Edit: [
         { label: 'Undo', key: `${MOD}Z`, action: () => app.undo() },
-        { label: 'Redo', key: `⇧${MOD}Z`, action: () => app.redo() },
+        { label: 'Redo', key: REDO, action: () => app.redo() },
         '-',
         { label: 'Clear drawings', action: () => { if (confirm('Remove all your drawings (paths and polygons, parks included)?')) app.drawings.clear(); } },
       ],
@@ -105,7 +106,7 @@ export class MenuBar {
         { label: 'Settings', sub: () => Object.entries(app.toolbox.tabLabels || {}).map(([k, label]) => ({ label, checked: () => app.toolbox.tab === k, action: () => { document.getElementById('toolbox').hidden = false; app.toolbox.showTab(k); } })) },
       ],
       Help: [
-        { label: 'Controls', action: () => alert('Left-drag: use the tool\nRight-drag: orbit · Middle-drag: pan · Scroll: zoom\nShift + tool: invert it\nSpace: play / pause\n1–9, 0, -, = and letters: pick a tool (shown on the tool bar and in the Tools menu)\n[ and ]: brush size\n' + `${MOD}Z / ⇧${MOD}Z: undo / redo`) },
+        { label: 'Controls', action: () => alert('Left-drag: use the tool\nRight-drag: orbit · Middle-drag: pan · Scroll: zoom\nShift + tool: invert it\nSpace: play / pause\n1–9, 0, -, = and letters: pick a tool (shown on the tool bar and in the Tools menu)\n[ and ]: brush size\n' + `${MOD}Z / ${REDO}: undo / redo`) },
         { label: 'Guide', action: () => window.open(`${SITE_ROOT}docs.html`, '_blank') },
         { label: 'How the simulation works', action: () => window.open(`${SITE_ROOT}docs.html?doc=docs/GEOLOGY.md`, '_blank') },
         '-',

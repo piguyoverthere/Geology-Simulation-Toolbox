@@ -267,6 +267,9 @@ class App {
     };
     canvas.addEventListener('pointermove', track);
     canvas.addEventListener('pointerleave', () => { this.pointerInside = false; });
+    // (middle-drag pans the view: stop Windows browsers starting their autoscroll on a middle click)
+    canvas.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
+    canvas.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
     canvas.addEventListener('pointerdown', (e) => {
       track(e);
       if (e.button !== 0 || this.tool === 'camera') return;
@@ -310,6 +313,7 @@ class App {
       this.shift = e.shiftKey;
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
+      if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); this.redo(); return; } // (Ctrl+Y: redo, as on Windows)
       if (e.key === ' ') { e.preventDefault(); this.toggleSim(); return; }
       if (TOOLS[this.tool].draw && this.drawings.current) {
         if (e.key === 'Enter') { this.drawings.finish(); return; }

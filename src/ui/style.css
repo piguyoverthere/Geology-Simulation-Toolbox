@@ -9,7 +9,7 @@
   --accent-2: #4fa3d9;    /* water */
   --erode: #e2584b;
   --deposit: #4f8ce0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
   font-size: 13px;
   color-scheme: dark;
 }
@@ -496,3 +496,12 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 
 /* Labels on the map can be hovered to spotlight what they name (ui/spotlight.js) */
 .town-label, .draw-label { pointer-events: auto; cursor: default; }
+
+/* Windows (and Linux): dark form controls and scrollbars to match the dark panels, and thin
+   scrollbars, which on Windows otherwise take room from the panels */
+:root { color-scheme: dark; }
+* { scrollbar-width: thin; scrollbar-color: #4a515c transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #4a515c; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #5d6572; }

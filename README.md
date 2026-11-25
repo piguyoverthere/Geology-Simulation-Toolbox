@@ -75,6 +75,9 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
 - Towns, roads and parks the sea covers for good are **washed away**.
 - Grassland the sea covers turns into **beach**, which takes decades to turn back into grassland.
 - A **Farmland cap** (Civilization) limits how much of the land the towns may farm.
+- **Windows**: works in Chrome, Edge and Firefox on Windows as on macOS. Shortcuts use Ctrl (Ctrl+Z
+  undo, Ctrl+Y or Ctrl+Shift+Z redo), middle-drag pans without starting the browser's autoscroll,
+  scrollbars and menus are dark, and every icon is an emoji Windows 10 can show.
 - **Fungi**: fungal diversity (richest in old, mixed forest) speeds tree growth, rotting and soil
   building; **honey mushroom** root rot spreads underground and by spores and kills stands. Overlay
   *Fungi & root rot*.

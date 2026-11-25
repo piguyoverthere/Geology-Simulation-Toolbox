@@ -678,7 +678,7 @@ TOOLS.crossing = {
 };
 
 TOOLS.fishLadder = {
-  label: 'Fish ladder', group: 'Civilization', icon: '🪜', editsTerrain: false,
+  label: 'Fish ladder', group: 'Civilization', icon: '🎏', editsTerrain: false,
   help: 'Paint over a dam to give it a fish ladder: most of the fish running up the river get past it instead of being stopped. Only dams take it. Hold Shift to remove fish ladders. (Towns add their own with Fish ladders on, under Civilization.)',
   apply({ world, x, z, radius, invert }) {
     if (!world.landUse) return;
@@ -773,7 +773,7 @@ TOOLS.footpath = {
   },
 };
 TOOLS.harvest = {
-  label: 'Harvest', group: 'Civilization', icon: '🪵', editsTerrain: false, click: true,
+  label: 'Harvest', group: 'Civilization', icon: '🚛', editsTerrain: false, click: true,
   help: 'Click a timber plantation to clear-fell it now, whether or not its trees are grown. It counts as its town\'s felling: the timber goes to the town, the soil is worn (less nutrients, thinner), and the plot is replanted with saplings at once and takes its turn in the town\'s rotation. Felling young trees gives little wood and wears the soil just the same.',
   apply({ world, app, x, z }) {
     const r = harvestPlantationAt(world, x, z);
