@@ -1660,6 +1660,40 @@ export function civStep(world) {
   world.dirty = true;
 }
 
+/**
+ * The sea takes what it covers: wherever the land goes under the sea for good (a rising sea, the
+ * ground sinking, the coast eroding back), the towns' streets, roads, industry, harbours, quays,
+ * dams and mines there are washed away, and a town whose centre goes under is lost with them (its
+ * people gone). Bridges stand until the water is well over them. Footpaths under the sea go too.
+ * Runs whether or not Civilization is on. Returns the towns washed away.
+ */
+export function washAway(world) {
+  const sea = seaOf(world);
+  if (sea < -1e8 || !world.landUse) return [];
+  const N = world.N, n = N * N, H = world.height, LU = world.landUse, OW = world.civOwner, P = world.paved;
+  const B = world.bridge, CX = world.crossing, FL = world.fishLadder, FP = world.footpath;
+  for (let i = 0; i < n; i++) {
+    const u = LU[i];
+    if (H[i] >= sea) continue;
+    if (FP && FP[i]) FP[i] = 0;
+    if (!u || u === 1 || u === 10 || u === 8) continue; // (fields, plantations and canals: civStep)
+    if (B && B[i] && H[i] > sea - 1) continue; // (a bridge, until the water is well over it)
+    LU[i] = 0; if (OW) OW[i] = 0; if (P) P[i] = 0;
+    if (world.roadCond) world.roadCond[i] = 0;
+    if (B) B[i] = 0;
+    if (CX) CX[i] = 0;
+    if (FL) FL[i] = 0;
+    if (world.channel) world.channel[i] = 0;
+  }
+  const lost = [];
+  for (const t of [...(world.towns || [])]) {
+    const c = t.z * N + t.x;
+    if (H[c] < sea) { lost.push(t); removeTown(world, t); }
+  }
+  if (lost.length) world.dirty = true;
+  return lost;
+}
+
 // --- Mining -------------------------------------------------------------------------------
 // The hard, mineral-bearing rocks (igneous and metamorphic): where ores are found
 const ORE_ROCKS = new Set(['basalt', 'andesite', 'rhyolite', 'granite', 'gneiss', 'schist', 'marble'].map((id) => ROCK_INDEX[id]));

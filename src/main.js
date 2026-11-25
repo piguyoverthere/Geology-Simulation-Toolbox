@@ -28,7 +28,7 @@ import { climateChangeStep } from './sim/climateChange.js';
 import { carbonStep } from './sim/forestCarbon.js';
 import { pollinatorStep } from './sim/pollinators.js';
 import { recordProbes } from './sim/probes.js';
-import { civParams, civStep } from './sim/civilization.js';
+import { civParams, civStep, washAway as washAwayCiv } from './sim/civilization.js';
 import { TownLabels } from './render/townLabels.js';
 import { PathLabels } from './render/pathLabels.js';
 import { Boats } from './render/boats.js';
@@ -407,6 +407,39 @@ class App {
     w.newParks = [];
     d.onChange(); // (rasterises their restrictions)
     this.toolbox.renderFootpaths?.();
+  }
+
+  /** The sea washes away the towns and parks it has covered (and says so in the status line). */
+  washAway() {
+    const w = this.world, sea = w.meanSea;
+    if (sea === undefined || sea <= -999) return;
+    const lost = washAwayCiv(w);
+    if (lost.length) this.toolbox.renderTowns?.();
+    // Parks: one that is mostly under the sea now is gone (its polygon and its record)
+    const N = w.N, H = w.height, gone = [];
+    for (const s of [...this.drawings.shapes]) {
+      if (!s.park || !s.closed || s.points.length < 3) continue;
+      let x0 = N, x1 = 0, z0 = N, z1 = 0;
+      for (const p of s.points) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
+      const P = s.points;
+      let inside = 0, wet = 0;
+      for (let z = Math.max(0, Math.floor(z0)); z <= Math.min(N - 1, Math.ceil(z1)); z++) {
+        for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(N - 1, Math.ceil(x1)); x++) {
+          let o = false;
+          for (let a = 0, b = P.length - 1; a < P.length; b = a++) if ((P[a].z > z) !== (P[b].z > z) && x < ((P[b].x - P[a].x) * (z - P[a].z)) / (P[b].z - P[a].z) + P[a].x) o = !o;
+          if (!o) continue;
+          inside++;
+          if (H[z * N + x] < sea) wet++;
+        }
+      }
+      if (inside > 0 && wet / inside > 0.6) {
+        gone.push(s.name);
+        w.parkSites = (w.parkSites || []).filter((p) => p.id !== s.park);
+        this.drawings.remove(s.id);
+      }
+    }
+    const names = [...lost.map((t) => t.name), ...gone];
+    if (names.length) this.setSaveStatus(`Washed away by the sea: ${names.join(', ')}`);
   }
 
   afterLoad() {
@@ -835,6 +868,7 @@ class App {
       // Wind (recomputed only when the wind, sea or land changes) and its very slow erosion
       if (this.frame % 30 === 15) {
         civStep(this.world); this.addTownParks(); gridTick(this);
+        this.washAway(); // (towns, roads and parks the sea has covered)
         carbonStep(this.world); // (the land's carbon: released by clearing and fire, taken up by regrowth)
         // (climate change: the sea creeps up as it warms, applied a little at a time)
         this.seaRise = (this.seaRise || 0) + climateChangeStep(this.world, this.sim.seaEnabled);
