@@ -11,6 +11,9 @@
 export const APP_VERSION = '1.2.0-beta.1';
 export const IS_PRERELEASE = true;
 
+/** The top of the site, relative to this page: an archived version runs from versions/<version>/. */
+export const SITE_ROOT = /\/versions\/[^/]+\/(index\.html)?$/.test(location.pathname) ? '../../' : './';
+
 /** Compare versions like 1.2.0 and 1.2.0-beta.1: negative if a is older, positive if newer. */
 export function compareVersions(a, b) {
   const parse = (v) => { const [main, pre] = String(v).split('-'); return { n: main.split('.').map((x) => +x || 0), pre }; };
