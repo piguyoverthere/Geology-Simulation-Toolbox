@@ -2,6 +2,7 @@
 // held down over the terrain, with the brush centre in grid coordinates.
 
 import { infect, cure } from '../sim/disease.js';
+import { ensureGroundwater } from '../sim/groundwater.js';
 import { strike, spawnStormAt } from '../sim/weather.js';
 import { addIce } from '../sim/glacier.js';
 import { MinHeap } from '../core/grid.js';
@@ -579,6 +580,43 @@ TOOLS.invasive = {
   },
 };
 
+TOOLS.fuel = {
+  label: 'Fire fuel', group: 'Life', icon: '🍂', editsTerrain: false,
+  help: 'Paint to pile up fuel on the forest floor (dead wood, litter, thick undergrowth), as decades without fire would: a fire through it climbs into the crowns and kills the stand. Hold Shift to clear fuel instead (thinning, clearing brush, a prescribed burn without the fire): a fire there stays on the ground and the trees live. Overlay: Fire fuel.',
+  apply({ world, x, z, radius, strength, dt, invert }) {
+    const n = world.N * world.N;
+    if (!world.fuel || world.fuel.length !== n) world.fuel = new Float32Array(n);
+    const FU = world.fuel, V = world.vegetation, k = Math.min(1, strength * 2 * dt);
+    forEachCell(world, x, z, radius, (i, w) => {
+      if (invert) FU[i] = Math.max(0, FU[i] - k * w);
+      else if (V[i] > 0.2 && world.water[i] < 0.3) FU[i] = Math.min(1, FU[i] + k * w);
+    });
+    world.dirty = true;
+  },
+};
+
+TOOLS.fireFlowers = {
+  label: 'Fire flowers', group: 'Life', icon: '🌸', editsTerrain: false,
+  help: 'Sow fire-following flowers: fire poppy seed into the soil, where it waits for a fire, and fireweed. They bloom only on recent small burns (paint over one to see them come up); elsewhere the seed waits in the ground. Hold Shift to clear them and their seed. Overlay: Fire followers.',
+  apply({ world, x, z, radius, strength, dt, invert }) {
+    const n = world.N * world.N;
+    for (const key of ['fireweed', 'firePoppy', 'poppySeeds', 'burnSuit', 'burnSize']) if (!world[key] || world[key].length !== n) world[key] = new Float32Array(n);
+    const k = Math.min(1, strength * 2 * dt), H = world.height, sea = seaOn(world) ? world.meanSea : -1e9;
+    forEachCell(world, x, z, radius, (i, w) => {
+      if (H[i] < sea) return;
+      if (invert) { const c = 1 - Math.min(1, k * w * 2); world.fireweed[i] *= c; world.firePoppy[i] *= c; world.poppySeeds[i] *= c; return; }
+      world.poppySeeds[i] = Math.min(1, world.poppySeeds[i] + k * w);
+      // (on fire-follower ground they come up at once: fireweed, and the poppies if it's freshly burnt)
+      const su = world.burnSuit[i];
+      if (su > 0.05) {
+        world.fireweed[i] = Math.min(su, world.fireweed[i] + k * w);
+        if (world.burnt[i] > 0.15) world.firePoppy[i] = Math.min(su, world.firePoppy[i] + k * w);
+      }
+    });
+    world.dirty = true;
+  },
+};
+
 TOOLS.removeAnimal = {
   label: 'Remove animal', group: 'Wildlife', icon: '🚫', editsTerrain: false,
   help: 'Paint over the map to remove the animal chosen in the Wildlife panel (Life tab) from there: hunted out, trapped or driven off. Brush strength sets how fast. Hold Shift to remove every kind of animal there instead.',
@@ -596,7 +634,61 @@ TOOLS.removeAnimal = {
   },
 };
 
+TOOLS.groundwater = {
+  label: 'Groundwater', group: 'Water', icon: '💧', editsTerrain: false,
+  help: 'Paint to fill the ground with water (a wet spell, water spread to soak in, wells shut): the water table rises, feeding springs and streams. Hold Shift to draw it down instead, as heavy pumping would: streams it fed run dry, and the ground settles where it\'s pumped nearly dry. Left alone it drifts back towards its natural level. Overlays: Groundwater, Groundwater drawdown.',
+  apply({ world, x, z, radius, strength, dt, invert }) {
+    ensureGroundwater(world);
+    const G = world.groundwater, H = world.height, sea = seaOn(world) ? world.meanSea : -1e9, k = Math.min(1, strength * 1.5 * dt);
+    forEachCell(world, x, z, radius, (i, w) => {
+      if (H[i] < sea) return;
+      G[i] = invert ? Math.max(0, G[i] - k * w) : Math.min(1, G[i] + k * w);
+    });
+    world.dirty = true;
+  },
+};
+
+TOOLS.fish = {
+  label: 'Fish', group: 'Ocean', icon: '🐟', editsTerrain: false,
+  help: 'Paint over the sea to restock it with fish (as a closed season or a hatchery would). Hold Shift to fish it out instead: fished below about a fifth of what the sea can hold, a stock collapses and recovers only slowly. Overlay: Fish stocks.',
+  apply({ world, x, z, radius, strength, dt, invert }) {
+    if (!seaOn(world)) return;
+    const n = world.N * world.N, H = world.height, sea = world.meanSea;
+    if (!world.fishStock || world.fishStock.length !== n) { world.fishStock = new Float32Array(n); for (let i = 0; i < n; i++) world.fishStock[i] = H[i] < sea ? 0.9 : 0; }
+    const FS = world.fishStock, k = Math.min(1, strength * 1.5 * dt);
+    forEachCell(world, x, z, radius, (i, w) => {
+      if (H[i] >= sea) return;
+      FS[i] = invert ? Math.max(0, FS[i] - k * w) : Math.min(1, FS[i] + k * w);
+    });
+    world.dirty = true;
+  },
+};
+
 // --- Civilization tools -------------------------------------------------------------------
+TOOLS.crossing = {
+  label: 'Wildlife crossing', group: 'Civilization', icon: '🌉', editsTerrain: false,
+  help: 'Paint over a road to build a wildlife crossing (a green bridge or an underpass): land animals cross there safely, and don\'t shun the road around it. Only road cells take it. Hold Shift to remove crossings. (Towns build their own with Wildlife crossings on, under Civilization.)',
+  apply({ world, x, z, radius, invert }) {
+    if (!world.landUse) return;
+    const n = world.N * world.N;
+    if (!world.crossing || world.crossing.length !== n) world.crossing = new Uint8Array(n);
+    forEachCell(world, x, z, radius, (i) => { if (invert) world.crossing[i] = 0; else if (world.landUse[i] === 3) world.crossing[i] = 1; });
+    world.dirty = true;
+  },
+};
+
+TOOLS.fishLadder = {
+  label: 'Fish ladder', group: 'Civilization', icon: '🪜', editsTerrain: false,
+  help: 'Paint over a dam to give it a fish ladder: most of the fish running up the river get past it instead of being stopped. Only dams take it. Hold Shift to remove fish ladders. (Towns add their own with Fish ladders on, under Civilization.)',
+  apply({ world, x, z, radius, invert }) {
+    if (!world.landUse) return;
+    const n = world.N * world.N;
+    if (!world.fishLadder || world.fishLadder.length !== n) world.fishLadder = new Uint8Array(n);
+    forEachCell(world, x, z, radius, (i) => { if (invert) world.fishLadder[i] = 0; else if (world.landUse[i] === 7 || (world.dam && world.dam[i] > 0.8)) world.fishLadder[i] = 1; });
+    world.dirty = true;
+  },
+};
+
 TOOLS.settle = {
   label: 'Settle', group: 'Civilization', icon: '🏘', editsTerrain: true, click: true,
   help: 'Click near where people should settle: the best spot within about 35 cells is chosen, as people would choose it (a comfortable climate, a river, lake or the coast close by, fertile flat land to farm, timber and fish, safe from floods), and a town is founded there. It clears farmland around it, grows toward what its land can feed, paves its streets, and pollutes: lightly into water right beside it, and heavily down every river below it (always). Hold Shift and click a town to abandon it.',

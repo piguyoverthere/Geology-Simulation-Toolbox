@@ -72,6 +72,8 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
 - **Fire followers**: fireweed, fire poppies and animals (**+ Fire followers**: fire beetles,
   woodpeckers, fireweed moths) that live on recent burns, but only the smaller ones. Overlay *Fire
   followers*.
+- Tools for **Fire fuel**, **Fire flowers**, **Groundwater**, **Fish**, **Wildlife crossings** and
+  **Fish ladders** (Shift reverses each).
 - More **Wildlife** settings: Food abundance, Predation, Roaming, Hard winters, Roadkill, Wildlife
   disease, Small burn size.
 - **Roads** that kill and split land animals, with **Wildlife crossings**; **dams** that stop fish

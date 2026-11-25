@@ -1469,6 +1469,25 @@ fires burning. In a test, an 8×8 burn was 69% fireweed with fire beetles at 0.5
 0.04 after 1,200 frames, while a 34×34 burn (1,156 cells) next to it had none of them. A 6×6 burn
 over a seed bank of 0.33 flowered at 0.68 fire poppies, and the seed bank grew to 0.59.
 
+## Tools for fuel, fire flowers, groundwater, fish, crossings and fish ladders
+
+Brushes for the newer parts of the simulation. Hold Shift to reverse each one.
+- **🍂 Fire fuel** (Life): piles up fuel on the forest floor where there's vegetation. Shift clears
+  it, like thinning or clearing brush.
+- **🌸 Fire flowers** (Life): sows fire poppy seed into the soil, and on fire-follower ground (a
+  recent small burn) brings up fireweed, plus fire poppies if it's freshly burnt. Shift clears the
+  flowers and their seed.
+- **💧 Groundwater** (Water): raises the water table. Shift draws it down, as heavy pumping would.
+  Left alone it drifts back to its natural level.
+- **🐟 Fish** (Ocean): restocks the sea. Shift fishes it out, and below about a fifth a stock
+  collapses.
+- **🌉 Wildlife crossing** (Civilization): builds crossings on the road cells painted over. Shift
+  removes them.
+- **🪜 Fish ladder** (Civilization): gives the dams painted over a fish ladder. Shift removes them.
+
+Pollinators, forest carbon and the greenhouse gas have no brush: they are worked out from the land
+each step, so you change them through what they depend on.
+
 ## More wildlife settings
 
 Wildlife has new settings alongside Population speed:

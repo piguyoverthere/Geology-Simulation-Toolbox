@@ -32,6 +32,8 @@ function natural(world, i, sea) {
   return Math.max(0.05, Math.min(1, 0.15 + 0.5 * P + 0.25 * soil + 0.25 * Math.max(-0.4, Math.min(1, valley))));
 }
 
+export function ensureGroundwater(world) { ensure(world); }
+
 function ensure(world) {
   const n = world.N * world.N, sea = seaOf(world);
   if (!world.gwNatural || world.gwNatural.length !== n) {
