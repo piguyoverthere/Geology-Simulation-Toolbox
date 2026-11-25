@@ -3,6 +3,7 @@
 
 import { FOREST_TYPES, forestTypeAt } from '../sim/forests.js';
 import { climateParams, snowAt } from '../sim/climate.js';
+import { coastParams, SHORE } from '../sim/coast.js';
 
 const forestBiomes = Object.fromEntries(FOREST_TYPES.map((f) => [f.id, { label: f.label, color: f.color, help: f.help }]));
 
@@ -30,7 +31,10 @@ export const BIOMES = {
   industry:  { label: 'Industrial area', color: [0.42, 0.45, 0.50], help: 'A town\'s industry on the water\'s edge: mass-paved, pouring pollution into the water beside it and down the rivers on a very large scale.' },
   town:      { label: 'Town',      color: [0.62, 0.52, 0.48], help: 'Paved streets and buildings: flat, sealed ground where nothing grows.' },
   snow:      { label: 'Snow',      color: [0.95, 0.96, 0.98], help: 'Below freezing with enough moisture, on slopes gentle enough to hold snow.' },
-  beach:     { label: 'Beach (drowned grassland)', color: [0.90, 0.83, 0.62], help: 'Grassland the sea once covered: the waves stripped the turf and left sand. Out of the water again it stays sandy beach for a long time, then dune grass creeps back and it slowly turns back into grassland.' },
+  beach:     { label: 'Sand beach', color: [0.90, 0.83, 0.62], help: 'Sand the waves have laid down: bare ground within reach of the tide and storm surges, where sand gathers on gentle shores; and grassland the sea once covered, its turf stripped (out of the water again it stays beach for decades, then dune grass creeps back and it slowly turns back into grassland).' },
+  mudflat:   { label: 'Mudflat', color: [0.46, 0.41, 0.33], help: 'Bare mud within reach of the tide and storm surges, on flat, sheltered shores: floods and drains with every tide.' },
+  shingle:   { label: 'Shingle beach', color: [0.60, 0.58, 0.54], help: 'Pebbles and cobbles within reach of the tide and storm surges, on steeper or exposed shores with little sand (black boulders where the rock is basalt).' },
+  seacliff:  { label: 'Sea cliff', color: [0.50, 0.46, 0.42], help: 'A steep rock face the waves are undercutting: it retreats as they erode it.' },
   dock:      { label: 'Dock (pier)', color: [0.46, 0.40, 0.34], help: 'A paved deck built out over the water from a town\'s waterfront, deep water dredged on both sides for ships to tie up.' },
 };
 
@@ -64,6 +68,16 @@ export function classifyBiome(world, i, slope, noSnow = false) {
   if (T < climateParams.treeLineTemp - 0.5 && v > 0.12 && v <= 0.66) return 'tundra'; // (high fir forest stays forest)
   if (world.mangrove && world.mangrove[i] > 0.3) return 'mangrove';
   if (world.beachSand && world.beachSand[i] > 0.35 && v <= 0.66) return 'beach';
+  // Bare ground within reach of the tide and the storm surges is shore: mudflat, sand or shingle
+  // (or a sea cliff), whatever the waves have made of it (sim/coast.js)
+  if (v <= 0.25 && world.meanSea > -999) {
+    const reach = world.meanSea + 0.5 * coastParams.tideRange + 1.2 + Math.max(0, world.surge || 0);
+    if (world.height[i] < reach && (world.shore ? world.shore[i] >= 0 || world.water[i] > 0.05 : true)) {
+      const sh = world.shore ? world.shore[i] : -1;
+      if (sh < 0) return slope < 0.18 ? 'mudflat' : 'shingle'; // (flooded well inland: flat ground silts to mud)
+      return sh === SHORE.mudflat ? 'mudflat' : sh === SHORE.sand ? 'beach' : sh === SHORE.cliff ? 'seacliff' : 'shingle';
+    }
+  }
   if (world.dune && world.dune[i] > 0.3 && v <= 0.66) return 'dunes';
   if (v > 0.66) return FOREST_TYPES[forestTypeAt(world, i)].id;
   if (near > 0.5 && soil > 0.7 && slope < 0.25 && v > 0.4) return 'wetland';

@@ -263,7 +263,7 @@ export function coastStep(world) {
       if (RB[i] > 0) { SAND[i] = Math.min(3, SAND[i] + 0.05 * RB[i]); RB[i] *= 0.9; if (RB[i] < 0.01) RB[i] = 0; }
       CO[i] *= 0.95;
       // --- Shore: land within reach of the waves (up to a little above high tide) ---
-      if (h > sea + half + 2.5 || nearSea[i] <= 0) { SH[i] = -1; continue; }
+      if (h > sea + half + 2.5 + Math.max(0, world.surge || 0) || nearSea[i] <= 0) { SH[i] = -1; continue; } // (up to where storm surges reach)
       const gx = (H[i + 1] - H[i - 1]) * 0.5, gz = (H[i + N] - H[i - N]) * 0.5;
       const slope = Math.sqrt(gx * gx + gz * gz);
       const ex = exposure[i];

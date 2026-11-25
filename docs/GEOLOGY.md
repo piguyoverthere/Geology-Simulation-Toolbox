@@ -1493,6 +1493,19 @@ Forest the sea covers isn't affected by this rule. In a test, the sea was raised
 grassland cells near the shore and then lowered again: 826 were left as beach, with plant cover held
 at 7%. The rest had been in the tidal zone already.
 
+## Bare ground in reach of the waves is shore
+
+Bare ground (plant cover 25% or less) below the reach of the waves (high tide plus 1.2, plus any storm
+surge running) is never classed as Barren, Desert or Mesa. It is shore, of whatever kind the waves
+have made of it (sim/coast.js): **Mudflat** on flat, sheltered shores, **Sand beach** where sand
+gathers, **Shingle beach** on steeper or exposed shores with little sand (and basalt boulder
+beaches), or **Sea cliff** on steep faces. The shore zone reaches as high as a storm surge does.
+Ground flooded farther inland than the shore zone (water standing on it) becomes mudflat if it's
+flat and shingle if not. This sets the biome the inspector, the Biomes overlay and the biome graphs
+show; the natural view already tinted these shores in their own colours. In a test on a rocky island,
+all 1,467 bare cells in reach of the waves (1,369 with a surge of 2) came out as shingle or sand
+beach, apart from a little dune sand just above the waves' reach; none came out Barren.
+
 ## Built-up waterfronts (`buildQuay`, `buildDock`, `waterfrontSprawl`)
 
 Coastal towns build up their waterfronts, as hard as the **Waterfronts** setting says (Civilization,
