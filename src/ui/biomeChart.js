@@ -7,7 +7,7 @@
 // graph to pick out its line.
 
 import { BIOMES, classifyBiome } from '../render/biomes.js';
-import { SPECIES, treeShares } from '../sim/species.js';
+import { SPECIES, treeShares, steadyCover } from '../sim/species.js';
 import { seasonParams, snowAt } from '../sim/climate.js';
 
 const rgb = (c, a = 1) => `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${a})`;
@@ -42,13 +42,14 @@ export function biomeShares(world, noSnow = true) {
 
 /** Each tree species' share of all the trees on the map (weighted by how much tree cover). */
 export function speciesShares(world) {
-  const N = world.N, V = world.vegAvg || world.vegetation, LU = world.landUse, K = SPECIES.length; // (year-averaged cover: steady through the seasons)
+  const N = world.N, LU = world.landUse, K = SPECIES.length;
   const sum = new Float64Array(K), sh = new Float32Array(K);
   let tot = 0;
   for (let z = 1; z < N; z += 3) for (let x = 1; x < N; x += 3) { // (every ninth cell)
     const i = z * N + x;
-    if (V[i] < 0.4 || (LU && LU[i] && LU[i] !== 10)) continue;
-    const w = Math.min(1, (V[i] - 0.35) * 2);
+    const v = steadyCover(world, i); // (steady through the seasons, regrowth counted at once)
+    if (v < 0.4 || (LU && LU[i] && LU[i] !== 10)) continue;
+    const w = Math.min(1, (v - 0.35) * 2);
     treeShares(world, i, sh);
     for (let k = 0; k < K; k++) sum[k] += sh[k] * w;
     tot += w;

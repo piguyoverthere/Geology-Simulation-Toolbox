@@ -205,7 +205,7 @@ export function updateForestComposition(world, stride = 1, phase = 0) {
 /** Full mix at one cell for the Inspect readout: [{label, color, share}] sorted, including open ground. */
 export function compositionAt(world, i) {
   const total = suitability(world, i, scratch);
-  const tc = treeCover((world.vegAvg || world.vegetation)[i]);
+  const tc = treeCover(steadyCover(world, i));
   const out = [];
   if (total > 1e-6) {
     for (let k = 0; k < K; k++) {
@@ -242,11 +242,29 @@ export function treeShares(world, i, out) {
  */
 export function steadySiteInputs(world) {
   const n = world.N * world.N;
+  // (a true running mean of everything seen so far for the first ~year of updates, so the averages
+  // settle in weeks rather than carrying the season they started in for a year; after that a slow
+  // moving average, so they follow a changing climate)
+  const fresh = !world.soilAvg || world.soilAvg.length !== n;
+  if (fresh) world.siteAvgCount = 0;
+  else if (world.siteAvgCount === undefined) world.siteAvgCount = 60; // (a level that already has averages: carry on from them)
+  const k = (world.siteAvgCount = (world.siteAvgCount || 0) + 1);
+  const rate = Math.max(0.004, 1 / k);
   for (const [src, dst] of [['soil', 'soilAvg'], ['nearWater', 'nearAvg'], ['vegetation', 'vegAvg']]) {
     const S = world[src];
     if (!S) continue;
     if (!world[dst] || world[dst].length !== n) { world[dst] = S.slice(); continue; }
     const D = world[dst];
-    for (let i = 0; i < n; i++) D[i] += (S[i] - D[i]) * 0.004;
+    for (let i = 0; i < n; i++) D[i] += (S[i] - D[i]) * rate;
   }
+}
+
+/**
+ * Tree cover for the species readouts: the greater of the cover now and its year's average, so a
+ * seasonal dip doesn't hide a forest and forest that has grown back shows at once (the average
+ * alone lags a year behind regrowth).
+ */
+export function steadyCover(world, i) {
+  const v = world.vegetation[i], a = world.vegAvg ? world.vegAvg[i] : v;
+  return v > a ? v : a;
 }

@@ -5,7 +5,7 @@ import { forestColor } from '../sim/forests.js';
 import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp, waterTempAt, marineShown, marineColor } from '../sim/coast.js';
 import { waterQuality } from '../sim/waterQuality.js';
 import { dominantAnimal } from '../sim/ecology.js';
-import { SPECIES, OPEN } from '../sim/species.js';
+import { SPECIES, OPEN, steadyCover } from '../sim/species.js';
 import { DISEASE_BY_ID } from '../sim/disease.js';
 import { fireColor } from '../sim/fireHistory.js';
 import { climateParams, snowAt, seasonalAt } from '../sim/climate.js';
@@ -280,7 +280,7 @@ export class TerrainRenderer {
           col = shade(mix(SOIL_COVER, this.rockColor(h, i), w.bareExposure(i, tan), S3), 0.7 + 0.3 * ny, S3);
         } else if (mode === 'species') {
           // Dominant species where there's forest; open ground and bare land pale
-          const d = w.domSpecies ? w.domSpecies[i] : -1, v = (w.vegAvg || w.vegetation)[i]; // (year-averaged cover)
+          const d = w.domSpecies ? w.domSpecies[i] : -1, v = steadyCover(w, i); // (the cover now or its year's average, whichever is greater)
           col = shade(d >= 0 && v > 0.5 ? SPECIES[d].mapColor : v > 0.3 ? OPEN.mapColor : NO_FOREST, 0.75 + 0.25 * ny, S3);
         } else if (mode === 'chem') {
           const c = w.soilChem ? w.soilChem[i] : 0;

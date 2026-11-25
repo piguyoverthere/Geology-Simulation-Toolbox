@@ -326,7 +326,11 @@ Forests are mixes of species, each with its own preferences, so every spot has a
 each species plus open ground between the trees. The mix answers to the climate rather than the
 season: it uses the ground's wetness and nearness to water averaged over about a year
 (world.soilAvg, world.nearAvg), and the species readouts and graph weigh it by the tree cover
-averaged the same way (world.vegAvg), so a wet spring or a flush of leaves doesn't swing it (before
+averaged the same way (world.vegAvg; the greater of that and the cover now, so forest that has
+just grown back counts at once and isn't shown as open ground), so a wet spring or a flush of
+leaves doesn't swing it. The averages are a true running mean from when they start (for about a
+year of updates), then a slow moving average, so they settle within weeks instead of carrying the
+season they began in (before
 this, alder's share of the trees fell from 10.6% to 5.8% in one season; now it held between 10.8%
 and 11.0% from late winter into spring):
 
