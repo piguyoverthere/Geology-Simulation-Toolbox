@@ -78,7 +78,8 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
   woodpeckers, fireweed moths) that live on recent burns, but only the smaller ones. Overlay *Fire
   followers*.
 - Towns, roads and parks the sea covers for good are **washed away**.
-- Grassland the sea covers turns into **beach**, which takes decades to turn back into grassland.
+- Any land the sea covers (tide or storm surge) turns into **beach** of the kind that suits it
+  (sand, shingle, basalt boulders or mudflat), which takes decades to grow back over.
 - A **Farmland cap** (Civilization) limits how much of the land the towns may farm.
 - **Windows**: works in Chrome, Edge and Firefox on Windows as on macOS. Shortcuts use Ctrl (Ctrl+Z
   undo, Ctrl+Y or Ctrl+Shift+Z redo), middle-drag pans without starting the browser's autoscroll,

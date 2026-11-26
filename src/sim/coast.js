@@ -355,7 +355,7 @@ export function coastStep(world) {
     if (H[i] < sea) { world.spray[i] = 0; world.sandy[i] = 0; continue; }
     const wind = world.wind ? Math.min(1.3, world.wind[i] + 0.2) / 1.3 : 0.7;
     world.spray[i] = Math.min(1, nearSea[i] * 2.5) * (0.35 + 0.65 * wind);
-    world.sandy[i] = Math.min(1, Math.max(world.dune[i], SH[i] === SHORE.sand ? Math.min(1, SAND[i] * 0.7) : 0, sandNear[i] * 0.8, world.beachSand ? world.beachSand[i] : 0));
+    world.sandy[i] = Math.min(1, Math.max(world.dune[i], SH[i] === SHORE.sand ? Math.min(1, SAND[i] * 0.7) : 0, sandNear[i] * 0.8, world.beachSand && (!world.beachType || world.beachType[i] === SHORE.sand) ? world.beachSand[i] : 0));
   }
   // Mangroves: forests of salt-tolerant trees standing in the tide on warm, sheltered mudflats.
   // They need warm water all year (they die back where the sea drops much below ~20 °C), spread out
@@ -447,35 +447,66 @@ function smoothstep(e0, e1, x) {
 }
 
 /**
- * Drowned grassland becomes beach (a strict rule): any grassland, meadow or scrub the sea covers
- * (below high tide: the waves strip the turf and lay sand over it) is marked as beach,
- * world.beachSand = 1. While it is under the sea it stays sand. Once out of the water again (the sea
- * falls back, or sand and silt build it up) it is sandy beach, then dune grass, and only very slowly
- * grassland again (about a hundred years at the usual pace): plants there can't grow past what the
- * sand allows (sim/vegetation.js). Runs every 30 frames.
+ * Land the sea covers becomes beach (a strict rule): any land that goes under the sea (below high
+ * tide, or under a storm surge), whatever was on it (grassland, forest, scrub, desert, bare rock,
+ * fields), has its plants and turf stripped and is left as beach of the kind that suits the spot
+ * (world.beachSand = 1, world.beachType = which):
+ *   • mudflat – flat, low ground in a sheltered spot (or already mudflat shore)
+ *   • shingle – steeper or hard, rocky ground, with little sand (black basalt boulders on basalt)
+ *   • sand    – everywhere else (gentle ground, soft rock)
+ * Where the waves have already made a shore of it (sim/coast.js), that's the kind it takes. Out of
+ * the water again (the sea falls back, sand and silt build it up) it stays that kind of beach, and
+ * plants can't grow past what it allows (sim/vegetation.js): bare at first, then dune grass or salt
+ * marsh, and only very slowly the land it was (about 55 years to look like grassland again, 90 to
+ * recover fully, at ordinary rainfall). Built-over ground is washed away instead (civilization.js).
+ * Runs every 30 frames.
  */
 export function drownedGrassStep(world) {
   const sea = world.meanSea;
   if (sea === undefined || sea <= -999) return;
-  const n = world.N * world.N, H = world.height, V = world.vegetation, LU = world.landUse;
+  const N = world.N, n = N * N, H = world.height, V = world.vegetation, LU = world.landUse;
   if (!world.beachSand || world.beachSand.length !== n) world.beachSand = new Float32Array(n);
   if (!world.wasGrass || world.wasGrass.length !== n) world.wasGrass = new Uint8Array(n);
-  const BS = world.beachSand, WG = world.wasGrass, high = sea + 0.5 * coastParams.tideRange;
+  if (!world.beachType || world.beachType.length !== n) { world.beachType = new Int8Array(n); world.beachType.fill(SHORE.sand); }
+  const BS = world.beachSand, WG = world.wasGrass, BT = world.beachType, SH = world.shore;
+  const high = sea + 0.5 * coastParams.tideRange;
+  // (a storm surge floods the low ground behind the shore too)
+  const reach = high + Math.max(0, world.surge || 0);
+  const basalt = ROCK_INDEX.basalt;
   for (let i = 0; i < n; i++) {
     const h = H[i];
-    if (h >= high) {
-      // (what grows here while it's dry: grassland, meadow or scrub, not forest, bare rock or town)
-      const v = V[i];
-      WG[i] = v > 0.12 && v <= 0.66 && !(LU && LU[i] && LU[i] !== 1) && BS[i] < 0.35 ? 1 : 0;
-      // Out of the water: the sand slowly grows over (faster where it's wetter)
-      if (BS[i] > 0) {
+    if (h >= reach) {
+      // (dry land: remember it's land the sea could drown; built-over ground is washed away instead)
+      WG[i] = !(LU && LU[i] && LU[i] !== 1 && LU[i] !== 10) && BS[i] < 0.35 ? 1 : 0;
+      // Out of the water: the beach slowly grows over (faster where it's wetter)
+      if (BS[i] > 0 && h >= high) {
         const rain = world.precip ? Math.min(1, world.precip[i]) : 0.5;
         BS[i] = Math.max(0, BS[i] - 0.00012 * (0.4 + rain));
       }
       continue;
     }
-    // Under the sea (below high tide): grassland drowned here becomes beach
-    if (WG[i]) { BS[i] = 1; WG[i] = 0; V[i] = Math.min(V[i], 0.06); if (world.forestAge) world.forestAge[i] = 0; }
-    else if (BS[i] > 0) BS[i] = 1; // (still under: stays sand)
+    // Under the sea, or flooded by the surge: land drowned here becomes beach of its kind
+    if (WG[i]) {
+      BS[i] = 1; WG[i] = 0;
+      V[i] = Math.min(V[i], 0.06);
+      if (world.forestAge) world.forestAge[i] = 0;
+      if (world.treeDensity) world.treeDensity[i] = 0;
+      if (LU && (LU[i] === 1 || LU[i] === 10)) { LU[i] = 0; if (world.civOwner) world.civOwner[i] = 0; }
+      BT[i] = beachKind(world, i, h, SH, basalt);
+    } else if (BS[i] > 0) BS[i] = 1; // (still under: stays beach)
   }
+}
+
+/** What kind of beach drowned ground at cell i becomes. */
+function beachKind(world, i, h, SH, basalt) {
+  const s = SH ? SH[i] : -1;
+  if (s === SHORE.mudflat || s === SHORE.sand || s === SHORE.shingle || s === SHORE.basalt) return s;
+  const N = world.N, H = world.height, x = i % N, z = (i / N) | 0;
+  if (x < 1 || z < 1 || x >= N - 1 || z >= N - 1) return SHORE.sand;
+  const slope = Math.hypot((H[i + 1] - H[i - 1]) * 0.5, (H[i + N] - H[i - N]) * 0.5);
+  const hard = world.hardnessAt ? world.hardnessAt(h, i) : 0.5;
+  const rock = world.rockAt ? world.rockAt(h, i) : -1;
+  if (slope < 0.08 && hard < 0.7) return SHORE.mudflat; // (flat, soft ground: fine silt settles)
+  if (slope > 0.45 || hard > 0.7) return rock === basalt ? SHORE.basalt : SHORE.shingle;
+  return SHORE.sand;
 }

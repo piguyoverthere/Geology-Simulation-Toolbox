@@ -67,7 +67,11 @@ export function classifyBiome(world, i, slope, noSnow = false) {
   if (!noSnow && snowAt(world, i, slope) > 0.5) return 'snow';
   if (T < climateParams.treeLineTemp - 0.5 && v > 0.12 && v <= 0.66) return 'tundra'; // (high fir forest stays forest)
   if (world.mangrove && world.mangrove[i] > 0.3) return 'mangrove';
-  if (world.beachSand && world.beachSand[i] > 0.35 && v <= 0.66) return 'beach';
+  // (land the sea once covered: beach of the kind it became, until plants take it back)
+  if (world.beachSand && world.beachSand[i] > 0.35 && v <= 0.66) {
+    const bt = world.beachType ? world.beachType[i] : SHORE.sand;
+    return bt === SHORE.mudflat ? 'mudflat' : bt === SHORE.shingle || bt === SHORE.basalt ? 'shingle' : 'beach';
+  }
   // Bare ground within reach of the tide and the storm surges is shore: mudflat, sand or shingle
   // (or a sea cliff), whatever the waves have made of it (sim/coast.js)
   if (v <= 0.25 && world.meanSea > -999) {

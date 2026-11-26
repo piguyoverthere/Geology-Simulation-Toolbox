@@ -1481,17 +1481,25 @@ line names what was washed away. In a test, the sea was raised step by step over
 the town was lost when the sea rose 3.5, everything it had built was gone at
 7.5, and the park went then too, while a national forest inland stayed.
 
-## Drowned grassland becomes beach (`drownedGrassStep`, `src/sim/coast.js`)
+## Land the sea covers becomes beach (`drownedGrassStep`, `src/sim/coast.js`)
 
-A strict rule: grassland, meadow or scrub that the sea covers (below high tide) becomes beach. The
-waves strip the turf and lay sand over it (world.beachSand = 1). Out of the water again (the sea
-falls back, or sand builds the ground up), it shows as the **Beach (drowned grassland)** biome, and
-plants there can't grow past what the sand allows: bare sand, then dune grass, then turf. The sand
-fades very slowly, a little faster where it's wetter. At this map's average rain (0.39, 3,600
-frames a year) it stays beach for about 55 years and is fully grassland again after about 90.
-Forest the sea covers isn't affected by this rule. In a test, the sea was raised 2.5 over 1,020
-grassland cells near the shore and then lowered again: 826 were left as beach, with plant cover held
-at 7%. The rest had been in the tidal zone already.
+A strict rule: any land the sea covers, below high tide or under a storm surge, becomes beach. That
+includes grassland, forest, scrub, desert, bare rock, fields and plantations; built-over ground is
+washed away instead. The waves strip its plants and turf and leave beach of the kind that suits the
+spot (world.beachSand, world.beachType):
+- **Mudflat** on flat, soft ground.
+- **Shingle** on steeper or hard, rocky ground (black **basalt boulders** where the rock is basalt).
+- **Sand** everywhere else.
+
+Where the waves have already made a shore of it, that's the kind it takes. Out of the water again it
+stays that kind of beach on the map, in the biomes and in the inspector ("Drowned land"). Plants
+there can't grow past what the beach allows: bare at first, then dune grass or salt marsh, and only
+slowly the land it was. At this map's average rain (0.39, 3,600 frames a year) it looks like
+grassland again after about 55 years and has fully recovered after about 90.
+
+In a test, the sea was raised 3 over 3,603 cells of land and then lowered again. All 3,603 became
+beach: 2,317 of grass and scrub, 977 of bare ground and 309 of forest. On that map's hard rock most
+became shingle, with basalt boulders, sand and a few mudflats.
 
 ## Fungi and root rot (`src/sim/fungi.js`)
 

@@ -812,6 +812,12 @@ export class TerrainRenderer {
       const high = sea + 0.5 * coastParams.tideRange;
       if (h < high) shade(col, sh === SHORE.mudflat ? 0.78 : 0.86, col);
       else if (sh === SHORE.mudflat && w.water[i] > 0.01) shade(col, 0.82, col);
+    } else if (h >= sea && w.beachSand && w.beachSand[i] > 0.05) {
+      // Land the sea once covered: beach of the kind it became (sand, shingle, mudflat, basalt),
+      // fading as plants take it back
+      const bt = w.beachType ? w.beachType[i] : SHORE.sand;
+      const c = SHORES[bt >= 0 && bt < SHORES.length ? bt : SHORE.sand].color;
+      mix(col, c, 0.92 * Math.min(1, w.beachSand[i] * 1.3) * (1 - 0.55 * smooth(0.45, 0.8, v)), col);
     } else if (h < sea) {
       const m = w.marine ? marineShown(w, i) : -1;
       // The sea bed: silt and sand, darker mud in the deep, and its meadows, kelp and reefs
