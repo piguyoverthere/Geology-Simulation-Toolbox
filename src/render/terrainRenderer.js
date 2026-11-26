@@ -59,7 +59,15 @@ export const OVERLAYS = {
   quality: 'Water quality',
   wind: 'Wind speed',
   wildlife: 'Wildlife',
-  pollinators: 'Pollinators',
+  pollinators: 'Pollinators (bees)',
+  beetles: 'Bark beetles',
+  cropPests: 'Crop pests',
+  soilSalt: 'Soil salt',
+  ruins: 'Ruins',
+  wetlands: 'Drained wetlands',
+  heat: 'Urban heat',
+  beaches: 'Starved beaches & levees',
+  seeds: 'Seed dispersal',
   fireFollowers: 'Fire followers',
   fungi: 'Fungi & root rot',
   permafrost: 'Permafrost',
@@ -422,6 +430,15 @@ export class TerrainRenderer {
             col = f < 0.2 ? mix(FISH_GONE, FISH_LOW, f / 0.2, S3) : mix(FISH_LOW, FISH_FULL, Math.min(1, (f - 0.2) / 0.7), S3);
             if (w.zoneFlags && (w.zoneFlags[i] & 64) && (x + z) % 5 === 0) mix(col, FISH_RESERVE, 0.5, col); // (marine reserve)
           }
+        } else if (OV_SIMPLE[mode]) {
+          // The world-dynamics layers (sim/dynamics.js): each a colour ramp over grey land
+          const o = OV_SIMPLE[mode], sea = w.meanSea > -999 ? w.meanSea : -1e9;
+          if (h < sea) col = OV_SEA.slice();
+          else {
+            const t = o.value(w, i);
+            col = t > 0.02 ? mix(o.lo, o.hi, Math.min(1, t), S3) : (o.base ? o.base(w, i) : OV_LAND).slice();
+          }
+          shade(col, 0.72 + 0.28 * ny, col);
         } else if (mode === 'permafrost') {
           // Permafrost: frozen ground blue (deeper the more ice), near to thawing pale cyan, thawing
           // now red, thawed brown; ground that was never frozen grey
@@ -939,6 +956,18 @@ const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = 
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
 const SPOT_WHITE = [0.97, 0.97, 0.96];
+const OV_LAND = [0.80, 0.80, 0.78], OV_SEA = [0.30, 0.38, 0.48];
+/** The world-dynamics overlays: value(world, i) 0…1 shown from `lo` to `hi` over grey land. */
+const OV_SIMPLE = {
+  beetles: { lo: [0.86, 0.62, 0.30], hi: [0.62, 0.18, 0.10], value: (w, i) => (w.barkBeetle ? w.barkBeetle[i] : 0), base: (w, i) => (w.conifer && w.vegetation[i] > 0.6 && w.conifer[i] > 0.5 ? [0.40, 0.58, 0.42] : OV_LAND) },
+  cropPests: { lo: [0.92, 0.80, 0.40], hi: [0.52, 0.32, 0.12], value: (w, i) => (w.cropPest && w.landUse && w.landUse[i] === 1 ? Math.max(0.03, w.cropPest[i]) : 0) },
+  soilSalt: { lo: [0.86, 0.82, 0.62], hi: [0.98, 0.98, 0.96], value: (w, i) => (w.soilSalt ? w.soilSalt[i] * 1.3 : 0), base: (w, i) => (w.irrigated && w.irrigated[i] ? [0.45, 0.66, 0.78] : OV_LAND) },
+  ruins: { lo: [0.62, 0.58, 0.52], hi: [0.30, 0.28, 0.26], value: (w, i) => (w.ruins ? w.ruins[i] : 0) },
+  wetlands: { lo: [0.82, 0.62, 0.34], hi: [0.52, 0.30, 0.14], value: (w, i) => (w.drained && w.drained[i] ? 0.5 + 0.5 * (w.humus ? Math.min(1, w.humus[i]) : 0.5) : 0), base: (w, i) => (w.nearWater && w.soil && w.nearWater[i] > 0.5 && w.soil[i] > 0.7 && w.vegetation[i] > 0.35 ? [0.26, 0.52, 0.48] : OV_LAND) },
+  heat: { lo: [0.98, 0.86, 0.50], hi: [0.86, 0.16, 0.10], value: (w, i) => (w.heatIsland ? w.heatIsland[i] / 2.5 : 0) },
+  beaches: { lo: [0.96, 0.66, 0.40], hi: [0.80, 0.20, 0.14], value: (w, i) => (w.starved ? w.starved[i] : 0), base: (w, i) => (w.levee && w.levee[i] > 0 ? [0.20, 0.30, 0.80] : w.shore && w.shore[i] === 1 ? [0.94, 0.86, 0.62] : OV_LAND) },
+  seeds: { lo: [0.86, 0.90, 0.70], hi: [0.10, 0.40, 0.20], value: (w, i) => { const S = w.speciesHere; if (!S || w.vegetation[i] < 0.2) return 0; let b = S[i], c = 0; while (b) { b &= b - 1; c++; } return c / 8; } },
+};
 const PF_NONE = [0.78, 0.78, 0.76], PF_FROZEN = [0.16, 0.36, 0.72], PF_EDGE = [0.62, 0.86, 0.92], PF_THAWING = [0.86, 0.24, 0.16], PF_THAWED = [0.56, 0.40, 0.26], PF_SEA = [0.30, 0.38, 0.48];
 const BARK_BEETLE = [0.62, 0.30, 0.16], RUIN_A = [0.58, 0.56, 0.52], RUIN_B = [0.46, 0.45, 0.42], SALT_CRUST = [0.93, 0.92, 0.88], BLIGHT = [0.52, 0.42, 0.22];
 const LU_CORE = [0.55, 0.10, 0.12];

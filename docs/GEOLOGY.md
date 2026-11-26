@@ -1710,6 +1710,22 @@ and big events are announced in the status line.
 - **Ruins:** abandoned towns' streets and buildings stand as ruins, crumbling over the decades as
   forest grows up through them. Old roads stay visible as tracks.
 
+**Overlays** for these layers:
+
+| Overlay | What it shows |
+|---|---|
+| Bark beetles | the beetles, over the conifer forest they could reach |
+| Crop pests | every field, by its pests |
+| Soil salt | salt in the soil, over the irrigated fields |
+| Ruins | ruins of abandoned towns and old roads |
+| Drained wetlands | drained wetlands, darker over deep peat, and the wetlands still wet |
+| Urban heat | how much warmer the towns are |
+| Starved beaches & levees | beaches losing sand, healthy sand beaches, and town levees |
+| Seed dispersal | how many tree species have seeded in at each place |
+
+The Pollinators overlay is now called **Pollinators (bees)**, and both overlay menus are sorted
+alphabetically, with None first.
+
 Tests, on a 256×256 map:
 
 | Feature | Result |

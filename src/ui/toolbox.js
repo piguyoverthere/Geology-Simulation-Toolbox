@@ -978,6 +978,21 @@ export class Toolbox {
       ramp('Fish stocks (share of what the sea can hold)', 'collapsed', 'plentiful', [[0.80, 0.20, 0.15], [0.95, 0.80, 0.30], [0.10, 0.30, 0.65]]);
       L.append(el('div', 'tb-note', 'Fish breed back towards what the sea can feed and drift about; fishing takes them down. Fished below about a fifth, a stock collapses and recovers only slowly. Green hatching: marine reserves (No fishing areas), which restock the water round them.'));
     }
+    else if (['beetles', 'cropPests', 'soilSalt', 'ruins', 'wetlands', 'heat', 'beaches', 'seeds'].includes(mode)) {
+      const D = this.app.dynParams;
+      const K = {
+        beetles: ['Bark beetles', 'few', 'outbreak', [[0.86, 0.62, 0.30], [0.62, 0.18, 0.10]], 'Native bark beetles in the conifers (green: conifer forest they could reach). They erupt in drought years and after mild winters, and kill the stands they\'re in.', 'barkBeetles'],
+        cropPests: ['Crop pests and blight in the fields', 'clean field', 'blighted', [[0.92, 0.80, 0.40], [0.52, 0.32, 0.12]], 'Every field, coloured by its pests: a blighted field yields up to 60% less. Hedgerows and Crop rotation hold them back.', 'cropPests'],
+        soilSalt: ['Salt in the soil', 'a little', 'salted up', [[0.86, 0.82, 0.62], [0.98, 0.98, 0.96]], 'Salt left behind by irrigation in dry, hot country (blue: irrigated fields). The crop falls as it builds up, and a field too salty to farm is abandoned.', 'salinisation'],
+        ruins: ['Ruins of abandoned towns', 'crumbled', 'standing', [[0.62, 0.58, 0.52], [0.30, 0.28, 0.26]], 'Streets and buildings of towns that were abandoned, and old roads, crumbling over the decades as the forest grows up through them.', 'ruins'],
+        wetlands: ['Drained wetlands', 'drained', 'deep peat', [[0.82, 0.62, 0.34], [0.52, 0.30, 0.14]], 'Wetlands the towns have ditched and drained (teal: wetlands still wet). Darker where there\'s deep peat to rot away, sink and smoulder if it burns.', 'wetlandDrainage'],
+        heat: ['Urban heat (warmer than the country round)', '+0', '+2.5 °C', [[0.98, 0.86, 0.50], [0.86, 0.16, 0.10]], 'How much warmer the towns are than the land round them: paved streets and buildings soak up the sun. Smog builds up here on still days.', 'urbanHeat'],
+        beaches: ['Starved beaches and levees', 'losing sand', 'starved', [[0.96, 0.66, 0.40], [0.80, 0.20, 0.14]], 'Beaches losing their sand because a dam or a sea wall cuts off their supply (pale sand: healthy sand beaches; blue: town levees along the rivers).', 'starvedBeaches'],
+        seeds: ['Seed dispersal: how many tree species have arrived', 'one', '8 or more', [[0.86, 0.90, 0.70], [0.10, 0.40, 0.20]], 'How many kinds of tree have seeded in at each place. A species grows only where its seeds have reached, so after a big fire or clearing the forest comes back from its edges.', 'seedDispersal'],
+      }[mode];
+      ramp(K[0], K[1], K[2], K[3]);
+      L.append(el('div', 'tb-note', K[4] + (D[K[5]] === false ? ' (Switched off in its settings.)' : '')));
+    }
     else if (mode === 'permafrost') {
       items('Permafrost (ground frozen all year)', [
         { label: 'Frozen (deep blue: icier, colder)', color: [0.16, 0.36, 0.72], help: 'Ground frozen all year round, where the mean temperature is below about −3 °C.' },
