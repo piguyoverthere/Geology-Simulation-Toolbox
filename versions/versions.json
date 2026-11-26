@@ -49,5 +49,10 @@
     "version": "1.3.2",
     "date": "2026-11-25",
     "notes": "Root rot thins stands and kills more trees"
+  },
+  {
+    "version": "1.3.3",
+    "date": "2026-11-25",
+    "notes": "Curved, repeated trail names"
   }
 ]
