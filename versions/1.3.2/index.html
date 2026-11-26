@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Geology Simulation Toolbox (1.3.2)</title>
+  <link rel="stylesheet" href="src/ui/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../../vendor/three/three.module.js",
+        "three/addons/": "../../vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="loading" class="loading" hidden role="status" aria-live="polite">
+    <div class="ld-box">
+      <div class="ld-spin" aria-hidden="true"></div>
+      <div class="ld-title">Loading…</div>
+      <div class="ld-step"></div>
+      <div class="ld-bar"><i></i></div>
+    </div>
+  </div>
+  <script>
+    // (reloaded to open a simulation at its map size: cover the page at once, before the app loads)
+    if (/[?&]open=/.test(location.search)) {
+      const L = document.getElementById('loading'); L.hidden = false;
+      let name = ''; try { name = sessionStorage.getItem('loadingName') || ''; } catch (e) {}
+      L.querySelector('.ld-title').textContent = name ? 'Opening \u201c' + name + '\u201d' : 'Opening simulation';
+      L.querySelector('.ld-step').textContent = 'Starting the simulation…';
+      L.querySelector('.ld-bar i').style.width = '8%';
+    }
+  </script>
+  <header id="menubar"></header>
+  <main id="app">
+    <div id="stage">
+      <div id="viewport"><div id="labels" class="draw-labels"></div><div id="monthbar"></div><div id="inspector" class="inspector"></div></div>
+      <nav id="toolbar" aria-label="Tools"></nav>
+    </div>
+    <aside id="toolbox"></aside>
+  </main>
+  <noscript>This simulation needs JavaScript and WebGL.</noscript>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
