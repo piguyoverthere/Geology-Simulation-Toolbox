@@ -14,11 +14,21 @@ export const IS_PRERELEASE = false;
 /** The top of the site, relative to this page: an archived version runs from versions/<version>/. */
 export const SITE_ROOT = /\/versions\/[^/]+\/(index\.html)?$/.test(location.pathname) ? '../../' : './';
 
-/** Compare versions like 1.2.0 and 1.2.0-beta.1: negative if a is older, positive if newer. */
+/**
+ * Compare versions like 1.2.0, 1.2.0-beta.1 and 1.5.2b (a small patch: a letter after the number,
+ * b, c, … each newer than the last, all older than 1.5.3): negative if a is older, positive if newer.
+ */
 export function compareVersions(a, b) {
-  const parse = (v) => { const [main, pre] = String(v).split('-'); return { n: main.split('.').map((x) => +x || 0), pre }; };
+  const parse = (v) => {
+    const [main, pre] = String(v).split('-');
+    const parts = main.split('.');
+    const n = [0, 1, 2].map((k) => parseInt(parts[k], 10) || 0);
+    const letter = ((parts[2] || '').match(/[a-z]+$/i) || [''])[0].toLowerCase();
+    n.push(letter ? letter.charCodeAt(0) - 96 : 0); // (1.5.2 → 0, 1.5.2b → 2)
+    return { n, pre };
+  };
   const A = parse(a), B = parse(b);
-  for (let k = 0; k < 3; k++) if ((A.n[k] || 0) !== (B.n[k] || 0)) return (A.n[k] || 0) - (B.n[k] || 0);
+  for (let k = 0; k < 4; k++) if ((A.n[k] || 0) !== (B.n[k] || 0)) return (A.n[k] || 0) - (B.n[k] || 0);
   if (A.pre === B.pre) return 0;
   if (!A.pre) return 1;   // (1.2.0 is newer than 1.2.0-beta.1)
   if (!B.pre) return -1;

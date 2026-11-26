@@ -51,7 +51,12 @@ def main():
     entries.append(entry)
     def order(e):
         main, _, pre = e['version'].partition('-')
-        nums = [int(x) for x in main.split('.')]
+        # (a small patch has a letter after the number: 1.5.2 < 1.5.2b < 1.5.2c < 1.5.3)
+        import re as _re
+        nums = []
+        for x in main.split('.'):
+            m = _re.match(r'(\d+)([a-z]*)', x, _re.I)
+            nums += [int(m.group(1)) if m else 0, (ord(m.group(2).lower()[0]) - 96) if m and m.group(2) else 0]
         # (a prerelease sorts before its release: 1.2.0-beta.1 < 1.2.0)
         return (nums, 0 if pre else 1, [int(x) if x.isdigit() else x for x in pre.split('.')] if pre else [])
     entries.sort(key=order)
