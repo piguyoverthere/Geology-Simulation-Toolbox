@@ -8,7 +8,7 @@
 
 import { BIOMES, classifyBiome } from '../render/biomes.js';
 import { SPECIES, treeShares, steadyCover } from '../sim/species.js';
-import { seasonParams, snowAt } from '../sim/climate.js';
+import { seasonParams, snowAt, seasonName } from '../sim/climate.js';
 
 // (colours too dark to see on the dark panel are lifted towards white, keeping their hue)
 const lift = (c) => {
@@ -124,6 +124,9 @@ export class BiomeChart {
     }
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'biome-graph';
+    // (hover: a line at the pointer, with every line's value at that time)
+    this.canvas.addEventListener('mousemove', (e) => { this.cursorX = e.offsetX; this.paint(); });
+    this.canvas.addEventListener('mouseleave', () => { this.cursorX = null; this.paint(); });
     this.legend = document.createElement('div');
     this.legend.className = 'biome-legend';
     this.note = document.createElement('div');
@@ -231,6 +234,30 @@ export class BiomeChart {
       const s = h.s[id];
       for (let k = 0; k < n; k++) { const x = X(h.t[k]), y = Y(s[k] || 0); if (k) g.lineTo(x, y); else g.moveTo(x, y); }
       g.stroke();
+    }
+    // The pointer: a line at that time, a dot on each line, and the values then
+    if (this.cursorX !== null && this.cursorX !== undefined && this.cursorX >= L && this.cursorX <= L + pw) {
+      const tc = t0 + ((this.cursorX - L) / pw) * (t1 - t0);
+      let k = 0;
+      for (let j = 1; j < n; j++) if (Math.abs(h.t[j] - tc) < Math.abs(h.t[k] - tc)) k = j;
+      const x = X(h.t[k]);
+      g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x + 0.5, T); g.lineTo(x + 0.5, T + ph); g.stroke();
+      const vals = ids.map((id) => ({ id, v: h.s[id][k] || 0 })).sort((a, b) => (b.id === this.hot) - (a.id === this.hot) || b.v - a.v);
+      for (const { id, v } of vals) { g.fillStyle = rgb(tab.color(id), 1); g.beginPath(); g.arc(x, Y(v), 2.2, 0, Math.PI * 2); g.fill(); }
+      // (the readout box: the time, then the biggest values)
+      const rows = vals.filter((r) => r.v >= 0.001).slice(0, 6), time = `Year ${Math.floor(h.t[k])} · ${seasonName(((h.t[k] % 1) + 1) % 1)}`;
+      g.font = '9.5px sans-serif';
+      const bw = Math.max(g.measureText(time).width, ...rows.map((r) => g.measureText(`${(tab.info(r.id)?.label || r.id)} ${(r.v * 100).toFixed(1)}%`).width)) + 18;
+      const bh = 13 + rows.length * 12, bx = x + 8 + bw > W ? x - 8 - bw : x + 8, by = T + 2;
+      g.fillStyle = 'rgba(16,18,22,0.9)'; g.fillRect(bx, by, bw, bh);
+      g.fillStyle = '#e8eaed'; g.fillText(time, bx + 5, by + 10);
+      rows.forEach((r, j) => {
+        const yy = by + 22 + j * 12;
+        g.fillStyle = rgb(tab.color(r.id), 1); g.fillRect(bx + 5, yy - 7, 7, 7);
+        g.fillStyle = r.id === this.hot ? '#ffffff' : '#c9ced6';
+        g.fillText(`${(tab.info(r.id)?.label || r.id)} ${(r.v * 100).toFixed(1)}%`, bx + 15, yy);
+      });
     }
     return ids;
   }

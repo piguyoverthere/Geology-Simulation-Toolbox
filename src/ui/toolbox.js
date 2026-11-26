@@ -1425,6 +1425,15 @@ function escapeHtml(t) { return String(t).replace(/[&<>"']/g, (c) => ({ '&': '&a
  * their rises and falls can be compared even when their numbers are very different.
  */
 function drawLine(cv, series, axes, fmt = fmtPop) {
+  // (charts with axes follow the pointer: a line there, and each series' value at that point)
+  if (axes) {
+    cv.__last = [series, axes, fmt];
+    if (!cv.__hover) {
+      cv.__hover = true;
+      cv.addEventListener('mousemove', (e) => { cv.__hx = e.offsetX * (cv.width / (cv.clientWidth || cv.width)); drawLine(cv, ...cv.__last); });
+      cv.addEventListener('mouseleave', () => { cv.__hx = null; drawLine(cv, ...cv.__last); });
+    }
+  }
   const ctx = cv.getContext('2d');
   if (axes) cv.height = 104 + 13 * series.length;
   const W = cv.width, H = cv.height;
@@ -1458,6 +1467,31 @@ function drawLine(cv, series, axes, fmt = fmtPop) {
     ctx.stroke();
   }
   ctx.setLineDash([]); ctx.globalAlpha = 1;
+  // The pointer: a line, a dot on each series, and their values there
+  if (axes && cv.__hx !== null && cv.__hx !== undefined && cv.__hx >= pad.l && cv.__hx <= W - pad.r) {
+    const len = series[0].data.length, k = Math.max(0, Math.min(len - 1, Math.round(((cv.__hx - pad.l) / pw) * (len - 1))));
+    const x = X(k, len);
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x + 0.5, pad.t); ctx.lineTo(x + 0.5, pad.t + ph); ctx.stroke();
+    const rows = [];
+    series.forEach((s, j) => {
+      const d = s.data, kk = Math.round((k / Math.max(1, len - 1)) * (d.length - 1)), v = d[kk];
+      if (v === null || v === undefined) return;
+      const rg = j === 0 ? main : range(d);
+      if (!rg) return;
+      ctx.fillStyle = visibleOnDark(s.color); ctx.beginPath(); ctx.arc(X(kk, d.length), Yf(rg)(v), 2.4, 0, Math.PI * 2); ctx.fill();
+      rows.push([s, v]);
+    });
+    const ago = len - 1 - k;
+    const head = ago === 0 ? 'now' : `${ago} sample${ago > 1 ? 's' : ''} before now`;
+    ctx.font = '10px system-ui, sans-serif'; ctx.textAlign = 'left';
+    const lines = rows.map(([s, v]) => `${s.label || ''}${s.label ? ': ' : ''}${fmt(v)}`);
+    const bw = Math.max(ctx.measureText(head).width, ...lines.map((t) => ctx.measureText(t).width)) + 18, bh = 14 + lines.length * 12;
+    const bx = x + 8 + bw > W ? x - 8 - bw : x + 8, by = pad.t + 2;
+    ctx.fillStyle = 'rgba(16,18,22,0.9)'; ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = '#e8eaed'; ctx.fillText(head, bx + 5, by + 11);
+    lines.forEach((t, j) => { ctx.fillStyle = visibleOnDark(rows[j][0].color); ctx.fillRect(bx + 5, by + 17 + j * 12, 7, 7); ctx.fillStyle = '#c9ced6'; ctx.fillText(t, bx + 15, by + 24 + j * 12); });
+  }
   if (axes) {
     // Legend below the chart: each series and its latest value
     ctx.textAlign = 'left'; ctx.font = '10px system-ui, sans-serif';

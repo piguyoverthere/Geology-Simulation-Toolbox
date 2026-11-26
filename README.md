@@ -93,6 +93,9 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
 - **Fungi**: fungal diversity (richest in old, mixed forest) speeds tree growth, rotting and soil
   building; **honey mushroom** root rot spreads underground and by spores and kills stands. Overlay
   *Fungi & root rot*.
+- **Graph readouts**: move the pointer over the Biomes & trees graphs, or a population, town or
+  statistics chart, and a line follows it, with a dot on each curve and a box giving the time and
+  every curve's value there.
 - **Spotlight**: hover over a town, park, footpath, drawing, animal, tree species, biome or land use
   (in the panel, the map key, the Biomes & trees window, or a name on the map) and the map shows just
   that, everything else faded to white.
