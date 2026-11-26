@@ -355,8 +355,13 @@ and 11.0% from late winter into spring):
 **Soil chemistry** comes from the rock beneath: granite, rhyolite and sandstone weather into
 acidic soil; basalt into fertile base-rich soil; limestone and marble into alkaline soil. On the
 hills map, pine and birch are common on acidic ground but almost absent on limestone, where maple,
-beech and juniper take over. **Succession**: every young forest is full of aspen (over half the mix)
-with other pioneers; as it ages, beech and fir move in and aspen fades to a few percent. On the
+beech and juniper take over. **Succession**: young forest in cool, high country is full of aspen,
+with other pioneers; as it ages, beech and fir move in and aspen is shaded out completely. It fades
+past a stand age of about 0.45, is gone by 0.7 (none in old growth), and doesn't grow in warm
+lowlands, which are above 14 °C. On a test map, aspen made up 23% of young forest, 3% of middle-aged
+forest, 0.1% of forest aged 0.6–0.8 and none of old growth. It made up 2% of the forest on the lowest
+quarter of the land and 5–7% higher up; before this change it was 15% on the lowest quarter and 5% of
+forest aged 0.6–0.8. On the
 mountains map, pine leads on dry ground and fir dominates wet, cool, higher slopes. The mix sets the forest's colour,
 flammability and soil-building rate. See **Overlays → Tree species** and **Overlays → Soil
 chemistry**, and **Inspect** lists each spot's mix in percent.

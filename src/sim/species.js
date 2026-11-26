@@ -40,8 +40,8 @@ export const SPECIES = [
     help: 'Deciduous conifer of the coldest forests near the tree line; a pioneer on open ground.' },
   { id: 'birch', height: 20, label: 'Birch', autumn: [1.00, 0.84, 0.12], color: [0.47, 0.60, 0.28], mapColor: [0.96, 0.92, 0.78], temp: [-4, 15], moist: [0.45, 0.95], age: 0.1, ageW: 0.8, soil: 'any', slope: 0.9, chem: -0.5, chemW: 1.4, flam: 0.8, soilBuild: 1.2,
     help: 'Pioneer broadleaf of cool climates: quickly fills clearings, then gives way to longer-lived trees.' },
-  { id: 'aspen', height: 20, label: 'Aspen', autumn: [1.00, 0.74, 0.04], color: [0.50, 0.64, 0.28], mapColor: [0.95, 0.55, 0.85], temp: [-8, 22], moist: [0.25, 1.0], age: 0, ageW: 1.1, youngBoost: 0.6, soil: 'any', slope: 1.2, chem: 0, chemW: 2.5, flam: 0.5, soilBuild: 1.3,
-    help: 'Fast pioneer that sprouts in every young forest (often from root suckers after fire), then is shaded out as longer-lived trees take over.' },
+  { id: 'aspen', height: 20, label: 'Aspen', autumn: [1.00, 0.74, 0.04], color: [0.50, 0.64, 0.28], mapColor: [0.95, 0.55, 0.85], temp: [-8, 14], moist: [0.25, 1.0], age: 0, ageW: 1.1, youngBoost: 0.6, maxAge: 0.6, soil: 'any', slope: 1.2, chem: 0, chemW: 2.5, flam: 0.5, soilBuild: 1.3,
+    help: 'Fast pioneer of cool, high country (mountain slopes and the north): it sprouts in young forest there (often from root suckers after fire), then is shaded out completely as longer-lived trees take over. Never in old growth, and not in warm lowlands.' },
   { id: 'oak', height: 30, label: 'Oak', autumn: [0.70, 0.34, 0.08], color: [0.21, 0.36, 0.13], mapColor: [0.55, 0.35, 0.15], temp: [11, 24], moist: [0.45, 0.85], age: 0.6, ageW: 0.5, soil: 'any', slope: 0.9, chem: -0.2, chemW: 1.5, flam: 1.0, soilBuild: 1.2,
     help: 'Long-lived broadleaf of warm temperate forests; tolerates moderately dry and acidic soil.' },
   { id: 'beech', height: 35, label: 'Beech', autumn: [0.92, 0.50, 0.08], color: [0.17, 0.40, 0.15], mapColor: [0.90, 0.50, 0.20], temp: [5, 18], moist: [0.6, 0.95], age: 0.95, ageW: 0.9, soil: 'deep', slope: 0.8, chem: 0.4, chemW: 1.2, flam: 0.6, soilBuild: 1.5,
@@ -132,6 +132,7 @@ function suitability(world, i, out) {
     if (f <= 0) { out[k] = 0; continue; }
     f *= Math.max(0.1, 1 - s.ageW * Math.abs(age - s.age));
     if (s.youngBoost) f *= 1 + s.youngBoost * Math.max(0, 1 - age / 0.4); // thrives in young stands
+    if (s.maxAge !== undefined) f *= 1 - smooth(s.maxAge - 0.15, s.maxAge + 0.1, age); // (shaded out entirely as the stand ages)
     if (s.soil === 'deep') f *= 0.2 + 0.8 * smooth(0.15, 0.55, soil);
     else if (s.soil === 'thin') f *= 1 - 0.45 * smooth(0.45, 0.9, soil); // out-competed on rich, deep soil
     else if (s.soil === 'shallow') f *= 1.3 - 0.3 * smooth(0.15, 0.5, soil); // roots in rock cracks: at home on thin mountain soil, fine on deep
