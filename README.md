@@ -271,6 +271,9 @@ seasons, weather), **Sea** (ocean and coast) and **Life** (wildlife).
   strips plants away to reveal bare ground and bedrock.
 - **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes. A polygon
   can be made a **protected zone** (🛡): no towns, farms, industry or new roads inside it.
+  **Show polygon edges** (off: polygons and parks drawn as their fill alone, no outline or corner
+  dots) and **Simplify outlines** (0–1: outlines drawn with fewer corners, the small wiggles smoothed
+  away; only how they look, the shapes and park restrictions keep every point).
 - **Geology**: rock types on/off, hardness contrast, layer thickness, sea level, edge drainage.
 - **Climate → Environment**: ready-made climates applied to the current map without changing the
   terrain: Pacific Northwest coast, Inland Northwest, Alpine, Mediterranean, Tropical rainforest,

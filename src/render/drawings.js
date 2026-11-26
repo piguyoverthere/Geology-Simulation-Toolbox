@@ -15,7 +15,39 @@ export const drawSettings = {
   color: '#ffd24a',
   labels: true,
   fill: 0.12,         // how opaque a polygon's fill is (0 = see-through, 1 = solid)
+  edges: true,        // draw polygons' outlines and corner dots (off: the fill alone)
+  simplify: 0,        // how much to simplify outlines as drawn (0 exact … 1 smooth and simple)
 };
+
+/**
+ * An outline with fewer corners (Douglas–Peucker): points closer than `eps` cells to the line between
+ * their neighbours are dropped. For drawing only; the shape itself keeps every point.
+ */
+function simplifyPts(pts, eps, closed) {
+  if (eps <= 0 || pts.length < 4) return pts;
+  if (!closed) return simplifyRun(pts, eps, [pts[0]]);
+  // (a closed outline: split at the point farthest from the first, simplify each half)
+  let far = 1, fd = 0;
+  for (let k = 1; k < pts.length; k++) { const d = Math.hypot(pts[k].x - pts[0].x, pts[k].z - pts[0].z); if (d > fd) { fd = d; far = k; } }
+  const a = simplifyRun(pts.slice(0, far + 1), eps, [pts[0]]);
+  const b = simplifyRun([...pts.slice(far), pts[0]], eps, [pts[far]]);
+  const out = [...a, ...b.slice(1, -1)];
+  return out.length >= 3 ? out : pts;
+}
+function simplifyRun(sub, eps, out) {
+  const dp = (a, b) => {
+    let best = -1, bd = 0;
+    const A = sub[a], B = sub[b], dx = B.x - A.x, dz = B.z - A.z, L = Math.hypot(dx, dz) || 1;
+    for (let k = a + 1; k < b; k++) {
+      const d = Math.abs((sub[k].x - A.x) * dz - (sub[k].z - A.z) * dx) / L;
+      if (d > bd) { bd = d; best = k; }
+    }
+    if (best >= 0 && bd > eps) { dp(a, best); out.push(sub[best]); dp(best, b); }
+  };
+  dp(0, sub.length - 1);
+  out.push(sub[sub.length - 1]);
+  return out;
+}
 
 export const DRAW_COLORS = { '#ffd24a': 'Yellow', '#ff5a4f': 'Red', '#4fc3ff': 'Blue', '#7dff6a': 'Green', '#ffffff': 'White', '#c77dff': 'Purple' };
 
@@ -155,8 +187,10 @@ export class Drawings {
     const obj = new THREE.Group();
     const color = new THREE.Color(s.color);
     const closed = s.closed;
-    const pts = s.points;
-    if (pts.length >= 2) {
+    // (drawn simplified if the setting asks: fewer corners, the small wiggles smoothed away)
+    const pts = drawSettings.simplify > 0 && s !== this.current ? simplifyPts(s.points, drawSettings.simplify * 4, closed) : s.points;
+    const edges = !closed || drawSettings.edges !== false || s === this.current;
+    if (pts.length >= 2 && edges) {
       const d = this.drape(pts, closed);
       // WebGL lines are always 1 px wide, so the line is a ribbon lying on the ground, with a
       // wider dark halo under it so it reads on any colour of ground
@@ -176,7 +210,7 @@ export class Drawings {
     vg.setAttribute('position', new THREE.BufferAttribute(vp, 3));
     const dots = new THREE.Points(vg, new THREE.PointsMaterial({ color, size: 9, sizeAttenuation: false, depthTest: false }));
     dots.renderOrder = 10;
-    obj.add(dots);
+    if (edges) obj.add(dots);
     if (closed) obj.add(this.fill(pts, color));
     obj.traverse((o) => { o.frustumCulled = false; });
     s.obj = obj;
@@ -306,6 +340,9 @@ export class Drawings {
   // --- Per frame -------------------------------------------------------------------------------
 
   /** Keep lines draped on the changing terrain, move labels, draw the rubber band. */
+  /** Rebuild every shape (after a drawing setting changes). */
+  rebuildAll() { for (const s of this.shapes) this.build(s); }
+
   /** Apply the polygon transparency setting to every polygon's fill. */
   applyFill() {
     for (const s of this.shapes) if (s.obj) s.obj.traverse((o) => {

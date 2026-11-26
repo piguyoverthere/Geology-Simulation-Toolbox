@@ -238,6 +238,8 @@ export class Toolbox {
         'What the Draw tool (✎, key D) makes. A path is an open line; a polygon closes back to its first point and is filled. You can also close a path into a polygon by clicking its first point.', this, () => app.setTool('draw')),
       select('Colour', DRAW_COLORS, app.drawSettings, 'color', 'Colour for new shapes. Click a shape\'s dot in the list below to cycle its colour.', this),
       toggle('Show labels', app.drawSettings, 'labels', 'Show each shape\'s name and measurements on the map.', this),
+      toggle('Show polygon edges', app.drawSettings, 'edges', 'Draw polygons\' outlines and corner dots (parks included). Off: polygons show as their fill alone, with no edges. Lines (paths) keep theirs.', this, () => app.drawings.rebuildAll()),
+      slider('Simplify outlines', app.drawSettings, 'simplify', 0, 1, 0.05, 'Draw outlines with fewer corners: the small wiggles smoothed away (0 exact, 1 simplest). Only how they look: a shape, and a park\'s restrictions, still follow every point.', this, () => app.drawings.rebuildAll()),
       slider('Polygon opacity', app.drawSettings, 'fill', 0, 1, 0.02, 'How solid a polygon\'s fill is drawn over the map: 0 shows only its outline, 1 is a solid colour. Its outline and label are always shown.', this, () => app.drawings.applyFill()),
     );
     this.drawList = el('div', 'draw-list');
