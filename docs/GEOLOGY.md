@@ -1676,6 +1676,10 @@ and big events are announced in the status line.
 - **Permafrost:** ground frozen all year where the mean is below about −3 °C. As it warms it thaws:
   the ground slumps, ponds form, and its rotting peat gives off greenhouse gas (with Climate change
   on).
+  **Overlays → Permafrost** shows frozen ground (deep blue, colder and icier), ground still frozen
+  but within about 1.5 °C of thawing (pale cyan), ground thawing now (red), thawed ground (brown) and
+  ground never frozen (grey). Its key counts the frozen and thawed cells. In a test, a map cooled by
+  15 °C froze 11,656 cells; warmed back, they all thawed within about 20 steps, a sudden jump.
 - **Bark beetle outbreaks:** native beetles erupt in drought years or after mild winters, spread
   through stressed conifer stands and kill them, the forest going red then grey. Hard winters and
   the end of a drought knock them back.

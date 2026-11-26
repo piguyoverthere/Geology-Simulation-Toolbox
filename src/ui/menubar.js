@@ -4,7 +4,7 @@
 // the play/pause button. Click a menu to open it; while one is open, moving over the others opens
 // them; click outside or press Escape to close.
 
-import { OVERLAYS } from '../render/terrainRenderer.js';
+import { OVERLAYS, sortedOverlays } from '../render/terrainRenderer.js';
 import { TOOLS, toolKey } from '../tools/brushes.js';
 import { MAP_SIZES } from '../main.js';
 import { APP_VERSION, SITE_ROOT } from '../version.js';
@@ -70,7 +70,7 @@ export class MenuBar {
         { label: 'Clear drawings', action: () => { if (confirm('Remove all your drawings (paths and polygons, parks included)?')) app.drawings.clear(); } },
       ],
       View: [
-        { label: 'Overlay', sub: () => Object.entries(OVERLAYS).map(([k, label]) => ({ label, checked: () => app.renderer.colorMode === k, action: () => { app.renderer.colorMode = k; redraw(); app.toolbox.refresh(); app.toolbox.updateLegend(); } })) },
+        { label: 'Overlay', sub: () => Object.entries(sortedOverlays()).map(([k, label]) => ({ label, checked: () => app.renderer.colorMode === k, action: () => { app.renderer.colorMode = k; redraw(); app.toolbox.refresh(); app.toolbox.updateLegend(); } })) },
         '-',
         toggle('Show vegetation', r, 'showVegetation', redraw),
         toggle('Show clouds', r, 'showClouds'),

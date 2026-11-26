@@ -62,6 +62,7 @@ export const OVERLAYS = {
   pollinators: 'Pollinators',
   fireFollowers: 'Fire followers',
   fungi: 'Fungi & root rot',
+  permafrost: 'Permafrost',
   fish: 'Fish stocks',
   landuse: 'Land use (clear view)',
   population: 'Population',
@@ -76,6 +77,13 @@ export const OVERLAYS = {
   change: 'Erosion / deposition',
   slope: 'Slope',
 };
+
+/** The overlays in alphabetical order (None first), for the menus. */
+export function sortedOverlays() {
+  const out = { natural: OVERLAYS.natural };
+  for (const [k, v] of Object.entries(OVERLAYS).filter(([k]) => k !== 'natural').sort((a, b) => a[1].localeCompare(b[1]))) out[k] = v;
+  return out;
+}
 
 /** Builds and updates the terrain + water meshes from a World. */
 export class TerrainRenderer {
@@ -414,6 +422,16 @@ export class TerrainRenderer {
             col = f < 0.2 ? mix(FISH_GONE, FISH_LOW, f / 0.2, S3) : mix(FISH_LOW, FISH_FULL, Math.min(1, (f - 0.2) / 0.7), S3);
             if (w.zoneFlags && (w.zoneFlags[i] & 64) && (x + z) % 5 === 0) mix(col, FISH_RESERVE, 0.5, col); // (marine reserve)
           }
+        } else if (mode === 'permafrost') {
+          // Permafrost: frozen ground blue (deeper the more ice), near to thawing pale cyan, thawing
+          // now red, thawed brown; ground that was never frozen grey
+          const pf = w.permafrost ? w.permafrost[i] : 0, th = w.pfThawed ? w.pfThawed[i] : 0, now = w.pfThawing ? w.pfThawing[i] : 0;
+          if (h < (w.meanSea > -999 ? w.meanSea : -1e9)) col = PF_SEA.slice();
+          else if (now > 0.3) col = PF_THAWING.slice();
+          else if (pf > 0.05) col = mix(PF_EDGE, PF_FROZEN, w.temperature[i] < -3 ? Math.min(1, 0.4 + pf * 0.6) : 0.15, S3);
+          else if (th > 0.05) col = mix(PF_NONE, PF_THAWED, Math.min(1, 0.4 + th), S3);
+          else col = PF_NONE.slice();
+          shade(col, 0.72 + 0.28 * ny, col);
         } else if (mode === 'fungi') {
           // Fungal diversity: none (pale) through some (green) to rich (deep violet); honey-mushroom
           // root rot over it in orange, red where it's killing the trees
@@ -921,6 +939,7 @@ const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = 
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
 const SPOT_WHITE = [0.97, 0.97, 0.96];
+const PF_NONE = [0.78, 0.78, 0.76], PF_FROZEN = [0.16, 0.36, 0.72], PF_EDGE = [0.62, 0.86, 0.92], PF_THAWING = [0.86, 0.24, 0.16], PF_THAWED = [0.56, 0.40, 0.26], PF_SEA = [0.30, 0.38, 0.48];
 const BARK_BEETLE = [0.62, 0.30, 0.16], RUIN_A = [0.58, 0.56, 0.52], RUIN_B = [0.46, 0.45, 0.42], SALT_CRUST = [0.93, 0.92, 0.88], BLIGHT = [0.52, 0.42, 0.22];
 const LU_CORE = [0.55, 0.10, 0.12];
 const CORE_STREET = [0.34, 0.34, 0.36], CORE_BLOCK = [0.52, 0.51, 0.50], CORE_ROOF = [0.42, 0.36, 0.34];

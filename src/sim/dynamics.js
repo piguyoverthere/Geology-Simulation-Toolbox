@@ -347,12 +347,16 @@ function permafrostStep(world) {
     return;
   }
   let released = 0;
+  // (for the Permafrost overlay: how much has thawed, and where it's thawing now)
+  const PT = field(world, 'pfThawed'), PN = field(world, 'pfThawing');
   for (let i = 0; i < n; i++) {
+    PN[i] *= 0.6;
     if (H[i] < sea) { PF[i] = 0; continue; }
     const t = T[i];
     if (PF[i] > 0 && t > -1.5) {
       const thaw = Math.min(PF[i], 0.01 * (t + 1.5 + 0.5));
       PF[i] -= thaw;
+      PT[i] = Math.min(1, PT[i] + thaw); PN[i] = 1;
       H[i] -= thaw * 0.4; world.prevHeight[i] = H[i];          // (the ice in it melts: it slumps)
       if (world.soil && world.soil[i] > 0.4) world.water[i] += thaw * 0.15; // (thermokarst ponds)
       released += thaw * (world.humus ? world.humus[i] : 0.5);

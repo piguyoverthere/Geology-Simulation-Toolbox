@@ -7,7 +7,7 @@ import { SHORES, MARINE } from '../sim/coast.js';
 import { ENVIRONMENTS, applyEnvironment } from '../core/environments.js';
 import { TOOLS, toolKey } from '../tools/brushes.js';
 import { PRESETS } from '../core/generate.js';
-import { OVERLAYS } from '../render/terrainRenderer.js';
+import { OVERLAYS, sortedOverlays } from '../render/terrainRenderer.js';
 import { ROCKS } from '../core/rocks.js';
 import { ERUPTION_TYPES, INTRUSION_TYPES } from '../sim/volcanism.js';
 import { FAULT_TYPES } from '../sim/tectonics.js';
@@ -79,7 +79,7 @@ export class Toolbox {
     // --- Overlays ----------------------------------------------------------------------------
     const ov = this.section('Overlays', true);
     ov.append(
-      select('Overlay', OVERLAYS, app.renderer, 'colorMode',
+      select('Overlay', sortedOverlays(), app.renderer, 'colorMode',
         'Colour the map by one data layer instead of its natural look. Wetness: soil moisture. Rock type: the bedrock exposed at the surface. Erosion/deposition: red = ground removed, blue = sediment added since the baseline. Topographic map: elevation bands with contour lines, like a printed topo map.', this, () => { app.renderer.update(true); this.updateLegend(); }),
       toggle('Show vegetation', app.renderer, 'showVegetation',
         'Turn off to strip the plants away in the natural view and see bare ground and bedrock (each rock type in its own colour).', this, () => { app.world.dirty = true; this.updateLegend(); }),
@@ -977,6 +977,18 @@ export class Toolbox {
     else if (mode === 'fish') {
       ramp('Fish stocks (share of what the sea can hold)', 'collapsed', 'plentiful', [[0.80, 0.20, 0.15], [0.95, 0.80, 0.30], [0.10, 0.30, 0.65]]);
       L.append(el('div', 'tb-note', 'Fish breed back towards what the sea can feed and drift about; fishing takes them down. Fished below about a fifth, a stock collapses and recovers only slowly. Green hatching: marine reserves (No fishing areas), which restock the water round them.'));
+    }
+    else if (mode === 'permafrost') {
+      items('Permafrost (ground frozen all year)', [
+        { label: 'Frozen (deep blue: icier, colder)', color: [0.16, 0.36, 0.72], help: 'Ground frozen all year round, where the mean temperature is below about −3 °C.' },
+        { label: 'Frozen, close to thawing', color: [0.62, 0.86, 0.92], help: 'Still frozen, but the mean temperature is within about 1.5 °C of where it starts to thaw: the first to go as the climate warms.' },
+        { label: 'Thawing now', color: [0.86, 0.24, 0.16], help: 'The ice in the ground is melting: it slumps, ponds form, and its peat rots, giving off greenhouse gas.' },
+        { label: 'Thawed', color: [0.56, 0.40, 0.26], help: 'Ground that was frozen and has thawed.' },
+        { label: 'Never frozen', color: [0.78, 0.78, 0.76], help: 'Too warm for permafrost.' },
+      ]);
+      const w = this.app.world;
+      let fz = 0, th = 0; if (w.permafrost) for (let i = 0; i < w.permafrost.length; i++) { if (w.permafrost[i] > 0.05) fz++; if (w.pfThawed && w.pfThawed[i] > 0.05) th++; }
+      L.append(el('div', 'tb-note', !this.app.dynParams.permafrost ? 'Permafrost is switched off (Climate events).' : !w.permafrost ? 'Run the simulation to work out where the ground is frozen.' : fz || th ? `${fz.toLocaleString()} cells frozen, ${th.toLocaleString()} thawed so far. Warming (Climate change) thaws it.` : 'Nowhere on this map is cold enough for permafrost.'));
     }
     else if (mode === 'fungi') {
       items('Fungi and root rot', [
