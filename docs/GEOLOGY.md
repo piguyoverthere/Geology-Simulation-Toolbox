@@ -1808,7 +1808,9 @@ both.
 **Town labels.** *Show town labels* (View) hides every town's name label over the map. *Show park names* (View) shows
 each park's and National Forest's name over it (the name alone, without the measurements your own
 drawings show), and *Show trail names* shows the names written along the footpaths and park
-trails; turning either off hides just those names. All three are saved with the level.
+trails: small, curving along the trail as it winds (smoothed, always the right way up), and repeated
+along a long trail, one every couple of hundred pixels of it on screen. Turning either off hides
+just those names. All three are saved with the level.
 
 ## Town parks (`parkStep` in `src/sim/civilization.js`)
 
