@@ -128,12 +128,9 @@ export class Home {
     const meta = el('div', 'home-meta', `${PRESETS[s.preset]?.label || s.preset || 'Map'} · ${s.N}×${s.N}${s.seed !== undefined ? ` · seed ${s.seed}` : ''} · last played ${when(s.updated)}${s.appVersion ? ` · version ${s.appVersion}` : ''}`);
     info.append(name, meta);
     const row = el('div', 'home-card-actions');
-    if (tooNew(s.appVersion)) {
-      // (saved by a newer version of the app: this one can't open it)
-      const b = btn(`Needs version ${s.appVersion}`, () => this.setStatus(`"${s.name}" was saved by version ${s.appVersion}, newer than this one (${APP_VERSION}). Opening a newer version's simulation in an older version isn't supported.`));
-      b.classList.add('locked');
-      row.append(b);
-    } else row.append(btn('Open', () => this.app.openSim(s.id), 'primary'));
+    row.append(btn('Open', () => this.app.openSim(s.id), 'primary'));
+    // (saved by a newer version of the app: it can still be opened here, with a warning)
+    if (tooNew(s.appVersion)) { const warn = el('span', 'home-newer', `⚠ saved by version ${s.appVersion}`); warn.title = `Saved by version ${s.appVersion}, newer than this one (${APP_VERSION}): opening it here may lose or break what the newer version added.`; row.append(warn); }
     // Earlier saves to roll back to
     if (s.history && s.history.length) {
       const sel = el('select', 'home-history');
@@ -200,7 +197,7 @@ export class Home {
       try {
         this.setStatus(`Importing ${file.name}…`);
         const snap = await decodeLevel(file);
-        if (tooNew(snap.meta.appVersion)) { this.setStatus(`${file.name} was saved by version ${snap.meta.appVersion}, newer than this one (${APP_VERSION}). Importing a newer version's simulation into an older version isn't supported.`); return; }
+        if (tooNew(snap.meta.appVersion) && !confirm(`"${file.name}" was saved by version ${snap.meta.appVersion}, newer than this one (${APP_VERSION}). Opening it in an older version may lose or break things the newer version added, and saving it here saves it in this older form. Open it anyway?`)) return;
         const gen = (snap.meta.params && snap.meta.params.gen) || {};
         const meta = newSimMeta({ name: file.name.replace(/\.geolevel$/i, '').slice(0, 60), N: snap.meta.N, preset: gen.preset, seed: gen.seed });
         meta.fresh = false;

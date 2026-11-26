@@ -35,6 +35,10 @@ The page opens on a grey **home screen** listing your simulations, all kept in t
   the save you had in the history too.
 - **Export** a simulation to a `.geolevel` file, **Import from file…** to add one, **Rename**, **Delete**.
 - Levels from before the home screen appear as **My simulation**.
+- Each card can **Copy** the simulation into a new one (named "… (test copy)" unless you name it):
+  its save and its world grid are copied, so you can try things on the copy without touching the
+  original. **☆** pins a simulation to the top. At the top of the list: **Export all** (one file per
+  simulation) and a **Sort** menu (last played, name, newest or oldest first).
 - While a simulation opens (or a new one is made, or you travel to another world-grid cell) a
   **loading screen** shows what it's doing and how far along it is.
 - Simulations are kept **per web address and per browser**: the live site, `localhost:8174` and
@@ -48,10 +52,11 @@ The page opens on a grey **home screen** listing your simulations, all kept in t
   unstable. When there's one newer than the version you're running, a **Try a prerelease** panel
   on the right of the home screen offers it (and the versions menu marks it *experimental*);
   a prerelease shows a warning banner on its own home screen.
-- **Going back isn't supported:** every save records the version of the app that made it, and a
-  simulation (or file) saved by a newer version can't be opened in an older one; its card says
-  which version it needs instead of *Open*. So try prereleases on a new simulation or an exported
-  copy. (Versions before 1.2 predate this check.)
+- **Going back comes with a warning:** every save records the version of the app that made it. A
+  simulation (or file) saved by a newer version can still be opened in an older one: its card is
+  marked *⚠ saved by version X*, and opening it asks first, since the older version may lose or break
+  what the newer one added, and saving it there saves it in the older form. So try prereleases on a
+  copy of a simulation (**Copy** on its card) or an exported file. (Versions before 1.2 don't check.)
 - Make a release with `python3 tools/release.py <version> "<what changed>"` (add `--pre` for a
   prerelease) after setting `APP_VERSION` (and `IS_PRERELEASE`) in `src/version.js`.
 

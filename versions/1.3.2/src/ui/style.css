@@ -505,3 +505,5 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #4a515c; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #5d6572; }
+
+.home-newer { color: #e8c062; font-size: 12px; align-self: center; margin-left: 4px; }

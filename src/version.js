@@ -6,8 +6,8 @@
 //   python3 tools/release.py <version> "<what changed>" [--pre]
 // after setting APP_VERSION (and IS_PRERELEASE) here.
 //
-// Saves record the version that made them (meta.appVersion). Opening a newer version's save in an
-// older version isn't supported: it is refused, with a note of the version it needs.
+// Saves record the version that made them (meta.appVersion). A newer version's save can be opened in
+// an older version, after a warning that the older one may lose or break what the newer one added.
 export const APP_VERSION = '1.3.5';
 export const IS_PRERELEASE = false;
 

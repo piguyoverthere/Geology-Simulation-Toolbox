@@ -481,7 +481,7 @@ class App {
       if (!file) return;
       try {
         const snap = await decodeLevel(file);
-        if (tooNew(snap.meta.appVersion)) { this.setSaveStatus(`${file.name} was saved by version ${snap.meta.appVersion}, newer than this one (${APP_VERSION}): opening it here isn't supported.`); return; }
+        if (tooNew(snap.meta.appVersion) && !confirm(`"${file.name}" was saved by version ${snap.meta.appVersion}, newer than this one (${APP_VERSION}). Opening it in an older version may lose or break things the newer version added, and saving it here saves it in this older form. Open it anyway?`)) return;
         if (snap.meta.N !== GRID) {
           // Different map size: it becomes a simulation of its own (opened at its size)
           const gen = (snap.meta.params && snap.meta.params.gen) || {};
@@ -570,10 +570,10 @@ class App {
       await loadingStep(meta.fresh ? 'Preparing…' : 'Reading the save…', 0.2);
       snap = meta.fresh ? null : await fetchLevel(meta.saveKey);
       // (a save from a newer version of the app can't be opened in this older one)
-      if (snap && tooNew(snap.meta.appVersion)) {
+      if (snap && tooNew(snap.meta.appVersion) && !confirm(`"${meta.name}" was saved by version ${snap.meta.appVersion}, newer than this one (${APP_VERSION}). Opening it in an older version may lose or break things the newer version added, and saving it here saves it in this older form. Open it anyway?`)) {
         this.loadingLevel = false; this.simMeta = null;
         await hideLoading();
-        this.home.show(`"${meta.name}" was last saved by version ${snap.meta.appVersion}, which is newer than this one (${APP_VERSION}). Opening a newer version's simulation in an older version isn't supported: open it in version ${snap.meta.appVersion} or later.`);
+        this.home.show(`"${meta.name}" wasn't opened (it was saved by version ${snap.meta.appVersion}, newer than this one). It's best opened in version ${snap.meta.appVersion} or later.`);
         return;
       }
       if (snap && snap.meta.N === GRID) { await loadingStep('Rebuilding the world…', 0.45); applySnapshot(this, snap); }

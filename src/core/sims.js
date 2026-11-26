@@ -68,7 +68,9 @@ export function newSimMeta(opts) {
 export function addSim(meta) {
   return exclusive(async () => {
     const list = await readList();
-    if (!list.some((x) => x.id === meta.id)) list.push(meta);
+    // (if its save got stored first and the list already picked it up as recovered, this replaces that)
+    const had = list.findIndex((x) => x.id === meta.id);
+    if (had >= 0) list[had] = meta; else list.push(meta);
     await storeLevel(LIST, list);
     return meta;
   });
@@ -162,4 +164,35 @@ async function recover(list) {
     added = true;
   }
   return added;
+}
+
+/**
+ * Copy a simulation into a new one (to try things on without touching the original): its save and
+ * its world grid, with the grid's frozen cells copied under a grid of its own, so changing or
+ * deleting either never affects the other. Its earlier saves aren't copied. Returns the copy.
+ */
+export async function duplicateSim(id, name) {
+  const s = await getSim(id);
+  if (!s) return null;
+  const copy = newSimMeta({ name: name || `${s.name} (test copy)`, N: s.N, preset: s.preset, seed: s.seed, settings: { ...(s.settings || {}) } });
+  copy.fresh = !!s.fresh;
+  copy.thumb = s.thumb || null;
+  copy.appVersion = s.appVersion;
+  copy.copyOf = s.name;
+  await addSim(copy); // (listed first, so its save is never taken for a lost one while it's copied)
+  const snap = await fetchLevel(s.saveKey);
+  if (snap) await storeLevel(copy.saveKey, snap);
+  try {
+    const g = await fetchLevel(s.gridKey);
+    if (g && g.cells) {
+      const g2 = JSON.parse(JSON.stringify(g));
+      g2.id = Math.random().toString(36).slice(2, 8);
+      for (const k of Object.keys(g.cells)) {
+        const cell = await fetchLevel(`cell-${s.N}-${g.id}-${k}`);
+        if (cell) await storeLevel(`cell-${s.N}-${g2.id}-${k}`, cell);
+      }
+      await storeLevel(copy.gridKey, g2);
+    }
+  } catch { /* no grid */ }
+  return copy;
 }

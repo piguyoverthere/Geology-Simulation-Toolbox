@@ -471,3 +471,5 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .mb-key { color: var(--muted); font-size: 11px; padding-left: 16px; }
 .mb-item:hover .mb-key, .mb-item.sub-open .mb-key { color: #dfe8f7; }
 .mb-sep { height: 1px; margin: 4px 6px; background: #343b46; }
+
+.home-newer { color: #e8c062; font-size: 12px; align-self: center; margin-left: 4px; }

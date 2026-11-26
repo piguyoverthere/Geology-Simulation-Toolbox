@@ -4,7 +4,7 @@
 // delete it. At the bottom: the app's version, and a menu to run an older version of the app.
 
 import { PRESETS } from '../core/generate.js';
-import { listSims, newSimMeta, addSim, deleteSim, updateSim, restoreHistory } from '../core/sims.js';
+import { listSims, newSimMeta, addSim, deleteSim, updateSim, restoreHistory, duplicateSim } from '../core/sims.js';
 import { fetchLevel, storeLevel, encodeLevel, decodeLevel } from '../core/save.js';
 import { APP_VERSION, IS_PRERELEASE, SITE_ROOT, compareVersions, tooNew } from '../version.js';
 
@@ -34,7 +34,16 @@ export class Home {
     const actions = el('div', 'home-actions');
     const guide = btn('📖 Guide', () => { location.href = `${SITE_ROOT}docs.html`; });
     guide.title = 'How to use the toolbox, and how each part of the simulation works';
-    actions.append(btn('＋ New simulation', () => this.newDialog(), 'primary'), btn('Import from file…', () => this.importFile()), guide);
+    // (how the list is sorted: remembered between visits)
+    try { this.sortBy = localStorage.getItem('homeSort') || 'updated'; } catch { this.sortBy = 'updated'; }
+    const sort = el('select', 'home-sort');
+    for (const [v, t] of [['updated', 'Sort: last played'], ['name', 'Sort: name'], ['created', 'Sort: newest first'], ['oldest', 'Sort: oldest first']]) { const o = el('option', '', t); o.value = v; sort.append(o); }
+    sort.value = this.sortBy;
+    sort.title = 'How the simulations are listed (pinned ones always come first)';
+    sort.addEventListener('change', () => { this.sortBy = sort.value; try { localStorage.setItem('homeSort', sort.value); } catch { /* none */ } this.render(); });
+    const all = btn('Export all', () => this.exportAll());
+    all.title = 'Download every simulation as its own .geolevel file (your browser may ask to allow several downloads)';
+    actions.append(btn('＋ New simulation', () => this.newDialog(), 'primary'), btn('Import from file…', () => this.importFile()), all, guide, sort);
     this.list = el('div', 'home-list');
     this.status = el('div', 'home-status');
     const foot = el('div', 'home-foot');
@@ -53,7 +62,7 @@ export class Home {
     this.side = el('aside', 'home-side');
     this.side.hidden = true;
     const mainCol = el('div', 'home-main');
-    if (IS_PRERELEASE) mainCol.append(el('div', 'home-pre-banner', `⚗ You're running ${APP_VERSION}, an experimental prerelease: it may be unstable. Simulations saved here can't be opened again in older versions.`));
+    if (IS_PRERELEASE) mainCol.append(el('div', 'home-pre-banner', `⚗ You're running ${APP_VERSION}, an experimental prerelease: it may be unstable. Simulations saved here may not open cleanly in older versions: try it on a copy.`));
     mainCol.append(head, actions, this.status, this.list, foot);
     box.append(mainCol, this.side);
     root.append(box);
@@ -103,7 +112,7 @@ export class Home {
     for (const v of pre) {
       const card = el('div', 'home-pre');
       card.append(el('div', 'home-pre-ver', v.version), el('div', 'home-pre-notes', v.notes || ''), el('div', 'home-pre-date', v.date || ''));
-      card.append(btn('Try it', () => { if (confirm(`Open experimental version ${v.version}? It might be unstable. Simulations you save in it can't be opened again in older versions.`)) location.href = `${SITE_ROOT}versions/${v.version}/index.html`; }));
+      card.append(btn('Try it', () => { if (confirm(`Open experimental version ${v.version}? It might be unstable. Simulations you save in it may not open cleanly in older versions, so try it on a copy.`)) location.href = `${SITE_ROOT}versions/${v.version}/index.html`; }));
       S.append(card);
     }
   }
@@ -114,6 +123,8 @@ export class Home {
     let sims = [];
     try { sims = await listSims(); } catch (err) { this.setStatus(`This browser won't let the page store data, so simulations can't be kept: ${err.message}`); }
     if (!sims.length) { L.append(el('div', 'home-empty', 'No simulations yet. Make a new one to begin.')); return; }
+    const by = { updated: (a, b) => (b.updated || 0) - (a.updated || 0), name: (a, b) => a.name.localeCompare(b.name), created: (a, b) => (b.created || 0) - (a.created || 0), oldest: (a, b) => (a.created || 0) - (b.created || 0) }[this.sortBy] || ((a, b) => (b.updated || 0) - (a.updated || 0));
+    sims.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || by(a, b));
     for (const s of sims) L.append(this.card(s));
     // (the browser hasn't promised to keep the site's storage: it may clear it if the disk runs low)
     if (this.app.storagePersisted === false) L.append(el('div', 'home-note', 'This browser may clear its stored simulations if your disk runs low on space. Export the ones you want to keep safe (Export on each card).'));
@@ -128,12 +139,9 @@ export class Home {
     const meta = el('div', 'home-meta', `${PRESETS[s.preset]?.label || s.preset || 'Map'} · ${s.N}×${s.N}${s.seed !== undefined ? ` · seed ${s.seed}` : ''} · last played ${when(s.updated)}${s.appVersion ? ` · version ${s.appVersion}` : ''}`);
     info.append(name, meta);
     const row = el('div', 'home-card-actions');
-    if (tooNew(s.appVersion)) {
-      // (saved by a newer version of the app: this one can't open it)
-      const b = btn(`Needs version ${s.appVersion}`, () => this.setStatus(`"${s.name}" was saved by version ${s.appVersion}, newer than this one (${APP_VERSION}). Opening a newer version's simulation in an older version isn't supported.`));
-      b.classList.add('locked');
-      row.append(b);
-    } else row.append(btn('Open', () => this.app.openSim(s.id), 'primary'));
+    row.append(btn('Open', () => this.app.openSim(s.id), 'primary'));
+    // (saved by a newer version of the app: it can still be opened here, with a warning)
+    if (tooNew(s.appVersion)) { const warn = el('span', 'home-newer', `⚠ saved by version ${s.appVersion}`); warn.title = `Saved by version ${s.appVersion}, newer than this one (${APP_VERSION}): opening it here may lose or break what the newer version added.`; row.append(warn); }
     // Earlier saves to roll back to
     if (s.history && s.history.length) {
       const sel = el('select', 'home-history');
@@ -158,7 +166,21 @@ export class Home {
       });
       row.append(sel);
     }
+    // (pinned simulations stay at the top)
+    const pin = btn(s.pinned ? '★' : '☆', async () => { await updateSim(s.id, { pinned: !s.pinned }); await this.render(); }, s.pinned ? 'pinned' : '');
+    pin.title = s.pinned ? 'Unpin (stop keeping it at the top)' : 'Pin to the top of the list';
     row.append(
+      btn('Copy', async () => {
+        const n = prompt('Copy this simulation into a new one, to try things on without touching the original. Name the copy:', `${s.name} (test copy)`);
+        if (!n || !n.trim()) return;
+        this.setStatus(`Copying "${s.name}"…`);
+        try {
+          if (s.id === this.app.simMeta?.id) await this.app.autosave(); // (its latest state first)
+          const c = await duplicateSim(s.id, n.trim().slice(0, 60));
+          this.setStatus(c ? `Copied "${s.name}" to "${c.name}".` : 'That simulation could not be found.');
+        } catch (err) { this.setStatus(`Couldn't copy: ${err.message}`); }
+        await this.render();
+      }),
       btn('Export', () => this.exportSim(s)),
       btn('Rename', async () => {
         const n = prompt('Name this simulation:', s.name);
@@ -171,8 +193,21 @@ export class Home {
         await this.render();
       }, 'danger'),
     );
+    row.prepend(pin);
+    if (s.copyOf) meta.textContent += ` · copy of ${s.copyOf}`;
     c.append(pic, info, row);
     return c;
+  }
+
+  /** Export every simulation, one file each (a moment apart, so the browser takes each download). */
+  async exportAll() {
+    const sims = await listSims();
+    if (!sims.length) { this.setStatus('No simulations to export.'); return; }
+    for (let k = 0; k < sims.length; k++) {
+      await this.exportSim(sims[k]);
+      await new Promise((r) => setTimeout(r, 600));
+    }
+    this.setStatus(`Exported ${sims.length} simulation${sims.length > 1 ? 's' : ''}.`);
   }
 
   async exportSim(s) {
@@ -200,7 +235,7 @@ export class Home {
       try {
         this.setStatus(`Importing ${file.name}…`);
         const snap = await decodeLevel(file);
-        if (tooNew(snap.meta.appVersion)) { this.setStatus(`${file.name} was saved by version ${snap.meta.appVersion}, newer than this one (${APP_VERSION}). Importing a newer version's simulation into an older version isn't supported.`); return; }
+        if (tooNew(snap.meta.appVersion) && !confirm(`"${file.name}" was saved by version ${snap.meta.appVersion}, newer than this one (${APP_VERSION}). Opening it in an older version may lose or break things the newer version added, and saving it here saves it in this older form. Open it anyway?`)) return;
         const gen = (snap.meta.params && snap.meta.params.gen) || {};
         const meta = newSimMeta({ name: file.name.replace(/\.geolevel$/i, '').slice(0, 60), N: snap.meta.N, preset: gen.preset, seed: gen.seed });
         meta.fresh = false;

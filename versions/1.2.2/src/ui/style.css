@@ -493,3 +493,5 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 @media (prefers-reduced-motion: reduce) { .ld-spin { animation-duration: 2.5s; } .loading, .ld-bar i { transition: none; } }
 
 .home-note { margin-top: 10px; font-size: 12.5px; color: #c9b98a; }
+
+.home-newer { color: #e8c062; font-size: 12px; align-self: center; margin-left: 4px; }

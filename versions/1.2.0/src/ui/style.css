@@ -491,3 +491,5 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .ld-bar { width: 100%; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; overflow: hidden; margin-top: 4px; }
 .ld-bar i { display: block; height: 100%; width: 3%; background: #8ab4f8; border-radius: 2px; transition: width 0.25s ease; }
 @media (prefers-reduced-motion: reduce) { .ld-spin { animation-duration: 2.5s; } .loading, .ld-bar i { transition: none; } }
+
+.home-newer { color: #e8c062; font-size: 12px; align-self: center; margin-left: 4px; }
