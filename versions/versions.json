@@ -69,5 +69,10 @@
     "version": "1.4.0",
     "date": "2026-11-25",
     "notes": "Copy simulations into test copies, pins, sorting, Export all; newer saves open with a warning"
+  },
+  {
+    "version": "1.5.0",
+    "date": "2026-11-26",
+    "notes": "World dynamics (floods, quakes, beetles, trade and more), town centres, drowned land becomes beach"
   }
 ]
