@@ -8,7 +8,7 @@
 //
 // Saves record the version that made them (meta.appVersion). Opening a newer version's save in an
 // older version isn't supported: it is refused, with a note of the version it needs.
-export const APP_VERSION = '1.3.4';
+export const APP_VERSION = '1.3.5';
 export const IS_PRERELEASE = false;
 
 /** The top of the site, relative to this page: an archived version runs from versions/<version>/. */
