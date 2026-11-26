@@ -69,6 +69,23 @@ export function startGreatStorm(world) {
   return st;
 }
 
+/**
+ * Stop the great storms raging now (the Stop button): they blow out at once, and the surge they
+ * piled up drains back off the land fast. Ordinary storms carry on. Returns how many were stopped.
+ */
+export function stopGreatStorms(world) {
+  const before = (world.storms || []).length;
+  world.storms = (world.storms || []).filter((s) => !s.great);
+  const stopped = before - world.storms.length;
+  if (stopped) {
+    world.surge = Math.min(world.surge || 0, 0.5);
+    world.greatStormActive = false;
+    if (world.stormWave) world.stormWave.fill(0);
+    world.dirty = true;
+  }
+  return stopped;
+}
+
 /** Now and then (on average every `greatStorms` years, mostly in late summer to winter) a great storm. */
 function maybeGreatStorm(world) {
   const every = oceanParams.greatStorms;

@@ -46,6 +46,7 @@ import { CrossSection } from './ui/section.js';
 import { captureDefaults, resetParams, snapshot, applySnapshot, encodeLevel, decodeLevel, storeLevel, fetchLevel, deleteLevel } from './core/save.js';
 import { showLoading, loadingStep, hideLoading } from './ui/loading.js';
 import { loadMods, runModSteps, MOD } from './core/mods.js';
+import { armAutoFullscreen } from './ui/fullscreen.js';
 import { getSim, updateSim, pushHistory, newSimMeta, addSim } from './core/sims.js';
 import { Home } from './ui/home.js';
 import { MenuBar } from './ui/menubar.js';
@@ -956,3 +957,5 @@ function clampI(v, n) { return Math.min(n - 1, Math.max(0, Math.round(v))); }
 
 // Mods first (they add species, tools, overlays and settings the app is then built with)
 loadMods().catch((err) => console.warn('Mods could not be loaded', err)).finally(() => { window.app = new App(); });
+// (full screen with the first click or key press, if the setting is on: ui/fullscreen.js)
+armAutoFullscreen();

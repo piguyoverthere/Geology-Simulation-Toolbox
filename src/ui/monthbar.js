@@ -44,6 +44,13 @@ export class MonthBar {
     track.append(this.marker);
     this.label = document.createElement('div');
     this.label.className = 'mb-label';
+    // (the Stop button on the Great storm badge: the label is redrawn constantly, so listen here)
+    this.label.addEventListener('click', async (e) => {
+      if (!e.target.closest('.mb-stop')) return;
+      const { stopGreatStorms } = await import('../sim/ocean.js');
+      if (stopGreatStorms(app.world)) app.setSaveStatus?.('The great storm has blown out');
+      this.update();
+    });
     this.toggleBtn = document.createElement('button');
     this.toggleBtn.className = 'mb-toggle';
     this.toggleBtn.textContent = 'Turn on seasons';
@@ -74,7 +81,7 @@ export class MonthBar {
     const part = day <= 10 ? 'Early' : day <= 20 ? 'Mid' : 'Late';
     const yk = YEAR_KINDS[seasonParams.yearKind] || YEAR_KINDS.normal;
     this.label.innerHTML = on
-      ? `<b>${part} ${FULL[month]}</b> <span>${SEASON[month]} · year ${seasonParams.year || 1}</span>${yk.short ? ` <span class="mb-year mb-${seasonParams.yearKind}">${yk.short}</span>` : ''}${this.app.world.greatStormActive ? ' <span class="mb-year mb-hot">🌀 Great storm</span>' : ''}`
+      ? `<b>${part} ${FULL[month]}</b> <span>${SEASON[month]} · year ${seasonParams.year || 1}</span>${yk.short ? ` <span class="mb-year mb-${seasonParams.yearKind}">${yk.short}</span>` : ''}${this.app.world.greatStormActive ? ' <span class="mb-year mb-hot">🌀 Great storm <button class="mb-stop" title="Stop the great storm now: it blows out and its surge drains off the land">Stop</button></span>' : ''}`
       : '<b>Seasons off</b>';
   }
 }

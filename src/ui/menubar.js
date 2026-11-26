@@ -6,6 +6,7 @@
 
 import { OVERLAYS, sortedOverlays } from '../render/terrainRenderer.js';
 import { TOOLS, toolKey } from '../tools/brushes.js';
+import { isFullscreen, toggleFullscreen, enterFullscreen, fullscreenPrefs, saveFullscreenPref } from './fullscreen.js';
 import { MAP_SIZES } from '../main.js';
 import { APP_VERSION, SITE_ROOT } from '../version.js';
 
@@ -80,6 +81,9 @@ export class MenuBar {
         toggle('Show town labels', r, 'showTownLabels'),
         toggle('Show park names', r, 'showParkNames'),
         toggle('Show trail names', r, 'showTrailNames'),
+        '-',
+        { label: 'Full screen', checked: () => isFullscreen(), action: () => toggleFullscreen() },
+        { label: 'Go full screen automatically', checked: () => fullscreenPrefs.auto, action: () => { fullscreenPrefs.auto = !fullscreenPrefs.auto; saveFullscreenPref(); if (fullscreenPrefs.auto) enterFullscreen(); } },
         '-',
         { label: 'Wireframe', checked: () => app.renderer.terrainMat.wireframe, action: () => { app.renderer.terrainMat.wireframe = !app.renderer.terrainMat.wireframe; } },
       ],

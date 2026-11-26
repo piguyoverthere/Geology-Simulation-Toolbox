@@ -81,6 +81,12 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
 - Any land the sea covers (tide or storm surge) turns into **beach** of the kind that suits it
   (sand, shingle, basalt boulders or mudflat), which takes decades to grow back over.
 - A **Farmland cap** (Civilization) limits how much of the land the towns may farm.
+- **Full screen**: the simulation goes full screen by itself with your first click (opening or making
+  a simulation, or the first click on the map after a reload); browsers only allow it in answer to a
+  click or key press. **View → Full screen** toggles it, and **View → Go full screen automatically**
+  turns the automatic part off (remembered in this browser). Esc leaves full screen.
+- **Stop great storms**: a **Stop** button on the month bar's *Great storm* badge (and **Stop great
+  storms now** under Sea → Ocean & coast) blows out a great storm at once; its surge drains off the land.
 - **Windows**: works in Chrome, Edge and Firefox on Windows as on macOS. Shortcuts use Ctrl (Ctrl+Z
   undo, Ctrl+Y or Ctrl+Shift+Z redo), middle-drag pans without starting the browser's autoscroll,
   scrollbars and menus are dark, and every icon is an emoji Windows 10 can show.

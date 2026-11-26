@@ -4,6 +4,7 @@
 // delete it. At the bottom: the app's version, and a menu to run an older version of the app.
 
 import { PRESETS } from '../core/generate.js';
+import { autoFullscreen } from './fullscreen.js';
 import { listSims, newSimMeta, addSim, deleteSim, updateSim, restoreHistory, duplicateSim } from '../core/sims.js';
 import { fetchLevel, storeLevel, encodeLevel, decodeLevel } from '../core/save.js';
 import { APP_VERSION, IS_PRERELEASE, SITE_ROOT, compareVersions, tooNew } from '../version.js';
@@ -139,7 +140,7 @@ export class Home {
     const meta = el('div', 'home-meta', `${PRESETS[s.preset]?.label || s.preset || 'Map'} · ${s.N}×${s.N}${s.seed !== undefined ? ` · seed ${s.seed}` : ''} · last played ${when(s.updated)}${s.appVersion ? ` · version ${s.appVersion}` : ''}`);
     info.append(name, meta);
     const row = el('div', 'home-card-actions');
-    row.append(btn('Open', () => this.app.openSim(s.id), 'primary'));
+    row.append(btn('Open', () => { autoFullscreen(); this.app.openSim(s.id); }, 'primary'));
     // (saved by a newer version of the app: it can still be opened here, with a warning)
     if (tooNew(s.appVersion)) { const warn = el('span', 'home-newer', `⚠ saved by version ${s.appVersion}`); warn.title = `Saved by version ${s.appVersion}, newer than this one (${APP_VERSION}): opening it here may lose or break what the newer version added.`; row.append(warn); }
     // Earlier saves to roll back to
@@ -299,6 +300,7 @@ export class Home {
     f.append(btns);
     f.addEventListener('submit', async (e) => {
       e.preventDefault();
+      autoFullscreen(); // (while it's still the click that made it)
       const meta = newSimMeta({
         name: name.value.trim() || 'New simulation', N: +size.value, preset: preset.value, seed: +seed.value || 1,
         settings: { sea: sea.value, seaLevel: +level.value, seasons: seasons.checked, civ: civ.checked, erosion: erosion.checked, wildlife: wildlife.checked },

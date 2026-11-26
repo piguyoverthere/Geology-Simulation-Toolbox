@@ -292,6 +292,12 @@ export class Toolbox {
         'How hard waves attack the shore: exposed, soft coasts retreat fastest; beaches with deep sand protect the land behind.', this),
       slider('Coral growth', app.coastParams, 'coral', 0, 3, 0.1, 'How much white coral sand reefs make in warm seas (above ~20 °C water).', this),
       slider('Tidal currents', app.oceanParams, 'currents', 0, 3, 0.1, 'Strength of the tidal currents: the sea floods into the bays and channels as the tide rises and ebbs back out as it falls, fastest in narrow passages, carrying silt, pollutants, plankton and river water back and forth.', this),
+      button('Stop great storms now', async () => {
+        const { stopGreatStorms } = await import('../sim/ocean.js');
+        const n = stopGreatStorms(app.world);
+        this.setInfo(n ? '<b>Great storm stopped</b> — it has blown out, and its surge is draining off the land.' : '<b>Stop great storms</b> — there\'s no great storm raging just now.');
+        app.monthBar?.update?.();
+      }, 'tb-add-animal', 'Stop any great storm raging now: it blows out at once and the surge it piled up drains back off the land (ordinary storms carry on). To have fewer or none, change Great storms every (years).', this),
       slider('Great storms every (years)', app.oceanParams, 'greatStorms', 0, 40, 1, 'About how many years apart great storms come (a hurricane or a once-in-a-generation gale; 0 = never). A great storm forms far out at sea and drives onto the coast: its surge floods far inland over the low coast, its giant waves cut back cliffs and bluffs, strip the beaches of their sand and flatten the dunes, and the salt water kills the coastal forest it floods. They come mostly from late summer to winter.', this),
       button('🌀 Send a great storm now', () => { import('../sim/ocean.js').then((m) => { if (!m.startGreatStorm(app.world)) this.setInfo('<b>Great storm</b> — needs the sea (Sea on) with open water to form over.'); }); }, '', 'Start a great storm out at sea now; it drives onto the coast.', this),
       slider('Storm surge', app.oceanParams, 'surge', 0, 3, 0.1, 'How much storms over the sea raise it (storm surge, flooding low shores for a while) and how big their waves are (they pound and erode the coast and break as surf).', this),
