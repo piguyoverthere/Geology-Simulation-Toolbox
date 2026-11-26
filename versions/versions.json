@@ -79,5 +79,10 @@
     "version": "1.5.1",
     "date": "2026-11-26",
     "notes": "Alphabetical overlays; overlays for permafrost, bark beetles, crop pests, soil salt, ruins, drained wetlands, urban heat, starved beaches, seed dispersal"
+  },
+  {
+    "version": "1.5.2",
+    "date": "2026-11-26",
+    "notes": "Aspen only in young forest and cool, higher ground"
   }
 ]
