@@ -84,5 +84,10 @@
     "version": "1.5.2",
     "date": "2026-11-26",
     "notes": "Aspen only in young forest and cool, higher ground"
+  },
+  {
+    "version": "1.5.2b",
+    "date": "2026-11-26",
+    "notes": "Stop great storms; automatic full screen"
   }
 ]
