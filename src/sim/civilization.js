@@ -49,6 +49,7 @@ export const civParams = {
   fishingQuotas: false, // towns cut back their fishing when their fishing grounds run low
   restoration: false, // towns replant native trees on their worn-out, burnt and grazed-out land, and take down dams that block fish runs
   fishLadders: false, // towns give their dams fish ladders, so runs like salmon get past
+  townCores: true,    // every town grows a downtown out from its centre, entirely paved
   waterfronts: 1,     // how hard coastal towns build up their waterfronts: quays over the beaches, docks, dense streets behind (0 = only the odd quay)
   wildlifeCrossings: false, // towns build wildlife crossings where their roads cut through animals' ranges
   pesticides: 0.5,   // how much the farms spray: saves some crop from pests, but kills the pollinators on and around the fields
@@ -288,6 +289,71 @@ function buildQuay(world, t, count) {
   }
   t.quay = (t.quay || 0) + built;
   return built;
+}
+
+/**
+ * Town centres: every town grows a downtown out from its centre, entirely paved: solid streets,
+ * squares and buildings, no gaps of grass or trees. It spreads over the gentlest ground first (a
+ * cheapest-path flood from the centre), flowing round steep slopes, water and protected areas, to
+ * about one cell for every 80 people, a few cells a step (civParams.townCores switches it off).
+ * Fields, plantations and open ground in its way are built over; roads, industry, harbours and the
+ * rest stay as they are. world.townCore holds the town's number on its centre cells.
+ */
+function townCoreStep(world, t) {
+  if (civParams.townCores === false) return;
+  const N = world.N, n = N * N, H = world.height, LU = world.landUse, OW = world.civOwner, P = world.paved;
+  if (!world.townCore || world.townCore.length !== n) world.townCore = new Uint16Array(n);
+  const TC = world.townCore, sea = seaOf(world), half = 0.5 * coastParams.tideRange;
+  const want = Math.max(9, Math.round(t.pop / 80));
+  let grow = Math.max(2, Math.round(6 * (civParams.growth ?? 1)));
+  // (centre cells since turned into something else, a road, industry or another town's, are no
+  // longer centre; the ones still centre are kept fully paved)
+  const R = Math.ceil(Math.sqrt(want) * 3) + 4;
+  for (let z = Math.max(0, t.z - R); z <= Math.min(N - 1, t.z + R); z++) for (let x = Math.max(0, t.x - R); x <= Math.min(N - 1, t.x + R); x++) {
+    const i = z * N + x;
+    if (TC[i] !== t.num) continue;
+    if (LU[i] !== 2 || OW[i] !== t.num) TC[i] = 0;
+    else { P[i] = 1; if (world.vegetation[i] > 0) world.vegetation[i] = 0; }
+  }
+  // (a cheapest-path flood from the centre: gentle ground is cheap, slopes dear)
+  const start = t.z * N + t.x;
+  const cap = want * 24 + 400;
+  const cost = new Map([[start, 0]]), heap = new MinHeap(cap);
+  heap.push(start, 0);
+  let core = 0;
+  while (heap.size && core < want) {
+    const i = heap.pop();
+    const c = cost.get(i);
+    const x = i % N, z = (i / N) | 0;
+    const u = LU[i];
+    const open = u === 0 || u === 1 || u === 10 || (u === 2 && (OW[i] === t.num || !OW[i]));
+    if (open) {
+      if (TC[i] !== t.num) {
+        if (grow <= 0) continue;
+        if (u !== 2 || OW[i] !== t.num) { pave(world, i, t.num, 2); }
+        P[i] = 1; world.vegetation[i] = 0; world.forestAge[i] = 0;
+        if (world.irrigated) world.irrigated[i] = 0;
+        TC[i] = t.num; grow--;
+      } else if (P[i] < 1) P[i] = 1;
+      core++;
+    }
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const xx = x + dx, zz = z + dz;
+      if (xx < 1 || zz < 1 || xx >= N - 1 || zz >= N - 1) continue;
+      const j = zz * N + xx;
+      if (H[j] < sea + half || world.water[j] > 0.3 || zoneHas(world, j, Z.towns)) continue;
+      const lu = LU[j];
+      // (it spreads over open ground and through its own streets and roads; other towns' ground,
+      // industry, harbours, quays, dams and the like stop it)
+      if (lu && lu !== 1 && lu !== 2 && lu !== 3 && lu !== 10) continue;
+      if (lu === 2 && OW[j] && OW[j] !== t.num) continue;
+      const slope = Math.abs(H[j] - H[i]);
+      if (slope > 1.2) continue;
+      const cj = c + 1 + slope * 6 + (lu === 3 ? 0 : 0.2);
+      if (cj < (cost.get(j) ?? Infinity) && heap.size < cap - 1) { cost.set(j, cj); heap.push(j, cj); }
+    }
+  }
+  t.core = core;
 }
 
 /**
@@ -1530,6 +1596,7 @@ export function civStep(world) {
     // Exploratory roads out into the deep forest (more as the town grows)
     if (t.pop > 150 && (t.trails || 0) < 1 + Math.floor(t.pop / 500) && Math.random() < 0.04 * civParams.growth) exploreForest(world, t);
     restorationStep(world, t);
+    townCoreStep(world, t); // (its downtown: solid pavement, sprawling out as it grows)
     // Fish ladders on the town's dam, and wildlife crossings on its roads
     if (civParams.fishLadders && t.dam >= 0 && t.dam !== undefined) {
       if (!world.fishLadder || world.fishLadder.length !== n) world.fishLadder = new Uint8Array(n);

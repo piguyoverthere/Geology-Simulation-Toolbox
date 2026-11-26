@@ -29,6 +29,7 @@ export const BIOMES = {
   quay:      { label: 'Quay (sea wall)', color: [0.62, 0.61, 0.57], help: 'A town\'s armoured shore: raised above the tide and walled, deep water dredged in front (a steep drop-off with no tidal flats). Easy to build harbours on; hard on the sea bed and the water beside it.' },
   harbor:    { label: 'Harbour',   color: [0.50, 0.40, 0.30], help: 'A coastal town\'s docks: home to its fishing boats, which also carry settlers across the water.' },
   industry:  { label: 'Industrial area', color: [0.42, 0.45, 0.50], help: 'A town\'s industry on the water\'s edge: mass-paved, pouring pollution into the water beside it and down the rivers on a very large scale.' },
+  towncenter: { label: 'Town centre', color: [0.45, 0.44, 0.44], help: 'A town\'s downtown: entirely paved, solid streets, squares and buildings, sprawling out from its centre as it grows.' },
   town:      { label: 'Town',      color: [0.62, 0.52, 0.48], help: 'Paved streets and buildings: flat, sealed ground where nothing grows.' },
   snow:      { label: 'Snow',      color: [0.95, 0.96, 0.98], help: 'Below freezing with enough moisture, on slopes gentle enough to hold snow.' },
   beach:     { label: 'Sand beach', color: [0.90, 0.83, 0.62], help: 'Sand the waves have laid down: bare ground within reach of the tide and storm surges, where sand gathers on gentle shores; and grassland the sea once covered, its turf stripped (out of the water again it stays beach for decades, then dune grass creeps back and it slowly turns back into grassland).' },
@@ -62,6 +63,7 @@ export function classifyBiome(world, i, slope, noSnow = false) {
   if (world.landUse && world.landUse[i] === 12) return 'spoil';
   if (world.landUse && world.landUse[i] === 13) return 'dock';
   if (world.landUse && world.landUse[i] === 4 && world.paved[i] > 0.5) return 'industry';
+  if (world.landUse && world.landUse[i] === 2 && world.townCore && world.townCore[i]) return 'towncenter';
   if (world.landUse && world.landUse[i] === 2 && world.paved[i] > 0.5) return 'town';
   if (world.landUse && world.landUse[i] === 1) return 'farmland';
   if (!noSnow && snowAt(world, i, slope) > 0.5) return 'snow';

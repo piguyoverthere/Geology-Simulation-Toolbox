@@ -95,6 +95,7 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
   [mods/example-mod.js](mods/example-mod.js).
 - **Fire-resistant trees** (giant sequoia, coast redwood, cork oak) live through smaller fires, gain
   ground where fire returns, and grow far taller (tree heights in the inspector).
+- Every town grows a **town centre**: entirely paved, sprawling out from its middle as it grows.
 - Coastal towns build up dense **waterfronts**: quays paved over the beaches with a sharp drop-off,
   docks out over dredged water, and packed streets behind (Civilization: **Waterfronts**).
 - The app asks the browser to keep its storage, so a disk running low doesn't clear your

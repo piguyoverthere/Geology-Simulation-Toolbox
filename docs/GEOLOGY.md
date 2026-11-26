@@ -1648,6 +1648,23 @@ basalt boulders. The wet lower shore below high tide is darker, so the tide line
 all 1,467 bare cells in reach of the waves (1,369 with a surge of 2) came out as shingle or sand
 beach, apart from a little dune sand just above the waves' reach; none came out Barren.
 
+## Town centres (`townCoreStep`, `src/sim/civilization.js`)
+
+Every town grows a downtown out from its centre (Civilization: **Town centres**, on by default).
+- **What's in it:** it's entirely paved: solid streets, squares and buildings, with no gaps of grass
+  or trees.
+- **How it grows:** a cheapest-path flood from the town's centre takes the gentlest ground first and
+  flows round steep slopes, water, other towns and protected areas. It grows a few cells a step, to
+  about one cell for every 80 people.
+- **What it replaces:** fields, plantations and open ground in its way are built over. Roads,
+  industry, harbours and the rest stay as they are, and a centre cell turned into one of those stops
+  being centre.
+- **On the map:** dense grey blocks and streets, the **Town centre** biome, and dark red on the Land
+  use overlay.
+
+In a test, a town held at 5,000 people grew a centre of 61 cells (its target 62) in 15 town steps,
+every cell of it fully paved.
+
 ## Built-up waterfronts (`buildQuay`, `buildDock`, `waterfrontSprawl`)
 
 Coastal towns build up their waterfronts, as hard as the **Waterfronts** setting says (Civilization,
