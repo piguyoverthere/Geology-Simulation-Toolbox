@@ -3,7 +3,7 @@ import { BIOMES, classifyBiome, DRY_SOIL } from './biomes.js';
 import { MOD } from '../core/mods.js';
 import { ROCKS } from '../core/rocks.js';
 import { forestColor } from '../sim/forests.js';
-import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp, waterTempAt, marineShown, marineColor } from '../sim/coast.js';
+import { SHORES, SHORE, MARINE, MARINE_ID, seaTemp, waterTempAt, marineShown, marineColor, coastParams } from '../sim/coast.js';
 import { waterQuality } from '../sim/waterQuality.js';
 import { dominantAnimal } from '../sim/ecology.js';
 import { SPECIES, OPEN, steadyCover } from '../sim/species.js';
@@ -804,11 +804,14 @@ export class TerrainRenderer {
         c = mix(c, CORAL_SAND, Math.min(1, (w.coral ? this.coralNear : 0)), S1);
         c = mix(SHORES[SHORE.shingle].color, c, Math.min(1, (w.sand ? w.sand[i] : 0) * 1.2), S1);
       }
-      if (sh === SHORE.cliff) c = mix(this.rockColor(h, i), c, 0.25, S1); // the cliff's own rock
-      // Vegetation softens the upper shore; a wet sheen where the tide has just left
-      const t = 0.88 * (1 - 0.6 * smooth(0.45, 0.8, v));
+      if (sh === SHORE.cliff) c = shade(mix(this.rockColor(h, i), c, 0.45, S1), 0.82, S1); // the cliff's own rock, in shadow
+      // Each kind of coast in its own colour, strongly (vegetation softens the upper shore)
+      const t = 0.95 * (1 - 0.55 * smooth(0.45, 0.8, v));
       mix(col, c, t, col);
-      if (sh === SHORE.mudflat && w.water[i] > 0.01) shade(col, 0.82, col);
+      // The wet lower shore, below high tide, darker (the tide line shows); mudflats glisten wet
+      const high = sea + 0.5 * coastParams.tideRange;
+      if (h < high) shade(col, sh === SHORE.mudflat ? 0.78 : 0.86, col);
+      else if (sh === SHORE.mudflat && w.water[i] > 0.01) shade(col, 0.82, col);
     } else if (h < sea) {
       const m = w.marine ? marineShown(w, i) : -1;
       // The sea bed: silt and sand, darker mud in the deep, and its meadows, kelp and reefs

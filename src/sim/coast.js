@@ -40,11 +40,11 @@ export const coastParams = {
 };
 
 export const SHORES = [
-  { id: 'mudflat', label: 'Mudflat', color: [0.42, 0.38, 0.31], help: 'Wide, flat, muddy shore of sheltered bays and estuaries; floods and drains with every tide.' },
-  { id: 'sand', label: 'Sand beach', color: [0.88, 0.80, 0.60], help: 'Sandy beach, fed by rivers, eroded soft rock and (in warm seas) coral.' },
-  { id: 'shingle', label: 'Shingle beach', color: [0.56, 0.54, 0.50], help: 'Pebble and cobble beach of exposed shores with little sand.' },
-  { id: 'cliff', label: 'Rock cliff', color: [0.50, 0.46, 0.42], help: 'Steep coast undercut by the waves; it retreats as they erode it.' },
-  { id: 'basalt', label: 'Basalt boulder beach', color: [0.17, 0.17, 0.19], help: 'Black boulders and cobbles where basalt meets the sea.' },
+  { id: 'mudflat', label: 'Mudflat', color: [0.36, 0.32, 0.22], help: 'Wide, flat, muddy shore of sheltered bays and estuaries; floods and drains with every tide.' },
+  { id: 'sand', label: 'Sand beach', color: [0.94, 0.85, 0.58], help: 'Sandy beach, fed by rivers, eroded soft rock and (in warm seas) coral.' },
+  { id: 'shingle', label: 'Shingle beach', color: [0.58, 0.61, 0.66], help: 'Pebble and cobble beach of exposed shores with little sand.' },
+  { id: 'cliff', label: 'Rock cliff', color: [0.40, 0.36, 0.33], help: 'Steep coast undercut by the waves; it retreats as they erode it.' },
+  { id: 'basalt', label: 'Basalt boulder beach', color: [0.13, 0.13, 0.15], help: 'Black boulders and cobbles where basalt meets the sea.' },
 ];
 export const SHORE = Object.fromEntries(SHORES.map((s, k) => [s.id, k]));
 

@@ -1634,7 +1634,9 @@ gathers, **Shingle beach** on steeper or exposed shores with little sand (and ba
 beaches), or **Sea cliff** on steep faces. The shore zone reaches as high as a storm surge does.
 Ground flooded farther inland than the shore zone (water standing on it) becomes mudflat if it's
 flat and shingle if not. This sets the biome the inspector, the Biomes overlay and the biome graphs
-show; the natural view already tinted these shores in their own colours. In a test on a rocky island,
+show. On the natural map each kind of coast has its own colour, strongly enough to tell them apart:
+warm gold sand, cool blue-grey shingle, dark olive mudflat, dark rock for sea cliffs and near-black
+basalt boulders. The wet lower shore below high tide is darker, so the tide line shows. In a test on a rocky island,
 all 1,467 bare cells in reach of the waves (1,369 with a surge of 2) came out as shingle or sand
 beach, apart from a little dune sand just above the waves' reach; none came out Barren.
 
