@@ -503,10 +503,15 @@ export class TerrainRenderer {
           if (w.degraded && w.degraded[i] > 0.1) mix(col, DEGRADED, Math.min(0.75, w.degraded[i] * 0.8), col);
           // Footpaths: a narrow, pale trodden trail
           if (w.footpath && w.footpath[i]) mix(col, FOOTPATH, 0.75, col);
+          // (sim/dynamics.js) bark beetles reddening the conifers; ruins under the regrowth; salt
+          // crust on worn-out irrigated land; pest-blighted fields
+          if (w.barkBeetle && w.barkBeetle[i] > 0.1) mix(col, BARK_BEETLE, Math.min(0.6, w.barkBeetle[i] * 0.7), col);
+          if (w.ruins && w.ruins[i] > 0.05) mix(col, (x % 3 === 0 || z % 3 === 0) ? RUIN_A : RUIN_B, Math.min(0.75, w.ruins[i]) * (1 - 0.6 * smooth(0.5, 0.9, w.vegetation[i])), col);
+          if (w.soilSalt && w.soilSalt[i] > 0.15) mix(col, SALT_CRUST, Math.min(0.8, (w.soilSalt[i] - 0.15) * 1.4), col);
           // Civilization: fields in a patchwork of crops, towns, roads
           if (w.landUse && w.landUse[i]) {
             const lu = w.landUse[i];
-            if (lu === 1) mix(col, ((x >> 1) + (z >> 1)) & 1 ? FIELD_A : FIELD_B, 0.65, col);
+            if (lu === 1) { mix(col, ((x >> 1) + (z >> 1)) & 1 ? FIELD_A : FIELD_B, 0.65, col); if (w.cropPest && w.cropPest[i] > 0.1) mix(col, BLIGHT, Math.min(0.7, w.cropPest[i] * 0.8), col); }
             else if (lu === 2 && w.townCore && w.townCore[i]) mix(col, (x % 3 === 0 || z % 3 === 0) ? CORE_STREET : ((x * 5 + z * 11) % 4 === 0 ? CORE_ROOF : CORE_BLOCK), 0.97, col); // (downtown: solid blocks and streets)
             else if (lu === 2) mix(col, ((x * 7 + z * 13) % 5) < 2 ? TOWN_ROOF : TOWN_PAVE, 0.9 * w.paved[i], col);
             else if (lu === 7) mix(col, DAM, 0.95, col);
@@ -916,6 +921,7 @@ const AGE_YOUNG = [0.72, 0.86, 0.42], AGE_OLD = [0.05, 0.24, 0.10], NO_FOREST = 
 const WATER_SEA = [0.16, 0.42, 0.62], WATER_SHALLOW = [0.40, 0.68, 0.82], WATER_DEEP = [0.18, 0.45, 0.70], MUD = [0.55, 0.42, 0.28];
 const BED_TMP = [0, 0, 0];
 const SPOT_WHITE = [0.97, 0.97, 0.96];
+const BARK_BEETLE = [0.62, 0.30, 0.16], RUIN_A = [0.58, 0.56, 0.52], RUIN_B = [0.46, 0.45, 0.42], SALT_CRUST = [0.93, 0.92, 0.88], BLIGHT = [0.52, 0.42, 0.22];
 const LU_CORE = [0.55, 0.10, 0.12];
 const CORE_STREET = [0.34, 0.34, 0.36], CORE_BLOCK = [0.52, 0.51, 0.50], CORE_ROOF = [0.42, 0.36, 0.34];
 const FU_NONE = [0.86, 0.84, 0.78], FU_SOME = [0.45, 0.66, 0.40], FU_RICH = [0.40, 0.22, 0.55], FU_ROT = [0.95, 0.62, 0.20], FU_KILL = [0.80, 0.18, 0.12];

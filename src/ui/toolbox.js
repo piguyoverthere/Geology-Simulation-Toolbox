@@ -27,10 +27,10 @@ const app_autosave = async (app) => { try { await app.autosave(); } catch { /* n
 /** The sidebar's topic tabs and the settings sections on each. */
 const TABS = {
   map: { label: 'Map', icon: '🗺', sections: ['Level', 'Overlays', 'Terrain', 'Drawings', 'View'], help: 'Your level (save, load), map overlays and their key, terrain presets and size, drawings, and what is shown.' },
-  land: { label: 'Land', icon: '⛰', sections: ['Water', 'Erosion', 'Geology', 'Volcanism & tectonics'], help: 'Water on the land, erosion, rocks, volcanoes and faults.' },
-  climate: { label: 'Climate', icon: '☀', sections: ['Climate', 'Seasons', 'Weather'], help: 'Environments, temperature and wind, the seasons (and good and bad years), storms and weather.' },
+  land: { label: 'Land', icon: '⛰', sections: ['Water', 'Erosion', 'Geology', 'Volcanism & tectonics', 'Land events'], help: 'Water on the land, erosion, rocks, volcanoes and faults.' },
+  climate: { label: 'Climate', icon: '☀', sections: ['Climate', 'Seasons', 'Weather', 'Climate events'], help: 'Environments, temperature and wind, the seasons (and good and bad years), storms and weather.' },
   sea: { label: 'Sea', icon: '🌊', sections: ['Ocean & coast'], help: 'The sea, tides, currents, coasts and water quality.' },
-  life: { label: 'Life', icon: '🐾', sections: ['Wildlife', 'Civilization'], help: 'Your animals (design them, paint them in, follow their populations) and civilization: towns, farms, roads.' },
+  life: { label: 'Life', icon: '🐾', sections: ['Wildlife', 'Civilization', 'Ecosystem changes', 'Town life'], help: 'Your animals (design them, paint them in, follow their populations) and civilization: towns, farms, roads.' },
   mods: { label: 'Mods', icon: '🧩', sections: ['Mods'], help: 'Mods: JavaScript files that add tree species, tools, overlays, settings and rules to the simulation. Add them here; see the Modding guide.' },
 };
 
@@ -362,6 +362,7 @@ export class Toolbox {
     // (starter animals that mods add)
     for (const m of MOD.animals) wild.insertBefore(button(m.label, () => { m.add(app.world); this.renderAnimals(); this.updateLegend(); }, 'tb-add-animal', `${m.help || 'Animals'} (from the mod "${m.mod}").`, this), this.animalForm);
     this.buildMods();
+    this.buildDynamics();
     // --- Civilization ------------------------------------------------------------------------
     const civ = this.section('Civilization');
     this.townList = el('div', 'tb-animals');
@@ -713,7 +714,7 @@ export class Toolbox {
       const big = el('canvas', 'tb-popchart');
       big.width = 270; big.height = 120; big.hidden = !this.openTowns.has(t.id);
       row.addEventListener('click', () => { if (this.openTowns.has(t.id)) this.openTowns.delete(t.id); else this.openTowns.add(t.id); big.hidden = !this.openTowns.has(t.id); this.drawGraphs(); });
-      this.helpOn(row, `<b>${escapeHtml(t.name)}</b> — founded in year ${t.founded}. Population ${Math.round(t.pop)} of the ${Math.round(t.capacity || 0)} its land can feed; ${t.cells || 0} cells of town, ${t.industry || 0} of industry, ${t.farm || 0} of farmland${t.hunted > 0.01 ? '; still hunting much of its food' : ''}${t.boats ? `; a harbour with ${t.boats} fishing boat${t.boats > 1 ? 's' : ''}` : ''}${t.byBoat ? '; settled by boat' : ''}${t.dam >= 0 ? '; has dammed a river for a reservoir' : ''}${t.canals ? `; ${t.canals} irrigation canal${t.canals > 1 ? 's' : ''}` : ''}${t.seaOutfall >= 0 ? '; its sewage piped out to the nearest sea' : ''}${t.timberCells ? `; ${t.timberCells} cells of timber plantation` : ''}${t.invCleared ? `; has cleared ${t.invCleared.toFixed(0)} cells' worth of invasive pine (at a cost of ${Math.round(t.invLost || 0)} people)` : ''}${t.woodNeed ? `; timber: ${Math.round(t.woodStock || 0)} in stock, using ${t.woodNeed.toFixed(1)} a step${t.woodSupply < 1 ? ` (short: only ${Math.round(t.woodSupply * 100)}% of what it needs coming in)` : ''}` : ''}${t.mineCount ? `; ${t.mineCount} mine${t.mineCount > 1 ? 's' : ''}` : ''}${t.sick > 0 ? `; an epidemic: ${Math.round(t.sick * 100)}% sick` : t.outbreaks ? `; ${t.outbreaks} outbreak${t.outbreaks > 1 ? 's' : ''} of disease (last in year ${t.lastOutbreak})` : ''}${Math.abs(t.migrants || 0) > 2 ? `; people ${t.migrants > 0 ? 'moving in' : 'moving away'}` : ''}${t.lastFire ? `; a fire got away from it in year ${t.lastFire}` : ''}${t.smoky ? '; under wildfire smoke, people falling ill' : ''}${t.links && t.links.length ? `; roads to ${t.links.length} town${t.links.length > 1 ? 's' : ''} (${Math.round((t.roadsWorking ?? 1) * 100)}% in working order)` : ''}. Click for its population chart.`);
+      this.helpOn(row, `<b>${escapeHtml(t.name)}</b> — founded in year ${t.founded}. Population ${Math.round(t.pop)} of the ${Math.round(t.capacity || 0)} its land can feed; ${t.cells || 0} cells of town, ${t.industry || 0} of industry, ${t.farm || 0} of farmland${t.hunted > 0.01 ? '; still hunting much of its food' : ''}${t.boats ? `; a harbour with ${t.boats} fishing boat${t.boats > 1 ? 's' : ''}` : ''}${t.byBoat ? '; settled by boat' : ''}${t.dam >= 0 ? '; has dammed a river for a reservoir' : ''}${t.canals ? `; ${t.canals} irrigation canal${t.canals > 1 ? 's' : ''}` : ''}${t.seaOutfall >= 0 ? '; its sewage piped out to the nearest sea' : ''}${t.timberCells ? `; ${t.timberCells} cells of timber plantation` : ''}${t.invCleared ? `; has cleared ${t.invCleared.toFixed(0)} cells' worth of invasive pine (at a cost of ${Math.round(t.invLost || 0)} people)` : ''}${t.woodNeed ? `; timber: ${Math.round(t.woodStock || 0)} in stock, using ${t.woodNeed.toFixed(1)} a step${t.woodSupply < 1 ? ` (short: only ${Math.round(t.woodSupply * 100)}% of what it needs coming in)` : ''}` : ''}${t.mineCount ? `; ${t.mineCount} mine${t.mineCount > 1 ? 's' : ''}` : ''}${t.sick > 0 ? `; an epidemic: ${Math.round(t.sick * 100)}% sick` : t.outbreaks ? `; ${t.outbreaks} outbreak${t.outbreaks > 1 ? 's' : ''} of disease (last in year ${t.lastOutbreak})` : ''}${Math.abs(t.migrants || 0) > 2 ? `; people ${t.migrants > 0 ? 'moving in' : 'moving away'}` : ''}${t.lastFire ? `; a fire got away from it in year ${t.lastFire}` : ''}${t.smoky ? '; under wildfire smoke, people falling ill' : ''}${t.links && t.links.length ? `; roads to ${t.links.length} town${t.links.length > 1 ? 's' : ''} (${Math.round((t.roadsWorking ?? 1) * 100)}% in working order)` : ''}${t.special ? `; specialises in ${t.special}` : ''}${t.tradePartners ? `; trades with ${t.tradePartners} town${t.tradePartners > 1 ? 's' : ''}${t.tradeFood > 1 ? `, buying in food for about ${Math.round(t.tradeFood)} people` : ''}` : ''}${t.core ? `; a town centre of ${t.core} cells` : ''}. Click for its population chart.`);
       spotOnHover(row, this.app, () => townMask(w, t));
       L.append(row, big);
       this.townGraphs.push({ t, val, spark, big });
@@ -1153,6 +1154,44 @@ export class Toolbox {
       slider('Strength', app.brush, 'strength', 0.05, 1, 0.01, 'How fast the tool works. Hold Shift to invert most tools.', this),
     );
     bar.append(brush);
+  }
+
+  /** Settings for the world's dynamics (sim/dynamics.js), each on its topic's tab. */
+  buildDynamics() {
+    const app = this.app, D = app.dynParams;
+    const land = this.section('Land events');
+    land.append(
+      toggle('River floods', D, 'floods', 'In storms and wet spells, floods now and then come down the rivers for some days, spilling over the banks onto the low ground beside them.', this),
+      slider('Flood frequency', D, 'floodRate', 0, 3, 0.1, 'How often floods come.', this),
+      toggle('Town levees', D, 'levees', 'Towns of 600 or more wall their river banks with levees, which keep ordinary floods out; a big flood can overtop a levee and breach it, flooding the town behind.', this),
+      toggle('Meandering rivers', D, 'meanders', 'Where a river crosses flat ground the current cuts into the outside of each bend and builds up the inside: the bends grow and walk across the valley floor, and in time loops are cut off as oxbow lakes.', this),
+      toggle('Debris flows', D, 'debrisFlows', 'Heavy rain on a fresh burn scar sends mud, ash and rock pouring down the slopes and gullies, burying what\'s below and damming streams.', this),
+      toggle('Starved beaches', D, 'starvedBeaches', 'Dams trap the sand their rivers would bring to the coast, and sea walls and docks cut off the shore\'s sand: the beaches near them shrink and the coast behind erodes.', this),
+    );
+    const clim = this.section('Climate events');
+    clim.append(
+      toggle('Drought cycles', app.seasonParams, 'droughtCycles', 'Dry and wet runs of years come and go over a cycle of 6–12 years (like El Niño): droughts several years running, then a run of mild, wet years. (Needs Seasons.)', this),
+      toggle('Earthquakes', D, 'earthquakes', 'Now and then a fault slips: landslides on the steep slopes near it, towns damaged, the ground along the rupture lifted. An undersea quake sends a tsunami flooding the coasts nearby.', this),
+      slider('Earthquake frequency', D, 'quakeRate', 0, 5, 0.1, 'How often earthquakes come.', this),
+      toggle('Permafrost', D, 'permafrost', 'Ground frozen all year where it\'s cold enough. As the climate warms it thaws: the ground slumps, ponds form, and its rotting peat gives off greenhouse gas.', this),
+      toggle('Bark beetle outbreaks', D, 'barkBeetles', 'Native bark beetles erupt in drought years and after mild winters, killing stands of stressed conifers, then crash after a few years or in a hard winter.', this),
+    );
+    const eco = this.section('Ecosystem changes');
+    eco.append(
+      toggle('Wetland drainage', D, 'wetlandDrainage', 'Towns ditch and drain the wetlands near them for farmland: the ground dries, its peat rots and the ground sinks, and dry peat that catches fire smoulders underground for months.', this),
+      toggle('Rewet wetlands', D, 'rewetWetlands', 'Towns block the drainage ditches again: drained wetlands slowly fill back up.', this),
+      toggle('Seed dispersal', D, 'seedDispersal', 'Tree species spread from where they grow: light wind-blown seeds fast, heavy ones (acorns, beech nuts) slowly, and now and then a bird carries one far. A species grows only where its seeds have reached, so forest comes back from its edges after a big fire.', this),
+      toggle('Invasive animals', D, 'invasiveAnimals', 'Feral pigs escape from the farms (rooting up the soil and seedlings), feral goats are let loose by the harbours (stripping the young trees off the hills), and ship rats come ashore and eat the small animals\' eggs and young.', this),
+      toggle('Crop pests', D, 'cropPests', 'Pests and blights break out in the farmland, worst in big blocks of one crop, and spread field to field; infested fields yield less. Hedgerows and wild ground among the fields help hold them back.', this),
+      toggle('Crop rotation', D, 'cropRotation', 'Towns rotate their crops: pests spread less and die out sooner.', this),
+    );
+    const town = this.section('Town life');
+    town.append(
+      toggle('Trade', D, 'trade', 'Towns joined by working roads, or both with harbours, trade. Each specialises in what its land is good for, and food sold between them lets a trading town grow past what its own land feeds.', this),
+      toggle('Urban heat & smog', D, 'urbanHeat', 'Towns are warmer than the country round them (up to about 2.5 °C in a big centre), and on still days their smoke builds up as smog, sickening people and plants.', this),
+      toggle('Salt in irrigated fields', D, 'salinisation', 'In dry, hot country, irrigation water evaporates off the fields and leaves salt behind: yields fall, and once too salty the field is abandoned under a white crust.', this),
+      toggle('Ruins', D, 'ruins', 'Abandoned towns leave ruins that crumble slowly over decades while the forest grows up through them; old roads stay visible as tracks.', this),
+    );
   }
 
   /** The Mods tab: the installed mods (switch on or off, remove, add) and the settings they add. */

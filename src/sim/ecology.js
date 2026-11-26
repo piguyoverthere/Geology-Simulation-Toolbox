@@ -62,6 +62,8 @@ export const HABITS = {
   dams: ['Builds dams', 'Dams the streams it lives on, slowly raising ponds and wetland behind (and fells nearby deciduous trees).'],
   killsTrees: ['Kills the trees it eats', 'Kills whole stands of the trees it eats (like bark beetles), leaving grey dead wood that burns fiercely.'],
   fertilises: ['Fertilises the ground', 'Its droppings enrich the soil where it lives: plants grow faster.'],
+  roots: ['Roots up the ground', 'Digs up the soil for roots and grubs (like feral pigs): the soil is broken up and washes away, and seedlings are torn up.'],
+  overbrowse: ['Strips the young trees', 'Browses every seedling and sapling it can reach (like feral goats): woods and scrub where it lives can\'t grow back, and bare slopes erode.'],
   runsRivers: ['Swims up rivers in autumn', 'Lives at sea, then each autumn runs up the rivers to spawn in cool, clean water (like salmon), fertilising the stream banks. Next year\'s run depends on how many made it.'],
 };
 
@@ -316,6 +318,11 @@ function stepAnimal(world, a, M, sea, k) {
       }
       if (world.decid && world.decid[i] > 0.2) V[i] = Math.max(0, V[i] - 0.001 * p * k); // (fells the trees)
     }
+    if (hb.roots && p > 0.15 && M.land[i]) {
+      world.humus[i] = Math.max(0, world.humus[i] - 0.0012 * p * k);
+      world.browse[i] = Math.min(1, world.browse[i] + 0.5 * p);
+    }
+    if (hb.overbrowse && p > 0.1 && M.land[i]) world.browse[i] = Math.min(1, world.browse[i] + 1.2 * p);
     if (hb.fertilises && M.land[i]) {
       world.humus[i] = Math.min(1, world.humus[i] + 0.0015 * p * k);
       world.salmonN[i] = Math.min(1, world.salmonN[i] + 0.004 * p * k);

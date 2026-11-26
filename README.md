@@ -95,6 +95,10 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
   [mods/example-mod.js](mods/example-mod.js).
 - **Fire-resistant trees** (giant sequoia, coast redwood, cork oak) live through smaller fires, gain
   ground where fire returns, and grow far taller (tree heights in the inspector).
+- **World dynamics**, each a setting: river floods and town levees, meandering rivers, debris flows
+  off burn scars, starved beaches; drought cycles, earthquakes and tsunamis, thawing permafrost,
+  bark beetle outbreaks; wetland drainage, seed dispersal, invasive animals, crop pests; trade
+  between towns, urban heat and smog, salt in irrigated fields, ruins of abandoned towns.
 - Every town grows a **town centre**: entirely paved, sprawling out from its middle as it grows.
 - Coastal towns build up dense **waterfronts**: quays paved over the beaches with a sharp drop-off,
   docks out over dredged water, and packed streets behind (Civilization: **Waterfronts**).

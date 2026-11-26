@@ -332,6 +332,9 @@ export function vegetationStep(world) {
     // (root rot: while a stand is infected its trees keep dying, so it can't close up again)
     const rotted = world.rootRot ? world.rootRot[i] : 0;
     if (rotted > 0.1) target *= 1 - 0.35 * Math.min(1, rotted);
+    // (bark beetles: the conifers keep dying while the outbreak lasts, sim/dynamics.js)
+    const beetled = world.barkBeetle ? world.barkBeetle[i] : 0;
+    if (beetled > 0.2 && world.conifer) target *= 1 - 0.5 * Math.min(1, beetled) * world.conifer[i];
     if (browse > 0.02 && salt === 0) target = Math.max(Math.min(target, 0.5), target - 0.45 * browse * (1 - age));
     // (salmon carcasses fertilise the banks of salmon rivers: plants there grow faster)
     const salmonFed = world.salmonN ? world.salmonN[i] : 0;

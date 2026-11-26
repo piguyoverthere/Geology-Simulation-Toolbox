@@ -1648,6 +1648,87 @@ basalt boulders. The wet lower shore below high tide is darker, so the tide line
 all 1,467 bare cells in reach of the waves (1,369 with a surge of 2) came out as shingle or sand
 beach, apart from a little dune sand just above the waves' reach; none came out Barren.
 
+## World dynamics (`src/sim/dynamics.js`)
+
+Sixteen processes that make the world change and surprise, each a setting. They run every 30 frames,
+and big events are announced in the status line.
+
+**Land events** (Land tab):
+- **River floods** (and *Flood frequency*): in storms and wet spells a flood now and then comes down
+  the rivers for some days, swelling them over their banks onto the low ground beside them.
+- **Town levees:** towns of 600 or more raise their river banks where their streets meet the river,
+  keeping ordinary floods out. A flood that overtops a levee can breach it, and the town loses people.
+- **Meandering rivers:** on flat ground the current cuts into the outside of each bend and builds up
+  the inside, so the bends grow and walk across the valley floor.
+- **Debris flows:** heavy rain on a fresh burn scar sends mud, ash and rock down the slope and along
+  the gully, burying the ground and blocking the stream where it stops.
+- **Starved beaches:** a dam traps its river's sand, so the beaches near that river's mouth get none;
+  sea walls and docks starve the beaches beside them too. Starved beaches lose their sand, then the
+  shore wears back.
+
+**Climate events** (Climate tab):
+- **Drought cycles:** dry and wet runs of years over a 6–12 year cycle (like El Niño), with drought
+  years several running and then a run of mild ones. Needs Seasons.
+- **Earthquakes** (and *Earthquake frequency*): a quake of magnitude 5 to 8 (big ones rare) sets off
+  landslides on the steep slopes in reach, damages towns and lifts the ground along the rupture. An
+  undersea quake over magnitude 6.3 sends a tsunami: it floods the low coast nearby, strips it to
+  beach and hits the towns there hard.
+- **Permafrost:** ground frozen all year where the mean is below about −3 °C. As it warms it thaws:
+  the ground slumps, ponds form, and its rotting peat gives off greenhouse gas (with Climate change
+  on).
+- **Bark beetle outbreaks:** native beetles erupt in drought years or after mild winters, spread
+  through stressed conifer stands and kill them, the forest going red then grey. Hard winters and
+  the end of a drought knock them back.
+
+**Ecosystem changes** (Life tab):
+- **Wetland drainage:** towns ditch the wetlands near them; the ground dries out, its peat rots and
+  sinks, and dry peat that catches fire smoulders underground and creeps on. **Rewet wetlands** lets
+  them fill back up.
+- **Seed dispersal:** each tree species grows only where its seeds have reached (world.speciesHere).
+  Wind-blown pioneers spread fast, heavy-seeded trees slowly, with a few long flights by birds, so
+  forest comes back from its edges after a big fire or clearing.
+- **Invasive animals:** feral pigs escape from farming towns (rooting up soil and seedlings), feral
+  goats are let loose by the harbours (stripping young trees), and ship rats come ashore and prey on
+  the small animals.
+- **Crop pests** (and **Crop rotation**): pests and blights break out in big blocks of fields and
+  spread field to field. An infested field yields up to 60% less. Hedgerows and wild ground among
+  the fields slow them, and so does rotation.
+
+**Town life** (Life tab):
+- **Trade:** towns joined by working roads, or both with harbours and boats, trade. Each specialises
+  in what its land is best for (farming, timber, mining, fishing or industry). Food a town can spare
+  is sold to its partners, more to those that make something else, so a trading town can grow past
+  what its own land feeds. The town's tooltip shows its specialty and partners.
+- **Urban heat & smog:** towns are up to 2.5 °C warmer than the country around them, and on still
+  days their smoke builds up as smog, sickening people and plants.
+- **Salt in irrigated fields:** in dry, hot country irrigation leaves salt behind (world.soilSalt). The
+  harvest falls, and a field too salty to farm is abandoned under a white crust.
+- **Ruins:** abandoned towns' streets and buildings stand as ruins, crumbling over the decades as
+  forest grows up through them. Old roads stay visible as tracks.
+
+Tests, on a 256×256 map:
+
+| Feature | Result |
+|---|---|
+| Speed | 82 ms a frame with these off, 79 ms with all of them on |
+| River flood | land water rose to about 800 units and drained away again |
+| Earthquake | magnitude 5.0, one landslide |
+| Tsunami | an undersea magnitude 6.8 quake set off three landslides and a tsunami |
+| Bark beetles | conifer forest around an outbreak fell 34% in 12 steps (an untouched area 10%), the outbreak growing from 49 to 75 cells |
+| Seed dispersal | seeds reached 78 of 400 cells of an emptied patch in 20 steps |
+| Feral pigs, ship rats | arrived, with news |
+| Wetland drainage | towns drained 8 wetland cells |
+| Crop pests | 53 of 201 fields infested and the harvest at 90% without rotation; 35 and 97% with it |
+| Trade | two harbour towns traded by boat; one bought in food for about 650 people |
+| Urban heat | up to 2.5 °C over the town centres |
+| Ruins | an abandoned town left 66 cells of ruins |
+| Debris flows | 26 ran off a burnt, rained-on slope |
+| Starved beaches | 253 beach cells near sea walls and docks |
+| Drought cycles | 40 years ran `w....ww.........DD...D.w.wwDDD.D.wDww..D` (D drought, w wet): runs, not scattered years |
+
+Levees, meanders, salt and permafrost run without errors but weren't measured: the test map has no
+river through a big town, no dry irrigated country and no frozen ground.
+
 ## Town centres (`townCoreStep`, `src/sim/civilization.js`)
 
 Every town grows a downtown out from its centre (Civilization: **Town centres**, on by default).

@@ -42,6 +42,7 @@ export const climateParams = {
  */
 export const seasonParams = {
   enabled: false,
+  droughtCycles: true, // dry and wet runs of years over a 6–12 year cycle (see rollYear)
   speed: 1,      // years per minute of real time
   swing: 13,     // °C between the annual mean and midsummer (or midwinter)
   phase: 0.12,   // where in the year we are
@@ -67,7 +68,20 @@ export const YEAR_KINDS = {
 /** Draw the kind of year at a new year. */
 export function rollYear() {
   const v = seasonParams.variability, r = Math.random();
-  seasonParams.yearKind = r < 0.16 * v ? 'hot' : r < 0.34 * v ? 'mild' : r < 0.44 * v && climateParams.windstorms > 0 ? 'windy' : 'normal';
+  // Drought cycles (a setting): dry and wet runs of years come and go over a cycle of 6–12 years
+  // (like El Niño and the Pacific oscillations), so droughts come several years running, then a
+  // run of mild, wet years
+  let hot = 0.16, mild = 0.18;
+  if (seasonParams.droughtCycles !== false) {
+    if (!seasonParams.cyclePeriod) seasonParams.cyclePeriod = 6 + Math.random() * 6;
+    seasonParams.cyclePhase = ((seasonParams.cyclePhase ?? Math.random()) + 1 / seasonParams.cyclePeriod) % 1;
+    if (seasonParams.cyclePhase < 1 / seasonParams.cyclePeriod) seasonParams.cyclePeriod = 6 + Math.random() * 6;
+    const c = Math.sin(2 * Math.PI * seasonParams.cyclePhase) + (Math.random() - 0.5) * 0.4;
+    seasonParams.droughtLevel = Math.max(0, Math.min(1, c));
+    hot = 0.16 * (1 + 2.4 * Math.max(0, c)) * (c < -0.3 ? 0.3 : 1);
+    mild = 0.18 * (1 + 2 * Math.max(0, -c)) * (c > 0.3 ? 0.3 : 1);
+  }
+  seasonParams.yearKind = r < hot * v ? 'hot' : r < (hot + mild) * v ? 'mild' : r < (hot + mild + 0.1) * v && climateParams.windstorms > 0 ? 'windy' : 'normal';
   seasonParams.yearStrength = 0.6 + Math.random() * 0.6;
   seasonParams.year = (seasonParams.year || 1) + 1;
 }
@@ -217,6 +231,8 @@ export function updateTemperature(world) {
   const base = p.seaTemp + (p.warming || 0);
   for (let i = 0; i < N * N; i++) T[i] = base - p.lapse * Math.max(0, H[i]) + p.sunEffect * sun[i];
   updateEvaporation(world);
+  // (towns are warmer than the country round them: the urban heat island, sim/dynamics.js)
+  if (world.heatIsland && world.heatIsland.length === world.temperature.length) for (let i = 0; i < world.temperature.length; i++) world.temperature[i] += world.heatIsland[i];
 }
 
 /**

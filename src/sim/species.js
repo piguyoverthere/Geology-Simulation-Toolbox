@@ -124,6 +124,7 @@ function suitability(world, i, out) {
     if (y !== undefined) fireRecent = Math.exp(-Math.max(0, nowYear - y) / 30);
   }
   let total = 0;
+  const here = world.speciesHere && world.speciesHere.length === world.N * world.N ? world.speciesHere[i] : null;
   for (let k = 0; k < K; k++) {
     const s = SPECIES[k];
     let f = band(T, s.temp[0], s.temp[1], 3) * band(m, s.moist[0], s.moist[1], 0.08);
@@ -154,6 +155,8 @@ function suitability(world, i, out) {
     // their competitors didn't, and the ash is their seedbed)
     // (without fire they grow slowly and lose out to faster neighbours)
     if (s.fireproof) f *= 0.4 + 2.6 * fireRecent * s.fireproof;
+    // (seed dispersal, sim/dynamics.js: a species grows only where its seeds have reached)
+    if (here !== null && k < 31 && !(here & (1 << k))) f *= 0.03;
     if (s.riparian) f *= smooth(0.3, 0.8, near);
     else if (s.nearWater) f *= 0.4 + 0.6 * smooth(0.2, 0.7, near);
     f = f * f; // sharpen: the best-suited species dominate

@@ -28,6 +28,7 @@ import { coastParams, isLivingBed, MARINE_ID, SHORE } from './coast.js';
 import { waterParams } from './water.js';
 import { SPECIES, treeShares } from './species.js';
 import { cropFactor } from './pollinators.js';
+import { dynParams, cropHealth } from './dynamics.js';
 import { FOREST_TYPES } from './forests.js';
 import { BIOMES, classifyBiome } from '../render/biomes.js';
 
@@ -289,6 +290,35 @@ function buildQuay(world, t, count) {
   }
   t.quay = (t.quay || 0) + built;
   return built;
+}
+
+/**
+ * Trade (a setting, dynParams.trade): towns joined by roads in working order, or both with harbours
+ * and boats, trade. Each town specialises in what its land is good for (farming, timber, mining,
+ * fishing, industry), and a town with food to spare sells some of it to its partners, more to those
+ * that make something else, so a trading town can grow past what its own land feeds. Worked out once
+ * all the towns have been counted, and used in their next step.
+ */
+function tradeStep(world) {
+  const towns = world.towns, byId = new Map(towns.map((t) => [t.id, t]));
+  for (const t of towns) {
+    const kinds = { farming: (t.farm || 0) * 1, timber: (t.timberCells || 0) * 1.2, mining: (t.mineCount || 0) * 40, fishing: (t.boats || 0) * 25, industry: (t.industry || 0) * 2 };
+    t.special = Object.entries(kinds).sort((a, b) => b[1] - a[1])[0][1] > 0 ? Object.entries(kinds).sort((a, b) => b[1] - a[1])[0][0] : 'farming';
+  }
+  const ports = towns.filter((t) => t.harbor !== undefined && t.boats);
+  for (const t of towns) {
+    const partners = new Set();
+    for (const id of t.links || []) { const u = byId.get(id); if (u) partners.add(u); }
+    if (t.harbor !== undefined && t.boats) for (const u of ports) if (u !== t) partners.add(u);
+    let bought = 0;
+    for (const u of partners) {
+      const spare = Math.max(0, (u.foodRaw || 0) - u.pop * 1.1);
+      const roads = (t.links || []).includes(u.id) ? (t.roadsWorking ?? 1) : 0.8;
+      bought += (spare * 0.3 * roads * (u.special !== t.special ? 1.3 : 1)) / Math.max(1, (u.links || []).length + 1);
+    }
+    t.tradeFood = (t.tradeFood || 0) * 0.7 + bought * 0.3;
+    t.tradePartners = partners.size;
+  }
 }
 
 /**
@@ -1576,7 +1606,7 @@ export function civStep(world) {
         const f = fertility(world, i, fSlope) * (watered ? 1.2 : 1) * (0.15 + 0.85 * FS[i]);
         // (burnt, flooded or snowbound fields yield little)
         const lost = world.fire[i] > 0 || world.burnt[i] > 0.5 || world.water[i] > 0.4 || (world.snow && world.snow[i] > 0.5 && ph > 0.1 && ph < 0.55) ? 0.2 : 1;
-        food += PER_FARM_CELL * f * lost * cropFactor(world, i); // (and how well the pollinators reach it)
+        food += PER_FARM_CELL * f * lost * cropFactor(world, i) * cropHealth(world, i); // (and how well the pollinators reach it; pests and salt)
         if (world.vegetation[i] > 0.45) world.vegetation[i] = 0.45; // (crops, not forest)
       }
     }
@@ -1694,6 +1724,9 @@ export function civStep(world) {
     const waterOK = (freshNear > 0.02 ? 1 : 0.35) * (t.wellsDry ? 0.7 : 1);
     const dirty = Math.min(1, (RP[ci] || 0) * 0.5 + (fields.fresh[ci] > 0 ? 0 : 0));
     // (and it can only hold so many more than its streets house: it grows as fast as it builds)
+    t.foodRaw = food;
+    // (trade, sim/dynamics.js: food bought from the towns it trades with)
+    if (dynParams.trade && t.tradeFood) food += t.tradeFood;
     let K = Math.max(20, Math.min(food * waterOK * (1 - 0.4 * dirty), (townCells / 2 + indCells + 4) * PER_TOWN_CELL * 1.3));
     if (t.harbor === undefined && K > 1000) K = 1000; // (no harbour, no trade: it can't grow past a thousand)
     // Timber: a town burns and builds with wood all the time (more people, more wood). Its stock is
@@ -1829,6 +1862,7 @@ export function civStep(world) {
     else total += t.pop;
   }
   world.civPop = total;
+  if (dynParams.trade) tradeStep(world); else for (const t of world.towns) t.tradeFood = 0;
   populationField(world);
   // People on the move, disease, smoke and worn-out land
   migrationStep(world, world.towns);
