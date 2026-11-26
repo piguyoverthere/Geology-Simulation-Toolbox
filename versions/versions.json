@@ -74,5 +74,10 @@
     "version": "1.5.0",
     "date": "2026-11-26",
     "notes": "World dynamics (floods, quakes, beetles, trade and more), town centres, drowned land becomes beach"
+  },
+  {
+    "version": "1.5.1",
+    "date": "2026-11-26",
+    "notes": "Alphabetical overlays; overlays for permafrost, bark beetles, crop pests, soil salt, ruins, drained wetlands, urban heat, starved beaches, seed dispersal"
   }
 ]
