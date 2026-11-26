@@ -64,5 +64,10 @@
     "version": "1.3.5",
     "date": "2026-11-25",
     "notes": "Polygon edge and outline simplification settings"
+  },
+  {
+    "version": "1.4.0",
+    "date": "2026-11-25",
+    "notes": "Copy simulations into test copies, pins, sorting, Export all; newer saves open with a warning"
   }
 ]
