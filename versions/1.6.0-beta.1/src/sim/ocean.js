@@ -1,0 +1,411 @@
+// The living, moving sea: tidal currents, salinity and estuaries, plankton blooms and low-oxygen
+// dead zones, sea ice that freezes and thaws cell by cell, storm surge and storm waves, and surf.
+// Run from the coast step (a few times a second), before the water-quality step.
+//
+// • Tidal currents: as the tide rises (flood) the sea pours into the bays and channels from the
+//   open ocean, and drains back out as it falls (ebb). Each spot's current runs along the route
+//   to the open sea, fastest in narrow passages, carrying silt, pollutants, plankton and fresh
+//   river water back and forth (plus a slow drift with the wind).
+// • Salinity: rivers pour fresh water into the sea; near their mouths the water is brackish (an
+//   estuary), mixing back to full seawater (≈35 parts per thousand) further out. Corals and kelp
+//   need full seawater; eelgrass and salt marsh don't mind brackish water.
+// • Plankton: microscopic algae bloom where the water is warm, sunny (spring and summer) and rich
+//   in nutrients (sewage and farm runoff, i.e. the pollutants, and river water). A big bloom turns
+//   the water green; when it dies and rots in quiet, deep water it uses up the oxygen there
+//   (hypoxia), suffocating sea life: a dead zone. Healthy sea beds compete with the plankton for
+//   the nutrients and keep blooms down.
+// • Sea ice forms in freezing water cell by cell, first in sheltered, shallow bays and in fresher
+//   water (which freezes at a higher temperature), thickening through the winter, and thaws back
+//   in spring.
+// • Storm surge: a storm over the sea raises it (low pressure lifts the surface, the wind piles
+//   water against the coast), flooding low shores for a while; and its big waves pound the coast.
+// • Surf: waves break along exposed shores, fiercest under a storm.
+
+import { boxBlur } from '../core/grid.js';
+import { climateParams, seasonParams } from './climate.js';
+import { updateWind } from './wind.js';
+import { spawnStormAt } from './weather.js';
+
+export const oceanParams = {
+  currents: 1,   // strength of the tidal currents (0 = still water)
+  surge: 1,      // how much storms raise the sea (storm surge) and whip up waves
+  blooms: 1,     // how readily plankton blooms grow on nutrients
+  greatStorms: 8, // a great storm comes about once in this many years, on average (0 = never)
+};
+
+/**
+ * A great storm (a hurricane or a once-in-a-generation gale): every so many years a huge storm forms
+ * far out at sea and drives onto the coast. Its winds and low pressure pile the sea up into a
+ * storm surge several times higher than an ordinary storm's, flooding far inland over the low
+ * coast, and its giant waves pound the shore: cliffs and bluffs are cut back, beaches are stripped of
+ * their sand, the dunes behind are flattened, and the salt water kills the coastal forest and plants
+ * it floods. (The coast and the plants then slowly recover.)
+ */
+export function startGreatStorm(world) {
+  const N = world.N, H = world.height, n = N * N;
+  const sea = world.meanSea;
+  if (sea === undefined || sea < -999) return null;
+  // Where the land is (its middle), and the open sea upwind of it (the storm comes in off the ocean)
+  let lx = 0, lz = 0, ln = 0;
+  for (let i = 0; i < n; i += 7) if (H[i] >= sea) { lx += i % N; lz += (i / N) | 0; ln++; }
+  if (!ln) return null;
+  lx /= ln; lz /= ln;
+  let best = -1, bestD = -1;
+  for (let k = 0; k < 400; k++) {
+    const i = (Math.random() * n) | 0;
+    if (H[i] >= sea - 4) continue;
+    const d = Math.hypot((i % N) - lx, ((i / N) | 0) - lz);
+    if (d > bestD) { bestD = d; best = i; }
+  }
+  if (best < 0) return null;
+  const sx = best % N, sz = (best / N) | 0;
+  const st = spawnStormAt(world, sx, sz, N * 0.3, true);
+  st.thunder = false; st.great = true;
+  st.peak = 3; st.fuel = st.maxFuel = 3; st.age = 0; st.life = 80;
+  // It drives in toward the land
+  const dx = lx - sx, dz = lz - sz, d = Math.hypot(dx, dz) || 1;
+  st.speed = 0.9; st.vx = (dx / d) * 0.9; st.vz = (dz / d) * 0.9;
+  world.lastGreatStorm = { year: seasonParams.year || 1, time: world.time };
+  return st;
+}
+
+/**
+ * Stop the great storms raging now (the Stop button): they blow out at once, and the surge they
+ * piled up drains back off the land fast. Ordinary storms carry on. Returns how many were stopped.
+ */
+export function stopGreatStorms(world) {
+  const before = (world.storms || []).length;
+  world.storms = (world.storms || []).filter((s) => !s.great);
+  const stopped = before - world.storms.length;
+  if (stopped) {
+    world.surge = Math.min(world.surge || 0, 0.5);
+    world.greatStormActive = false;
+    if (world.stormWave) world.stormWave.fill(0);
+    world.dirty = true;
+  }
+  return stopped;
+}
+
+/** Now and then (on average every `greatStorms` years, mostly in late summer to winter) a great storm. */
+function maybeGreatStorm(world) {
+  const every = oceanParams.greatStorms;
+  if (!(every > 0) || (world.storms || []).some((s) => s.great)) return;
+  let years = 1 / 360;
+  if (seasonParams.enabled) {
+    const ph = seasonParams.phase;
+    years = (ph - (world.gsPhase ?? ph) + 1) % 1;
+    if (years > 0.1) years = 0;
+    world.gsPhase = ph;
+    // (the season of great storms: late summer through winter)
+    years *= ph > 0.4 && ph < 0.92 ? 1.7 : 0.15;
+  }
+  if (Math.random() < years / every) startGreatStorm(world);
+}
+
+export function ensureOcean(world) {
+  const n = world.N * world.N;
+  for (const k of ['curU', 'curV', 'plankton', 'seaIce', 'surf', 'stormWave', 'pushU', 'pushV', 'waveBoost']) {
+    if (!world[k] || world[k].length !== n) world[k] = new Float32Array(n);
+  }
+  if (!world.salinity || world.salinity.length !== n) world.salinity = new Float32Array(n).fill(1);
+  if (!world.oxygen || world.oxygen.length !== n) world.oxygen = new Float32Array(n).fill(1);
+  if (!world.seaT || world.seaT.length !== n) { world.seaT = new Float32Array(n).fill(NaN); }
+}
+
+let distCache = null; // distance to the open sea along the water: { key, dist }
+
+/** Water distance from the open ocean (the map's edge) for every sea cell: the tide's route in. */
+function openSeaDistance(world, sea) {
+  const N = world.N, n = N * N, H = world.height;
+  // Recompute when the sea or the coastline moves noticeably (cheap check on a sample)
+  let sig = Math.round(sea * 4);
+  for (let k = 0; k < 400; k++) { const i = (k * 2654435761) % n >>> 0; if (H[i] < sea) sig = (sig * 31 + i) | 0; }
+  if (distCache && distCache.key === sig && distCache.N === N) return distCache.dist;
+  const dist = new Float32Array(n).fill(1e9);
+  const q = new Int32Array(n);
+  let head = 0, tail = 0;
+  for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+    if (x > 0 && z > 0 && x < N - 1 && z < N - 1) continue;
+    const i = z * N + x;
+    if (H[i] < sea) { dist[i] = 0; q[tail++] = i; }
+  }
+  while (head < tail) {
+    const i = q[head++], x = i % N, z = (i / N) | 0, d = dist[i] + 1;
+    if (x > 0 && H[i - 1] < sea && dist[i - 1] > d) { dist[i - 1] = d; q[tail++] = i - 1; }
+    if (x < N - 1 && H[i + 1] < sea && dist[i + 1] > d) { dist[i + 1] = d; q[tail++] = i + 1; }
+    if (z > 0 && H[i - N] < sea && dist[i - N] > d) { dist[i - N] = d; q[tail++] = i - N; }
+    if (z < N - 1 && H[i + N] < sea && dist[i + N] > d) { dist[i + N] = d; q[tail++] = i + N; }
+  }
+  distCache = { key: sig, N, dist };
+  return dist;
+}
+
+/**
+ * The constant currents drawn with the Current path tool, as a velocity field (cached until the
+ * paths change): along each path, full strength on its line and fading out over its width.
+ */
+function pathField(world) {
+  const N = world.N, n = N * N, paths = world.currentPaths || [];
+  const key = N + ':' + JSON.stringify(paths);
+  if (world.currentFieldKey === key && world.pathU) return paths.length > 0;
+  world.currentFieldKey = key;
+  if (!world.pathU || world.pathU.length !== n) { world.pathU = new Float32Array(n); world.pathV = new Float32Array(n); }
+  const PU = world.pathU, PV = world.pathV, WT = new Float32Array(n);
+  PU.fill(0); PV.fill(0);
+  for (const c of paths) {
+    const pts = c.pts, m = pts.length, segs = m - 1 + (c.closed ? 1 : 0);
+    const wdt = Math.max(2, c.width || 6), sp = c.strength || 1;
+    for (let sI = 0; sI < segs; sI++) {
+      const a = pts[sI], b = pts[(sI + 1) % m];
+      const dx = b.x - a.x, dz = b.z - a.z, len = Math.hypot(dx, dz);
+      if (len < 1e-3) continue;
+      const ux = dx / len, uz = dz / len, l2 = len * len;
+      const x0 = Math.max(0, Math.floor(Math.min(a.x, b.x) - wdt)), x1 = Math.min(N - 1, Math.ceil(Math.max(a.x, b.x) + wdt));
+      const z0 = Math.max(0, Math.floor(Math.min(a.z, b.z) - wdt)), z1 = Math.min(N - 1, Math.ceil(Math.max(a.z, b.z) + wdt));
+      for (let z = z0; z <= z1; z++) {
+        for (let x = x0; x <= x1; x++) {
+          const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / l2));
+          const d = Math.hypot(x - a.x - t * dx, z - a.z - t * dz);
+          if (d >= wdt) continue;
+          const f = 1 - (d / wdt) ** 2, i = z * N + x;
+          // (where segments overlap at a bend, the strongest pull wins rather than adding up)
+          if (f > WT[i]) { WT[i] = f; PU[i] = ux * sp * f; PV[i] = uz * sp * f; }
+        }
+      }
+    }
+  }
+  return paths.length > 0;
+}
+
+/** Carry field F along the currents (semi-Lagrangian: each cell takes what was upstream). */
+export function advect(F, U, V, mask, N, conserve = false) {
+  const n = N * N, out = new Float32Array(n);
+  let before = 0;
+  if (conserve) for (let i = 0; i < n; i++) if (mask[i]) before += F[i];
+  for (let z = 0; z < N; z++) {
+    for (let x = 0; x < N; x++) {
+      const i = z * N + x;
+      if (!mask[i]) { out[i] = F[i]; continue; }
+      let sx = x - U[i], sz = z - V[i];
+      sx = sx < 0 ? 0 : sx > N - 1.001 ? N - 1.001 : sx;
+      sz = sz < 0 ? 0 : sz > N - 1.001 ? N - 1.001 : sz;
+      const x0 = sx | 0, z0 = sz | 0, fx = sx - x0, fz = sz - z0, j = z0 * N + x0;
+      // Only draw from water: a land sample falls back to this cell's own value
+      const a = mask[j] ? F[j] : F[i], b = mask[j + 1] ? F[j + 1] : F[i];
+      const c = mask[j + N] ? F[j + N] : F[i], d = mask[j + N + 1] ? F[j + N + 1] : F[i];
+      out[i] = (a * (1 - fx) + b * fx) * (1 - fz) + (c * (1 - fx) + d * fx) * fz;
+    }
+  }
+  // (sampling isn't mass-conserving near coasts: rescale so a substance is moved, never made or lost)
+  if (conserve && before > 0) {
+    let after = 0;
+    for (let i = 0; i < n; i++) if (mask[i]) after += out[i];
+    if (after > 0) { const k = before / after; for (let i = 0; i < n; i++) if (mask[i]) out[i] *= k; }
+  }
+  F.set(out);
+}
+
+/**
+ * One ocean step. `exposure` is the open-water exposure from the coast step; `Tw` the surface
+ * water temperature now. Returns nothing; updates world fields.
+ */
+export function oceanStep(world, sea, half, exposure, Tw, tidePeriod) {
+  ensureOcean(world);
+  const N = world.N, n = N * N, H = world.height, D = world.water, p = oceanParams;
+  const U = world.curU, V = world.curV, SAL = world.salinity, PL = world.plankton, OX = world.oxygen;
+  const ICE = world.seaIce, SURF = world.surf, SW = world.stormWave;
+  const mask = new Uint8Array(n);
+  for (let i = 0; i < n; i++) mask[i] = H[i] < sea + half ? 1 : 0;
+
+  const WIND = updateWind(world);
+
+  // --- Water temperature, spot by spot ---------------------------------------------------
+  // The whole sea follows the seasons (Tw), but not evenly: shallow, open water heats up fast in
+  // the summer sun and is chilled fast by the wind in winter (and a strong wind stirs up cooler
+  // water from below all year), so it swings widely; deep or sheltered water, with more mass and
+  // less wind, stays steadier and lags behind.
+  const T = world.seaT, mean = climateParams.seaTemp, swingNow = Tw - mean;
+  const phS = seasonParams.enabled ? seasonParams.phase : 0.2;
+  const sun = seasonParams.enabled ? Math.max(0, Math.sin(2 * Math.PI * (phS + 0.05))) : 0.6; // summer sunshine
+  for (let i = 0; i < n; i++) {
+    if (!mask[i]) { T[i] = NaN; continue; }
+    const depth = Math.max(0, sea - H[i]);
+    const shallow = 1 - Math.min(1, depth / 12);
+    const wind = WIND[i];
+    const exposed = Math.min(1, 0.5 * Math.min(1, exposure[i] * 2) + 0.5 * Math.min(1, wind / 1.2));
+    const amp = 0.55 + 0.6 * exposed + 0.5 * shallow;       // how far it swings with the seasons
+    const target = mean + swingNow * amp
+      + 2.2 * sun * shallow * (0.5 + 0.5 * exposure[i])         // sun-warmed shallows
+      - 1.2 * Math.max(0, wind - 0.6);                          // wind chill and mixing
+    const rate = 0.03 + 0.12 * exposed * (0.4 + 0.6 * shallow); // fast where exposed and shallow
+    T[i] = Number.isNaN(T[i]) ? target : T[i] + (target - T[i]) * rate;
+  }
+
+  // --- Tidal currents ---------------------------------------------------------------------
+  // Flood (+) or ebb (−): how fast the tide is rising or falling now
+  const t = world.time || 0;
+  const flood = Math.cos((2 * Math.PI * t) / tidePeriod);
+  const dist = openSeaDistance(world, sea);
+  // Narrow passages run fastest (the same water squeezes through less width)
+  const open = boxBlur(Float32Array.from(mask), N, 4);
+  const wa = ((climateParams.windAngle || 0) * Math.PI) / 180, wdx = Math.cos(wa), wdz = Math.sin(wa);
+  const drawn = pathField(world); // (constant currents drawn with the Current path tool)
+  const amp = 0.9 * p.currents * Math.min(2, (2 * half) / 1.5);
+  for (let z = 1; z < N - 1; z++) {
+    for (let x = 1; x < N - 1; x++) {
+      const i = z * N + x;
+      if (!mask[i] || dist[i] >= 1e9) { U[i] = V[i] = 0; continue; }
+      // Downhill in distance = toward the open sea; the flood runs the other way, inland
+      const dl = dist[i - 1] < 1e9 ? dist[i - 1] : dist[i], dr = dist[i + 1] < 1e9 ? dist[i + 1] : dist[i];
+      const du = dist[i - N] < 1e9 ? dist[i - N] : dist[i], dd = dist[i + N] < 1e9 ? dist[i + N] : dist[i];
+      let gx = (dr - dl) * 0.5, gz = (dd - du) * 0.5;
+      const g = Math.hypot(gx, gz) || 1;
+      gx /= g; gz /= g;
+      // Bays far up a channel feel the tide less; narrow passages squeeze it faster
+      const squeeze = 1 / Math.max(0.25, open[i]);
+      const reach = 1 / (1 + dist[i] / (N * 0.6));
+      // (friction with the bottom slows the water in the shallows)
+      const friction = Math.min(1, Math.max(0.1, (sea - H[i]) / 4));
+      const s = amp * flood * Math.min(2.5, squeeze * 0.45) * reach * friction;
+      // (plus a slow drift with the prevailing wind at the surface)
+      // (plus any current pushed by hand with the Current tool, fading away)
+      // Wind-driven surface current: the wind drags the water along, strongest in open water;
+      // where it would run into land it turns aside and runs along the coast instead
+      let cu = 0.35 * WIND[i] * wdx * p.currents, cv = 0.35 * WIND[i] * wdz * p.currents;
+      const ox = (open[i + 1] - open[i - 1]) * 0.5, oz = (open[i + N] - open[i - N]) * 0.5, ol = Math.hypot(ox, oz);
+      if (ol > 1e-4) {
+        const into = -(cu * ox + cv * oz) / ol; // component heading toward land
+        if (into > 0) { cu += (into * ox) / ol; cv += (into * oz) / ol; }
+      }
+      U[i] = gx * s + cu + world.pushU[i] + (drawn ? world.pathU[i] : 0);
+      V[i] = gz * s + cv + world.pushV[i] + (drawn ? world.pathV[i] : 0);
+    }
+  }
+  for (let i = 0; i < n; i++) { world.pushU[i] *= 0.93; world.pushV[i] *= 0.93; }
+  if (p.currents > 0 || world.pushing || drawn) {
+    world.pushing = false;
+    advect(world.silt, U, V, mask, N, true);
+    advect(world.pollution, U, V, mask, N, true);
+    advect(PL, U, V, mask, N, true);
+    advect(SAL, U, V, mask, N);
+  }
+
+  // --- Salinity: rivers freshen the sea near their mouths -----------------------------------
+  // Fresh water arriving from the land next door (streams and rivers), spread over a fan at
+  // the mouth: river water is lighter than seawater and floats out over it as a plume
+  const FR = new Float32Array(n);
+  const VX = world.velX, VZ = world.velZ;
+  for (let z = 1; z < N - 1; z++) {
+    for (let x = 1; x < N - 1; x++) {
+      const i = z * N + x;
+      if (!mask[i] || (mask[i - 1] && mask[i + 1] && mask[i - N] && mask[i + N])) continue;
+      for (let k = 0; k < 4; k++) {
+        const j = k === 0 ? i - 1 : k === 1 ? i + 1 : k === 2 ? i - N : i + N;
+        if (mask[j] || D[j] < 0.03) continue; // (a real stream, not a film of rain)
+        const flow = D[j] * Math.hypot(VX[j], VZ[j]);
+        if (flow > 0.002) FR[i] += flow;
+      }
+    }
+  }
+  const fan = boxBlur(FR, N, 4);
+  for (let z = 1; z < N - 1; z++) {
+    for (let x = 1; x < N - 1; x++) {
+      const i = z * N + x;
+      if (!mask[i]) { SAL[i] = 1; continue; }
+      const edge = Math.min(x, z, N - 1 - x, N - 1 - z) < 4 ? 0.2 : 0;
+      SAL[i] += (1 - SAL[i]) * (0.006 + edge) - Math.min(0.6, fan[i] * 60) * SAL[i];
+      if (SAL[i] < 0) SAL[i] = 0;
+    }
+  }
+  // (mixing with the neighbours)
+  const sb = boxBlur(SAL, N, 1);
+  for (let i = 0; i < n; i++) if (mask[i]) SAL[i] += (sb[i] - SAL[i]) * 0.5;
+
+  // --- Plankton, oxygen -------------------------------------------------------------------
+  // Light: spring and summer (phase 0 is the spring equinox)
+  const ph = seasonParams.enabled ? seasonParams.phase : 0.2;
+  const light = seasonParams.enabled ? 0.25 + 0.75 * Math.max(0, Math.sin(2 * Math.PI * (ph + 0.05))) : 0.8;
+  const PO = world.pollution, HL = world.marineHealth, M = world.marine;
+  for (let i = 0; i < n; i++) {
+    if (!mask[i]) { PL[i] = 0; OX[i] = 1; continue; }
+    // Nutrients: pollutants (sewage, fertiliser), river water, a little upwelling everywhere
+    const nutrient = PO[i] + 0.4 * (1 - SAL[i]) + 0.03;
+    // Sea beds take up nutrients first (and shade nothing: they compete with the plankton)
+    const bed = M && M[i] >= 0 && HL ? HL[i] * (M[i] >= 1 && M[i] <= 3 ? 1 : 0) : 0; // (shallow beds: they take up the nutrients)
+    const warmHere = Math.max(0, Math.min(1, (T[i] - 6) / 14));
+    const grow = p.blooms * 0.12 * light * (0.3 + warmHere) * nutrient * (1 - 0.6 * bed) * (1 - (ICE[i] > 0.3 ? 0.8 : 0));
+    PL[i] += grow * (1 - PL[i] / 3) - 0.04 * PL[i];
+    if (PL[i] < 1e-4) PL[i] = 0;
+    // Oxygen: a dying bloom rots and uses it up, worst in deep, sheltered, warm water where it
+    // doesn't mix back in; open, wavy water and winter storms stir oxygen back down
+    const depth = sea - H[i];
+    // (far up a long inlet, like Hood Canal, the deep water is rarely flushed out to sea)
+    const remote = dist[i] < 1e9 ? Math.min(1, Math.max(0, (dist[i] - N * 0.08) / (N * 0.3))) : 1;
+    const still = Math.max(remote, 1 - Math.min(1, exposure[i] * 2.5)) * Math.min(1, Math.max(0, depth - 3) / 8);
+    const use = 0.05 * Math.max(0, PL[i] - 0.5) * still * (0.5 + warmHere);
+    const mixIn = 0.03 + 0.15 * (1 - still) + 0.1 * SW[i] + 0.05 * Math.max(0, WIND[i] - 0.6);
+    OX[i] += -use + (1 - OX[i]) * mixIn;
+    OX[i] = OX[i] < 0 ? 0 : OX[i] > 1 ? 1 : OX[i];
+  }
+  const pb = boxBlur(PL, N, 1);
+  for (let i = 0; i < n; i++) if (mask[i]) PL[i] += (pb[i] - PL[i]) * 0.3;
+
+  // --- Sea ice ----------------------------------------------------------------------------
+  // Seawater freezes at about −1.9 °C, fresher water closer to 0 °C; sheltered, shallow water
+  // freezes first and open, wavy water last
+  for (let i = 0; i < n; i++) {
+    if (!(H[i] < sea)) { ICE[i] = 0; continue; }
+    const depth = sea - H[i];
+    const freeze = -1.9 * SAL[i];
+    const shelter = 1 - Math.min(1, exposure[i] * 1.6);
+    const cold = freeze + 0.8 * shelter + 0.5 * (1 - Math.min(1, depth / 10)) - (Number.isNaN(T[i]) ? Tw : T[i]); // > 0: freezing
+    if (cold > 0) ICE[i] = Math.min(1.5, ICE[i] + 0.01 * Math.min(2, cold) * (0.4 + shelter) * (1 - 0.7 * SW[i]));
+    else ICE[i] = Math.max(0, ICE[i] + 0.02 * Math.max(-3, cold));
+  }
+
+  // --- Storm surge and storm waves --------------------------------------------------------
+  maybeGreatStorm(world);
+  SW.fill(0);
+  let surgeT = 0, great = false;
+  for (const st of world.storms || []) {
+    const s = (st.strength || 0) * p.surge;
+    if (s <= 0) continue;
+    const r = st.r * 1.6, x0 = Math.max(1, Math.floor(st.x - r)), x1 = Math.min(N - 2, Math.ceil(st.x + r));
+    const z0 = Math.max(1, Math.floor(st.z - r)), z1 = Math.min(N - 2, Math.ceil(st.z + r));
+    let overSea = 0, cells = 0;
+    for (let z = z0; z <= z1; z += 2) for (let x = x0; x <= x1; x += 2) {
+      const dd = Math.hypot(x - st.x, z - st.z) / r;
+      if (dd >= 1) continue;
+      const i = z * N + x, w = (1 - dd * dd) * s;
+      cells++;
+      if (mask[i]) overSea++;
+      // Big waves under the storm (spread to the skipped neighbours too)
+      SW[i] = Math.max(SW[i], w); SW[i + 1] = Math.max(SW[i + 1], w); SW[i + N] = Math.max(SW[i + N], w); SW[i + N + 1] = Math.max(SW[i + N + 1], w);
+    }
+    // (a great storm piles the sea up far higher)
+    if (cells) surgeT += (st.great ? 3.2 : 1.2) * s * (overSea / cells);
+    if (st.great) great = true;
+  }
+  // (a surge raised by hand with the Storm surge tool ebbs away more slowly than it came)
+  world.surge = (world.surge || 0) + (Math.min(great ? 5 : 2.5, surgeT) - (world.surge || 0)) * (surgeT > 0.05 ? 0.08 : 0.03);
+  world.greatStormActive = great;
+  // Waves whipped up by hand (the Waves tool) die down over a while
+  const WB = world.waveBoost;
+  for (let i = 0; i < n; i++) if (WB[i] > 0) { if (WB[i] > SW[i]) SW[i] = WB[i]; WB[i] = WB[i] < 0.01 ? 0 : WB[i] * 0.97; }
+
+  // --- Surf: breaking waves along exposed shores -----------------------------------------
+  for (let z = 1; z < N - 1; z++) {
+    for (let x = 1; x < N - 1; x++) {
+      const i = z * N + x;
+      SURF[i] = 0;
+      if (!mask[i] || ICE[i] > 0.3) continue;
+      // Within a couple of cells of the shore
+      const m1 = !mask[i - 1] + !mask[i + 1] + !mask[i - N] + !mask[i + N];
+      const m2 = (x > 1 && !mask[i - 2]) + (x < N - 2 && !mask[i + 2]) + (z > 1 && !mask[i - 2 * N]) + (z < N - 2 && !mask[i + 2 * N]);
+      const shore = m1 + m2;
+      if (!shore) continue;
+      // (waves come from the wind: sheltered lee shores are calm)
+      SURF[i] = Math.min(1, (exposure[i] * 1.6 * Math.min(1.4, WIND[i]) + SW[i] * 1.5) * Math.min(1, shore / 2));
+    }
+  }
+}
