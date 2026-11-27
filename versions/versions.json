@@ -100,5 +100,10 @@
     "date": "2026-11-26",
     "notes": "Test version: faster (about a third quicker frames), rivers that form by themselves and join into bigger rivers",
     "prerelease": true
+  },
+  {
+    "version": "1.6.0",
+    "date": "2026-11-27",
+    "notes": "Rivers fed by their catchments (tributaries joining into bigger, winding rivers) and faster frames"
   }
 ]
