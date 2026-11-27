@@ -22,6 +22,7 @@ import { CurrentPaths } from './render/currentPaths.js';
 import { ecoParams, ecologyStep } from './sim/ecology.js';
 import { fireFollowerStep } from './sim/fireFollowers.js';
 import { fungiStep } from './sim/fungi.js';
+import { riverStep, riverParams } from './sim/rivers.js';
 import { dynamicsStep, dynParams } from './sim/dynamics.js';
 import { WildlifeMarkers } from './render/wildlife.js';
 import { recordStats } from './sim/stats.js';
@@ -85,6 +86,7 @@ class App {
     this.windParams = windParams;
     this.ecoParams = ecoParams;
     this.dynParams = dynParams;
+    this.riverParams = riverParams;
     this.civParams = civParams;
     this.groundwaterParams = groundwaterParams;
 
@@ -891,6 +893,7 @@ class App {
       if (this.frame % 30 === 28) fireFollowerStep(this.world); // (fireweed and fire poppies on recent small burns)
       if (this.frame % 30 === 18) drownedGrassStep(this.world); // (grassland the sea covers becomes beach)
       if (this.frame % 30 === 22) fungiStep(this.world); // (fungal diversity, and honey-mushroom root rot)
+      if (this.frame % 30 === 24) riverStep(this.world); // (rivers fed by their catchments)
       if (this.frame % 30 === 12) { // (floods, quakes, beetles, trade and the rest, sim/dynamics.js)
         const news = dynamicsStep(this.world);
         if (news.length) this.setSaveStatus(news[news.length - 1]);

@@ -104,6 +104,8 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
   [mods/example-mod.js](mods/example-mod.js).
 - **Fire-resistant trees** (giant sequoia, coast redwood, cork oak) live through smaller fires, gain
   ground where fire returns, and grow far taller (tree heights in the inspector).
+- **Rivers** form by themselves wherever enough land drains: tributaries joining into bigger rivers
+  downstream, carving winding channels (Land events: Catchment rivers, River density, River flow).
 - **World dynamics**, each a setting: river floods and town levees, meandering rivers, debris flows
   off burn scars, starved beaches; drought cycles, earthquakes and tsunamis, thawing permafrost,
   bark beetle outbreaks (overlay *Permafrost*); wetland drainage, seed dispersal, invasive animals, crop pests; trade

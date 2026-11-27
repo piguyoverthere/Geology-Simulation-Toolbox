@@ -65,6 +65,11 @@ export function waterStep(world) {
       if (world.inBounds(sx + dx, sz + dz)) D[(sz + dz) * N + sx + dx] += (s.rate * dt) / 9;
     }
   }
+  // (rivers fed by their catchments, sim/rivers.js: each river cell gets the rain draining into it)
+  if (world.riverFeed && world.riverInflow && world.riverInflow.length === n) {
+    const RI = world.riverInflow, k = world.riverFeed * dt;
+    for (let i = 0; i < n; i++) if (RI[i] > 0) D[i] += RI[i] * k;
+  }
   const sea = world.seaLevel;
   // The sea holds its surface at sea level (which rises and falls with the tide): flooding the
   // intertidal zone at high tide and letting it drain at low tide
@@ -254,7 +259,8 @@ export function waterStep(world) {
       const still = 1 - Math.min(1, world.flowAvg[i] / 0.8); // (averaged over time, as above)
       const level = Math.max(flat * flat, 0.35 * still);
       const sink = infK * level * (0.45 + 0.75 * (1 - SM[i])) * (0.6 + 0.6 * V[i]) * (D[i] < 1.5 ? 1 : 1.5 / D[i])
-        * (world.paved ? 1 - world.paved[i] : 1); // (pavement seals the ground: rain runs straight off)
+        * (world.paved ? 1 - world.paved[i] : 1) // (pavement seals the ground: rain runs straight off)
+        * (world.riverInflow && world.riverInflow[i] > 0 ? 0.15 : 1); // (a river's bed is already saturated: it hardly soaks in)
       const took = Math.min(D[i] * 0.08, sink); // (at most 8% of it a step: no blinking out)
       D[i] -= took;
       // The water that soaks in wets the soil (for the plants), the rest drains on down

@@ -1194,6 +1194,9 @@ export class Toolbox {
     const app = this.app, D = app.dynParams;
     const land = this.section('Land events');
     land.append(
+      toggle('Catchment rivers', app.riverParams, 'enabled', 'Rain on the hills runs downhill and gathers: every slope with enough land draining through it carries a stream, and streams join as tributaries into rivers that grow bigger downstream, carving their channels and winding across flat ground. The flow follows the season\'s rain.', this),
+      slider('River density', app.riverParams, 'density', 0.2, 4, 0.1, 'How many rivers: higher, and streams start from smaller catchments (more, smaller tributaries); lower, only the biggest valleys carry rivers.', this),
+      slider('River flow', app.riverParams, 'flow', 0, 4, 0.1, 'How much water the rivers carry (and so how fast they carve their channels).', this),
       toggle('River floods', D, 'floods', 'In storms and wet spells, floods now and then come down the rivers for some days, spilling over the banks onto the low ground beside them.', this),
       slider('Flood frequency', D, 'floodRate', 0, 3, 0.1, 'How often floods come.', this),
       toggle('Town levees', D, 'levees', 'Towns of 600 or more wall their river banks with levees, which keep ordinary floods out; a big flood can overtop a levee and breach it, flooding the town behind.', this),

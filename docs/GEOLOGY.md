@@ -1653,6 +1653,32 @@ basalt boulders. The wet lower shore below high tide is darker, so the tide line
 all 1,467 bare cells in reach of the waves (1,369 with a surge of 2) came out as shingle or sand
 beach, apart from a little dune sand just above the waves' reach; none came out Barren.
 
+## Rivers fed by their catchments (`src/sim/rivers.js`)
+
+Rain on the hills runs downhill and gathers, so rivers form wherever enough land drains: a network
+of small streams high up that join as tributaries into bigger rivers below. (Before, rivers came
+only from rain you turned on, storms and springs you placed, so most land had none.)
+- **The drainage:** every so often the land's drainage is worked out. Its hollows are filled to their
+  spill points first (a priority flood in from the sea and the map's edges), so water routes through
+  lakes and on downhill. Then each cell passes the rain falling on it (world.precip), and everything
+  draining through it, to its lowest neighbour, highest ground first. world.drainArea is how much
+  rain drains through each cell.
+- **The river network:** cells with more than about 120 cells' worth of rain draining through them
+  (**River density** 1; higher, and streams start from smaller catchments).
+- **The flow:** each river cell is fed the rain of the land that drains straight into it from off
+  the network (world.riverInflow), so the flow builds downstream as tributaries join. It's scaled by
+  **River flow** and by the season's rain, less in a dry summer.
+- **Carving:** the water simulation carries this water, and where it runs steadily it carves its
+  channel. On flat ground the meanders setting makes the river wind. River beds soak away only a
+  sixth as fast as other ground, because they're saturated.
+
+Settings: **Catchment rivers** (on), **River density** and **River flow**, at the top of Land events.
+In a test on a dry mountain map with no springs and no rain set, 1,145 cells formed the network,
+the largest catchment held 3,035 cells' worth of rain, and about 300 frames in, 3,771 cells carried
+flowing water where there had been none. With longer running the streams joined into a winding
+river, with lakes filling the valley hollows along it. The drainage takes about 40 ms to work out,
+every 20 steps.
+
 ## World dynamics (`src/sim/dynamics.js`)
 
 Sixteen processes that make the world change and surprise, each a setting. They run every 30 frames,
