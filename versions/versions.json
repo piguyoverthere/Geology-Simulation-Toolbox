@@ -94,5 +94,11 @@
     "version": "1.5.2c",
     "date": "2026-11-26",
     "notes": "Graph readouts that follow the pointer"
+  },
+  {
+    "version": "1.6.0-beta.1",
+    "date": "2026-11-26",
+    "notes": "Test version: faster (about a third quicker frames), rivers that form by themselves and join into bigger rivers",
+    "prerelease": true
   }
 ]
