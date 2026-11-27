@@ -155,7 +155,15 @@ class App {
     const container = document.getElementById('viewport');
     this.container = container;
     const gl = new THREE.WebGLRenderer({ antialias: true });
-    gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Resolution (View settings): a share of the screen's full sharpness, remembered on this device
+    this.display = { resolution: 100 };
+    try { const r = parseFloat(localStorage.getItem('geo.resolution')); if (r >= 25 && r <= 100) this.display.resolution = r; } catch { /* storage blocked */ }
+    this.applyResolution = () => {
+      gl.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2) * this.display.resolution / 100);
+      gl.setSize(container.clientWidth, container.clientHeight);
+      try { localStorage.setItem('geo.resolution', String(this.display.resolution)); } catch { /* storage blocked */ }
+    };
+    gl.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2) * this.display.resolution / 100);
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
     gl.toneMapping = THREE.ACESFilmicToneMapping;

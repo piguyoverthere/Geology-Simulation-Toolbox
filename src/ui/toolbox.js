@@ -231,6 +231,12 @@ export class Toolbox {
         'How often the marine layer (sea fog) rolls in over the sea and coastal lowlands, mostly in summer when the land behind is warm. Needs the sea on. The Puget Sound preset sets it high.', this, () => app.climateChanged()),
     );
 
+    // --- Display -----------------------------------------------------------------------------
+    const dp = this.section('Display', false);
+    dp.append(
+      slider('Resolution %', app.display, 'resolution', 25, 100, 5, 'How sharply the 3D view is drawn, as a share of your screen\'s full resolution (100 = full, the default). Slide it down for smoother running on a slow computer: the view gets blurrier but the simulation is the same. Remembered on this device.', this, () => app.applyResolution()),
+    );
+
     // --- Drawings ----------------------------------------------------------------------------
     const dr = this.section('Drawings', false);
     dr.append(

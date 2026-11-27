@@ -291,6 +291,9 @@ seasons, weather), **Sea** (ocean and coast) and **Life** (wildlife).
   coast & ocean (shore types, dunes, mangroves, ocean biomes), water quality, wind speed, wildlife, forest density, forest health, topographic map (elevation bands with contour lines, index contours every fifth), temperature,
   precipitation, snow depth, glacier ice, deciduous trees, wetness, soil chemistry, soil depth, bare rock, rock type, rock hardness, erosion/deposition, slope) with a matching legend, and a **Show vegetation** switch that
   strips plants away to reveal bare ground and bedrock.
+- **Display**: **Resolution %** (100 = your screen's full sharpness, the default; slide down to 25
+  for smoother running on a slow computer: a blurrier view, the same simulation; remembered on this
+  device).
 - **Drawings**: shape (path or polygon), colour, labels on/off, the list of drawn shapes. A polygon
   can be made a **protected zone** (🛡): no towns, farms, industry or new roads inside it.
   **Show polygon edges** (off: polygons and parks drawn as their fill alone, no outline or corner
