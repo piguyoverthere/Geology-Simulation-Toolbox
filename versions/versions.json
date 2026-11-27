@@ -89,5 +89,10 @@
     "version": "1.5.2b",
     "date": "2026-11-26",
     "notes": "Stop great storms; automatic full screen"
+  },
+  {
+    "version": "1.5.2c",
+    "date": "2026-11-26",
+    "notes": "Graph readouts that follow the pointer"
   }
 ]
