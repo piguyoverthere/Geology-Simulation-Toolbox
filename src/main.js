@@ -870,12 +870,12 @@ class App {
       if (this.frame % 10 === 0) {
         if (this.sim.vegetation) vegetationStep(this.world); // also refreshes temperature
         else { updateTemperature(this.world); updatePrecip(this.world); updateSnow(this.world, 1, true); } // terrain may have changed
-        phenologyStep(this.world);
-        glacierBalance(this.world);
-        coastStep(this.world);
         if (seasonParams.enabled || this.seasonWasOn) this.world.dirty = true;
         this.seasonWasOn = seasonParams.enabled;
       }
+      // (the other every-ten-frames steps each on a frame of its own, so no one frame carries them all)
+      if (this.frame % 10 === 1) { phenologyStep(this.world); glacierBalance(this.world); }
+      if (this.frame % 10 === 6) coastStep(this.world);
       // Look for slopes about to fail a few times a second (scaled with sim speed)
       if (this.frame % 10 === 5 && this.sim.vegetation) compositionStep(this.world);
       if (this.frame % 10 === 3) seaStep(this.world);

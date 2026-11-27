@@ -250,7 +250,9 @@ export class TerrainRenderer {
     let anyLava = false;
     // Colouring is the expensive part. On big maps recolour an interleaved share of the rows each
     // frame (the full map every few frames); heights, normals and water still update every frame.
-    const stride = Math.min(4, Math.ceil((N * N) / 70000));
+    // (colours change slowly, so on all but small maps a share of the rows is recoloured each frame:
+    // a half at 192, a third at 256, a quarter from 384 up; the whole map every few frames)
+    const stride = N * N >= 140000 ? 4 : N * N >= 48000 ? 3 : N * N >= 30000 ? 2 : 1;
     // Topographic map: elevation range and a round contour interval (~15–30 contours over the relief)
     let topoLo = 0, topoInt = 1, topoSea = sea;
     if (mode === 'topo') {

@@ -19,6 +19,7 @@ const DX = [-1, 1, 0, 0, -1, 1, -1, 1];
 const DZ = [0, 0, -1, 1, -1, -1, 1, 1];
 const OPP = [1, 0, 3, 2, 7, 6, 5, 4];
 const PIPE = [0.8, 0.8, 0.8, 0.8, 0.2, 0.2, 0.2, 0.2];
+const OUT = new Float64Array(8), OFF = new Int32Array(8); // (scratch: this step's outflows, neighbour offsets)
 
 export const waterParams = {
   rain: 0,             // global rainfall per second (0 = off)
@@ -79,8 +80,11 @@ export function waterStep(world) {
   const k = dt * p.gravity;
   const drain = world.edgeDrain;
   const damp = p.damping;
-  const out = [0, 0, 0, 0, 0, 0, 0, 0];
+  const out = OUT;
+  // (each neighbour's offset in the grid, for the cells away from the map's edge: no bounds checks)
+  for (let d = 0; d < 8; d++) OFF[d] = DZ[d] * N + DX[d];
   for (let z = 0; z < N; z++) {
+    const edgeRow = z === 0 || z === N - 1;
     for (let x = 0; x < N; x++) {
       const i = z * N + x, f = i * 8;
       // A dry cell has nothing to send (most of the map, most of the time): skip the 8 pipes
@@ -90,6 +94,16 @@ export function waterStep(world) {
       // creep and settle instead of sloshing to and fro)
       const dampI = D[i] < 0.2 ? damp * (0.85 + 0.75 * D[i]) : damp;
       let total = 0;
+      if (!edgeRow && x > 0 && x < N - 1) {
+        for (let d = 0; d < 8; d++) {
+          const j = i + OFF[d];
+          const q = Math.max(0, F[f + d] * dampI + k * PIPE[d] * (hi - B[j] - D[j]));
+          out[d] = q; total += q;
+        }
+        const s = total * dt > D[i] && total > 0 ? D[i] / (total * dt) : 1;
+        for (let d = 0; d < 8; d++) F[f + d] = out[d] * s;
+        continue;
+      }
       for (let d = 0; d < 8; d++) {
         const nx = x + DX[d], nz = z + DZ[d];
         // Off-map neighbours are either walls (no flow) or a drop to ground level (water leaves)
@@ -107,10 +121,17 @@ export function waterStep(world) {
 
   // 3. Update water depth and derive velocity (average of the in- and outflow vectors)
   for (let z = 0; z < N; z++) {
+    const edgeRow = z === 0 || z === N - 1;
     for (let x = 0; x < N; x++) {
       const i = z * N + x, f = i * 8;
       let inflow = 0, outflow = 0, fx = 0, fz = 0;
-      for (let d = 0; d < 8; d++) {
+      if (!edgeRow && x > 0 && x < N - 1) {
+        for (let d = 0; d < 8; d++) {
+          const o = F[f + d], q = F[(i + OFF[d]) * 8 + OPP[d]];
+          outflow += o; inflow += q;
+          fx += (o - q) * DX[d]; fz += (o - q) * DZ[d];
+        }
+      } else for (let d = 0; d < 8; d++) {
         const o = F[f + d];
         outflow += o; fx += o * DX[d]; fz += o * DZ[d];
         // Water arriving from the neighbour in direction d travels the opposite way (into this cell)
@@ -227,6 +248,7 @@ export function waterStep(world) {
   // soil, faster into dry soil and under plants, so floods drain away. On slopes water is moving on
   // downhill, and deep rivers and lakes barely notice, so the rivers keep their water.
   const SM = world.soil, V = world.vegetation, infK = p.infiltration * dt;
+  if (!world.flowAvg || world.flowAvg.length !== n) world.flowAvg = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     if (D[i] > 0.05) W[i] = now;
     // (still water, lakes and ponds, evaporates at the full rate, boosted up high; running water in
@@ -240,7 +262,6 @@ export function waterStep(world) {
     // only the standing water itself, never the soil, so the plants don't dry out)
     // (how still the water here has been lately: its flow speed averaged over the last few
     // seconds, so a pool doesn't switch between "still" and "flowing" from one step to the next)
-    if (!world.flowAvg || world.flowAvg.length !== n) world.flowAvg = new Float32Array(n);
     const FA = world.flowAvg;
     { const vx = world.velX[i], vz = world.velZ[i]; FA[i] += (Math.sqrt(vx * vx + vz * vz) - FA[i]) * 0.02; }
     if (p.stagnantEvap !== 1 && D[i] > 0.02 && B[i] >= sea) {

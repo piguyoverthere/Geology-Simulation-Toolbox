@@ -1653,6 +1653,28 @@ basalt boulders. The wet lower shore below high tide is darker, so the tide line
 all 1,467 bare cells in reach of the waves (1,369 with a surge of 2) came out as shingle or sand
 beach, apart from a little dune sand just above the waves' reach; none came out Barren.
 
+## Performance (1.6)
+
+Measured on a 256×256 map with a town, every feature on:
+
+| | Before | After |
+|---|---|---|
+| Whole frame | 73 ms on average | 49 ms (median 46) |
+| Water, one substep | 5.9 ms | 4.5 ms |
+| Map recolouring | 26.4 ms | 9.4 ms |
+| Water substeps a frame | about 4–5 of 6 (cut by the time limit) | all 6 |
+
+- **Map colours:** a share of the rows is recoloured each frame, not the whole map: half at 192×192,
+  a third at 256×256, a quarter from 384×384 up. Before, 256×256 recoloured everything every frame.
+  Colours change slowly, so it looks the same.
+- **Water:** for cells away from the map's edge, the step skips the edge checks on all 8 neighbours
+  and uses precomputed offsets. Its scratch values are a typed array, and a check that ran once per
+  cell now runs once per step. It calculates the same flows.
+- **Spread out:** the vegetation, seasonal leaves and glacier, and coast steps (each run every ten
+  frames) now each have a frame of their own instead of all landing on one.
+
+No feature was removed or changed.
+
 ## Rivers fed by their catchments (`src/sim/rivers.js`)
 
 Rain on the hills runs downhill and gathers, so rivers form wherever enough land drains: a network
