@@ -49,6 +49,7 @@ export function thermalStep(world, region = null, strength = 1) {
       // Glacier ice buttresses the slopes it fills (its own erosion shapes the bed)
       if (IC && IC[i] > 0.3) continue;
       if (world.builtUp(i)) continue; // (kept ground doesn't slump: walls and banks hold it)
+      if (world.seaCliff && world.seaCliff[i]) continue; // (a sea cliff stands sheer: the waves clear its foot, sim/coast.js)
       const h = H[i];
       // Harder rock stands steeper (about 0.85x to 1.3x the base talus slope)
       // Roots also bind slopes: forested ground holds up to ~30% steeper than bare ground

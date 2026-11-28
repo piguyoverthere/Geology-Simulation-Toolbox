@@ -1398,10 +1398,16 @@ A Civilization setting (**Climate change**, with an **Emissions** slider). Green
 (world.carbonPPM) starts at 280 ppm. The towns add to it: burning (1.5 × 10⁻⁶ ppm a person a town
 step), industry (4 × 10⁻⁴ a cell) and wildfire (2 × 10⁻⁴ a burning cell); the sea and the land take
 0.02% of the excess back up each step. The climate warms towards 3 °C for every doubling of the gas,
-but slowly (0.3% of the way each step), and every temperature on the map includes the warming
-(climateParams.warming), so snow lines and tree lines climb, glaciers shrink, species move uphill and
-the sea warms. While it's warmer the sea rises (0.00025 a step for each degree), and the rise is
-applied to the sea level a little at a time. Switched off, the warming fades away. The *Greenhouse
+but slowly (0.3% of the way each step). Since 1.6.0b the warming moves the climate settings
+themselves rather than a hidden offset: each step's warming is added to the **Temperature** slider
+(climateParams.seaTemp), **Evaporation** rises 7% and **Global rain** 3% (where there is any) a
+degree, and world.warmed keeps the total. So snow lines and tree lines climb, glaciers shrink,
+species move uphill and the sea warms, and you can see it on the sliders (and move them back
+yourself). While it's warmer the sea rises (0.00025 a step for each degree), applied to the sea level
+setting a little at a time. Switched off, it stops moving them: they stay where it left them. A save
+from before carries its old warming over onto the Temperature slider when it's opened. In a test
+with the gas held at 560 ppm, 400 steps moved the Temperature slider from 22.0 to 27.1 °C and
+Evaporation from 0.020 to 0.029. The *Greenhouse
 gas* and *Warming* graphs (Climate) track it, and the menu bar shows the warming. In a test, a city
 of 8,000 with 200 cells of industry raised the gas from 280 to 401 ppm and the climate 1.28 °C in
 three years (at about 500 town steps a year); with its emissions then stopped, the warming went on
@@ -1501,6 +1507,16 @@ stays that kind of beach on the map, in the biomes and in the inspector ("Drowne
 there can't grow past what the beach allows: bare at first, then dune grass or salt marsh, and only
 slowly the land it was. At this map's average rain (0.39, 3,600 frames a year) it looks like
 grassland again after about 55 years and has fully recovered after about 90.
+
+**Reclaimed only as the rain washes the salt out** (1.6.0b, world.beachSalt). Ground the sea covers
+is soaked with salt (1 each time it's under water). Above high tide the rain leaches it out, 0.0004
+a step × the place's rain × the season's (none in a dry spell), and only the freshened beach is
+taken back: it shrinks by 0.00006 × rain × (1 − salt)² a step, and its plants are held back by the
+salt as well as the sand. So in wet country the salt is gone after a few thousand steps and the
+beach then greens over very slowly; in dry country a drowned shore stays a salt-crusted beach. In a
+test (drowned-land steps, every 30 frames): after 3,000 steps the wet sites' salt was down to 0.16
+and the dry sites' to 0.79, the beach not yet shrinking; after 9,000 the wet sites were salt-free and
+28% reclaimed, the dry sites still 99% beach.
 
 In a test, the sea was raised 3 over 3,603 cells of land and then lowered again. All 3,603 became
 beach: 2,317 of grass and scrub, 977 of bare ground and 309 of forest. On that map's hard rock most
@@ -1818,6 +1834,70 @@ Every town grows a downtown out from its centre (Civilization: **Town centres**,
 
 In a test, a town held at 5,000 people grew a centre of 61 cells (its target 62) in 15 town steps,
 every cell of it fully paved.
+
+## Cliffs, sea stacks and wave-cut islands (`cliffStep`, `src/sim/coast.js`)
+
+Waves don't grade every coast into a sloping beach. Where the land rises from the sea they cut a
+notch along its foot at the waterline (world.notch) until the rock above, undercut, falls: the cell
+is cut down to a wave-cut platform just under low tide and the coast steps back a cell. A rising
+coast cut back like this becomes a sheer cliff as tall as the land behind it, the way the red
+sandstone of the Bay of Fundy or the chalk of Dover stands.
+
+- **Which stretches go to cliff**: land beside open water with high ground within two cells (1.5
+  above high tide) and little sand at its foot; then the coast's character, a smooth pattern ~22
+  cells across (75%), the rock's hardness (25%) and the height (up to +0.25) must pass 0.42. So
+  cliffs and beaches alternate along a coast, and low, sandy shores stay beaches.
+- **How fast**: 0.006 × Cliff cutting × the wave-erosion setting (÷ its default) × exposure × (1.25 −
+  0.6 × hardness) × (1 + 3 × storm waves) × (1 + 0.35 for each extra side open to the sea) per coast
+  step; a cell falls when its notch reaches 1.
+- **Necks** with the sea on both sides are cut 3× as fast, so headlands break off into islands.
+- **Sea stacks**: knots of tougher, less jointed rock (a fixed small-scale pattern, threshold 0.74 −
+  0.08 × Sea stacks & islands) are cut 20× slower, so the cliff retreats past them and leaves them in
+  the sea as stacks and little islands, trees and all, until they're undercut too.
+- **Standing sheer**: cells on the cliff face (world.seaCliff) are left alone by thermal creep and
+  landslides; the waves clear their foot. They show as the *Sea cliff* biome where bare.
+- Fallen rock leaves boulders and shingle at the foot and clouds the water; big falls (over 22) show
+  on the seismograph.
+
+In a test on a rolling-hills map (Cliff cutting 3): 813 cliff cells marked, 675 falls in about
+1,300 frames, the bays' shores turned to dark sheer faces under green tops, and 20-odd 1–2-cell
+stacks standing 2–3 above the sea. At the default (1) the first falls came after ~500 frames.
+
+## Breakwaters (`buildBreakwater`, `src/sim/civilization.js`)
+
+A coastal town of 500+ with a built-up waterfront (4+ quays) piles long mounds of boulders (land use
+14) out at sea to shelter its harbour: up to 1 + pop/2,500 of them (× **Breakwaters**, at most 6),
+8% of town steps × the setting. Each lies 6–16 cells out from the town's quays and docks, parallel
+to the shore (the direction of open sea is the mean of the sea cells around the town), detached (no
+land within 3 cells), in 1.2–14 deep water; a second and third are set off to either side. The crest
+is two cells wide, 18–48 long, a little above high tide (sea + half the tide range + 1.1), with a gap
+every 13 for the tide; under it a skirt of boulders slopes down under the water. The waves break on
+it: the water up to a dozen cells round it is sheltered (exposure × up to 0.25), so the shore behind
+erodes less and sand settles there, building the beach out. Breakwaters are kept ground: they don't
+erode, slump or get cleared as stray spikes, and their boulders stay after their town is gone.
+
+In a test, three were built off a bay's shore (33 cells); the wave exposure at the shore behind fell
+from 0.68 to 0.32.
+
+## Daily wind (`dailyWind`, `src/sim/wind.js`)
+
+Every couple of days (a new spell of weather) the wind is drawn afresh: it veers off the prevailing
+direction by a random ±22° × **Wind variability** (one spell in ten it comes from anywhere), and its
+strength is the prevailing one × e^(±0.35 × variability), between 0.15 and 2.2, 15% windier in
+midwinter. It turns to the new wind over a few steps. The wind field (fetch and wind shadows) is
+traced again when the direction has moved 15°, on every other cell on big maps (about 10 ms on a 256
+map); strength just scales it. Waves, surf and sea currents, spray, wind erosion, and the clouds, fog
+and smoke on screen follow it; the rain still comes mostly on the prevailing wind.
+
+## Seismograph (`src/sim/seismo.js`, `src/ui/seismograph.js`)
+
+A window at the bottom right of the map. Every shock is logged with a magnitude (world.quakeLog,
+saved, the last 200): earthquakes (Land events, M 5–8, tsunamis marked), fault slips (5 + log of the
+slip), eruptions (3 + 1.5 × the blast × √size) and their explosions, landslides (by volume, up to
+5.5) and big cliff falls. The trace scrolls like a drum recorder: a faint background hum, a steady
+volcanic tremor while anything erupts, the slow microseism of storm waves on the coast, and each
+shock as a burst ten times bigger a magnitude (squashed to fit). The latest eight shocks are listed;
+click one to turn the camera to it.
 
 ## Built-up waterfronts (`buildQuay`, `buildDock`, `waterfrontSprawl`)
 

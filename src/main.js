@@ -28,6 +28,8 @@ import { WildlifeMarkers } from './render/wildlife.js';
 import { recordStats } from './sim/stats.js';
 import { groundwaterStep, groundwaterParams } from './sim/groundwater.js';
 import { climateChangeStep } from './sim/climateChange.js';
+import { seismoSample } from './sim/seismo.js';
+import { Seismograph } from './ui/seismograph.js';
 import { carbonStep } from './sim/forestCarbon.js';
 import { pollinatorStep } from './sim/pollinators.js';
 import { recordProbes } from './sim/probes.js';
@@ -132,6 +134,7 @@ class App {
     this.toolbox = new Toolbox(document.getElementById('toolbox'), document.getElementById('toolbar'), this);
     this.menubar = new MenuBar(this, document.getElementById('menubar'));
     this.biomeChart = new BiomeChart(this, document.getElementById('viewport'));
+    this.seismograph = new Seismograph(this, document.getElementById('viewport'));
     this.saveWarning = new SaveWarning(this, document.getElementById('viewport'));
     if (keep) this.saveWarning.check();
     this.inspector = new Inspector(document.getElementById('inspector'), this);
@@ -207,6 +210,14 @@ class App {
     };
     new ResizeObserver(resize).observe(container);
     resize();
+  }
+
+  /** Turn the camera to look at grid cell (x, z) (keeping its distance and angle). */
+  focusOn(x, z) {
+    const N = this.world.N, i = Math.max(0, Math.min(N - 1, z)) * N + Math.max(0, Math.min(N - 1, x));
+    const p = this.renderer.toWorld(x, z, Math.max(this.world.height[i], this.world.meanSea ?? -1e9));
+    const d = p.clone().sub(this.controls.target);
+    this.controls.target.add(d); this.camera.position.add(d);
   }
 
   setupCursor() {
@@ -872,6 +883,7 @@ class App {
         if (this.climateParams.storms > 0 || this.climateParams.windstorms > 0 || this.world.storms?.length || this.world.holdovers?.length || this.world.gales?.length) weatherStep(this.world, this.weatherDt);
         this.weatherDt = 0;
       }
+      seismoSample(this.world); // (the seismograph's trace)
       if (this.sim.dropletsPerFrame > 0) runDroplets(this.world, this.sim.dropletsPerFrame);
       // Landslides keep pace with the water: faster sim speed means more relaxation per frame
       if (this.sim.thermal && this.frame % 2 === 0) thermalStep(this.world, null, Math.min(1, 0.25 * this.sim.substeps / 6 * 2));
@@ -895,6 +907,8 @@ class App {
         // (climate change: the sea creeps up as it warms, applied a little at a time)
         this.seaRise = (this.seaRise || 0) + climateChangeStep(this.world, this.sim.seaEnabled);
         if (this.seaRise >= 0.05) { this.sim.seaLevel += this.seaRise; this.seaRise = 0; this.applySea(); }
+        // (climate change moves the settings themselves: show it on the sliders)
+        if (Math.abs((this.world.warmed || 0) - (this._shownWarmed || 0)) > 0.02) { this._shownWarmed = this.world.warmed || 0; document.querySelectorAll('[data-sync]').forEach((el) => el.sync()); }
       } // (towns, farms, roads and their pollution)
       if (this.frame % 30 === 25) diseaseStep(this.world); // (tree diseases you have introduced)
       if (this.frame % 30 === 5) steadySiteInputs(this.world); // (year-averaged wetness for the tree species)
@@ -946,6 +960,7 @@ class App {
     this.effects.removeShake(this.camera);
 
     if (this.frame % 6 === 0) { this.monthBar.update(); this.updateSky(); }
+    if (this.frame % 2 === 0) this.seismograph.draw();
     if (this.frame % 15 === 0) {
       const s = this.world.stats();
       this.toolbox.setStats(
@@ -955,7 +970,7 @@ class App {
         `<span class="dep">deposited ${fmt(s.deposited)}</span><span>springs ${this.world.sources.length}</span>` +
         (this.world.events.length ? `<span class="evt">events ${this.world.events.length}</span>` : '') +
         (this.world.storms?.length ? `<span>storms ${this.world.storms.length}</span>` : '') +
-        (climateParams.warming > 0.05 ? `<span class="evt" title="Climate change: warming from the towns' greenhouse gas (${Math.round(this.world.carbonPPM || 280)} ppm)">+${climateParams.warming.toFixed(1)} °C</span>` : ''));
+        ((this.world.warmed || 0) > 0.05 ? `<span class="evt" title="Climate change: warming from the towns' greenhouse gas (${Math.round(this.world.carbonPPM || 280)} ppm), added to the Temperature setting">+${this.world.warmed.toFixed(1)} °C</span>` : ''));
     }
   }
 }

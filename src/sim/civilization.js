@@ -51,6 +51,7 @@ export const civParams = {
   restoration: false, // towns replant native trees on their worn-out, burnt and grazed-out land, and take down dams that block fish runs
   fishLadders: false, // towns give their dams fish ladders, so runs like salmon get past
   townCores: true,    // every town grows a downtown out from its centre, entirely paved
+  breakwaters: 1,     // how readily busy coastal towns pile rock breakwaters out at sea to shelter their harbours (0 = none)
   waterfronts: 1,     // how hard coastal towns build up their waterfronts: quays over the beaches, docks, dense streets behind (0 = only the odd quay)
   wildlifeCrossings: false, // towns build wildlife crossings where their roads cut through animals' ranges
   pesticides: 0.5,   // how much the farms spray: saves some crop from pests, but kills the pollinators on and around the fields
@@ -443,6 +444,82 @@ function buildDock(world, t) {
   }
   if (built) t.docks = (t.docks || 0) + 1;
   return built > 0;
+}
+
+/**
+ * A breakwater: a long mound of boulders (land use 14) piled up from the sea floor out in open
+ * water off a busy waterfront, parallel to the shore and a little above high tide, in segments with
+ * gaps for the water to change through. The waves break on it instead of the harbour: the water
+ * behind is sheltered (sim/coast.js: less wave erosion, sand settles and the beach builds out).
+ */
+export function buildBreakwater(world, t) {
+  const N = world.N, n = N * N, H = world.height, sea = seaOf(world), LU = world.landUse, OW = world.civOwner;
+  const half = 0.5 * coastParams.tideRange;
+  const R = 10 + Math.sqrt(t.pop) / 2;
+  // Which way is open sea from the waterfront: the mean direction to the sea cells around the town
+  let sx = 0, sz = 0, fx = 0, fz = 0, nf = 0;
+  for (let z = Math.max(2, Math.floor(t.z - R)); z <= Math.min(N - 3, Math.ceil(t.z + R)); z++) {
+    for (let x = Math.max(2, Math.floor(t.x - R)); x <= Math.min(N - 3, Math.ceil(t.x + R)); x++) {
+      const i = z * N + x;
+      if (H[i] < sea - half) { sx += x - t.x; sz += z - t.z; }
+      if ((LU[i] === 6 || LU[i] === 13) && OW[i] === t.num) { fx += x; fz += z; nf++; }
+    }
+  }
+  const len0 = Math.hypot(sx, sz);
+  if (!nf || len0 < 1) { t.breakwaters = (t.breakwaters || 0) + 1; return false; }
+  const ux = sx / len0, uz = sz / len0, px = -uz, pz = ux; // (out to sea, and along the shore)
+  // Start from one of the town's quays or docks, a bit to one side for a second, third one
+  const ax = fx / nf, az = fz / nf, k = t.breakwaters || 0;
+  const side = k === 0 ? 0 : (k % 2 ? 1 : -1) * (8 + 6 * Math.floor((k - 1) / 2));
+  for (let d = 6; d <= 16; d++) {
+    const cx = ax + ux * d + px * side, cz = az + uz * d + pz * side;
+    const L = 9 + Math.floor(Math.random() * (5 + Math.min(10, t.pop / 600)));
+    // A crest two cells wide (each stretch joined edge to edge, no diagonal gaps)
+    const cells = [], seg = [];
+    let ok = true;
+    for (let s = -L; s <= L && ok; s++) {
+      for (let o = 0; o <= 1 && ok; o++) {
+        const x = Math.round(cx + px * s * 0.5 + ux * o), z = Math.round(cz + pz * s * 0.5 + uz * o);
+        if (x < 4 || z < 4 || x >= N - 4 || z >= N - 4) { ok = false; break; }
+        const i = z * N + x;
+        if (cells.includes(i)) continue;
+        const depth = sea - H[i];
+        if (depth < 1.2 || depth > 14 || LU[i] || zoneHas(world, i, Z.earthworks)) { ok = false; break; }
+        // (out in the water, detached: no land within a few cells)
+        for (let dz = -3; dz <= 3 && ok; dz++) for (let dx = -3; dx <= 3; dx++) if (H[i + dz * N + dx] >= sea - half && LU[i + dz * N + dx] !== 14) { ok = false; break; }
+        cells.push(i); seg.push(s);
+      }
+    }
+    if (!ok || cells.length < 10) continue;
+    // Piled up in segments (a gap now and then for the tide to flow through), on a skirt of
+    // boulders sloping down under the water either side
+    const top = sea + half + 1.1, crest = [];
+    cells.forEach((i, m) => {
+      const sg = seg[m] + L;
+      if (sg > 3 && sg < 2 * L - 3 && sg % 13 === 12) return;
+      crest.push(i);
+      LU[i] = 14; OW[i] = t.num;
+      H[i] = top + 0.25 * (((i * 2654435761) >>> 0) / 4294967296); world.prevHeight[i] = H[i];
+      world.water[i] = 0; world.vegetation[i] = 0;
+      if (world.marineHealth) world.marineHealth[i] = 0;
+      if (world.silt) world.silt[i] = Math.min(4, world.silt[i] + 0.3);
+    });
+    for (const i of crest) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      const j = i + dz * N + dx;
+      if (LU[j] === 14) continue;
+      const toe = sea - half - 0.5;
+      if (H[j] < toe) { H[j] = toe; world.prevHeight[j] = toe; }
+      for (let ez = -1; ez <= 1; ez++) for (let ex = -1; ex <= 1; ex++) { // (and the skirt's foot)
+        const q = j + ez * N + ex, foot = sea - half - 2;
+        if (LU[q] !== 14 && H[q] < foot) { H[q] = foot; world.prevHeight[q] = foot; }
+      }
+    }
+    t.breakwaters = k + 1;
+    world.dirty = true;
+    return true;
+  }
+  t.breakwaters = k + 1; // (nowhere suitable: don't keep trying)
+  return false;
 }
 
 /**
@@ -1437,7 +1514,7 @@ export function civStep(world) {
     // (kept ground, and the leftovers of cuttings and quarries: dug ground or right next to it)
     const TF = world.terraform;
     if (!(world.builtUp(i) || TF[i] || TF[i - 1] || TF[i + 1] || TF[i - N] || TF[i + N])) continue;
-    if (world.bridge[i] || (LU[i] >= 5 && LU[i] <= 9)) continue; // (not harbours, quays, dams or channels: built to stand or sink)
+    if (world.bridge[i] || (LU[i] >= 5 && LU[i] <= 9) || LU[i] === 13 || LU[i] === 14) continue; // (not harbours, quays, dams, channels, docks or breakwaters: built to stand out or sink)
     const a = H[i - 1], b = H[i + 1], c = H[i - N], d = H[i + N];
     if (Math.min(a, b, c, d) < sea) {
       // (a scrap of kept ground left standing out in the sea, its surroundings long washed away,
@@ -1474,6 +1551,7 @@ export function civStep(world) {
     }
     if (LU[i] !== 1 && LU[i] !== 10 && FS[i] < 1) FS[i] = Math.min(1, FS[i] + 0.0012); // (fallow ground recovers)
     if (LU[i] === 0 || OW[i] || LU[i] === 3) continue;
+    if (LU[i] === 14) continue; // (a breakwater's boulders stay where they were piled, long after its town)
     if (LU[i] === 1 || LU[i] === 10) { if (LU[i] === 1) markOldField(world, i); LU[i] = 0; continue; } // (fields and plantations go back to the wild)
     P[i] = Math.max(0, P[i] - 0.004);
     if (P[i] <= 0) { LU[i] = 0; world.channel[i] = 0; }
@@ -1644,6 +1722,8 @@ export function civStep(world) {
     // …and a built-up waterfront: docks out into the water, dense streets packed in behind the quays
     if (wf > 0 && (t.quay || 0) >= 4) {
       if ((t.docks || 0) < Math.floor((t.quay || 0) / 6) && Math.random() < 0.25 * wf) buildDock(world, t);
+      const bwk = civParams.breakwaters ?? 1;
+      if (bwk > 0 && t.pop > 500 && (t.breakwaters || 0) < Math.min(6, Math.floor(bwk * (1 + t.pop / 2500))) && Math.random() < 0.08 * bwk) buildBreakwater(world, t);
       if (Math.random() < 0.5 * wf) waterfrontSprawl(world, t, Math.round(4 + 6 * wf));
     }
     if (t.harbor === undefined && t.pop > 120 && fields.sea[ci] > 0.02) buildHarbor(world, t);

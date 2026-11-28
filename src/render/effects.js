@@ -3,6 +3,10 @@
 
 import * as THREE from 'three';
 import { intensityAt } from '../sim/weather.js';
+import { windNow } from '../sim/wind.js';
+
+/** The wind's direction today (the prevailing wind, veered by the day's weather: sim/wind.js). */
+const windAngleNow = (cp) => (cp ? cp.windAngle : 20) + windNow.veer;
 
 const MAX_PARTICLES = 4000; // wildfire smoke
 
@@ -128,13 +132,13 @@ export class Effects {
       }
       d.ready = true; d.N = N; d.drift = 0;
     }
-    const a = ((this.climateParams ? this.climateParams.windAngle : 20) * Math.PI) / 180;
-    d.drift += dt * 2;
+    const a = (windAngleNow(this.climateParams) * Math.PI) / 180;
+    d.drift += dt * 2; d.ox = (d.ox || 0) + Math.cos(a) * dt * 2 * windNow.factor; d.oz = (d.oz || 0) + Math.sin(a) * dt * 2 * windNow.factor;
     const span = N * 1.2;
     for (let j = 0; j < d.M; j++) {
       // Wrap around so the deck flows on endlessly
-      const x = ((d.anchor[j * 3] + Math.cos(a) * d.drift + N * 0.1) % span + span) % span - N * 0.1;
-      const z = ((d.anchor[j * 3 + 2] + Math.sin(a) * d.drift + N * 0.1) % span + span) % span - N * 0.1;
+      const x = ((d.anchor[j * 3] + d.ox + N * 0.1) % span + span) % span - N * 0.1;
+      const z = ((d.anchor[j * 3 + 2] + d.oz + N * 0.1) % span + span) % span - N * 0.1;
       const p = this.renderer.toWorld(x, z, d.anchor[j * 3 + 1]);
       pos.setXYZ(j, p.x, p.y, p.z);
     }
@@ -247,8 +251,9 @@ export class Effects {
     // Drift gently downwind
     c.drift += dt;
     const { climateParams } = this;
-    const a = ((climateParams ? climateParams.windAngle : 20) * Math.PI) / 180;
-    const dx = Math.cos(a) * c.drift * 1.5, dz = Math.sin(a) * c.drift * 1.5;
+    const a = (windAngleNow(climateParams) * Math.PI) / 180;
+    c.ox = (c.ox || 0) + Math.cos(a) * dt * 1.5 * windNow.factor; c.oz = (c.oz || 0) + Math.sin(a) * dt * 1.5 * windNow.factor;
+    const dx = c.ox, dz = c.oz;
     for (let j = 0; j < c.M; j++) pos.setXYZ(j, c.anchor[j * 3] + dx, c.anchor[j * 3 + 1], c.anchor[j * 3 + 2] + dz);
     pos.needsUpdate = true;
   }
@@ -316,10 +321,11 @@ export class Effects {
       }
     }
     c.drift += dt;
-    const a = ((this.climateParams ? this.climateParams.windAngle : 20) * Math.PI) / 180;
+    const a = (windAngleNow(this.climateParams) * Math.PI) / 180;
+    c.ox = (c.ox || 0) + Math.cos(a) * dt * 4 * windNow.factor; c.oz = (c.oz || 0) + Math.sin(a) * dt * 4 * windNow.factor;
     for (let j = 0; j < c.M; j++) {
       // Wrap around so the layer keeps covering the map as it drifts
-      let x = c.anchor[j * 3] + Math.cos(a) * c.drift * 4, z = c.anchor[j * 3 + 2] + Math.sin(a) * c.drift * 4;
+      let x = c.anchor[j * 3] + c.ox, z = c.anchor[j * 3 + 2] + c.oz;
       x = ((x + half * 1.2) % (N * 1.2) + N * 1.2) % (N * 1.2) - half * 1.2;
       z = ((z + half * 1.2) % (N * 1.2) + N * 1.2) % (N * 1.2) - half * 1.2;
       pos.setXYZ(j, x, c.anchor[j * 3 + 1], z);
@@ -397,7 +403,7 @@ export class Effects {
     // (the Land use overlay is a clear view: no smoke over it)
     s.points.visible = this.renderer.colorMode !== 'landuse';
     const pos = s.points.geometry.attributes.position;
-    const a = ((this.climateParams ? this.climateParams.windAngle : 20) * Math.PI) / 180;
+    const a = (windAngleNow(this.climateParams) * Math.PI) / 180;
     const wx = Math.cos(a), wz = Math.sin(a);
     // Wildfires pour out smoke: dense columns that rise, then bend over and spread downwind
     if (cells.length) {

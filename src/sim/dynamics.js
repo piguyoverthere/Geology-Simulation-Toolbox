@@ -12,6 +12,7 @@
 //
 // dynamicsStep(world) runs every 30 frames; it returns news of anything big (for the status line).
 
+import { recordShock } from './seismo.js';
 import { boxBlur } from '../core/grid.js';
 import { seasonParams, seasonalAt, climateParams } from './climate.js';
 import { waterParams } from './water.js';
@@ -329,6 +330,8 @@ function quakeStep(world, news) {
     }
   }
   world.lastQuake = { M: Math.round(M * 10) / 10, x: ex, z: ez, year: seasonParams.year || 1, tsunami };
+  recordShock(world, 'quake', M, ex, ez, tsunami ? { tsunami: true } : null);
+  world.quake = Math.min(2.5, (world.quake || 0) + 0.25 * (M - 4.5));
   news.push(`A magnitude ${M.toFixed(1)} earthquake${hit ? ` shook ${hit} town${hit > 1 ? 's' : ''}` : ''}${slides ? `, setting off ${slides} landslide${slides > 1 ? 's' : ''}` : ''}${tsunami ? ': a tsunami is flooding the coast' : ''}`);
 }
 

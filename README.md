@@ -67,7 +67,26 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
 - **Groundwater**: rain recharges it, it seeps out into streams in dry spells, towns pump it down
   (dry wells, sinking ground). Overlays: *Groundwater*, *Groundwater drawdown*.
 - **Climate change** (Civilization setting): the towns' greenhouse gas slowly warms the climate and
-  raises the sea; the land's **forest carbon** (overlay *Forest carbon*) feeds it.
+  raises the sea; the land's **forest carbon** (overlay *Forest carbon*) feeds it. It moves the
+  settings themselves, so you can watch it: the **Temperature** slider climbs, **Evaporation** and
+  **Global rain** pick up a little, and the sea level rises.
+- **Cliffs, sea stacks and islands**: high, rocky, exposed coasts are undercut at the waterline
+  until the rock above falls, so they retreat as sheer cliffs over a flat wave-cut platform; low,
+  sandy shores stay beaches, so coasts vary along their length. Knots of tougher rock are left
+  standing in the sea as **stacks and small islands** (trees still on top), and narrow necks are cut
+  through, so headlands break off into islands (Sea: **Cliff cutting**, **Sea stacks & islands**).
+- **Breakwaters**: busy coastal towns pile long mounds of boulders out at sea to shelter their
+  harbours; the water behind is calm, the shore erodes less and sand builds up (Civilization:
+  **Breakwaters**).
+- **Drowned land comes back very slowly**: land the sea covered stays beach while it's salty, and
+  only the rain washes the salt out, fast in wet country, hardly at all in dry country; only then do
+  dune grass and turf creep back.
+- **Daily wind**: every couple of days brings a new spell of weather; the wind veers off the
+  prevailing direction and blows harder or softer, from calms to gales (Climate: **Wind
+  variability**). Waves, currents, clouds and smoke follow it.
+- **Seismograph** (bottom right of the map): a drum-style trace of the ground shaking, with the
+  latest shocks and their magnitudes: earthquakes, fault slips, eruptions, landslides and big cliff
+  falls; volcanic tremor and storm microseism between them. Click a shock to look there.
 - **Fire fuel and megafires**: fuel builds where nothing burns; light fuel means surface fires the
   trees survive, heavy fuel crown fires that kill them. **Fire suppression** and **prescribed
   burns** (Civilization). Overlay *Fire fuel*.

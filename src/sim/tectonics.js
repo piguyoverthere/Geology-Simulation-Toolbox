@@ -12,6 +12,8 @@
 // and the ground deforms less the further it is from the fault. Rock layers move with the blocks,
 // so a fault juxtaposes different rocks across the scarp.
 
+import { recordShock } from './seismo.js';
+
 export const FAULT_TYPES = {
   normal: { label: 'Normal (pull-apart)', help: 'One block drops, leaving a cliff-like scarp. Drag along the fault line; flip the drag direction to drop the other side.' },
   reverse: { label: 'Reverse / thrust (squeeze)', help: 'One block is pushed up and over the other. Flip the drag direction to raise the other side.' },
@@ -50,6 +52,8 @@ function faultUpdate(world, ev, dt) {
   if (ev.type === 'strikeSlip') slideSideways(world, ev, ev.slipPerQuake * (0.6 + 0.8 * Math.random()), patch);
   else moveVertically(world, ev, ev.slipPerQuake * (0.6 + 0.8 * Math.random()), patch);
   world.quake = Math.min(1.5, world.quake + 0.6 + ev.slipPerQuake * 0.15);
+  { const mx = ev.a && ev.b ? (ev.a.x + ev.b.x) / 2 : ev.x ?? world.N / 2, mz = ev.a && ev.b ? (ev.a.z + ev.b.z) / 2 : ev.z ?? world.N / 2;
+    recordShock(world, 'fault', 5 + Math.log10(1 + ev.slipPerQuake * patch * 4), mx, mz); }
   world.dirty = true;
   return --ev.quakesLeft <= 0;
 }

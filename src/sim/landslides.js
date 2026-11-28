@@ -9,6 +9,7 @@
 // stripping plants and soil and spreading into a debris fan. Where relief is large, the failure can
 // be a *sector collapse* that takes out an entire mountain flank (Mount St Helens 1980 began this way).
 
+import { recordShock } from './seismo.js';
 import { addSiltAt } from './waterQuality.js';
 import { waterParams } from './water.js';
 import { thermalParams, thermalStep } from './thermal.js';
@@ -30,6 +31,7 @@ export function saturation(world, i) {
 /** Steepest stable slope (rise/run) at cell i: rock, roots, forest age and water all count. */
 export function stableSlope(world, i) {
   if (world.builtUp(i)) return 10; // (kept ground is walled and drained: it doesn't slide)
+  if (world.seaCliff && world.seaCliff[i]) return 10; // (sea cliffs fall by undercutting instead: sim/coast.js)
   const h = world.height[i];
   const base = Math.tan((thermalParams.talusAngle * Math.PI) / 180);
   return base * (0.8 + 0.5 * world.hardnessAt(h, i)) * (1 + 0.3 * world.vegetation[i] + 0.25 * world.forestAge[i])
@@ -129,6 +131,7 @@ export function triggerLandslide(world, site) {
   }
   world.quake = Math.min(2.5, world.quake + 0.3 + R / (mega ? 25 : 60));
   world.landslides.push({ x: cx, z: cz, r: R, mega, volume: removed, time: world.time });
+  recordShock(world, mega ? 'megaslide' : 'landslide', Math.min(5.5, 1.5 + Math.log10(1 + removed) * 0.9), cx, cz);
   world.slideAreas.push({ x: cx, z: cz, r: R + 35 });
   world.dirty = true;
   return { R, mega, removed };

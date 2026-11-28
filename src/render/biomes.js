@@ -36,6 +36,7 @@ export const BIOMES = {
   mudflat:   { label: 'Mudflat', color: [0.46, 0.41, 0.33], help: 'Bare mud within reach of the tide and storm surges, on flat, sheltered shores: floods and drains with every tide.' },
   shingle:   { label: 'Shingle beach', color: [0.60, 0.58, 0.54], help: 'Pebbles and cobbles within reach of the tide and storm surges, on steeper or exposed shores with little sand (black boulders where the rock is basalt).' },
   seacliff:  { label: 'Sea cliff', color: [0.50, 0.46, 0.42], help: 'A steep rock face the waves are undercutting: it retreats as they erode it.' },
+  breakwater: { label: 'Breakwater', color: [0.52, 0.52, 0.50], help: 'A long mound of boulders piled up out at sea off a busy waterfront, a little above high tide, to break the waves before they reach the harbour. The water behind it is calm: the shore erodes less and sand builds up.' },
   dock:      { label: 'Dock (pier)', color: [0.46, 0.40, 0.34], help: 'A paved deck built out over the water from a town\'s waterfront, deep water dredged on both sides for ships to tie up.' },
 };
 
@@ -62,6 +63,7 @@ export function classifyBiome(world, i, slope, noSnow = false) {
   if (world.landUse && world.landUse[i] === 11) return 'mine';
   if (world.landUse && world.landUse[i] === 12) return 'spoil';
   if (world.landUse && world.landUse[i] === 13) return 'dock';
+  if (world.landUse && world.landUse[i] === 14) return 'breakwater';
   if (world.landUse && world.landUse[i] === 4 && world.paved[i] > 0.5) return 'industry';
   if (world.landUse && world.landUse[i] === 2 && world.townCore && world.townCore[i]) return 'towncenter';
   if (world.landUse && world.landUse[i] === 2 && world.paved[i] > 0.5) return 'town';
@@ -74,6 +76,8 @@ export function classifyBiome(world, i, slope, noSnow = false) {
     const bt = world.beachType ? world.beachType[i] : SHORE.sand;
     return bt === SHORE.mudflat ? 'mudflat' : bt === SHORE.shingle || bt === SHORE.basalt ? 'shingle' : 'beach';
   }
+  // A sheer sea cliff the waves are cutting back (sim/coast.js), bare of all but the odd clinging plant
+  if (world.seaCliff && world.seaCliff[i] && v <= 0.5) return 'seacliff';
   // Bare ground within reach of the tide and the storm surges is shore: mudflat, sand or shingle
   // (or a sea cliff), whatever the waves have made of it (sim/coast.js)
   if (v <= 0.25 && world.meanSea > -999) {

@@ -21,6 +21,7 @@
 // domes the ground above it, exposed only once erosion strips the cover) or a dike (a vertical
 // sheet of basalt that, being hard, is left standing as a wall when the softer rock around wears away).
 
+import { recordShock } from './seismo.js';
 import { ROCK_INDEX } from '../core/rocks.js';
 import { fireParams } from './fire.js';
 
@@ -94,6 +95,7 @@ function eruptionUpdate(world, ev, dt) {
       });
     }
     world.quake = Math.min(2.5, world.quake + type.blast * Math.sqrt(ev.size));
+    recordShock(world, 'eruption', 3 + 1.5 * type.blast * Math.sqrt(ev.size), ev.vents[0]?.x ?? 0, ev.vents[0]?.z ?? 0);
   }
   // Column collapses send out pyroclastic flows, spread over the explosive first part of the eruption
   if (type.flows) {
@@ -103,6 +105,7 @@ function eruptionUpdate(world, ev, dt) {
       ev.pulsesDone++;
       for (const v of ev.vents) launchFlows(world, v, type.flows, ev.size / ev.vents.length);
       world.quake = Math.min(2.5, world.quake + type.blast * 0.5);
+      recordShock(world, 'blast', 2.5 + type.blast, ev.vents[0]?.x ?? 0, ev.vents[0]?.z ?? 0);
     }
   }
   ev.t += dt;
