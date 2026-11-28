@@ -105,5 +105,10 @@
     "version": "1.6.0",
     "date": "2026-11-27",
     "notes": "Rivers fed by their catchments (tributaries joining into bigger, winding rivers) and faster frames"
+  },
+  {
+    "version": "1.6.0b",
+    "date": "2026-11-28",
+    "notes": "Varied coasts (cliffs, sea stacks, islands), breakwaters, climate change on the sliders, rain-leached beaches, daily wind, seismograph, resolution slider"
   }
 ]

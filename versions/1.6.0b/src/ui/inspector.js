@@ -1,0 +1,245 @@
+// Readout for the Inspect tool: everything the simulation knows about the cell under the cursor.
+
+import { BIOMES, classifyBiome } from '../render/biomes.js';
+import { DISEASE_BY_ID } from '../sim/disease.js';
+import { carbonAt } from '../sim/forestCarbon.js';
+import { fireById } from '../sim/fireHistory.js';
+import { waterParams } from '../sim/water.js';
+import { ROCKS, PROVINCES, ROCK_INDEX } from '../core/rocks.js';
+import { saturation, stableSlope } from '../sim/landslides.js';
+import { snowAt, cloudTempAt, seasonalAt } from '../sim/climate.js';
+import { SHORES, MARINE, waterTempAt, marineShown, marineThins, coastParams } from '../sim/coast.js';
+import { waterQuality, qualityLabel } from '../sim/waterQuality.js';
+import { compositionAt } from '../sim/species.js';
+
+export class Inspector {
+  /** @param {HTMLElement} root  @param {object} app */
+  constructor(root, app) {
+    this.root = root;
+    this.app = app;
+    this.root.hidden = true;
+  }
+
+  /** Show data for the grid position `hit` ({x, z}), or hide when null. */
+  update(hit) {
+    if (!hit) { this.root.hidden = true; return; }
+    const app = this.app, w = app.world, N = w.N, H = w.height;
+    const x = Math.min(N - 1, Math.max(0, Math.round(hit.x)));
+    const z = Math.min(N - 1, Math.max(0, Math.round(hit.z)));
+    const i = z * N + x;
+    const h = H[i];
+
+    const gx = (H[x < N - 1 ? i + 1 : i] - H[x > 0 ? i - 1 : i]) * 0.5;
+    const gz = (H[z < N - 1 ? i + N : i] - H[z > 0 ? i - N : i]) * 0.5;
+    const slope = Math.sqrt(gx * gx + gz * gz);
+    const biome = BIOMES[classifyBiome(w, i, slope)];
+
+    const depth = w.water[i];
+    const speed = Math.hypot(w.velX[i], w.velZ[i]);
+    let lastWater;
+    if (depth > 0.05) lastWater = speed > 0.4 ? 'now (flowing)' : 'now (standing)';
+    else if (waterParams.rain > 0) lastWater = 'now (rain)';
+    else if (w.lastWet[i] < 0) lastWater = 'never';
+    else lastWater = `${fmtTime(w.time - w.lastWet[i])} ago`;
+
+    const v = w.vegetation[i];
+    const cover = v > 0.66 ? 'forest' : v > 0.33 ? 'grassland' : 'barren';
+    const change = h - w.baseline[i];
+    const sea = w.seaLevel > -999;
+    const swatch = rgb(biome.color);
+    const rock = ROCKS[w.rockAt(h, i)];
+
+    const dim = (t) => `<span class="ins-dim">${t}</span>`;
+    const wet = w.meanSea !== undefined && w.meanSea > -999 && h < w.meanSea;
+    const groups = [];
+    const group = (title, rows) => { const r = rows.filter(Boolean); if (r.length) groups.push([title, r]); };
+
+    // --- Weather ---
+    const wt = waterTempAt(w, i);
+    group('Weather', [
+      wt !== null
+        ? ['Water', `${wt.toFixed(1)} °C ${dim(`· year ${waterTempAt(w, i, false).toFixed(1)}`)}`]
+        : ['Temperature', w.seasonT ? `${(w.temperature[i] + seasonalAt(w, i)).toFixed(1)} °C ${dim(`· year ${w.temperature[i].toFixed(1)}`)}` : `${w.temperature[i].toFixed(1)} °C`],
+      ['Rain / snow', `${bar(w.precip ? w.precip[i] : 0, '#4f8ce0')} ${dim(`${cloudTempAt(w, i) < 0 ? 'snow' : 'rain'}${w.cloudBase ? ` · clouds ${(w.cloudBase[i] - h).toFixed(0)} up` : ''}`)}`],
+      w.wind ? ['Wind', `${Math.round(w.wind[i] * 40)} km/h ${dim(`${w.wind[i] > 1.1 ? 'exposed' : w.wind[i] > 0.6 ? 'breezy' : 'sheltered'} · evaporation ×${(w.evapRate ? w.evapRate[i] : 1).toFixed(1)}`)}`] : null,
+      w.snow && w.snow[i] > 0.01 ? ['Snow', `${w.snow[i].toFixed(2)} deep ${dim(`· covers ${Math.round(snowAt(w, i, slope) * 100)}%`)}`] : null,
+    ]);
+
+    // --- Sea ---
+    if (wet || (w.shore && w.shore[i] >= 0)) {
+      const m = w.marine ? w.marine[i] : -1;
+      const q = w.silt ? waterQuality(w, i) : 1;
+      group('Sea', [
+        w.shore && w.shore[i] >= 0 ? ['Shore', `${SHORES[w.shore[i]].label}${w.shoreSet && w.shoreSet[i] >= 0 ? ' (painted)' : ''} ${dim(`· sand ${(w.sand ? w.sand[i] : 0).toFixed(1)}`)}`] : null,
+        m >= 0 ? ['Sea bed', `${MARINE[marineShown(w, i)].label}${['kelp', 'seagrass', 'coral', 'deepcoral'].includes(MARINE[m].id) ? ` ${dim(`· ${marineThins(m) ? 'density' : 'health'} ${Math.round(w.marineHealth[i] * 100)}%`)}` : ''}`] : null,
+        w.coral && (w.coral[i] > 0.03 || (w.coralRubble && w.coralRubble[i] > 0.05)) ? ['Coral', `${Math.round(Math.min(1, w.coral[i]) * 100)}% living ${w.coralRubble[i] > 0.05 ? dim(`· rubble ${w.coralRubble[i].toFixed(1)}`) : ''}`] : null,
+        wet && w.curU ? ['Current', (() => { const sp = Math.hypot(w.curU[i], w.curV[i]); const dir = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(((Math.atan2(w.curV[i], w.curU[i]) * 180 / Math.PI + 360) % 360) / 45) % 8]; return `${sp < 0.03 ? 'slack' : `${(sp * 1.5).toFixed(1)} kn ${dir}`} ${dim(`· ${Math.cos(2 * Math.PI * (w.time || 0) / coastParams.tidePeriod) >= 0 ? 'rising' : 'falling'} tide ${(w.tide || 0) >= 0 ? '+' : ''}${(w.tide || 0).toFixed(1)}${w.surge > 0.05 ? ` · surge +${w.surge.toFixed(1)}` : ''}`)}`; })()] : null,
+        wet && w.silt ? ['Quality', `${bar(q, q > 0.65 ? '#4fb0e0' : q > 0.4 ? '#b09a5a' : '#8a5a2e')} ${dim(`${qualityLabel(q)} · ${(35 * (w.salinity ? w.salinity[i] : 1)).toFixed(0)} ‰ salt`)}`] : null,
+        wet && w.plankton ? ['Life', `${dim(`plankton ${w.plankton[i] > 1.2 ? 'bloom' : w.plankton[i] > 0.4 ? 'plentiful' : 'sparse'} · oxygen ${Math.round(w.oxygen[i] * 100)}%${w.oxygen[i] < 0.3 ? ' (dead zone)' : w.oxygen[i] < 0.6 ? ' (low)' : ''}`)}`] : null,
+        wet && w.seaIce && w.seaIce[i] > 0.05 ? ['Sea ice', `${w.seaIce[i] > 0.8 ? 'pack ice' : w.seaIce[i] > 0.3 ? 'ice' : 'thin new ice'}`] : null,
+        w.mangrove && w.mangrove[i] > 0.05 ? ['Mangroves', bar(w.mangrove[i], '#2e6b3a')] : null,
+        w.dune && w.dune[i] > 0.1 ? ['Dunes', bar(w.dune[i], '#d8c99a')] : null,
+      ]);
+    }
+
+    // --- Water and soil moisture (land) ---
+    if (!wet) {
+      group('Water', [
+        w.riverPollution && w.riverPollution[i] > 0.05 ? ['Pollution', `${bar(Math.min(1, w.riverPollution[i] / 2), '#8a6a3a')} ${dim('from towns upstream')}`] : null,
+        ['Surface', depth > 0.005 ? `${depth.toFixed(2)} deep ${dim(`· ${speed > 0.4 ? 'flowing' : 'standing'}${w.sediment[i] > 0.001 ? ` · silt ${w.sediment[i].toFixed(2)}` : ''}`)}` : `dry ${dim(`· last wet ${lastWater}`)}`],
+        ['Soil wetness', `${bar(w.soil ? w.soil[i] : 0, '#4f8ce0')} ${dim(`· climate ${Math.round((w.moisture ? w.moisture[i] : 0) * 100)}%`)}`],
+        w.ice && w.ice[i] > 0.02 ? ['Glacier', `${w.ice[i].toFixed(2)} thick ${dim(`· flow ${(w.iceFlow ? w.iceFlow[i] * 100 : 0).toFixed(1)}${w.iceDebris && w.iceDebris[i] > 0.01 ? ` · rock ${w.iceDebris[i].toFixed(2)}` : ''}`)}`] : null,
+        w.lava[i] > 0.01 ? ['Lava', `<span style="color:#ff8a4a">${w.lava[i].toFixed(2)} thick · ${Math.round(w.lavaTemp[i] * 100)}% hot</span>`] : null,
+      ]);
+
+      // --- Plants and forest ---
+      const td = w.treeDensity ? w.treeDensity[i] : 0, fh = w.forestHealth ? w.forestHealth[i] : 0;
+      // (fields, towns and the like aren't forest: no trees, forest health or species to show;
+      // a plantation has its planted trees but no forest health)
+      const luHere = w.landUse ? w.landUse[i] : 0, notForest = luHere && luHere !== 10;
+      const mix3 = v > 0.3 && !luHere ? compositionAt(w, i).slice(0, 3) : [];
+      // (the invasive exotic pine: its share of the trees here; all of a plantation)
+      const inv = w.invasive && v > 0.3 ? (luHere === 10 ? 1 : luHere ? 0 : w.invasive[i]) : 0;
+      group('Plants', [
+        ['Cover', `${bar(v, '#4caf50')} ${dim(luHere === 1 ? 'crops and pasture' : luHere === 10 ? 'planted timber (one species)' : notForest ? 'gardens and verges' : cover)}`],
+        v > 0.45 && !notForest ? ['Trees', `${bar(td, '#2e6b3a')} ${dim(`${td > 0.75 ? 'closed canopy' : td > 0.45 ? 'dense' : td > 0.2 ? 'open' : 'scattered'} · ${w.forestAge[i] > 0.75 ? 'old growth' : w.forestAge[i] > 0.35 ? 'mature' : 'young'}`)}`] : null,
+        v > 0.3 && !luHere ? ['Forest health', `${bar(fh, fh > 0.6 ? '#4caf50' : fh > 0.35 ? '#d8b84a' : '#c96a4a')} ${dim(fh > 0.6 ? 'young trees replacing old' : fh > 0.35 ? 'few seedlings' : 'not renewing: thinning')}`] : null,
+        w.fishStock && w.height[i] < (w.meanSea > -999 ? w.meanSea : -1e9) ? ['Fish', `${bar(w.fishStock[i], w.fishStock[i] < 0.2 ? '#c0392b' : '#2e6fb0')} ${dim(w.fishStock[i] < 0.2 ? 'collapsed: too few to spawn well' : 'of what the water can hold')}`] : null,
+        w.replanted && w.replanted[i] ? ['Restored', dim('replanted with native trees by the town')] : null,
+        w.landUse && w.landUse[i] === 3 && w.roadTraffic ? ['Road', `${dim(`${Math.round(w.roadTraffic[i])} people a day · ${w.crossing && w.crossing[i] ? 'wildlife crossing: animals cross safely' : `kills ${Math.round(Math.min(0.6, 0.04 + w.roadTraffic[i] / 3000) * 100)}% of the animals crossing`}`)}`] : null,
+        w.landUse && w.landUse[i] === 7 ? ['Dam', dim(w.fishLadder && w.fishLadder[i] ? 'with a fish ladder: most of a run gets past' : 'no fish ladder: runs can\'t get past')] : null,
+        w.burnSuit && w.burnSuit[i] > 0.05 ? ['Fire followers', `${bar(Math.min(1, w.burnSuit[i]), '#9a9088')} ${dim(`small burn (${Math.round(w.burnSize[i] || 0)} cells)${w.fireweed[i] > 0.05 ? `, fireweed ${Math.round(w.fireweed[i] * 100)}%` : ''}${w.firePoppy[i] > 0.05 ? `, fire poppies ${Math.round(w.firePoppy[i] * 100)}%` : ''}`)}`] : null,
+        w.burnSuit && w.burnt[i] > 0.15 && w.burnSuit[i] <= 0.05 && w.burnSize && w.burnSize[i] > 0 ? ['Fire followers', dim(`none: a big burn (${Math.round(w.burnSize[i])} cells), too big for them`)] : null,
+        w.pollinators && w.pollinators[i] > 0.02 ? ['Pollinators', `${bar(Math.min(1, w.pollinators[i]), '#e8b020')} ${dim(w.landUse && w.landUse[i] === 1 ? `crop pollinated: ${Math.round((0.7 + 0.3 * Math.min(1, w.pollinators[i] * 2.5)) * 100)}% of its harvest` : 'bees and the like')}`] : null,
+        w.fuel && w.vegetation[i] > 0.5 ? ['Fire fuel', `${bar(w.fuel[i], w.fuel[i] > 0.6 ? '#c0392b' : w.fuel[i] > 0.35 ? '#e0b030' : '#4a9a4a')} ${dim(w.fuel[i] > 0.6 ? 'heavy: a fire here would crown' : w.fuel[i] > 0.35 ? 'building up' : 'light: a fire would stay on the ground')}`] : null,
+        w.vegetation[i] > 0.1 ? ['Carbon stored', `${carbonAt(w, i).toFixed(1)} t ${dim('in the trees and soil')}`] : null,
+        w.groundwater && w.height[i] >= (w.meanSea > -999 ? w.meanSea : -1e9) ? ['Groundwater', `${bar(w.groundwater[i], '#2e6fb0')} ${dim(w.gwNatural && w.gwNatural[i] - w.groundwater[i] > 0.1 ? `drawn down from ${Math.round(w.gwNatural[i] * 100)}% by wells` : 'as the rain keeps it')}${w.subsided && w.subsided[i] > 0.05 ? dim(` · ground sunk ${w.subsided[i].toFixed(2)}`) : ''}`] : null,
+        w.popDensity && w.popDensity[i] >= 0.5 ? ['People here', `≈ ${w.popDensity[i] >= 10 ? Math.round(w.popDensity[i]) : w.popDensity[i].toFixed(1)} ${dim('per cell (the Population overlay)')}`] : null,
+        w.treeDisease && w.treeDisease[i] && DISEASE_BY_ID[w.treeDisease[i]] ? ['Tree disease', `${bar(Math.min(1, w.diseaseLoad[i]), rgb(DISEASE_BY_ID[w.treeDisease[i]].color))} ${dim(`${DISEASE_BY_ID[w.treeDisease[i]].label}${w.forestAge[i] < 0.5 ? ': killing and stunting the young trees' : ': old trees holding on, young ones dying'}`)}`] : null,
+        w.roadDisease && w.roadDisease[i] && DISEASE_BY_ID[w.roadDisease[i]] ? ['Carrying disease', `${bar(w.roadSpores[i], rgb(DISEASE_BY_ID[w.roadDisease[i]].color))} ${dim(`${DISEASE_BY_ID[w.roadDisease[i]].label} spores on wheels, boots and logs`)}`] : null,
+        w.diseaseResist && w.diseaseResist[i] > 0.05 ? ['Disease resistance', `${bar(w.diseaseResist[i], '#8fbf6a')} ${dim(w.treeDisease && w.treeDisease[i] ? 'the surviving trees resist it: the outbreak is burning out' : 'survivors of an outbreak, fading over the years')}`] : null,
+        inv > 0.02 ? ['Invasive pine', `${bar(inv, '#a8285f')} ${dim(luHere === 10 ? 'planted: the whole plantation' : inv > 0.8 ? 'taken over: no wildlife, natives gone' : 'spreading: crowding out the native trees')}`] : null,
+        v > 0.5 && w.canopyHeight && w.canopyHeight[i] > 0 ? ['Tree height', `${Math.round(w.canopyHeight[i] * (0.3 + 0.7 * w.forestAge[i]))} m ${dim(`now · ${Math.round(w.canopyHeight[i])} m grown${w.giants && w.giants[i] > 0.1 ? ` · giant trees ${Math.round(w.giants[i] * 100)}%` : ''}`)}`] : null,
+        w.beachSand && w.beachSand[i] > 0.05 && !wet ? ['Drowned land', `${bar(Math.min(1, w.beachSand[i]), '#d8c08a')} ${dim(`${['mudflat', 'sand beach', 'shingle beach', 'rock', 'basalt boulders'][w.beachType ? w.beachType[i] : 1] || 'beach'} the sea left: plants slowly taking it back`)}`] : null,
+        w.barkBeetle && w.barkBeetle[i] > 0.05 ? ['Bark beetles', `${bar(Math.min(1, w.barkBeetle[i]), '#b05028')} ${dim(w.barkBeetle[i] > 0.4 ? 'outbreak: the conifers are dying' : 'in the conifers')}`] : null,
+        w.cropPest && w.cropPest[i] > 0.05 ? ['Crop pests', `${bar(Math.min(1, w.cropPest[i]), '#8a6a30')} ${dim(`harvest down ${Math.round(60 * w.cropPest[i])}%`)}`] : null,
+        w.soilSalt && w.soilSalt[i] > 0.05 && !wet ? ['Salt', `${bar(Math.min(1, w.soilSalt[i]), '#ddd8c8')} ${dim(w.soilSalt[i] > 0.6 ? 'salted up: crops failing' : 'salt building up from irrigation')}`] : null,
+        w.ruins && w.ruins[i] > 0.05 ? ['Ruins', dim(w.landUse && w.landUse[i] === 3 ? 'an old, abandoned road' : 'the ruins of an abandoned town')] : null,
+        w.drained && w.drained[i] ? ['Drained', dim('a wetland ditched and drained: drying out, its peat rotting and the ground sinking')] : null,
+        w.permafrost && w.permafrost[i] > 0.05 ? ['Permafrost', `${bar(Math.min(1, w.permafrost[i]), '#9fc4d8')} ${dim('ground frozen all year')}`] : null,
+        w.levee && w.levee[i] > 0 ? ['Levee', dim('a raised river bank holding floods out of the town')] : null,
+        w.starved && w.starved[i] > 0.05 ? ['Starved beach', dim('losing its sand: a dam or sea wall cuts off its supply')] : null,
+        w.heatIsland && w.heatIsland[i] > 0.2 ? ['Urban heat', `+${w.heatIsland[i].toFixed(1)} °C ${dim('warmer than the country round it')}`] : null,
+        w.fungi && w.fungi[i] > 0.03 ? ['Fungi', `${bar(Math.min(1, w.fungi[i]), '#7a4f9a')} ${dim(w.fungi[i] > 0.6 ? 'rich: trees grow faster, soil builds faster' : w.fungi[i] > 0.3 ? 'some fungal life' : 'little fungal life')}`] : null,
+        w.rootRot && w.rootRot[i] > 0.03 ? ['Root rot', `${bar(Math.min(1, w.rootRot[i]), '#d0401e')} ${dim(w.rootRot[i] > 0.55 ? 'honey mushroom killing the trees' : 'honey mushroom in the roots')}`] : null,
+        v > 0.5 && w.fireproof && w.fireproof[i] > 0.05 ? ['Fire resistance', `${bar(Math.min(1, w.fireproof[i]), '#c8783c')} ${dim(w.fireproof[i] > 0.15 ? 'thick bark: lives through smaller fires' : 'a few thick-barked trees')}`] : null,
+        (mix3.length || inv > 0.02) ? ['Species', [...(inv > 0.02 ? [{ label: 'Invasive pine', color: [0.10, 0.26, 0.28], share: inv }] : []), ...mix3.map((s2) => ({ ...s2, share: s2.share * (1 - inv) }))].slice(0, 4).map((s2) => `<span class="ins-chip"><span class="tb-swatch ins-swatch" style="background:${rgb(s2.color)}"></span>${s2.label} ${Math.round(s2.share * 100)}%</span>`).join(' ')] : null,
+        w.leafOn && w.decid && w.decid[i] > 0.02 && w.seasonT !== undefined && w.flush ? ['Leaves', leafLabel(w, i)] : null,
+        w.deadWood && w.deadWood[i] > 0.05 ? ['Dead wood', `${bar(w.deadWood[i], '#8a7f75')} ${dim('burns fiercely')}`] : null,
+        w.fire[i] > 0 ? ['Fire', `<span style="color:#ff8a4a">burning · ${Math.round(w.fire[i] * 100)}%</span>`] : null,
+        w.fireScar && w.fireScar[i] ? ['Last fire', (() => { const f = fireById(w, w.fireScar[i]); return f ? `${f.name || 'a small fire'} ${dim(`#${f.id} · year ${f.year}${f.active ? ' · burning' : ''} · ${f.cells} cells`)}` : dim(`#${w.fireScar[i]} (a small fire, long ago)`); })()] : null,
+        w.burnt[i] > 0.01 ? ['Burnt', `${bar(w.burnt[i], '#777')} ${dim('ash')}`] : null,
+      ]);
+
+      // --- Ground and rock ---
+      group('Ground', [
+        ['Soil', `${bar(w.humus[i], '#8a6a45')} ${dim(chemText(w.soilChem ? w.soilChem[i] : 0))}`],
+        ['Bedrock', `<span class="tb-swatch ins-swatch" style="background:${rgb(rock.color)}"></span>${rock.label} ${dim(`· ${formation(w, i, h)} · ${w.rocksEnabled ? `hardness ${Math.round(w.hardnessAt(h, i) * 100)}%` : 'uniform'}`)}`],
+        ['Exposure', `${dim(`bare rock ${Math.round(w.bareExposure(i, slope) * 100)}% · erodibility ${w.erodibilityAt(h, i).toFixed(2)}×`)}`],
+        ['Stability', `${stability(slope / stableSlope(w, i))} ${dim(`· soaked ${Math.round(saturation(w, i) * 100)}%`)}`],
+        w.freshRock[i] > 0.01 ? ['Fresh rock', `${bar(w.freshRock[i], '#ff8a4a')} ${dim('no soil yet')}`] : null,
+        w.dam && w.dam[i] > 0.05 ? ['Dam', `${w.dam[i].toFixed(2)} high`] : null,
+        w.terraform && w.terraform[i] ? ['Earthworks', w.terraform[i] === 2 ? 'Reclaimed land (built from spoil dumped in the sea)' : 'Cut and terraced by a town'] : null,
+        w.landUse && w.landUse[i] ? ['Land use', (() => { const t = (w.towns || []).find((u) => u.num === w.civOwner[i]); const lu = w.landUse[i]; const tr = w.roadTraffic ? w.roadTraffic[i] : 0; return `${lu === 1 ? `Farmland${w.irrigated && w.irrigated[i] ? ' (irrigated)' : ''} ${dim(`· soil ${Math.round((w.farmSoil ? w.farmSoil[i] : 1) * 100)}%${(w.farmSoil ? w.farmSoil[i] : 1) < 0.15 ? ' (worn out)' : ''}`)}` : lu === 2 ? 'Town (paved)' : lu === 4 ? 'Industrial area' : lu === 7 ? 'Dam (reservoir behind)' : lu === 8 ? 'Irrigation canal' : lu === 9 ? `Sewer ${dim(`· ${(w.riverPollution ? w.riverPollution[i] : 0) > 1 ? 'foul, running full' : 'running'} to the outfall`)}` : lu === 11 ? 'Mine (open pit)' : lu === 12 ? 'Spoil heap (poisonous waste rock)': lu === 10 ? `Timber plantation ${dim(`· monoculture, no wildlife · nutrients ${Math.round((w.farmSoil ? w.farmSoil[i] : 1) * 100)}% · soil depth ${Math.round((w.humus ? w.humus[i] : 0) * 100)}% · ${w.timberRest && w.timberRest[i] ? 'resting: left to recover, not worked' : w.vegetation[i] < 0.5 ? 'felled, regrowing' : w.vegetation[i] > 0.7 ? 'grown, ready to fell' : 'growing'} · trees ${Math.round((w.treeDensity ? w.treeDensity[i] : w.vegetation[i]) * 100)}%`)}` : lu === 6 ? 'Quay (sea wall)' : lu === 3 && w.bridge && w.bridge[i] ? `Bridge ${dim(`· condition ${Math.round((w.roadCond ? w.roadCond[i] : 1) * 100)}%`)}` : lu === 5 ? `Harbour ${dim(`· ${(w.towns || []).find((u) => u.harbor === i)?.boats || 0} boats`)}` : `Road ${dim(`· condition ${Math.round((w.roadCond ? w.roadCond[i] : 1) * 100)}%${(w.roadCond ? w.roadCond[i] : 1) < 0.4 ? ' (broken)' : ''} · ${tr > 1500 ? 'very busy (3 lanes)' : tr > 600 ? 'busy (2 lanes)' : tr > 100 ? 'quiet' : 'little used'}`)}`}${t ? ` ${dim(`· ${esc(t.name)}, ${Math.round(t.pop)} people`)}` : lu === 2 ? ` ${dim('· abandoned')}` : ''}`; })()] : null,
+        w.fireSmoke && w.fireSmoke[i] > 0.03 ? ['Wildfire smoke', `${bar(Math.min(1, Math.sqrt(w.fireSmoke[i]) * 0.9), '#6b6b6b')} ${dim(w.fireSmoke[i] > 0.15 ? 'thick smoke: unhealthy air' : 'haze from a wildfire')}`] : null,
+        w.airPollution && w.airPollution[i] > 0.03 ? ['Air pollution', `${bar(Math.min(1, Math.sqrt(w.airPollution[i]) * 0.9), '#7a6250')} ${dim(w.airPollution[i] > 0.25 ? 'thick smoke: acid rain killing trees' : 'smoke drifting over: acid rain')}`] : null,
+        w.degraded && w.degraded[i] > 0.1 ? ['Degraded land', `${bar(w.degraded[i], '#c9a66b')} ${dim(w.degraded[i] > 0.6 ? 'overgrazed to near desert' : 'overgrazed: thinning, eroding')}`] : null,
+        Math.abs(change) > 0.05 ? ['Change', `<span style="color:${change < 0 ? 'var(--erode)' : 'var(--deposit)'}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</span> ${dim(change < 0 ? 'eroded' : 'deposited')}`] : null,
+      ]);
+    }
+
+    // --- Wildlife ---
+    group('Wildlife', (w.animals || []).filter((an) => w['animal_' + an.id] && w['animal_' + an.id][i] > 0.03).map((an) =>
+      [esc(an.name), `${bar(Math.min(1, w['animal_' + an.id][i]), rgb(an.color))} ${hungerText(w['hunger_' + an.id] ? w['hunger_' + an.id][i] : 0)}${an.habits.runsRivers ? ` ${dim(`· run ${Math.round((an.stock || 0) * 100)}%`)}` : ''}`]));
+
+    this.root.innerHTML =
+      `<div class="ins-head"><span class="tb-swatch" style="background:${swatch}"></span><b>${biome.label}</b>` +
+      `<span class="ins-dim">cell ${x}, ${z}</span></div>` +
+      `<div class="ins-sub">Altitude ${h.toFixed(1)}${sea ? ` (${(h - w.seaLevel) >= 0 ? '+' : ''}${(h - w.seaLevel).toFixed(1)} vs sea)` : ''} · slope ${(Math.atan(slope) * 180 / Math.PI).toFixed(0)}°</div>` +
+      `<div class="ins-body">${groups.map(([t, rows]) => `<section class="ins-sec"><div class="ins-group">${t}</div><table>${rows.map(([k, val]) => `<tr><th>${k}</th><td>${val}</td></tr>`).join('')}</table></section>`).join('')}</div>` +
+      `<div class="ins-foot">Sim time ${fmtTime(w.time)}</div>`;
+    this.root.hidden = false;
+    this.fit();
+  }
+
+  /** Keep it on screen: when it's taller than the view, its sections flow into more columns. */
+  fit() {
+    const R = this.root, view = R.offsetParent || R.parentElement;
+    if (!view) return;
+    const room = view.clientHeight - (parseFloat(getComputedStyle(R).bottom) || 12) - 12;
+    const maxCols = Math.max(1, Math.min(3, Math.floor((view.clientWidth - 24) / 260)));
+    // (start from the columns it used last time, so it doesn't jump about as the cursor moves)
+    let cols = Math.min(this.cols || 1, maxCols);
+    R.dataset.cols = cols;
+    while (R.offsetHeight > room && cols < maxCols) R.dataset.cols = ++cols;
+    while (cols > 1) {
+      R.dataset.cols = cols - 1;
+      if (R.offsetHeight > room * 0.92) { R.dataset.cols = cols; break; }
+      cols--;
+    }
+    this.cols = cols;
+    R.style.maxHeight = `${Math.max(120, room)}px`;
+  }
+}
+
+/** Where the exposed rock came from: a lava flow, ash fall, an intrusion, or the original bedrock. */
+function formation(w, i, h) {
+  const s = w.surfaceRock[i];
+  if (s >= 0 && h > w.surfaceBase[i] + 1e-3) return s === ROCK_INDEX.tuff ? 'Ash fall' : 'Lava flow';
+  if (w.intrusionRock[i] >= 0 && h <= w.intrusionTop[i]) return w.intrusionTop[i] === Infinity ? 'Dike' : 'Pluton';
+  return PROVINCES[w.province[i]];
+}
+
+/** Well fed / hungry / starving, for an animal at a cell. */
+function hungerText(h) {
+  return h > 0.4 ? '<span style="color:#ff7a5a">starving</span>' : h > 0.12 ? '<span style="color:#e0c060">hungry</span>' : '<span class="ins-dim">well fed</span>';
+}
+
+function chemText(c) {
+  return c < -0.45 ? 'acidic' : c < -0.15 ? 'slightly acidic' : c <= 0.15 ? 'neutral' : c <= 0.5 ? 'base-rich' : 'alkaline (limey)';
+}
+
+function chemLabel(c) {
+  const name = c < -0.45 ? 'acidic' : c < -0.15 ? 'slightly acidic' : c <= 0.15 ? 'neutral' : c <= 0.5 ? 'base-rich' : 'alkaline (limey)';
+  return `${name} <span class="ins-dim">${c >= 0 ? '+' : ''}${c.toFixed(2)}</span>`;
+}
+
+/** Slope vs. its stable limit: below ~0.8 is safe, near 1 is failing. */
+function stability(r) {
+  const label = r < 0.6 ? 'stable' : r < 0.85 ? 'marginal' : r < 1 ? 'unstable' : 'failing';
+  const color = r < 0.6 ? 'inherit' : r < 0.85 ? '#e0c060' : '#ff6a4a';
+  return `<span style="color:${color}">${label}</span> <span class="ins-dim">${Math.round(r * 100)}% of limit</span>`;
+}
+
+function rgb(c) { return `rgb(${c.map((v) => Math.round(v * 255)).join(',')})`; }
+
+function bar(t, color) {
+  const pct = Math.round(Math.min(1, Math.max(0, t)) * 100);
+  return `<span class="ins-bar"><span style="width:${pct}%;background:${color}"></span></span> ${pct}%`;
+}
+
+function fmtTime(s) {
+  if (s < 60) return `${s.toFixed(0)} s`;
+  if (s < 3600) return `${(s / 60).toFixed(1)} min`;
+  return `${(s / 3600).toFixed(1)} h`;
+}
+
+/** Deciduous canopy state: in leaf / turning / bare / fresh spring leaves. */
+function leafLabel(w, i) {
+  const L = w.leafOn[i], a = w.autumn[i], f = w.flush[i], d = Math.round(w.decid[i] * 100);
+  const state = L < 0.15 ? 'bare (leaves fallen)' : a > 0.15 ? `turning ${Math.round(a * 100)}%` + (L < 0.85 ? ', falling' : '')
+    : f > 0.25 ? 'fresh spring leaves' : L < 0.85 ? 'leafing out' : 'in leaf';
+  return `${state} <span class="ins-dim">· ${d}% deciduous</span>`;
+}
+
+function esc(t) { return String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
