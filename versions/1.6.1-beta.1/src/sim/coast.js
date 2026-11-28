@@ -1,0 +1,690 @@
+// Coasts, tides and the ocean.
+//
+// Tides: the sea rises and falls twice a "day" (the Moon's pull), over the Tide range. The strip
+// between low and high water, the intertidal zone, floods and drains every cycle.
+//
+// Shore types (world.shore, per cell near the sea), chosen by the conditions there:
+//   mudflat  – very gentle, sheltered shores (bays, estuaries) where fine silt settles: wide flats
+//              that drain at low tide (Willapa Bay, the Skagit and Nisqually deltas)
+//   sand     – beaches where sand collects: fed by rivers, eroded soft rock and, in warm seas, coral
+//   shingle  – pebble and cobble beaches on exposed shores with little sand (much of Puget Sound,
+//              where glaciers left gravel everywhere)
+//   cliff    – steep coasts the waves undercut, so the cliff retreats
+//   basalt   – black boulder beaches where basalt lava meets the sea (the Olympic coast)
+// In warm seas, mangrove forests grow on the mudflats and sheltered shores (world.mangrove).
+// The Shoreline tool paints a type, overriding the automatic choice.
+//
+// Waves: they erode the shore, hardest where it is exposed to open water (a long fetch) and the rock
+// is soft. The eroded material becomes beach sand (soft rock) or shingle (hard rock). Sand
+// (world.sand, depth) builds up from that, from river sediment and from coral reefs, and waves strip
+// it away fastest on exposed shores. A thick beach absorbs the waves and protects the land behind.
+// Wind blows sand off sand beaches into dunes behind them (world.dune).
+//
+// Ocean biomes (world.marine) follow the water temperature and depth: sea ice in freezing seas,
+// kelp forests on cool rocky shores, seagrass meadows in sandy or muddy shallows, coral reefs in warm
+// shallow water, and open or deep ocean beyond. world.coastal is how near the sea a spot is (salt
+// spray and sea fog: see the coastal trees in species.js).
+
+import { recordShock } from './seismo.js';
+import { boxBlur } from '../core/grid.js';
+import { climateParams, seasonParams, seasonalRain } from './climate.js';
+import { ROCK_INDEX } from '../core/rocks.js';
+import { waterQualityStep, addSilt, ensureQuality } from './waterQuality.js';
+import { oceanStep, ensureOcean } from './ocean.js';
+
+export const coastParams = {
+  tideRange: 1.5,     // height between low and high tide
+  tidePeriod: 30,     // simulated seconds per tidal cycle
+  waveErosion: 0.004, // how fast waves cut the shore (× exposure × softness)
+  coral: 1,           // coral growth (warm seas)
+  shoreType: 'auto',  // what the Shoreline tool paints
+  cliffs: 1,          // how fast waves undercut high coasts into sheer cliffs (0 = no cliffs cut)
+  stacks: 1,          // how many hard knots of rock stand out as sea stacks and islands as the cliffs retreat
+};
+
+export const SHORES = [
+  { id: 'mudflat', label: 'Mudflat', color: [0.36, 0.32, 0.22], help: 'Wide, flat, muddy shore of sheltered bays and estuaries; floods and drains with every tide.' },
+  { id: 'sand', label: 'Sand beach', color: [0.94, 0.85, 0.58], help: 'Sandy beach, fed by rivers, eroded soft rock and (in warm seas) coral.' },
+  { id: 'shingle', label: 'Shingle beach', color: [0.58, 0.61, 0.66], help: 'Pebble and cobble beach of exposed shores with little sand.' },
+  { id: 'cliff', label: 'Rock cliff', color: [0.40, 0.36, 0.33], help: 'Steep coast undercut by the waves; it retreats as they erode it.' },
+  { id: 'basalt', label: 'Basalt boulder beach', color: [0.13, 0.13, 0.15], help: 'Black boulders and cobbles where basalt meets the sea.' },
+];
+export const SHORE = Object.fromEntries(SHORES.map((s, k) => [s.id, k]));
+
+export const MARINE = [
+  { id: 'ice', label: 'Sea ice', color: [0.90, 0.94, 0.97], bed: [0.46, 0.44, 0.40], help: 'Frozen sea surface in freezing water.' },
+  { id: 'kelp', label: 'Kelp forest', color: [0.30, 0.32, 0.14], bed: [0.36, 0.34, 0.16], help: 'Underwater forests of giant kelp on cool, rocky shores, like the Washington coast.' },
+  { id: 'seagrass', label: 'Seagrass meadow', color: [0.30, 0.50, 0.26], bed: [0.32, 0.46, 0.24], help: 'Eelgrass and seagrass in sandy and muddy shallows of bays.' },
+  { id: 'coral', label: 'Coral reef', color: [0.92, 0.62, 0.58], bed: [0.86, 0.66, 0.56], help: 'Reefs built by corals in warm, clear, shallow water; they make white coral sand.' },
+  { id: 'shelf', label: 'Open ocean (shelf)', color: [0.20, 0.45, 0.62], bed: [0.58, 0.55, 0.47], help: 'Shallow sea over the continental shelf.' },
+  { id: 'deep', label: 'Deep ocean', color: [0.08, 0.20, 0.42], bed: [0.36, 0.36, 0.36], help: 'Deep water far from shore.' },
+  { id: 'estuary', label: 'Estuary (brackish)', color: [0.42, 0.56, 0.52], bed: [0.46, 0.44, 0.36], help: 'Where a river meets the sea: brackish water, part fresh and part salt, muddy and rich in nutrients. Too fresh for coral and kelp.' },
+  { id: 'dieoff', label: 'Die-off (bare seabed)', color: [0.40, 0.44, 0.34], bed: [0.42, 0.44, 0.34], help: 'Seagrass, kelp or coral killed by dirty water (silt or pollutants): bare mud and rubble, or bleached, dead coral. It recovers slowly once the water is clean again.' },
+  { id: 'deepcoral', label: 'Cold-water coral', color: [0.92, 0.74, 0.62], bed: [0.84, 0.70, 0.60], help: 'Deep reefs of cold-water corals (like Lophelia): widespread in patches in deep, cool, full-strength seawater, but extremely sensitive. Silt, pollutants, low oxygen, brackish water, trawling, dredging and dumping wreck them, and they take a very long time to grow back.' },
+];
+export const MARINE_ID = Object.fromEntries(MARINE.map((m, k) => [m.id, k]));
+// How well each sea bed cleans the water, and how easily dirty water harms it
+const FILTER = MARINE.map((m) => ({ seagrass: 0.06, kelp: 0.05, coral: 0.04, deepcoral: 0.02 }[m.id] || 0));
+const SENSITIVE = MARINE.map((m) => ({ seagrass: 1.1, kelp: 1, coral: 1.6, deepcoral: 3.2 }[m.id] || 0)); // (cold-water coral: the most sensitive of all)
+// How fast each bed declines under dirty water and regrows once it's clean (seagrass slowest: the
+// meadow thins out gradually, its density falling over many weeks, and fills back in as slowly)
+const PACE = MARINE.map((m) => ({ seagrass: 0.2, kelp: 0.5, coral: 0.12, deepcoral: 0.05 }[m.id] || 1)); // (reefs take many years to grow back)
+// How much a dense bed shields itself from dirty water (seagrass meadows most)
+// The least salty water each bed can stand (most die off in brackish water; eelgrass copes best)
+const SALT_TOL = MARINE.map((m) => ({ seagrass: 0.55, kelp: 0.8, coral: 0.88, deepcoral: 0.9 }[m.id] || 0));
+const RESIST = MARINE.map((m) => ({ seagrass: 1, kelp: 0.5 }[m.id] || 0));
+// Beds whose density thins gradually (they show as a sparser meadow, not a sudden die-off)
+const THINS = MARINE.map((m) => m.id === 'seagrass' || m.id === 'kelp');
+
+/** The colour of the sea bed at i (bed: the natural view's colours, else the overlay's). */
+export function marineColor(world, i, bed, out) {
+  const m = marineShown(world, i);
+  const c = bed ? MARINE[m].bed : MARINE[m].color;
+  if (!THINS[m]) return c;
+  // A thinning meadow: patches of bare seabed showing between the plants
+  const d = world.marineHealth ? world.marineHealth[i] : 1;
+  const b = bed ? MARINE[MARINE_ID.dieoff].bed : MARINE[MARINE_ID.dieoff].color, t = 0.4 + 0.6 * Math.min(1, d * 1.4); // (bare patches stay subtle)
+  out[0] = b[0] + (c[0] - b[0]) * t; out[1] = b[1] + (c[1] - b[1]) * t; out[2] = b[2] + (c[2] - b[2]) * t;
+  return out;
+}
+
+/** True for living sea beds (kelp, seagrass, coral, cold-water coral): the ones that can be harmed. */
+export function isLivingBed(m) { return m >= 0 && SENSITIVE[m] > 0; }
+
+/** True for beds that thin gradually (seagrass, kelp): their health is their density. */
+export function marineThins(m) { return m >= 0 && THINS[m]; }
+
+/** The sea bed as it looks now: a living bed that dirty water has killed shows as a die-off. */
+export function marineShown(world, i) {
+  const m = world.marine ? world.marine[i] : -1;
+  if (m >= 0 && world.seaIce && world.seaIce[i] > 0.3) return MARINE_ID.ice; // winter sea ice over the bed
+  if (m >= 0 && SENSITIVE[m] > 0 && world.marineHealth && world.marineHealth[i] < (THINS[m] ? 0.05 : 0.3)) return MARINE_ID.dieoff;
+  return m;
+}
+
+/** Make sure the coast fields exist. */
+export function ensureCoast(world) {
+  const n = world.N * world.N;
+  if (!world.sand || world.sand.length !== n) world.sand = new Float32Array(n);
+  if (!world.shore || world.shore.length !== n) world.shore = new Int8Array(n).fill(-1);
+  if (!world.shoreSet || world.shoreSet.length !== n) world.shoreSet = new Int8Array(n).fill(-1);
+  if (!world.marine || world.marine.length !== n) world.marine = new Int8Array(n).fill(-1);
+  if (!world.coastal || world.coastal.length !== n) world.coastal = new Float32Array(n);
+  if (!world.dune || world.dune.length !== n) world.dune = new Float32Array(n);
+  if (!world.coral || world.coral.length !== n) world.coral = new Float32Array(n);
+  if (!world.mangrove || world.mangrove.length !== n) world.mangrove = new Float32Array(n);
+  if (!world.coralRubble || world.coralRubble.length !== n) world.coralRubble = new Float32Array(n);
+  if (!world.bedGrow || world.bedGrow.length !== n) world.bedGrow = new Float32Array(n).fill(1);
+  if (!world.notch || world.notch.length !== n) world.notch = new Float32Array(n);
+  if (!world.seaCliff || world.seaCliff.length !== n) world.seaCliff = new Uint8Array(n);
+  ensureQuality(world);
+  ensureOcean(world);
+}
+
+/** Sea surface now: mean sea level plus the tide. Called every frame. */
+export function tideLevel(world, meanSea) {
+  const p = coastParams;
+  world.tide = 0.5 * p.tideRange * Math.sin((2 * Math.PI * (world.time || 0)) / p.tidePeriod);
+  world.meanSea = meanSea;
+  // (plus any storm surge: storms over the sea raise it for a while)
+  return meanSea + world.tide + (world.surge || 0);
+}
+
+/** Water temperature of the sea (°C): the air's year average, with a damped season. */
+export function seaTemp() {
+  const st = seasonParams.enabled ? seasonParams.swing * Math.sin(2 * Math.PI * (seasonParams.phase - 0.12)) : 0;
+  return climateParams.seaTemp + (climateParams.warming || 0) + 0.45 * st; // the sea lags and swings less than the air
+}
+
+/**
+ * Water temperature (°C) at cell i if it lies under the sea, else null. The surface follows
+ * seaTemp(); below the sunlit top layer it cools toward the cold deep water (about 4 °C), which
+ * barely feels the seasons. now=false gives the year average.
+ */
+export function waterTempAt(world, i, now = true) {
+  const sea = world.meanSea;
+  if (sea === undefined || sea < -999) return null;
+  const depth = sea - world.height[i];
+  if (depth <= 0) return null;
+  // (the surface: this spot's own water temperature, see sim/ocean.js)
+  const local = now && world.seaT && !Number.isNaN(world.seaT[i]) ? world.seaT[i] : null;
+  const surf = local !== null ? local : now ? seaTemp() : climateParams.seaTemp;
+  return surf + (Math.min(surf, 4) - surf) * smoothstep(4, 20, depth);
+}
+
+/**
+ * Classify the shore and ocean, erode the shore with waves, and move sand. Run with the
+ * vegetation/climate step.
+ */
+export function coastStep(world) {
+  ensureCoast(world);
+  const N = world.N, n = N * N, H = world.height, sea = world.meanSea;
+  if (sea === undefined || sea < -999) {
+    world.shore.fill(-1); world.marine.fill(-1); world.coastal.fill(0); world.dune.fill(0);
+    world.seasonScale = null;
+    return;
+  }
+  const p = coastParams, half = 0.5 * p.tideRange;
+  const SAND = world.sand, SH = world.shore, SET = world.shoreSet, M = world.marine, CO = world.coral;
+  // Open water around each spot: how exposed it is to waves (bays are sheltered, headlands exposed).
+  // The blurs of the sea are only worked out again when the coastline has changed (at most every
+  // third step: a cell or two of coast moving barely shifts them), and the breakwaters' shelter when
+  // the breakwaters have
+  const C = blurCache;
+  let sig = 0, cnt = 0, bsig = 0;
+  const LUw = world.landUse;
+  const seaMask = C.mask && C.mask.length === n ? C.mask : (C.mask = new Float32Array(n));
+  const lowSea = sea - half;
+  for (let i = 0; i < n; i++) {
+    const m = H[i] < lowSea ? 1 : 0;
+    seaMask[i] = m;
+    if (m) { cnt++; sig = (sig + Math.imul(i, 2654435761)) | 0; }
+    if (LUw && LUw[i] === 14) bsig = (bsig + Math.imul(i + 7, 40503)) | 0;
+  }
+  C.since = (C.since || 0) + 1;
+  const fresh = !C.exposure0 || C.world !== world || C.N !== N || C.sea !== lowSea;
+  if (fresh || ((sig !== C.sig || cnt !== C.cnt) && C.since >= 3)) {
+    C.world = world; C.N = N; C.sea = lowSea; C.sig = sig; C.cnt = cnt; C.since = 0;
+    C.exposure0 = boxBlur(seaMask, N, 10);
+    C.nearSea = boxBlur(boxBlur(seaMask, N, 3), N, 3);
+    C.marine = boxBlur(boxBlur(seaMask, N, 16), N, 16);
+    C.blursNew = true;
+  }
+  const exposure = C.exposure && C.exposure.length === n ? C.exposure : (C.exposure = new Float32Array(n));
+  exposure.set(C.exposure0);
+  // Breakwaters (sim/civilization.js) take the force out of the waves in their lee
+  let shelter = null;
+  if (bsig !== 0 || (LUw && C.bsig)) {
+    if (bsig !== C.bsig || C.bworld !== world || !C.shelter || C.shelter.length !== n) {
+      C.bsig = bsig; C.bworld = world;
+      const bw = new Float32Array(n);
+      for (let i = 0; i < n; i++) if (LUw[i] === 14) bw[i] = 1;
+      // (reaching a dozen cells or so: the breakwater lies well out from the shore it shelters)
+      C.shelter = boxBlur(bw, N, 12);
+      for (let i = 0; i < n; i++) C.shelter[i] = Math.min(1, C.shelter[i] * 50);
+    }
+    shelter = bsig !== 0 ? C.shelter : null;
+    if (shelter) for (let i = 0; i < n; i++) if (shelter[i] > 0) exposure[i] *= 1 - 0.75 * shelter[i];
+  }
+  world.shelter = shelter;
+  const nearSea = C.nearSea;
+  if (C.blursNew) {
+    C.blursNew = false;
+    // Coastal influence (salt spray, sea fog) reaching a few cells inland
+    const coast = C.exposure0;
+    for (let i = 0; i < n; i++) world.coastal[i] = Math.min(1, coast[i] * 3);
+    // Maritime vs continental climate: the sea damps the seasons near the coast (about half the
+    // swing at the shore) and inland, away from it, they swing more (colder winters, hotter summers)
+    const marine = C.marine;
+    if (!world.seasonScale || world.seasonScale.length !== n) world.seasonScale = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const m = Math.min(1, marine[i] * 3);
+      world.seasonScale[i] = 0.5 + 0.75 * (1 - m); // 0.5 at the coast … 1.25 far inland
+    }
+  }
+  const seaVar = seaVariation(N);
+  // The sea beds follow the sea's long-term climate, not the seasons: kelp doesn't vanish each
+  // summer or coral each winter. world.seaClimate is the annual mean water temperature as the beds
+  // have adapted to it, lagging the real one by a few years, and a bed that no longer suits its
+  // spot is replaced patch by patch over several years (the new one starting sparse and filling in).
+  const ph = seasonParams.phase;
+  let years = seasonParams.enabled ? (ph - (world.seaPhase ?? ph) + 1) % 1 : 1 / 360;
+  if (years > 0.1) years = 0.1; // (a jump in the calendar doesn't count as years passing)
+  world.seaPhase = ph;
+  if (!world.coastInit || world.seaClimate === undefined) world.seaClimate = climateParams.seaTemp;
+  else world.seaClimate += (climateParams.seaTemp - world.seaClimate) * Math.min(1, years / 3);
+  const Tbed = world.seaClimate, turnover = Math.min(1, years / 2.5);
+  const HL = world.marineHealth, RB = world.coralRubble, GR = world.bedGrow;
+  const erodeK = p.waveErosion * (world.erosionEnabled ? 1 : 0);
+  const basalt = ROCK_INDEX.basalt;
+  const sandBeach = new Float32Array(n);
+  cliffStep(world, sea, half, exposure, erodeK);
+  const CL = world.seaCliff;
+
+  for (let z = 1; z < N - 1; z++) {
+    for (let x = 1; x < N - 1; x++) {
+      const i = z * N + x, h = H[i];
+      // --- Ocean: biome by temperature and depth ---
+      if (h < sea - half) {
+        const depth = sea - h;
+        let m;
+        // (each spot's own limits differ a little: currents, shade, upwelling)
+        const T = Tbed + seaVar.jitter[i];
+        // (coral and kelp need full-strength seawater; river mouths are brackish estuaries)
+        const salt = world.salinity[i];
+        // Cold-water coral: patches of deep reef in cool, salty water below the sunlit shallows
+        const patch = seaVar.patch[i];
+        // The shelf below the shallows is reef by default wherever the water is full-strength sea:
+        // warm seas grow coral reefs down to ~25 deep; cooler ones (and deeper water, to ~40) cold-
+        // water coral, almost everywhere (a few gaps). Pollution, silt and low oxygen kill them back
+        // (see waterQuality.js); only below ~40 is it bare deep sea floor.
+        if (depth > 40) m = MARINE_ID.deep;
+        else if (salt < 0.65 && depth < 8) m = MARINE_ID.estuary; // (too brackish for most sea beds)
+        else if (depth < 6 && T > 20 && salt > 0.85) m = MARINE_ID.coral;
+        else if (depth < 6 && T > 4 && T < 19 && salt > 0.8 && world.hardnessAt(h, i) > 0.6) m = MARINE_ID.kelp; // (on rock)
+        else if (depth < 4) m = MARINE_ID.seagrass;
+        else if (depth < 25 && T > 20 && salt > 0.85) m = MARINE_ID.coral; // (shelf reefs)
+        else if (T > 2 && salt > 0.85 && patch > 0.15) m = MARINE_ID.deepcoral;
+        else if (depth > 14) m = MARINE_ID.deep;
+        else m = MARINE_ID.shelf;
+        const cur = M[i];
+        if (cur < 0) {
+          // Newly flooded ground: open water at once; a bed starts as a sparse colonisation
+          M[i] = m;
+          if (world.coastInit && SENSITIVE[m] > 0) HL[i] = m === MARINE_ID.coral ? (RB[i] > 0.1 ? 0 : 0.05) : 0.15; // (dead reef rubble stays dead)
+        } else if (cur !== m) {
+          if (!SENSITIVE[cur] && !SENSITIVE[m]) M[i] = m; // just deeper or shallower open water
+          else if (Math.random() < turnover) { M[i] = m; HL[i] = m === MARINE_ID.coral ? 0.05 : SENSITIVE[m] > 0 ? 0.15 : 1; }
+        }
+        m = M[i];
+        GR[i] = 1;
+        if (m === MARINE_ID.coral) {
+          // Coral is tropical: water colder than ~18 °C kills it outright within weeks (a cold snap
+          // or a cooling sea), however healthy it was. It grows back only in warm water, slowly
+          // (reefs take many years), spreading from living coral nearby; a reef killed off
+          // completely is recolonised only very slowly from scattered larvae.
+          const Tnow = waterTempAt(world, i);
+          if (Tnow < 18) { HL[i] = Math.max(0, HL[i] - 0.012 * (18 - Tnow)); GR[i] = 0; }
+          else {
+            const live = Math.max(CO[i - 1], CO[i + 1], CO[i - N], CO[i + N], CO[i]);
+            GR[i] = smoothstep(18, 21, Tnow) * (0.08 + 0.92 * live);
+          }
+        }
+        // Living coral cover follows the reef's health: it grows slowly, dies fast. Dead coral
+        // leaves its skeleton behind as rubble, which the waves break up into white coral sand
+        const target = m === MARINE_ID.coral ? HL[i] : 0, before = CO[i];
+        CO[i] += (target - CO[i]) * (target > CO[i] ? 0.004 : 0.05);
+        if (before > CO[i] && m === MARINE_ID.coral) RB[i] = Math.min(3, RB[i] + (before - CO[i]) * 2);
+        // Rubble piles up in the shallows, building the reef flat up toward the surface until it
+        // emerges as beach (widening the shore) or as a little coral-sand island (a cay)
+        if (RB[i] > 0.01) {
+          if (depth < 3.5 && h < sea + half) { H[i] += 0.004 * Math.min(2, RB[i]); SAND[i] = Math.min(3, SAND[i] + 0.015 * RB[i]); }
+          RB[i] *= 0.996;
+        } else RB[i] = 0;
+        SH[i] = -1;
+        continue;
+      }
+      M[i] = -1;
+      GR[i] = 1;
+      // (rubble that's been built up to the shore becomes beach sand)
+      if (RB[i] > 0) { SAND[i] = Math.min(3, SAND[i] + 0.05 * RB[i]); RB[i] *= 0.9; if (RB[i] < 0.01) RB[i] = 0; }
+      CO[i] *= 0.95;
+      // --- Shore: land within reach of the waves (up to a little above high tide) ---
+      if (h > sea + half + 2.5 + Math.max(0, world.surge || 0) || nearSea[i] <= 0) { SH[i] = -1; continue; } // (up to where storm surges reach)
+      const gx = (H[i + 1] - H[i - 1]) * 0.5, gz = (H[i + N] - H[i - N]) * 0.5;
+      const slope = Math.sqrt(gx * gx + gz * gz);
+      const ex = exposure[i];
+      const hard = world.hardnessAt(h, i);
+      let type = SET[i];
+      // A new coast starts with sand on its gentle, exposed shores (built up over the ages before)
+      if (!world.coastInit && slope < 0.4 && ex > 0.15 && !CRYSTALLINE.has(world.rockAt(h, i))) SAND[i] = Math.max(SAND[i], 0.3 + 1.2 * ex * (1 - slope * 2)); // (not on hard crystalline rock: bare rock and cliffs)
+      if (type < 0) {
+        // A cliff needs a steep face and real height behind it; at the foot of one is shingle
+        const behind = Math.max(H[i + 1], H[i - 1], H[i + N], H[i - N]) - h;
+        // (deep sand, e.g. piled up from a dead reef, buries the rock foot as a wide beach)
+        if (SAND[i] > 1.5 && (slope < 2.2 || h < sea + half + 0.6)) type = SHORE.sand;
+        else if (slope > 1.4 && behind > 1.8) type = SHORE.cliff;
+        else if (ex < 0.22 && slope < 0.18) type = SHORE.mudflat;
+        else if (SAND[i] > 0.35 && slope < 0.6) type = SHORE.sand; // sand covers whatever rock is beneath
+        else if (world.rockAt(h, i) === basalt && ex > 0.15) type = SHORE.basalt;
+        else type = SHORE.shingle;
+      }
+      SH[i] = type;
+      // A quay (a town's sea wall, sim/civilization.js): a fixed, steep stone face. The waves don't
+      // wear it, no sand gathers on it, and the tide can't reach over it
+      if (world.landUse && (world.landUse[i] === 6 || world.landUse[i] === 13)) { SH[i] = SHORE.cliff; SAND[i] = 0; continue; }
+      if (world.landUse && world.landUse[i] === 14) { SH[i] = SHORE.shingle; SAND[i] = 0; continue; } // (a breakwater: a mound of boulders)
+      // (nor do they wear away other kept ground at the shore: towns, roads, fields, reclaimed land
+      // and terraces are banked and armoured, the way quays are)
+      const kept = world.builtUp(i);
+      // --- Waves erode the shore: exposed, soft coasts fastest; a thick beach protects ---
+      const inReach = h < sea + half + 1.2;
+      if (inReach && erodeK > 0 && type !== SHORE.mudflat && !kept && !CL[i]) {
+        const protect = 1 - Math.min(0.85, SAND[i] * 0.6);
+        // (mangrove roots take the force out of the waves)
+        const cut = erodeK * ex * (world.wind ? 0.4 + 0.6 * Math.min(1.5, world.wind[i]) : 1) * (1.2 - hard) * protect * (1 - 0.85 * world.mangrove[i]) * (type === SHORE.cliff ? 2 : 1) * (1 + 4 * Math.min(1.6, world.stormWave[i])); // (storm waves pound it)
+        H[i] -= cut;
+        // Soft rock breaks down to sand; hard rock to shingle (doesn't add sand). The fines cloud
+        // the water.
+        SAND[i] += cut * (1.3 - hard) * 2;
+        addSilt(world, i, cut * (1.4 - hard) * 3);
+      }
+      // Mudflats wash out where the waves reach them, and the mud they lose clouds the water
+      // (fast where they're bare; mangroves and seagrass hold the mud down)
+      if (inReach && erodeK > 0 && type === SHORE.mudflat && !kept) {
+        const grass = [i - 1, i + 1, i - N, i + N].some((j) => M[j] === MARINE_ID.seagrass) ? 0.6 * world.marineHealth[i] : 0;
+        const cut = erodeK * (0.3 + 2 * ex) * (1 - 0.85 * world.mangrove[i]) * (1 - grass) * (1 + 4 * Math.min(1.6, world.stormWave[i]));
+        H[i] -= cut;
+        addSilt(world, i, cut * 6);
+      }
+      // --- Longshore drift: waves running along the shore fill coves and plane off bumps, so
+      // beaches straighten into long stretches between points (hard-rock headlands hold out) ---
+      if (inReach && erodeK > 0 && type !== SHORE.cliff && !kept && !CL[i]) {
+        const avg = (H[i - 1] + H[i + 1] + H[i - N] + H[i + N] + H[i - N - 1] + H[i - N + 1] + H[i + N - 1] + H[i + N + 1]) / 8;
+        H[i] += (avg - H[i]) * 0.04 * ex * (1.2 - hard);
+      }
+      // --- Between the tide lines, the waves slowly bring sand in from the sea and spread it over
+      // the bare, tide-scoured ground, building it up into beach (not on mudflats or cliffs) ---
+      if (h < sea + half && h > sea - half && type !== SHORE.mudflat && type !== SHORE.cliff && erodeK > 0 && !(world.stormWave && world.stormWave[i] > 0.4)) {
+        SAND[i] = Math.min(3, SAND[i] + 0.006 * (0.3 + ex));
+        if (SAND[i] > 0.5) H[i] += 0.0006 * (0.3 + ex) * (1 - world.mangrove[i]);
+      }
+      // --- Big storm waves strip the beach: the sand is dragged off into deeper water (and the
+      // dunes behind, fed by it, flatten) ---
+      const sw = world.stormWave ? world.stormWave[i] : 0;
+      if (sw > 0.6 && SAND[i] > 0) {
+        const lost = SAND[i] * Math.min(0.3, 0.05 * (sw - 0.6) * (0.5 + ex * 2));
+        SAND[i] -= lost;
+        addSilt(world, i, lost * 0.5);
+      }
+      // --- Sand budget: rivers and coral feed it, exposed waves strip it ---
+      const river = world.sediment[i] * 0.3;
+      // (living reefs make coral sand slowly; dead ones, broken up by the waves, much faster)
+      const coralSand = (nearCoral(CO, i, N) * 0.01 + nearCoral(RB, i, N) * 0.03) * p.coral;
+      const loss = 0.004 * ex * (type === SHORE.cliff ? 3 : 1);
+      // (in a breakwater's lee the calm water drops its sand: the beach behind builds out)
+      if (shelter && shelter[i] > 0 && h < sea + half) SAND[i] = Math.min(3, SAND[i] + 0.01 * shelter[i]);
+      SAND[i] = Math.max(0, Math.min(3, SAND[i] + river + coralSand - loss * SAND[i]));
+      if (type === SHORE.sand) sandBeach[i] = SAND[i];
+    }
+  }
+  world.coastInit = true;
+  // Wind blows sand inland off sand beaches into dunes (a few cells behind the beach, low ground)
+  // (the blown sand and sandy ground follow the beaches, which change slowly: every third step)
+  if (!C.blown || C.blown.length !== n || C.sworld !== world || (C.sandStep = (C.sandStep || 0) + 1) % 3 === 0) {
+    C.sworld = world;
+    C.blown = boxBlur(boxBlur(sandBeach, N, 6), N, 6);
+    C.sandNear = boxBlur(sandBeach, N, 2);
+  }
+  const blown = C.blown;
+  for (let i = 0; i < n; i++) {
+    const h = H[i];
+    const low = h > sea + half && h < sea + half + 8 ? 1 : 0;
+    world.dune[i] = low * Math.min(1, blown[i] * 12);
+  }
+  // Salt spray: the sea wind drives spray a few cells inland, so the first stretch of land behind
+  // an exposed shore is wind- and salt-blasted (trees there are stunted, only the coastal ones
+  // thrive); and sandy ground: beach sand blown a little way inland, poor and dry to grow in
+  if (!world.spray || world.spray.length !== n) { world.spray = new Float32Array(n); world.sandy = new Float32Array(n); }
+  const sandNear = C.sandNear;
+  for (let i = 0; i < n; i++) {
+    if (H[i] < sea) { world.spray[i] = 0; world.sandy[i] = 0; continue; }
+    const wind = world.wind ? Math.min(1.3, world.wind[i] + 0.2) / 1.3 : 0.7;
+    world.spray[i] = Math.min(1, nearSea[i] * 2.5) * (0.35 + 0.65 * wind);
+    world.sandy[i] = Math.min(1, Math.max(world.dune[i], SH[i] === SHORE.sand ? Math.min(1, SAND[i] * 0.7) : 0, sandNear[i] * 0.8, world.beachSand && (!world.beachType || world.beachType[i] === SHORE.sand) ? world.beachSand[i] : 0));
+  }
+  // Mangroves: forests of salt-tolerant trees standing in the tide on warm, sheltered mudflats.
+  // They need warm water all year (they die back where the sea drops much below ~20 °C), spread out
+  // across the flats and into the shallows, trap mud among their roots (so the flat slowly builds
+  // up) and break the waves.
+  const MG = world.mangrove, warm = smoothstep(19, 23, world.seaClimate);
+  for (let i = 0; i < n; i++) {
+    const h = H[i];
+    let target = 0;
+    if (warm > 0) {
+      if (SH[i] === SHORE.mudflat) target = warm;
+      else if (SH[i] === SHORE.sand && exposure[i] < 0.3) target = 0.6 * warm;
+      else if (h < sea - half && h > sea - half - 1.2 && exposure[i] < 0.75 && i > N && i < n - N
+        && Math.max(MG[i - 1], MG[i + 1], MG[i - N], MG[i + N]) > 0.35) target = 0.8 * warm; // spreading out into the shallows
+    }
+    MG[i] += (target - MG[i]) * (target > MG[i] ? 0.03 : 0.08);
+    if (MG[i] < 0.005) MG[i] = 0;
+    // Trapped mud builds the flat up toward the high-tide line
+    if (MG[i] > 0.2 && h < sea + half) H[i] += 0.0015 * MG[i];
+  }
+  // Seawater quality: silt and pollutants mix, settle, flush out to sea and are filtered by the
+  // living sea beds, which die off where it stays too dirty
+  world.exposure = exposure; // (for the sea step)
+  world.dirty = true;
+}
+
+/**
+ * The moving, living sea: currents, salinity, plankton and oxygen, sea ice, storm surge and surf
+ * (sim/ocean.js), then seawater quality (sim/waterQuality.js). Run a few times a second, on a
+ * different frame from coastStep to spread the work.
+ */
+export function seaStep(world) {
+  const sea = world.meanSea;
+  if (sea === undefined || sea < -999 || !world.exposure) return;
+  ensureCoast(world);
+  const half = 0.5 * coastParams.tideRange;
+  oceanStep(world, sea, half, world.exposure, seaTemp(), coastParams.tidePeriod);
+  waterQualityStep(world, sea, half, FILTER, SENSITIVE, PACE, RESIST, SALT_TOL);
+  world.dirty = true;
+}
+
+// --- Cliffs, sea stacks and wave-cut islands ---------------------------------------------------
+// Where the land rises from the sea, the waves don't grade it into a sloping beach: they cut a notch
+// along its foot at the waterline until the rock above, undercut, falls away, and the coast steps
+// back a cell, leaving a sheer face over a wave-cut platform just under low tide. A rising coast
+// cut back like this becomes a cliff as tall as the land behind it (the red sandstone cliffs of the
+// Bay of Fundy, the chalk of Dover). Which stretches go to cliff varies along the coast: high, rocky,
+// exposed ground with little sand to protect its foot; low and sandy shores stay beaches. Knots of
+// tougher, less jointed rock (world: a fixed pattern per spot) hold out far longer, so as the cliff
+// retreats past them they're left standing in the sea as stacks and little islands, trees still on
+// top, until the waves undercut them too. A narrow neck of land with the sea on both sides is cut
+// through fastest, so headlands break off into islands. While the waves keep clearing their foot,
+// the faces stand sheer (world.seaCliff: sim/thermal.js and landslides leave them be).
+
+function hash2(x, z, s) {
+  let h = (x * 374761393 + z * 668265263 + s * 1274126177) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+/** Smooth value noise, 0..1, features about `scale` cells across. */
+function vnoise(x, z, scale, s) {
+  const fx = x / scale, fz = z / scale, x0 = Math.floor(fx), z0 = Math.floor(fz);
+  let tx = fx - x0, tz = fz - z0;
+  tx = tx * tx * (3 - 2 * tx); tz = tz * tz * (3 - 2 * tz);
+  const a = hash2(x0, z0, s), b = hash2(x0 + 1, z0, s), c = hash2(x0, z0 + 1, s), d = hash2(x0 + 1, z0 + 1, s);
+  return (a * (1 - tx) + b * tx) * (1 - tz) + (c * (1 - tx) + d * tx) * tz;
+}
+/** How tough the rock is at a spot against the waves (high = a knot that becomes a sea stack). */
+export function stackRock(x, z) { return 0.6 * vnoise(x, z, 3.2, 7) + 0.4 * vnoise(x, z, 1.6, 9); }
+
+let cliffSea = null;
+const CRYSTALLINE = new Set(['basalt', 'andesite', 'rhyolite', 'granite', 'gneiss', 'schist', 'marble', 'tuff'].map((id) => ROCK_INDEX[id]));
+
+function cliffStep(world, sea, half, exposure, erodeK) {
+  const N = world.N, H = world.height, NT = world.notch, CL = world.seaCliff, SAND = world.sand;
+  CL.fill(0);
+  const p = coastParams;
+  if (p.cliffs <= 0 || erodeK <= 0) return;
+  const low = sea - half, k = 0.006 * p.cliffs * (erodeK / 0.004);
+  const n = N * N, LU = world.landUse;
+  if (!cliffSea || cliffSea.length !== n) cliffSea = new Uint8Array(n);
+  const S = cliffSea;
+  for (let i = 0; i < n; i++) S[i] = H[i] < low && !(LU && LU[i]) ? 1 : 0;
+  const isSea = (j) => S[j] === 1;
+  for (let z = 2; z < N - 2; z++) {
+    for (let x = 2; x < N - 2; x++) {
+      const i = z * N + x, h = H[i];
+      if (h < low) continue;
+      const w = S[i - 1], e = S[i + 1], nn = S[i - N], s = S[i + N];
+      const seaSides = w + e + nn + s;
+      if (!seaSides) { if (NT[i] > 0) NT[i] *= 0.98; continue; }
+      if (world.builtUp(i) || (world.ice && world.ice[i] > 0.3)) continue;
+      // Does this stretch go to cliff? High ground at the water, rock rather than sand, and the
+      // coast's own character (varying along it in long stretches)
+      let top = h;
+      for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) top = Math.max(top, H[i + dz * N + dx]);
+      const rise = top - (sea + half);
+      // Igneous and metamorphic rock (granite, basalt, gneiss…) stands as cliffs almost wherever
+      // the land rises from the sea; sedimentary coasts go either way
+      const crystalline = CRYSTALLINE.has(world.rockAt(h, i));
+      if (rise < (crystalline ? 0.8 : 1.5) || SAND[i] > (crystalline ? 2 : 1.2)) continue;
+      const hard = world.hardnessAt(h, i);
+      const character = 0.75 * vnoise(x, z, 22, 3) + 0.25 * hard + Math.min(0.25, rise * 0.03) + (crystalline ? 0.35 : 0);
+      if (character < 0.42) continue;
+      CL[i] = 1;
+      // The notch deepens: exposed, stormy, soft coasts fastest; tough knots of rock barely
+      const ex = Math.max(0.05, exposure[i]);
+      const storm = world.stormWave ? Math.min(1.6, world.stormWave[i]) : 0;
+      let rate = k * ex * (1.25 - 0.6 * hard) * (1 + 3 * storm) * (1 + 0.35 * (seaSides - 1));
+      if ((w && e) || (nn && s)) rate *= 3; // (a neck with the sea on both sides is cut through)
+      if (p.stacks > 0 && stackRock(x, z) > 0.74 - 0.08 * Math.min(2, p.stacks)) rate *= 0.05;
+      NT[i] += rate;
+      if (NT[i] < 1) continue;
+      // The undercut face falls: the cell is cut down to the wave-cut platform below low tide
+      NT[i] = 0;
+      const floor = low - 0.3 - 0.5 * hash2(x, z, world.frameSeed || 1);
+      const fell = h - floor;
+      H[i] = floor;
+      if (world.prevHeight) world.prevHeight[i] = floor;
+      world.vegetation[i] = 0;
+      if (world.forestAge) world.forestAge[i] = 0;
+      if (world.water) world.water[i] = Math.max(world.water[i], 0);
+      // (the fallen rock: boulders and shingle at the foot; the fines cloud the water)
+      SAND[i] = Math.min(3, SAND[i] + 0.15);
+      addSilt(world, i, Math.min(3, fell * 0.06 * (1.3 - hard)));
+      world.cliffFalls = (world.cliffFalls || 0) + 1;
+      if (fell > 22 && Math.random() < 0.25) recordShock(world, 'cliff', Math.min(3, 1 + fell * 0.05), x, z); // (a big fall of rock shows on the seismograph)
+    }
+  }
+  // (the faces next to a cliff cell's fallen neighbours hold steep too)
+  for (let z = 2; z < N - 2; z++) for (let x = 2; x < N - 2; x++) {
+    const i = z * N + x;
+    if (CL[i] || H[i] < low) continue;
+    if ((CL[i - N - 1] || CL[i - N + 1] || CL[i + N - 1] || CL[i + N + 1]) && (isSea(i - N - 1) || isSea(i - N + 1) || isSea(i + N - 1) || isSea(i + N + 1))) CL[i] = 2;
+  }
+}
+
+const blurCache = {};
+let seaVarCache = null;
+/** Each sea spot's fixed quirks: its temperature limits' jitter and the cold-water coral patches. */
+function seaVariation(N) {
+  if (seaVarCache && seaVarCache.N === N) return seaVarCache;
+  const n = N * N, jitter = new Float32Array(n), patch = new Float32Array(n);
+  for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+    const i = z * N + x, r = ((i * 2654435761) >>> 0) / 4294967296;
+    jitter[i] = (r - 0.5) * 3;
+    patch[i] = 0.5 + 0.5 * Math.sin(x * 0.17 + z * 0.11) * Math.cos(z * 0.13 - x * 0.07) + 0.25 * (r - 0.5);
+  }
+  return (seaVarCache = { N, jitter, patch });
+}
+
+function nearCoral(CO, i, N) {
+  return Math.max(CO[i - 1], CO[i + 1], CO[i - N], CO[i + N], CO[i - N - 1], CO[i + N + 1]);
+}
+
+/**
+ * The Shoreline tool: set the shore type under the brush and shape the ground to match.
+ * type 'auto' (or Shift) returns it to the automatic choice.
+ */
+export function paintShore(world, i, w, type, dt) {
+  ensureCoast(world);
+  const sea = world.meanSea;
+  if (sea === undefined || sea < -999) return;
+  const H = world.height, half = 0.5 * coastParams.tideRange;
+  if (type === 'auto') { world.shoreSet[i] = -1; return; }
+  const k = SHORE[type];
+  if (k === undefined) return;
+  // Only the shore itself: a little below low tide up to a little above high tide
+  if (H[i] < sea - half - 3 || H[i] > sea + half + 6) return;
+  world.shoreSet[i] = k;
+  const s = Math.min(1, dt * 4) * w;
+  if (k === SHORE.mudflat) {
+    // Wide, nearly flat, just about at mean sea level
+    H[i] += (sea + 0.1 - H[i]) * s * 0.5;
+    world.vegetation[i] *= 1 - s;
+  } else if (k === SHORE.sand) {
+    world.sand[i] = Math.min(3, world.sand[i] + s * 1.5);
+    world.vegetation[i] *= 1 - s;
+  } else if (k === SHORE.shingle) {
+    world.sand[i] *= 1 - s;
+    world.vegetation[i] *= 1 - s;
+  } else if (k === SHORE.cliff) {
+    // Lift the land above the tide into a steep face
+    if (H[i] > sea + half) H[i] += s * 3;
+    world.sand[i] *= 1 - s;
+  } else if (k === SHORE.basalt) {
+    // Basalt at the surface, with a rough, bouldery face
+    world.surfaceRock[i] = ROCK_INDEX.basalt;
+    world.surfaceBase[i] = Math.min(world.surfaceBase[i] || H[i] - 2, H[i] - 2);
+    world.sand[i] *= 1 - s;
+    world.vegetation[i] *= 1 - s;
+  }
+  world.dirty = true;
+}
+
+function smoothstep(e0, e1, x) {
+  const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1);
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * Land the sea covers becomes beach (a strict rule): any land that goes under the sea (below high
+ * tide, or under a storm surge), whatever was on it (grassland, forest, scrub, desert, bare rock,
+ * fields), has its plants and turf stripped and is left as beach of the kind that suits the spot
+ * (world.beachSand = 1, world.beachType = which):
+ *   • mudflat – flat, low ground in a sheltered spot (or already mudflat shore)
+ *   • shingle – steeper or hard, rocky ground, with little sand (black basalt boulders on basalt)
+ *   • sand    – everywhere else (gentle ground, soft rock)
+ * Where the waves have already made a shore of it (sim/coast.js), that's the kind it takes. Out of
+ * the water again (the sea falls back, sand and silt build it up) it stays that kind of beach, and
+ * plants can't grow past what it allows (sim/vegetation.js): bare at first, then dune grass or salt
+ * marsh, and only very slowly the land it was (about 55 years to look like grassland again, 90 to
+ * recover fully, at ordinary rainfall). Built-over ground is washed away instead (civilization.js).
+ * Runs every 30 frames.
+ */
+export function drownedGrassStep(world) {
+  const sea = world.meanSea;
+  if (sea === undefined || sea <= -999) return;
+  const N = world.N, n = N * N, H = world.height, V = world.vegetation, LU = world.landUse;
+  if (!world.beachSand || world.beachSand.length !== n) world.beachSand = new Float32Array(n);
+  if (!world.wasGrass || world.wasGrass.length !== n) world.wasGrass = new Uint8Array(n);
+  if (!world.beachType || world.beachType.length !== n) { world.beachType = new Int8Array(n); world.beachType.fill(SHORE.sand); }
+  if (!world.beachSalt || world.beachSalt.length !== n) {
+    world.beachSalt = new Float32Array(n);
+    for (let i = 0; i < n; i++) if (world.beachSand[i] > 0) world.beachSalt[i] = Math.min(1, world.beachSand[i]); // (beaches from before: salty to the degree they're still beach)
+  }
+  const BS = world.beachSand, WG = world.wasGrass, BT = world.beachType, SH = world.shore, SALT = world.beachSalt;
+  const rainNow = seasonalRain();
+  const high = sea + 0.5 * coastParams.tideRange;
+  // (a storm surge floods the low ground behind the shore too)
+  const reach = high + Math.max(0, world.surge || 0);
+  const basalt = ROCK_INDEX.basalt;
+  for (let i = 0; i < n; i++) {
+    const h = H[i];
+    if (h >= reach) {
+      // (dry land: remember it's land the sea could drown; built-over ground is washed away instead)
+      WG[i] = !(LU && LU[i] && LU[i] !== 1 && LU[i] !== 10) && BS[i] < 0.35 ? 1 : 0;
+      // Out of the water, the beach is taken back by the land only very slowly, and only as the rain
+      // washes the sea salt out of it: first the salt leaches away (fast in wet country, hardly at
+      // all in a desert or a drought, none while it's dry), then, on the freshened sand, dune grass,
+      // then turf, creep back over it. In dry country a drowned shore stays a salt-crusted beach.
+      if (BS[i] > 0 && h >= high) {
+        const rain = (world.precip ? Math.min(1.2, world.precip[i]) : 0.5) * rainNow;
+        if (SALT[i] > 0) SALT[i] = Math.max(0, SALT[i] - 0.0004 * rain);
+        const fresh = 1 - SALT[i];
+        BS[i] = Math.max(0, BS[i] - 0.00006 * rain * fresh * fresh);
+        if (BS[i] === 0) SALT[i] = 0;
+      }
+      continue;
+    }
+    // Under the sea, or flooded by the surge: land drowned here becomes beach of its kind
+    if (BS[i] > 0 || WG[i]) SALT[i] = 1; // (soaked in seawater again)
+    if (WG[i]) {
+      BS[i] = 1; WG[i] = 0;
+      V[i] = Math.min(V[i], 0.06);
+      if (world.forestAge) world.forestAge[i] = 0;
+      if (world.treeDensity) world.treeDensity[i] = 0;
+      if (LU && (LU[i] === 1 || LU[i] === 10)) { LU[i] = 0; if (world.civOwner) world.civOwner[i] = 0; }
+      BT[i] = beachKind(world, i, h, SH, basalt);
+    } else if (BS[i] > 0) BS[i] = 1; // (still under: stays beach)
+  }
+}
+
+/** What kind of beach drowned ground at cell i becomes. */
+function beachKind(world, i, h, SH, basalt) {
+  const s = SH ? SH[i] : -1;
+  if (s === SHORE.mudflat || s === SHORE.sand || s === SHORE.shingle || s === SHORE.basalt) return s;
+  const N = world.N, H = world.height, x = i % N, z = (i / N) | 0;
+  if (x < 1 || z < 1 || x >= N - 1 || z >= N - 1) return SHORE.sand;
+  const slope = Math.hypot((H[i + 1] - H[i - 1]) * 0.5, (H[i + N] - H[i - N]) * 0.5);
+  const hard = world.hardnessAt ? world.hardnessAt(h, i) : 0.5;
+  const rock = world.rockAt ? world.rockAt(h, i) : -1;
+  if (slope < 0.08 && hard < 0.7) return SHORE.mudflat; // (flat, soft ground: fine silt settles)
+  if (slope > 0.45 || hard > 0.7) return rock === basalt ? SHORE.basalt : SHORE.shingle;
+  return SHORE.sand;
+}
