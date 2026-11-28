@@ -1671,6 +1671,14 @@ beach, apart from a little dune sand just above the waves' reach; none came out 
 
 ## Performance (1.6)
 
+*1.6.1: the coast step.* With the sea on it took ~86 ms (every tenth frame) on a 256 map; now ~41 ms
+(median). The blurs of the sea (wave exposure, nearness to the sea, the maritime climate) are worked
+out again only when the coastline has changed, at most every third step, and the breakwaters' shelter
+only when they change; the dunes' and sandy ground's blurs every third step; each sea spot's fixed
+quirks (temperature jitter, cold-water coral patches) once per map instead of with sin/cos every step;
+the rock under the sea only where kelp could grow; and the cliff pass uses a precomputed sea mask.
+
+
 Measured on a 256×256 map with a town, every feature on:
 
 | | Before | After |
@@ -1692,6 +1700,17 @@ Measured on a 256×256 map with a town, every feature on:
 No feature was removed or changed.
 
 ## Rivers fed by their catchments (`src/sim/rivers.js`)
+
+*1.6.1: rivers form more easily, without carving anything by hand.* The network is laid out by the
+area draining through each cell, counting at least a modest rain (0.45) everywhere, so dry country
+gets its washes too (they run only when it rains: the water they carry is still the real rain), and
+streams start from catchments half the size (threshold 60 ÷ River density instead of 120). Water on
+the network evaporates at 0.35× the rate (shaded by its banks and kept moving) and soaks into its
+bed at 0.08× instead of 0.15×, and the rain feeding it is 0.008 a second instead of 0.006. So small
+streams hold on long enough to join up, and the water's own erosion cuts their channels. On a dry,
+rolling map the network grew from 470 cells to about 1,100, and flowing river water from 466 cells
+(at frame 494) to about 1,000 (at frame 910).
+
 
 Rain on the hills runs downhill and gathers, so rivers form wherever enough land drains: a network
 of small streams high up that join as tributaries into bigger rivers below. (Before, rivers came
@@ -1850,6 +1869,10 @@ sandstone of the Bay of Fundy or the chalk of Dover stands.
 - **How fast**: 0.006 × Cliff cutting × the wave-erosion setting (÷ its default) × exposure × (1.25 −
   0.6 × hardness) × (1 + 3 × storm waves) × (1 + 0.35 for each extra side open to the sea) per coast
   step; a cell falls when its notch reaches 1.
+- **Hard rock stands as cliffs** (1.6.1): on igneous and metamorphic rock (basalt, andesite,
+  rhyolite, granite, gneiss, schist, marble, tuff) the character gets +0.35 and a rise of 0.8 is
+  enough, and sand only stops it at 2 deep; a new coast on such rock starts without beach sand. So
+  crystalline coasts are mostly cliffs, sedimentary ones a mix of cliffs and beaches.
 - **Necks** with the sea on both sides are cut 3× as fast, so headlands break off into islands.
 - **Sea stacks**: knots of tougher, less jointed rock (a fixed small-scale pattern, threshold 0.74 −
   0.08 × Sea stacks & islands) are cut 20× slower, so the cliff retreats past them and leaves them in
@@ -1888,6 +1911,25 @@ midwinter. It turns to the new wind over a few steps. The wind field (fetch and 
 traced again when the direction has moved 15°, on every other cell on big maps (about 10 ms on a 256
 map); strength just scales it. Waves, surf and sea currents, spray, wind erosion, and the clouds, fog
 and smoke on screen follow it; the rain still comes mostly on the prevailing wind.
+
+## Peat bogs (`bogStep`, `src/sim/dynamics.js`)
+
+A World dynamics setting (**Peat bogs**). world.peat is the depth of peat. Where the ground is cool
+(annual mean −4 to 15 °C, best 0–11), flat (slope under 0.22; up to 0.52 where the rain is heavy, for
+blanket bog) and waterlogged (soil moisture over 0.62, with rain), the moss grows faster than it rots
+and peat builds up 0.0005 × the conditions a step (every 30 frames), up to 5, the ground doming up a
+little. A bog spreads onto the wet ground beside it (+0.15 to the wetness next to peat over 1), and
+peat over 0.6 keeps its own ground wet (soil moisture at least 0.7 + 0.06 × the depth): once formed
+it holds on through dry spells. Peat over 0.8 is the *Peat bog* biome; vegetation there is held to
+0.6 (dwarf shrubs, stunted trees, never forest). It holds 6 t of carbon a unit of depth
+(sim/forestCarbon.js), several times an old forest's ~6. Drained (towns' Wetland drainage now ditches
+bogs too), farmed or built on, it rots away 0.0015 a step (0.02 while burning), the ground sinking
+and the carbon going into the air (climate change); a drained bog is heath shrubland until its peat is
+gone. A map that has never had bogs gets the ones its land would have built up over the ages at once.
+Overlay *Peat bogs*; the inspector shows the depth and carbon.
+
+In a test on a flattened, wet, cool patch: seeded at 1.36 deep, 1.91 after 1,500 steps (the *Peat bog*
+biome, 15.7 t of carbon a cell); drained, it was down to 1.53 after 300 steps and showed as shrubland.
 
 ## Seismograph (`src/sim/seismo.js`, `src/ui/seismograph.js`)
 

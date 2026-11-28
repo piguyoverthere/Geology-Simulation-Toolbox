@@ -10,6 +10,7 @@ const forestBiomes = Object.fromEntries(FOREST_TYPES.map((f) => [f.id, { label: 
 /** Colours are sRGB 0..1. Order is the legend order. */
 export const BIOMES = {
   ...forestBiomes,
+  bog:       { label: 'Peat bog',  color: [0.55, 0.47, 0.33], help: 'A raised bog: metres of peat built up from sphagnum moss over thousands of years on cool, flat, waterlogged ground, with dwarf shrubs, cotton grass and a few stunted trees. It holds its own water, so it lasts, and it stores huge amounts of carbon. Drained, it dries out, rots away (giving its carbon off) and turns to heath shrubland.' },
   wetland:   { label: 'Wetland',   color: [0.27, 0.40, 0.31], help: 'Flat, waterlogged ground beside rivers and lakes: marsh and swamp.' },
   grassland: { label: 'Grassland', color: [0.52, 0.66, 0.30], help: 'Moderately moist ground, or slopes too steep for forest.' },
   shrubland: { label: 'Shrubland', color: [0.67, 0.62, 0.37], help: 'Semi-arid scrub and savanna: sparse cover on drying soil.' },
@@ -90,6 +91,9 @@ export function classifyBiome(world, i, slope, noSnow = false) {
   }
   if (world.dune && world.dune[i] > 0.3 && v <= 0.66) return 'dunes';
   if (v > 0.66) return FOREST_TYPES[forestTypeAt(world, i)].id;
+  const peat = world.peat ? world.peat[i] : 0;
+  if (peat > 0.8 && !(world.drained && world.drained[i]) && v > 0.25) return 'bog';
+  if (peat > 0.2 && world.drained && world.drained[i] && v > 0.25) return 'shrubland'; // (a drained bog: heath)
   if (near > 0.5 && soil > 0.7 && slope < 0.25 && v > 0.4) return 'wetland';
   if (v > 0.42) return soil < 0.36 ? 'shrubland' : 'grassland';
   if (v > 0.25 && soil >= DRY_SOIL) return 'shrubland';

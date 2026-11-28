@@ -34,6 +34,7 @@ export const dynParams = {
   wetlandDrainage: true,          // towns drain wetlands for farmland
   rewetWetlands: false,           // towns block the ditches: drained wetlands fill back up
   seedDispersal: true,            // trees spread from where they grow (sim/species.js)
+  bogs: true,                     // peat bogs build up on cool, flat, waterlogged ground
   invasiveAnimals: true,          // feral pigs and goats, ship rats
   cropPests: true,                // pests and blights in the fields
   cropRotation: false,            // towns rotate crops: pests spread less and die out sooner
@@ -65,6 +66,7 @@ export function dynamicsStep(world) {
   if (dynParams.permafrost) permafrostStep(world);
   if (dynParams.barkBeetles) beetleStep(world, news);
   if (dynParams.wetlandDrainage || dynParams.rewetWetlands) wetlandStep(world);
+  if (dynParams.bogs) bogStep(world);
   if (dynParams.seedDispersal) seedStep(world); else if (world.speciesHere) world.speciesHere = null;
   if (dynParams.invasiveAnimals && tick % 10 === 0) invasiveStep(world, news);
   if (dynParams.cropPests) pestStep(world); else if (world.cropPest) world.cropPest.fill(0);
@@ -439,7 +441,7 @@ function wetlandStep(world) {
         if (x < 1 || z < 1 || x >= N - 1 || z >= N - 1) continue;
         const i = z * N + x;
         if (DR[i] || LU[i] || H[i] < sea || world.water[i] > 0.3) continue;
-        if (near[i] > 0.5 && soil[i] > 0.7 && world.vegetation[i] > 0.35) { DR[i] = 1; done++; }
+        if ((near[i] > 0.5 && soil[i] > 0.7 && world.vegetation[i] > 0.35) || (world.peat && world.peat[i] > 0.5)) { DR[i] = 1; done++; }
       }
     }
   }
@@ -457,6 +459,58 @@ function wetlandStep(world) {
       const j = [i - 1, i + 1, i - N, i + N][Math.floor(rnd() * 4)];
       if (DR[j] && rnd() < 0.2 && world.fire[j] <= 0) { world.fire[j] = 0.3; world.fireCells.push(j); }
     }
+  }
+}
+
+/**
+ * Peat bogs (world.peat: depth of peat). On cool, flat, waterlogged ground, the moss (sphagnum) grows
+ * faster than it can rot in the cold, sour water, and its remains pile up as peat, very slowly. Once
+ * there is a good depth of it the bog holds its own water like a sponge, keeping itself wet through
+ * dry spells, and creeps out over the wet ground around it: a bog, once formed, is very stable. Only
+ * a few dwarf shrubs and stunted trees grow on it. Peat is a huge store of carbon, many times what a
+ * forest holds (sim/forestCarbon.js). Drained (towns ditch bogs for farmland: Wetland drainage), farmed
+ * or burnt, it dries out and rots away, giving its carbon off to the air, and the ground sinks and
+ * turns to heath shrubland. On a map that has never had bogs, the ones the land would have built up
+ * over thousands of years are there from the start.
+ */
+function bogStep(world) {
+  const N = world.N, n = N * N, H = world.height, sea = seaOf(world);
+  const fresh = !world.peat || world.peat.length !== n;
+  const PT = field(world, 'peat'), soil = world.soil, T = world.vegTemp || world.temperature, P = world.precip;
+  if (!soil || !T) return;
+  const DR = world.drained, LU = world.landUse;
+  for (let z = 1; z < N - 1; z++) for (let x = 1; x < N - 1; x++) {
+    const i = z * N + x;
+    const pt = PT[i];
+    if (H[i] < sea) { if (pt) PT[i] = 0; continue; }
+    // Drained, farmed, built on or burning: the peat dries and rots (or burns) away
+    if ((DR && DR[i]) || (LU && LU[i]) || world.fire[i] > 0) {
+      if (pt > 0) {
+        const lost = Math.min(pt, world.fire[i] > 0 ? 0.02 : 0.0015);
+        PT[i] -= lost; H[i] -= lost * 0.5; world.prevHeight[i] = H[i];
+        if (PT[i] < 0.01) PT[i] = 0;
+      }
+      continue;
+    }
+    const slope = Math.hypot(H[i + 1] - H[i - 1], H[i + N] - H[i - N]) * 0.5;
+    const t = T[i];
+    // Cool (not frozen solid, not warm enough to rot it), flat and wet
+    const cool = t < -4 || t > 15 ? 0 : t < 0 ? (t + 4) / 4 : t > 11 ? (15 - t) / 4 : 1;
+    // (flat ground; in a very wet climate gentle slopes too, blanketed in peat)
+    const pr = P ? P[i] : 0.5, maxSlope = 0.22 + 0.3 * Math.min(1, Math.max(0, (pr - 0.6) / 0.6));
+    const flat = slope > maxSlope ? 0 : 1 - slope / maxSlope;
+    let edge = 0;
+    if (pt < 1) edge = Math.max(PT[i - 1], PT[i + 1], PT[i - N], PT[i + N]) > 1 ? 0.15 : 0; // (a bog spreads out over the wet ground beside it)
+    const wet = Math.min(1, Math.max(0, (soil[i] - 0.62 + edge) / 0.25)) * Math.min(1, pr / 0.45 + (pt > 1 ? 0.5 : 0));
+    const cond = cool * flat * wet;
+    if (fresh) { if (cond > 0.55) PT[i] = 3 * (cond - 0.45); continue; }
+    if (cond > 0.3) {
+      const grow = 0.0005 * cond;
+      PT[i] = Math.min(5, pt + grow);
+      H[i] += grow * 0.3; world.prevHeight[i] = H[i]; // (a raised bog slowly domes up)
+    } else if (pt > 0 && cond < 0.05 && pt < 1) PT[i] = Math.max(0, pt - 0.0002); // (a thin skin of peat on ground that dried out rots)
+    // The sponge: a bog keeps itself wet
+    if (PT[i] > 0.6) soil[i] = Math.max(soil[i], Math.min(0.95, 0.7 + 0.06 * PT[i]));
   }
 }
 

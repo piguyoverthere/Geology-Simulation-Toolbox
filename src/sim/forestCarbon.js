@@ -16,7 +16,10 @@ export function carbonAt(world, i) {
   const wood = 4.5 * cover * (0.25 + 0.75 * age) * (0.4 + 0.6 * dens) * (1 + 2 * giant * age);
   const grass = v > 0.1 ? 0.3 * Math.min(1, v / 0.6) : 0;
   const soil = 1.5 * (world.humus ? world.humus[i] : 0);
-  return wood + grass + soil;
+  // (peat: metres of half-rotted moss, the biggest store of all: a deep bog holds several times
+  // what an old forest does)
+  const peat = world.peat ? 6 * world.peat[i] : 0;
+  return wood + grass + soil + peat;
 }
 
 /** Recount the map's carbon (every 2nd cell each way, scaled up) and how much it changed. */

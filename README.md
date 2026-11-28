@@ -75,6 +75,12 @@ Version 1.2.0-beta.1 adds (see *How the simulation works* for the details and te
   sandy shores stay beaches, so coasts vary along their length. Knots of tougher rock are left
   standing in the sea as **stacks and small islands** (trees still on top), and narrow necks are cut
   through, so headlands break off into islands (Sea: **Cliff cutting**, **Sea stacks & islands**).
+- **Peat bogs**: on cool, flat (or, in very wet climates, gently sloping) waterlogged ground, bog
+  moss piles up as peat over the ages. A bog holds its own water, so once formed it lasts and spreads;
+  it stores several times a forest's carbon. Drained by towns, farmed or burnt, it rots away, giving
+  its carbon off, and turns to heath shrubland (World dynamics: **Peat bogs**; overlay *Peat bogs*).
+- Hard igneous and metamorphic coasts (granite, basalt, gneiss…) tend to stand as cliffs; sedimentary
+  ones go either way.
 - **Breakwaters**: busy coastal towns pile long mounds of boulders out at sea to shelter their
   harbours; the water behind is calm, the shore erodes less and sand builds up (Civilization:
   **Breakwaters**).

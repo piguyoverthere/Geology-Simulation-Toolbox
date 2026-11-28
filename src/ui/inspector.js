@@ -125,6 +125,8 @@ export class Inspector {
         w.cropPest && w.cropPest[i] > 0.05 ? ['Crop pests', `${bar(Math.min(1, w.cropPest[i]), '#8a6a30')} ${dim(`harvest down ${Math.round(60 * w.cropPest[i])}%`)}`] : null,
         w.soilSalt && w.soilSalt[i] > 0.05 && !wet ? ['Salt', `${bar(Math.min(1, w.soilSalt[i]), '#ddd8c8')} ${dim(w.soilSalt[i] > 0.6 ? 'salted up: crops failing' : 'salt building up from irrigation')}`] : null,
         w.ruins && w.ruins[i] > 0.05 ? ['Ruins', dim(w.landUse && w.landUse[i] === 3 ? 'an old, abandoned road' : 'the ruins of an abandoned town')] : null,
+        w.peat && w.peat[i] > 0.05 ? ['Peat', `${bar(Math.min(1, w.peat[i] / 4), '#7a5a34')} ${dim(`${w.peat[i].toFixed(1)} deep · ${Math.round(6 * w.peat[i])} t carbon${w.drained && w.drained[i] ? ' · drained: drying and rotting away' : w.peat[i] > 0.8 ? ' · a bog: holds its own water' : ' · building up'}`)}`] : null,
+        w.beachSalt && w.beachSalt[i] > 0.05 && w.beachSand && w.beachSand[i] > 0.05 && !wet ? ['Beach salt', `${bar(w.beachSalt[i], '#e8e4d8')} ${dim('sea salt left in the drowned ground: the rain washes it out before plants can take it back')}`] : null,
         w.drained && w.drained[i] ? ['Drained', dim('a wetland ditched and drained: drying out, its peat rotting and the ground sinking')] : null,
         w.permafrost && w.permafrost[i] > 0.05 ? ['Permafrost', `${bar(Math.min(1, w.permafrost[i]), '#9fc4d8')} ${dim('ground frozen all year')}`] : null,
         w.levee && w.levee[i] > 0 ? ['Levee', dim('a raised river bank holding floods out of the town')] : null,

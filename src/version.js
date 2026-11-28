@@ -8,8 +8,8 @@
 //
 // Saves record the version that made them (meta.appVersion). A newer version's save can be opened in
 // an older version, after a warning that the older one may lose or break what the newer one added.
-export const APP_VERSION = '1.6.0b';
-export const IS_PRERELEASE = false;
+export const APP_VERSION = '1.6.1-beta.1';
+export const IS_PRERELEASE = true;
 
 /** The top of the site, relative to this page: an archived version runs from versions/<version>/. */
 export const SITE_ROOT = /\/versions\/[^/]+\/(index\.html)?$/.test(location.pathname) ? '../../' : './';

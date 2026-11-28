@@ -166,35 +166,63 @@ export function coastStep(world) {
   }
   const p = coastParams, half = 0.5 * p.tideRange;
   const SAND = world.sand, SH = world.shore, SET = world.shoreSet, M = world.marine, CO = world.coral;
-  // Open water around each spot: how exposed it is to waves (bays are sheltered, headlands exposed)
-  const seaMask = new Float32Array(n);
-  for (let i = 0; i < n; i++) seaMask[i] = H[i] < sea - half ? 1 : 0;
-  const exposure = boxBlur(seaMask, N, 10);
+  // Open water around each spot: how exposed it is to waves (bays are sheltered, headlands exposed).
+  // The blurs of the sea are only worked out again when the coastline has changed (at most every
+  // third step: a cell or two of coast moving barely shifts them), and the breakwaters' shelter when
+  // the breakwaters have
+  const C = blurCache;
+  let sig = 0, cnt = 0, bsig = 0;
+  const LUw = world.landUse;
+  const seaMask = C.mask && C.mask.length === n ? C.mask : (C.mask = new Float32Array(n));
+  const lowSea = sea - half;
+  for (let i = 0; i < n; i++) {
+    const m = H[i] < lowSea ? 1 : 0;
+    seaMask[i] = m;
+    if (m) { cnt++; sig = (sig + Math.imul(i, 2654435761)) | 0; }
+    if (LUw && LUw[i] === 14) bsig = (bsig + Math.imul(i + 7, 40503)) | 0;
+  }
+  C.since = (C.since || 0) + 1;
+  const fresh = !C.exposure0 || C.world !== world || C.N !== N || C.sea !== lowSea;
+  if (fresh || ((sig !== C.sig || cnt !== C.cnt) && C.since >= 3)) {
+    C.world = world; C.N = N; C.sea = lowSea; C.sig = sig; C.cnt = cnt; C.since = 0;
+    C.exposure0 = boxBlur(seaMask, N, 10);
+    C.nearSea = boxBlur(boxBlur(seaMask, N, 3), N, 3);
+    C.marine = boxBlur(boxBlur(seaMask, N, 16), N, 16);
+    C.blursNew = true;
+  }
+  const exposure = C.exposure && C.exposure.length === n ? C.exposure : (C.exposure = new Float32Array(n));
+  exposure.set(C.exposure0);
   // Breakwaters (sim/civilization.js) take the force out of the waves in their lee
   let shelter = null;
-  if (world.landUse) {
-    const bw = new Float32Array(n);
-    let any = false;
-    for (let i = 0; i < n; i++) if (world.landUse[i] === 14) { bw[i] = 1; any = true; }
-    if (any) {
+  if (bsig !== 0 || (LUw && C.bsig)) {
+    if (bsig !== C.bsig || C.bworld !== world || !C.shelter || C.shelter.length !== n) {
+      C.bsig = bsig; C.bworld = world;
+      const bw = new Float32Array(n);
+      for (let i = 0; i < n; i++) if (LUw[i] === 14) bw[i] = 1;
       // (reaching a dozen cells or so: the breakwater lies well out from the shore it shelters)
-      shelter = boxBlur(bw, N, 12);
-      for (let i = 0; i < n; i++) if (shelter[i] > 0) { shelter[i] = Math.min(1, shelter[i] * 50); exposure[i] *= 1 - 0.75 * shelter[i]; }
+      C.shelter = boxBlur(bw, N, 12);
+      for (let i = 0; i < n; i++) C.shelter[i] = Math.min(1, C.shelter[i] * 50);
     }
+    shelter = bsig !== 0 ? C.shelter : null;
+    if (shelter) for (let i = 0; i < n; i++) if (shelter[i] > 0) exposure[i] *= 1 - 0.75 * shelter[i];
   }
   world.shelter = shelter;
-  const nearSea = boxBlur(boxBlur(seaMask, N, 3), N, 3);
-  // Coastal influence (salt spray, sea fog) reaching a few cells inland
-  const coast = boxBlur(seaMask, N, 10);
-  for (let i = 0; i < n; i++) world.coastal[i] = Math.min(1, coast[i] * 3);
-  // Maritime vs continental climate: the sea damps the seasons near the coast (about half the
-  // swing at the shore) and inland, away from it, they swing more (colder winters, hotter summers)
-  const marine = boxBlur(boxBlur(seaMask, N, 16), N, 16);
-  if (!world.seasonScale || world.seasonScale.length !== n) world.seasonScale = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    const m = Math.min(1, marine[i] * 3);
-    world.seasonScale[i] = 0.5 + 0.75 * (1 - m); // 0.5 at the coast … 1.25 far inland
+  const nearSea = C.nearSea;
+  if (C.blursNew) {
+    C.blursNew = false;
+    // Coastal influence (salt spray, sea fog) reaching a few cells inland
+    const coast = C.exposure0;
+    for (let i = 0; i < n; i++) world.coastal[i] = Math.min(1, coast[i] * 3);
+    // Maritime vs continental climate: the sea damps the seasons near the coast (about half the
+    // swing at the shore) and inland, away from it, they swing more (colder winters, hotter summers)
+    const marine = C.marine;
+    if (!world.seasonScale || world.seasonScale.length !== n) world.seasonScale = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const m = Math.min(1, marine[i] * 3);
+      world.seasonScale[i] = 0.5 + 0.75 * (1 - m); // 0.5 at the coast … 1.25 far inland
+    }
   }
+  const seaVar = seaVariation(N);
   // The sea beds follow the sea's long-term climate, not the seasons: kelp doesn't vanish each
   // summer or coral each winter. world.seaClimate is the annual mean water temperature as the beds
   // have adapted to it, lagging the real one by a few years, and a bed that no longer suits its
@@ -220,13 +248,12 @@ export function coastStep(world) {
       if (h < sea - half) {
         const depth = sea - h;
         let m;
-        const rocky = world.hardnessAt(h, i) > 0.6;
         // (each spot's own limits differ a little: currents, shade, upwelling)
-        const T = Tbed + (((i * 2654435761) >>> 0) / 4294967296 - 0.5) * 3;
+        const T = Tbed + seaVar.jitter[i];
         // (coral and kelp need full-strength seawater; river mouths are brackish estuaries)
         const salt = world.salinity[i];
         // Cold-water coral: patches of deep reef in cool, salty water below the sunlit shallows
-        const patch = 0.5 + 0.5 * Math.sin(x * 0.17 + z * 0.11) * Math.cos(z * 0.13 - x * 0.07) + 0.25 * ((((i * 2654435761) >>> 0) / 4294967296) - 0.5);
+        const patch = seaVar.patch[i];
         // The shelf below the shallows is reef by default wherever the water is full-strength sea:
         // warm seas grow coral reefs down to ~25 deep; cooler ones (and deeper water, to ~40) cold-
         // water coral, almost everywhere (a few gaps). Pollution, silt and low oxygen kill them back
@@ -234,7 +261,7 @@ export function coastStep(world) {
         if (depth > 40) m = MARINE_ID.deep;
         else if (salt < 0.65 && depth < 8) m = MARINE_ID.estuary; // (too brackish for most sea beds)
         else if (depth < 6 && T > 20 && salt > 0.85) m = MARINE_ID.coral;
-        else if (depth < 6 && T > 4 && T < 19 && rocky && salt > 0.8) m = MARINE_ID.kelp;
+        else if (depth < 6 && T > 4 && T < 19 && salt > 0.8 && world.hardnessAt(h, i) > 0.6) m = MARINE_ID.kelp; // (on rock)
         else if (depth < 4) m = MARINE_ID.seagrass;
         else if (depth < 25 && T > 20 && salt > 0.85) m = MARINE_ID.coral; // (shelf reefs)
         else if (T > 2 && salt > 0.85 && patch > 0.15) m = MARINE_ID.deepcoral;
@@ -290,7 +317,7 @@ export function coastStep(world) {
       const hard = world.hardnessAt(h, i);
       let type = SET[i];
       // A new coast starts with sand on its gentle, exposed shores (built up over the ages before)
-      if (!world.coastInit && slope < 0.4 && ex > 0.15) SAND[i] = Math.max(SAND[i], 0.3 + 1.2 * ex * (1 - slope * 2));
+      if (!world.coastInit && slope < 0.4 && ex > 0.15 && !CRYSTALLINE.has(world.rockAt(h, i))) SAND[i] = Math.max(SAND[i], 0.3 + 1.2 * ex * (1 - slope * 2)); // (not on hard crystalline rock: bare rock and cliffs)
       if (type < 0) {
         // A cliff needs a steep face and real height behind it; at the foot of one is shingle
         const behind = Math.max(H[i + 1], H[i - 1], H[i + N], H[i - N]) - h;
@@ -363,7 +390,13 @@ export function coastStep(world) {
   }
   world.coastInit = true;
   // Wind blows sand inland off sand beaches into dunes (a few cells behind the beach, low ground)
-  const blown = boxBlur(boxBlur(sandBeach, N, 6), N, 6);
+  // (the blown sand and sandy ground follow the beaches, which change slowly: every third step)
+  if (!C.blown || C.blown.length !== n || C.sworld !== world || (C.sandStep = (C.sandStep || 0) + 1) % 3 === 0) {
+    C.sworld = world;
+    C.blown = boxBlur(boxBlur(sandBeach, N, 6), N, 6);
+    C.sandNear = boxBlur(sandBeach, N, 2);
+  }
+  const blown = C.blown;
   for (let i = 0; i < n; i++) {
     const h = H[i];
     const low = h > sea + half && h < sea + half + 8 ? 1 : 0;
@@ -373,7 +406,7 @@ export function coastStep(world) {
   // an exposed shore is wind- and salt-blasted (trees there are stunted, only the coastal ones
   // thrive); and sandy ground: beach sand blown a little way inland, poor and dry to grow in
   if (!world.spray || world.spray.length !== n) { world.spray = new Float32Array(n); world.sandy = new Float32Array(n); }
-  const sandNear = boxBlur(sandBeach, N, 2);
+  const sandNear = C.sandNear;
   for (let i = 0; i < n; i++) {
     if (H[i] < sea) { world.spray[i] = 0; world.sandy[i] = 0; continue; }
     const wind = world.wind ? Math.min(1.3, world.wind[i] + 0.2) / 1.3 : 0.7;
@@ -449,18 +482,25 @@ function vnoise(x, z, scale, s) {
 /** How tough the rock is at a spot against the waves (high = a knot that becomes a sea stack). */
 export function stackRock(x, z) { return 0.6 * vnoise(x, z, 3.2, 7) + 0.4 * vnoise(x, z, 1.6, 9); }
 
+let cliffSea = null;
+const CRYSTALLINE = new Set(['basalt', 'andesite', 'rhyolite', 'granite', 'gneiss', 'schist', 'marble', 'tuff'].map((id) => ROCK_INDEX[id]));
+
 function cliffStep(world, sea, half, exposure, erodeK) {
   const N = world.N, H = world.height, NT = world.notch, CL = world.seaCliff, SAND = world.sand;
   CL.fill(0);
   const p = coastParams;
   if (p.cliffs <= 0 || erodeK <= 0) return;
   const low = sea - half, k = 0.006 * p.cliffs * (erodeK / 0.004);
-  const isSea = (j) => H[j] < low && !(world.landUse && world.landUse[j]);
+  const n = N * N, LU = world.landUse;
+  if (!cliffSea || cliffSea.length !== n) cliffSea = new Uint8Array(n);
+  const S = cliffSea;
+  for (let i = 0; i < n; i++) S[i] = H[i] < low && !(LU && LU[i]) ? 1 : 0;
+  const isSea = (j) => S[j] === 1;
   for (let z = 2; z < N - 2; z++) {
     for (let x = 2; x < N - 2; x++) {
       const i = z * N + x, h = H[i];
       if (h < low) continue;
-      const w = isSea(i - 1), e = isSea(i + 1), nn = isSea(i - N), s = isSea(i + N);
+      const w = S[i - 1], e = S[i + 1], nn = S[i - N], s = S[i + N];
       const seaSides = w + e + nn + s;
       if (!seaSides) { if (NT[i] > 0) NT[i] *= 0.98; continue; }
       if (world.builtUp(i) || (world.ice && world.ice[i] > 0.3)) continue;
@@ -469,9 +509,12 @@ function cliffStep(world, sea, half, exposure, erodeK) {
       let top = h;
       for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) top = Math.max(top, H[i + dz * N + dx]);
       const rise = top - (sea + half);
-      if (rise < 1.5 || SAND[i] > 1.2) continue;
+      // Igneous and metamorphic rock (granite, basalt, gneiss…) stands as cliffs almost wherever
+      // the land rises from the sea; sedimentary coasts go either way
+      const crystalline = CRYSTALLINE.has(world.rockAt(h, i));
+      if (rise < (crystalline ? 0.8 : 1.5) || SAND[i] > (crystalline ? 2 : 1.2)) continue;
       const hard = world.hardnessAt(h, i);
-      const character = 0.75 * vnoise(x, z, 22, 3) + 0.25 * hard + Math.min(0.25, rise * 0.03);
+      const character = 0.75 * vnoise(x, z, 22, 3) + 0.25 * hard + Math.min(0.25, rise * 0.03) + (crystalline ? 0.35 : 0);
       if (character < 0.42) continue;
       CL[i] = 1;
       // The notch deepens: exposed, stormy, soft coasts fastest; tough knots of rock barely
@@ -504,6 +547,20 @@ function cliffStep(world, sea, half, exposure, erodeK) {
     if (CL[i] || H[i] < low) continue;
     if ((CL[i - N - 1] || CL[i - N + 1] || CL[i + N - 1] || CL[i + N + 1]) && (isSea(i - N - 1) || isSea(i - N + 1) || isSea(i + N - 1) || isSea(i + N + 1))) CL[i] = 2;
   }
+}
+
+const blurCache = {};
+let seaVarCache = null;
+/** Each sea spot's fixed quirks: its temperature limits' jitter and the cold-water coral patches. */
+function seaVariation(N) {
+  if (seaVarCache && seaVarCache.N === N) return seaVarCache;
+  const n = N * N, jitter = new Float32Array(n), patch = new Float32Array(n);
+  for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+    const i = z * N + x, r = ((i * 2654435761) >>> 0) / 4294967296;
+    jitter[i] = (r - 0.5) * 3;
+    patch[i] = 0.5 + 0.5 * Math.sin(x * 0.17 + z * 0.11) * Math.cos(z * 0.13 - x * 0.07) + 0.25 * (r - 0.5);
+  }
+  return (seaVarCache = { N, jitter, patch });
 }
 
 function nearCoral(CO, i, N) {

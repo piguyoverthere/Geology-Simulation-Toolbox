@@ -269,6 +269,9 @@ export function waterStep(world) {
       const shallow = D[i] < 1.5 ? 1 : D[i] > 4 ? 0 : (4 - D[i]) / 2.5;
       er *= 1 + (p.stagnantEvap - 1) * still * shallow;
     }
+    // (a stream on the drainage network, sim/rivers.js, is shaded by its banks and kept moving: it
+    // loses far less, so small streams hold on long enough to join up into rivers)
+    if (world.riverInflow && world.riverInflow[i] > 0 && B[i] >= sea) er *= 0.35;
     D[i] *= 1 - Math.min(0.06, evapK * er); // (at most 6% of it a step, however high the setting: a pool shrinks steadily, it doesn't blink out and refill)
     if (D[i] > 0 && B[i] >= sea && SM) {
       const x = i % N, z = (i / N) | 0;
@@ -281,7 +284,7 @@ export function waterStep(world) {
       const level = Math.max(flat * flat, 0.35 * still);
       const sink = infK * level * (0.45 + 0.75 * (1 - SM[i])) * (0.6 + 0.6 * V[i]) * (D[i] < 1.5 ? 1 : 1.5 / D[i])
         * (world.paved ? 1 - world.paved[i] : 1) // (pavement seals the ground: rain runs straight off)
-        * (world.riverInflow && world.riverInflow[i] > 0 ? 0.15 : 1); // (a river's bed is already saturated: it hardly soaks in)
+        * (world.riverInflow && world.riverInflow[i] > 0 ? 0.08 : 1); // (a river's bed is already saturated: it hardly soaks in)
       const took = Math.min(D[i] * 0.08, sink); // (at most 8% of it a step: no blinking out)
       D[i] -= took;
       // The water that soaks in wets the soil (for the plants), the rest drains on down

@@ -4,7 +4,7 @@
 //
 // Every so often the drainage of the land is worked out (each cell passes the rain that reaches it,
 // world.precip, to its lowest neighbour, highest ground first): world.drainArea is how much rain
-// drains through each cell. Where that passes a threshold (riverParams.density: more = rivers start
+// drains through each cell (counting at least a modest rain everywhere, so dry country has its washes). Where that passes a threshold (riverParams.density: more = rivers start
 // from smaller catchments) the cell is part of the river network. Each river cell is fed the rain of
 // the land that drains straight into it from off the network (world.riverInflow, per second), so the
 // water simulation (sim/water.js) carries a flow that builds down the network: small streams high
@@ -46,7 +46,7 @@ export const riverParams = {
   flow: 1,      // how much water they carry
 };
 
-let order = null, tick = 0;
+let order = null, tick = 0, AR = null;
 
 /** Work out the drainage and the river network (every few hundred frames). */
 export function updateDrainage(world) {
@@ -61,7 +61,14 @@ export function updateDrainage(world) {
   if (!order || order.length !== n) order = new Uint32Array(n);
   for (let i = 0; i < n; i++) order[i] = i;
   order.sort((a, b) => F[b] - F[a]);
-  for (let i = 0; i < n; i++) A[i] = H[i] >= sea ? (P ? Math.min(1.5, P[i]) : 0.5) : 0;
+  // Two tallies: how much land drains through each cell, counting at least a modest rain everywhere
+  // (A: where the streambeds are; dry country has its washes too, running only after rain), and the
+  // rain that really falls (AR: how much water they carry)
+  if (!AR || AR.length !== n) AR = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const r = H[i] >= sea ? (P ? Math.min(1.5, P[i]) : 0.5) : 0;
+    AR[i] = r; A[i] = H[i] >= sea ? Math.max(0.45, r) : 0;
+  }
   for (let k = 0; k < n; k++) {
     const i = order[k];
     if (H[i] < sea) continue;
@@ -75,21 +82,21 @@ export function updateDrainage(world) {
       const drop = (F[i] - F[j]) / (dx && dz ? 1.414 : 1);
       if (drop > bd) { bd = drop; best = j; }
     }
-    if (best >= 0) { A[best] += A[i]; down[i] = best; }
+    if (best >= 0) { A[best] += A[i]; AR[best] += AR[i]; down[i] = best; }
   }
   // The network: cells with enough draining through them; each fed what drains in from off it
-  const th = 120 / Math.max(0.1, riverParams.density);
+  const th = 60 / Math.max(0.1, riverParams.density);
   const RI = world.riverInflow && world.riverInflow.length === n ? world.riverInflow : (world.riverInflow = new Float32Array(n));
   RI.fill(0);
   const local = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     if (H[i] < sea || A[i] < th) continue;
-    local[i] += P ? Math.min(1.5, P[i]) : 0.5; // (its own rain)
+    local[i] += Math.max(1e-4, P ? Math.min(1.5, P[i]) : 0.5); // (its own rain; a dry wash is still on the network)
   }
   for (let i = 0; i < n; i++) {
     const d = down[i];
     if (d < 0 || A[i] >= th || A[d] < th) continue;
-    local[d] += A[i]; // (a slope draining into the river from off the network)
+    local[d] += AR[i]; // (a slope draining into the river from off the network: the rain it really gets)
   }
   let cells = 0;
   for (let i = 0; i < n; i++) if (local[i] > 0) { RI[i] = local[i]; cells++; }
@@ -101,5 +108,5 @@ export function riverStep(world) {
   if (!riverParams.enabled) { world.riverFeed = null; return; }
   if (!world.riverInflow || tick++ % 20 === 0) updateDrainage(world);
   // per-second inflow per cell, scaled by the season's rain
-  world.riverFeed = 0.006 * riverParams.flow * seasonalRain();
+  world.riverFeed = 0.008 * riverParams.flow * seasonalRain();
 }

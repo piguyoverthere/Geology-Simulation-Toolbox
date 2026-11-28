@@ -314,6 +314,9 @@ export function vegetationStep(world) {
       const bs = world.beachSand ? world.beachSand[i] : 0;
       if (bs > 0) target = Math.min(target, 0.06 + 0.6 * (1 - bs) * (1 - (world.beachSalt ? world.beachSalt[i] : 0)));
     }
+    // (a peat bog: sour, waterlogged moss with dwarf shrubs and a few stunted trees, never forest;
+    // drained, heath shrubland until the peat has rotted away)
+    if (world.peat && world.peat[i] > 0.2 && (world.peat[i] > 0.8 || (world.drained && world.drained[i]))) target = Math.min(target, 0.6);
     // Regrowth is faster near water and on deep soil; dieback (drought, cold) is slowed by forest
     // age, since mature trees ride out bad years on their reserves
     // (and slower in the cold: a short growing season)
