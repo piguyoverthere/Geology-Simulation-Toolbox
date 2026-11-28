@@ -110,5 +110,11 @@
     "version": "1.6.0b",
     "date": "2026-11-28",
     "notes": "Varied coasts (cliffs, sea stacks, islands), breakwaters, climate change on the sliders, rain-leached beaches, daily wind, seismograph, resolution slider"
+  },
+  {
+    "version": "1.6.1-beta.1",
+    "date": "2026-11-28",
+    "notes": "Test version: faster coasts, hard rock cliffs, easier rivers, peat bogs",
+    "prerelease": true
   }
 ]
