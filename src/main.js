@@ -50,7 +50,7 @@ import { captureDefaults, resetParams, snapshot, applySnapshot, encodeLevel, dec
 import { showLoading, loadingStep, hideLoading } from './ui/loading.js';
 import { loadMods, runModSteps, MOD } from './core/mods.js';
 import { armAutoFullscreen } from './ui/fullscreen.js';
-import { getSim, updateSim, pushHistory, newSimMeta, addSim } from './core/sims.js';
+import { getSim, updateSim, pushHistory, newSimMeta, addSim, wasDeleted } from './core/sims.js';
 import { Home } from './ui/home.js';
 import { MenuBar } from './ui/menubar.js';
 import { APP_VERSION, tooNew } from './version.js';
@@ -537,6 +537,7 @@ class App {
     if (!this.keepLevel.on || this.loadingLevel || !this.simMeta) return; // (nothing open: the home screen)
     try {
       const snap = snapshot(this), meta = this.simMeta;
+      if (await wasDeleted(meta.id)) return; // (deleted from the home screen meanwhile: don't bring it back)
       await storeLevel(meta.saveKey, snap);
       await saveGrid(this);
       let thumb = null;

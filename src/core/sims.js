@@ -14,6 +14,14 @@
 import { storeLevel, fetchLevel, deleteLevel, listLevelKeys } from './save.js';
 
 const LIST = 'sims';
+// Simulations you've deleted (their ids). A save can land after the delete (the last autosave of a
+// simulation you were just in, still being written as you deleted it from the home screen); the
+// recovery below would then bring it back as if the list had lost it. Deleted ones are never
+// recovered: any save of theirs that turns up is cleared away instead.
+const DELETED = 'deletedSims';
+async function deletedIds() { try { const d = await fetchLevel(DELETED); return new Set(Array.isArray(d) ? d : []); } catch { return new Set(); } }
+/** Whether the simulation with this id has been deleted (so nothing should save to it). */
+export async function wasDeleted(id) { return (await deletedIds()).has(id); }
 const HISTORY_MAX = 24;
 const SIZES = [128, 192, 256, 384, 512];
 
@@ -82,7 +90,11 @@ export function deleteSim(id) {
   const list = await readList();
   const s = list.find((x) => x.id === id);
   if (!s) return;
-  // (the list first, so a half-finished delete leaves no save for recovery to bring back as a ghost)
+  // (remembered as deleted first, then off the list, so neither a half-finished delete nor a save
+  // that lands afterwards can come back as a ghost)
+  const gone = await deletedIds();
+  gone.add(id);
+  await storeLevel(DELETED, [...gone].slice(-500));
   await storeLevel(LIST, list.filter((x) => x.id !== id));
   await deleteLevel(s.saveKey);
   for (const h of s.history || []) await deleteLevel(h.key);
@@ -143,7 +155,24 @@ async function recover(list) {
   const have = new Set(keys);
   let added = false;
   const orphans = keys.filter((k) => !known.has(k) && (/^sim-[a-z0-9]+$/.test(k) || SIZES.some((N) => k === `autosave-${N}`)));
+  const gone = orphans.length ? await deletedIds() : new Set();
   for (const key of orphans) {
+    const oid = key.startsWith('autosave-') ? `legacy-${key.slice(9)}` : key.slice(4);
+    if (gone.has(oid)) {
+      // (a deleted simulation's save that landed after it was deleted: clear it and its leftovers)
+      try {
+        let gN = null;
+        try { gN = (await fetchLevel(key))?.meta?.N; } catch { /* unreadable */ }
+        await deleteLevel(key);
+        for (const k of keys) if (k.startsWith(`${key}-h`)) await deleteLevel(k);
+        if (!key.startsWith('autosave-')) {
+          const g = await fetchLevel(`grid-${key}`);
+          if (g && g.cells) for (const c of Object.keys(g.cells)) await deleteLevel(`cell-${gN}-${g.id}-${c}`);
+          await deleteLevel(`grid-${key}`);
+        }
+      } catch { /* leave it */ }
+      continue;
+    }
     let snap = null;
     try { snap = await fetchLevel(key); } catch { /* unreadable */ }
     if (!snap || !snap.meta) continue;
