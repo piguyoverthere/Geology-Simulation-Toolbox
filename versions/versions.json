@@ -116,5 +116,10 @@
     "date": "2026-11-28",
     "notes": "Test version: faster coasts, hard rock cliffs, easier rivers, peat bogs",
     "prerelease": true
+  },
+  {
+    "version": "1.6.1",
+    "date": "2026-11-28",
+    "notes": "Faster coasts, cliffs on hard rock, rivers form more easily, peat bogs"
   }
 ]
